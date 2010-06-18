@@ -44,17 +44,21 @@ SIGN_FILE := xen-${VERSION}.tar.gz.sig
 URL := $(SRC_BASEURL)/$(SRC_FILE)
 URL_SIGN := $(SRC_BASEURL)/$(SIGN_FILE)
 
-get-sources: $(SRC_FILE)
+get-sources: $(SRC_FILE) $(SIGN_FILE)
 
 $(SRC_FILE):
 	@echo -n "Downloading $(URL)... "
 	@wget -q $(URL)
-	#@wget -q $(URL_SIGN)
 	@echo "OK."
 
+$(SIGN_FILE):
+	@echo -n "Downloading $(URL_SIGN)... "
+	@wget -q $(URL_SIGN)
+	@echo "OK."
+
+
 verify-sources:
-	@#gpg --verify $(SIGN_FILE) $(SRC_FILE)
-	@md5sum -c sources
+	@gpg --verify $(SIGN_FILE) $(SRC_FILE)
 
 .PHONY: clean-sources
 clean-sources:
