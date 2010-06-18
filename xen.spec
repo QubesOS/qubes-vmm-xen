@@ -90,6 +90,13 @@ Requires(post): /sbin/ldconfig
 This package contains the libraries needed to run applications
 which manage Xen virtual machines.
 
+%package qubes-vm-essentials
+Summary: Minimal xen-runtime to be installed inside Qubes VMs
+Requires: xen-libs = %{version}-%{release}
+AutoReq: 0
+%description qubes-vm-essentials
+Just a few xenstore-* tools and hotplug scripts needed by Qubes VMs (including netvm)
+
 
 %package runtime
 Summary: Core Xen runtime environment
@@ -332,6 +339,37 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %{_libdir}/*.so.*
 %{_libdir}/fs
+
+%files qubes-vm-essentials
+
+%{_bindir}/xenstore
+%{_bindir}/xenstore-*
+
+# Hotplug rules
+%config(noreplace) %{_sysconfdir}/udev/rules.d/*
+
+%dir %attr(0700,root,root) %{_sysconfdir}/%{name}
+%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
+%config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
+
+# Auto-load xen backend drivers
+%attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
+
+# Programs run by other programs
+%dir %{_libdir}/%{name}
+%dir %{_libdir}/%{name}/bin
+%attr(0700,root,root) %{_libdir}/%{name}/bin/*
+
+# General Xen state
+%dir %{_localstatedir}/lib/%{name}
+%dir %{_localstatedir}/lib/%{name}/dump
+%dir %{_localstatedir}/lib/%{name}/images
+
+# Xen logfiles
+%dir %attr(0700,root,root) %{_localstatedir}/log/xen
+
+
+
 
 # All runtime stuff except for XenD/xm python stuff
 %files runtime
