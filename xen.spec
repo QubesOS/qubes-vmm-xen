@@ -14,7 +14,6 @@ URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
 Source1: %{name}.modules
 Source2: %{name}.logrotate
-Source3: dom0-kernel.repo
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
@@ -241,11 +240,6 @@ mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/migrate
 mkdir -p %{buildroot}%{_localstatedir}/lib/xen/images
 mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
 
-############ add pointer to kernels ############
-
-mkdir -p %{buildroot}%{_sysconfdir}/yum.repos.d
-cp %{SOURCE3} %{buildroot}%{_sysconfdir}/yum.repos.d
-
 ############ debug packaging: list files ############
 
 find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f2.list
@@ -322,9 +316,6 @@ rm -rf %{buildroot}
 %dir %{_localstatedir}/lib/%{name}/xend-db/domain
 %dir %{_localstatedir}/lib/%{name}/xend-db/migrate
 %dir %{_localstatedir}/lib/%{name}/xend-db/vnet
-
-# pointer to dom0 kernel
-%config(noreplace) %{_sysconfdir}/yum.repos.d/dom0-kernel.repo
 
 %files libs
 %defattr(-,root,root)
