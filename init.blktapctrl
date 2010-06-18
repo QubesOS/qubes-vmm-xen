@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# blktapctrl	Script to start the Xen blktapctrl daemon
+#
+# Author:       Daniel Berrange <berrange@redhat.com>
+#
+# chkconfig: 2345 97 01
+# description: Starts and stops the Xen blktapctrl daemon.
+### BEGIN INIT INFO
+# Provides:          blktapctrl
+# Required-Start:    $syslog $remote_fs
+# Should-Start:
+# Required-Stop:     $syslog $remote_fs
+# Should-Stop:
+# Default-Start:     3 4 5
+# Default-Stop:      0 1 2 6
+# Default-Enabled:   yes
+# Short-Description: Start/stop blktapctrl
+# Description:       Starts and stops the Xen blktapctrl daemon
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+if [ ! -d /proc/xen ]; then
+	exit 0
+fi
+if ! grep -q "control_d" /proc/xen/capabilities ; then
+	exit 0
+fi
+
+# Default config params
+BLKTAPCTRL_ARGS=
+
+# User customized params
+test -f /etc/sysconfig/blktapctrl && . /etc/sysconfig/blktapctrl
+
+start() {
+	echo -n $"Starting xen blktapctrl daemon: "
+        /usr/sbin/blktapctrl $BLKTAPCTRL_ARGS
+	RETVAL=$?
+	test $RETVAL = 0 && echo_success || echo_failure
+        echo
+        [ $RETVAL -eq 0 ] && touch /var/lock/subsys/blktapctrl
+}
+
+stop() {
+	echo -n $"Stoping xen blktapctrl daemon: "
+	# blktapctrl is not restartable.  So we refuse to stop it
+	# unless the machine is being shutdown or rebooted anyway.
+	if test "$runlevel" = "0" -o "$runlevel" = "6"; then
+		killproc xenstored > /dev/null
+		RETVAL=$?
+	else
+		RETVAL=1
+	fi
+	test $RETVAL = 0 && echo_success || echo_failure
+        echo
+        [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/blktapctrl
+}
+
+rcstatus() {
+        status blktapctrl
+        RETVAL=$?
+	test $RETVAL = 0 && echo_success || echo_failure
+	echo
+}
+
+
+RETVAL=0
+case "$1" in
+  start)
+        start
+	;;
+  stop)
+        stop
+	;;
+  status)
+        rcstatus
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status}"
+	exit 1
+esac
+
+exit $RETVAL
+

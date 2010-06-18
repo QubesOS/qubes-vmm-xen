@@ -1,0 +1,12 @@
+diff -up xen-3.4.0/tools/libxc/Makefile.werror xen-3.4.0/tools/libxc/Makefile
+--- xen-3.4.0/tools/libxc/Makefile.werror	2009-08-05 13:40:32.000000000 +0200
++++ xen-3.4.0/tools/libxc/Makefile	2009-08-05 13:40:52.000000000 +0200
+@@ -52,7 +52,7 @@ GUEST_SRCS-$(CONFIG_IA64)    += xc_dom_i
+ 
+ -include $(XEN_TARGET_ARCH)/Makefile
+ 
+-CFLAGS   += -Werror -Wmissing-prototypes
++CFLAGS   += -Wmissing-prototypes
+ CFLAGS   += $(INCLUDES) -I. -I../xenstore -I../include
+ 
+ # Needed for posix_fadvise64() in xc_linux.c
