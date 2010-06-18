@@ -15,12 +15,6 @@ Source0: xen-%{version}.tar.gz
 Source1: %{name}.modules
 Source2: %{name}.logrotate
 Source3: dom0-kernel.repo
-# used by stubdoms
-Source10: lwip-1.3.0.tar.gz
-Source11: newlib-1.16.0.tar.gz
-Source12: zlib-1.2.3.tar.gz
-Source13: pciutils-2.2.9.tar.bz2
-Source14: grub-0.97.tar.gz
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
@@ -150,9 +144,6 @@ which manage Xen virtual machines.
 %patch10 -p1
 
 %patch100 -p1
-
-# stubdom sources
-cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
 
 
 %build
