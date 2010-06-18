@@ -79,6 +79,7 @@ Summary: Libraries for Xen tools
 Group: Development/Libraries
 Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
+Provides: xen-libs = %{version}-%{release}
 
 %description libs
 This package contains the libraries needed to run applications
@@ -100,6 +101,7 @@ Requires: /usr/bin/qemu-img /usr/bin/qemu-nbd
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
+Provides: xen-runtime = %{version}-%{release}
 
 %description runtime
 This package contains the runtime programs and daemons which
