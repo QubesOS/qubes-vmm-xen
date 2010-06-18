@@ -49,11 +49,12 @@ get-sources: $(SRC_FILE)
 $(SRC_FILE):
 	@echo -n "Downloading $(URL)... "
 	@wget -q $(URL)
-	@wget -q $(URL_SIGN)
+	#@wget -q $(URL_SIGN)
 	@echo "OK."
 
 verify-sources:
-	@gpg --verify $(SIGN_FILE) $(SRC_FILE)
+	@#gpg --verify $(SIGN_FILE) $(SRC_FILE)
+	@md5sum -c sources
 
 .PHONY: clean-sources
 clean-sources:
