@@ -3,6 +3,7 @@
 # Hypervisor ABI
 %define hv_abi  3.4
 
+%define dist .qubes
 Summary: Xen is a virtual machine monitor
 Name:    xen
 Version: 3.4.3
@@ -10,7 +11,7 @@ Release: 1%{?dist}
 Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
-Source0: http://bits.xensource.com/oss-xen/release/3.4.0/xen-%{version}.tar.gz
+Source0: xen-%{version}.tar.gz
 Source1: %{name}.modules
 Source2: %{name}.logrotate
 Source3: dom0-kernel.repo
