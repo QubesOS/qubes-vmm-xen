@@ -149,6 +149,8 @@ which manage Xen virtual machines.
 %patch10 -p1
 
 %patch100 -p1
+%patch101 -p1
+%patch102 -p1
 
 
 %build
