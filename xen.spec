@@ -34,6 +34,8 @@ Patch10: xen-no-werror.patch
 
 Patch100: xen-configure-xend.patch
 
+Patch101: xen-fix-maxmem-at-memtotal.patch
+
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript tetex-latex
