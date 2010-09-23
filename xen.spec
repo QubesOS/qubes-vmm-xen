@@ -34,7 +34,6 @@ Patch10: xen-no-werror.patch
 
 Patch100: xen-configure-xend.patch
 
-Patch101: xen-fix-maxmem-at-memtotal.patch
 Patch102: xen-use-block-script-from-xen4.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
@@ -149,7 +148,6 @@ which manage Xen virtual machines.
 %patch10 -p1
 
 %patch100 -p1
-%patch101 -p1
 %patch102 -p1
 
 
