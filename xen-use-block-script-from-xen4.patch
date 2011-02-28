@@ -163,11 +163,3 @@
  	exit 0
  	;;
  
-@@ -377,5 +341,5 @@
- esac
- 
- # If we've reached here, $t is neither phy nor file, so fire a helper script.
--[ -x /etc/xen/scripts/block-"$t" ] && \
--  /etc/xen/scripts/block-"$t" "$command" $node
-+[ -x ${XEN_SCRIPT_DIR}/block-"$t" ] && \
-+  ${XEN_SCRIPT_DIR}/block-"$t" "$command" $node
