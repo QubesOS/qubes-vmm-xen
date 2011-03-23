@@ -1,0 +1,49 @@
+lists.xensource.com/archives/html/xen-devel/2010-07/msg01276.html
+--- xen-4.0.1/xen/Rules.mk.orig 2010-05-22 14:39:11.000000000 +0100
++++ xen-4.0.1/xen/Rules.mk      2010-07-24 14:14:01.000000000 +0100
+@@ -71,6 +71,7 @@
+ DEPS = .*.d
+
+ CFLAGS += $(CFLAGS-y)
++CFLAGS += -fno-exceptions
+
+ # Most CFLAGS are safe for assembly files:
+ #  -std=gnu{89,99} gets confused by #-prefixed end-of-line comments
+
+--- xen-4.0.1/extras/mini-os/netfront.c.orig    2010-05-22 14:39:10.000000000 +0100
++++ xen-4.0.1/extras/mini-os/netfront.c 2010-07-24 21:54:55.000000000 +0100
+@@ -25,8 +25,8 @@
+
+
+
+-#define NET_TX_RING_SIZE __RING_SIZE((struct netif_tx_sring *)0, PAGE_SIZE)
+-#define NET_RX_RING_SIZE __RING_SIZE((struct netif_rx_sring *)0, PAGE_SIZE)
++#define NET_TX_RING_SIZE __CONST_RING_SIZE(netif_tx, PAGE_SIZE)
++#define NET_RX_RING_SIZE __CONST_RING_SIZE(netif_rx, PAGE_SIZE)
+ #define GRANT_INVALID_REF 0
+
+
+
+--- xen-4.0.1/extras/mini-os/minios.mk.orig     2010-02-02 20:43:00.000000000 +0000
++++ xen-4.0.1/extras/mini-os/minios.mk  2010-07-24 22:56:27.000000000 +0100
+@@ -10,6 +10,7 @@
+ DEF_CFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
+ DEF_CFLAGS += $(call cc-option,$(CC),-fgnu89-inline)
+ DEF_CFLAGS += -Wstrict-prototypes -Wnested-externs -Wpointer-arith -Winline
++DEF_CFLAGS += -Wno-uninitialized
+ DEF_CPPFLAGS += -D__XEN_INTERFACE_VERSION__=$(XEN_INTERFACE_VERSION)
+
+ DEF_ASFLAGS += -D__ASSEMBLY__
+
+--- xen-4.0.1/extras/mini-os/arch/x86/mm.c.orig 2010-02-02 20:43:00.000000000 +0000
++++ xen-4.0.1/extras/mini-os/arch/x86/mm.c      2010-07-25 09:29:49.000000000 +0100
+@@ -281,7 +281,7 @@
+ /*
+  * Mark portion of the address space read only.
+  */
+-extern void shared_info;
++extern char shared_info[PAGE_SIZE];
+ static void set_readonly(void *text, void *etext)
+ {
+     unsigned long start_address =
+

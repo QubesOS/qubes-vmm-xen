@@ -31,6 +31,7 @@ Patch4: xen-dumpdir.patch
 Patch5: xen-net-disable-iptables-on-bridge.patch
 
 Patch10: xen-no-werror.patch
+Patch11: xen-gcc-4.5-fixes.patch
 
 Patch100: xen-configure-xend.patch
 
@@ -146,6 +147,7 @@ which manage Xen virtual machines.
 %patch5 -p1
 
 %patch10 -p1
+%patch11 -p1
 
 %patch100 -p1
 %patch102 -p1
