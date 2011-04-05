@@ -4,7 +4,7 @@
 #
 # Author:       Daniel Berrange <berrange@redhat.com
 #
-# chkconfig: 2345 96 01
+# chkconfig: 2345 70 01
 # description: Starts and stops the Xen xenstored daemon.
 ### BEGIN INIT INFO
 # Provides:          xenstored

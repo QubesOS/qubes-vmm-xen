@@ -4,7 +4,7 @@
 #
 # Author:       Daniel Berrange <berrange@redhat.com>
 #
-# chkconfig: 2345 97 01
+# chkconfig: 2345 71 01
 # description: Starts and stops the Xen blktapctrl daemon.
 ### BEGIN INIT INFO
 # Provides:          blktapctrl
