@@ -7,7 +7,7 @@
 Summary: Xen is a virtual machine monitor
 Name:    xen
 Version: 3.4.3
-Release: 7%{?dist}
+Release: 8%{?dist}
 Epoch:   1000
 Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
