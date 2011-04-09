@@ -44,7 +44,7 @@ start() {
 	grep -q '/var/lib/xenstored' /proc/mounts
 	if test "$?" = "1"; then
 		mount -t tmpfs xenstore /var/lib/xenstored
-		restorecon -R /var/lib/xenstored
+#		restorecon -R /var/lib/xenstored
 	fi
         /usr/sbin/xenstored --pid-file $XENSTORED_PID $XENSTORED_ARGS
 	RETVAL=$?
