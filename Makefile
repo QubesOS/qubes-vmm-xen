@@ -107,6 +107,14 @@ update-repo-current:
 update-repo-unstable:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/dom0/rpm/
 
+update-repo-installer:
+	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	cd ../installer/yum && ./update_repo.sh
 
 help:
 	@echo "Usage: make <target>"
