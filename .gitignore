@@ -1,1 +1,4 @@
-xen-*.tar.gz*
+*.tar.gz*
+*.tar.bz2*
+xen-4.0.1/
+
