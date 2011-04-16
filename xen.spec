@@ -1,12 +1,12 @@
 %{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 
 # Hypervisor ABI
-%define hv_abi  3.4
+%define hv_abi  4.0
 
 %define dist .qubes
 Summary: Xen is a virtual machine monitor
 Name:    xen
-Version: 3.4.3
+Version: 4.0.1
 Release: 6%{?dist}
 Epoch:   1000
 Group:   Development/Libraries
@@ -15,6 +15,12 @@ URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
 Source1: %{name}.modules
 Source2: %{name}.logrotate
+# used by stubdoms
+Source10: lwip-1.3.0.tar.gz
+Source11: newlib-1.16.0.tar.gz
+Source12: zlib-1.2.3.tar.gz
+Source13: pciutils-2.2.9.tar.bz2
+Source14: grub-0.97.tar.gz
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
@@ -31,11 +37,16 @@ Patch4: xen-dumpdir.patch
 Patch5: xen-net-disable-iptables-on-bridge.patch
 
 Patch10: xen-no-werror.patch
-Patch11: xen-gcc-4.5-fixes.patch
+
+Patch18: localgcc45fix.patch
+Patch19: localpy27fixes.patch
+Patch20: localgcc451fix.patch
+Patch21: xen.irq.fixes.patch
+Patch22: xen.xsave.disable.patch
+Patch23: grub-ext4-support.patch
+Patch24: xen.8259afix.patch
 
 Patch100: xen-configure-xend.patch
-
-Patch102: xen-use-block-script-from-xen4.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -56,6 +67,10 @@ BuildRequires: gnutls-devel
 BuildRequires: openssl-devel
 # For ioemu PCI passthrough
 BuildRequires: pciutils-devel
+# Several tools now use uuid
+BuildRequires: libuuid-devel
+# iasl needed to build hvmloader
+BuildRequires: iasl
 # modern compressed kernels
 BuildRequires: bzip2-devel xz-devel
 # libfsimage
@@ -82,6 +97,7 @@ Summary: Libraries for Xen tools
 Group: Development/Libraries
 Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
+Requires: xen-licenses
 Provides: xen-libs = %{version}-%{release}
 
 %description libs
@@ -139,6 +155,15 @@ This package contains what's needed to develop applications
 which manage Xen virtual machines.
 
 
+%package licenses
+Summary: License files from Xen source
+Group: Documentation
+
+%description licenses
+This package contains the license files from the source used
+to build the xen packages.
+
+
 %prep
 %setup -q
 %patch1 -p1
@@ -147,10 +172,19 @@ which manage Xen virtual machines.
 %patch5 -p1
 
 %patch10 -p1
-%patch11 -p1
+
+%patch18 -p1
+%patch19 -p1
+%patch20 -p1
+%patch21 -p1
+%patch22 -p1
+%patch24 -p1
 
 %patch100 -p1
-%patch102 -p1
+
+# stubdom sources
+cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
+cp -v %{PATCH23} stubdom/grub.patches/99grub-ext4-support.patch
 
 
 %build
@@ -180,8 +214,8 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-3.4.gz
-rm -rf %{buildroot}/boot/xen-3.gz
+rm -rf %{buildroot}/boot/xen-4.0.gz
+rm -rf %{buildroot}/boot/xen-4.gz
 
 # silly doc dir fun
 rm -fr %{buildroot}%{_datadir}/doc/xen
@@ -240,6 +274,9 @@ install -m 644 %{SOURCE30} %{buildroot}%{_sysconfdir}/sysconfig/xenstored
 install -m 644 %{SOURCE31} %{buildroot}%{_sysconfdir}/sysconfig/xenconsoled
 install -m 644 %{SOURCE32} %{buildroot}%{_sysconfdir}/sysconfig/blktapctrl
 
+# config file only used for hotplug, Fedora uses udev instead
+rm -f %{buildroot}/%{_sysconfdir}/sysconfig/xend
+
 ############ create dirs in /var ############
 
 mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/domain
@@ -248,10 +285,27 @@ mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/migrate
 mkdir -p %{buildroot}%{_localstatedir}/lib/xen/images
 mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
 
+############ create symlink for x86_64 for compatibility with 3.4 ############
+
+%if "%{_libdir}" != "/usr/lib"
+ln -s /usr/lib/%{name}/bin/qemu-dm %{buildroot}/%{_libdir}/%{name}/bin/qemu-dm
+%endif
+
 ############ debug packaging: list files ############
 
 find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f2.list
 diff -u f1.list f2.list || true
+
+############ assemble license files ############
+
+mkdir licensedir
+# avoid licensedir to avoid recursion, also stubdom/ioemu and dist
+# which are copies of files elsewhere
+find . -path licensedir -prune -o -path stubdom/ioemu -prune -o \
+  -path dist -prune -o -name COPYING -o -name LICENSE | while read file; do
+  mkdir -p licensedir/`dirname $file`
+  install -m 644 $file licensedir/$file
+done
 
 ############ all done now ############
 
@@ -304,6 +358,7 @@ rm -rf %{buildroot}
 %{_mandir}/man1/xm.1*
 %{_mandir}/man5/xend-config.sxp.5*
 %{_mandir}/man5/xmdomain.cfg.5*
+%{_datadir}/%{name}/create.dtd
 
 # Startup script
 %{_sysconfdir}/rc.d/init.d/xend
@@ -370,11 +425,11 @@ rm -rf %{buildroot}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
 %config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
-%config %attr(0700,root,root) %{_sysconfdir}/%{name}/qemu-ifup
 
 %{_sysconfdir}/rc.d/init.d/blktapctrl
 %{_sysconfdir}/rc.d/init.d/xenstored
 %{_sysconfdir}/rc.d/init.d/xenconsoled
+%{_sysconfdir}/bash_completion.d/xl.sh
 
 %config(noreplace) %{_sysconfdir}/sysconfig/xenstored
 %config(noreplace) %{_sysconfdir}/sysconfig/xenconsoled
@@ -411,6 +466,8 @@ rm -rf %{buildroot}
 %dir /usr/lib/%{name}
 %dir /usr/lib/%{name}/bin
 /usr/lib/%{name}/bin/stubdom-dm
+/usr/lib/%{name}/bin/qemu-dm
+/usr/lib/%{name}/bin/stubdompath.sh
 %endif
 %dir /usr/lib/%{name}/boot
 # HVM loader is always in /usr/lib regardless of multilib
@@ -436,11 +493,12 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore-*
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
+%{_bindir}/remus
 # blktap daemon
 %{_sbindir}/blktapctrl
-%{_sbindir}/tapdisk
+%{_sbindir}/tapdisk*
 # XSM
-%{_sbindir}/flask-loadpolicy
+%{_sbindir}/flask-*
 # Disk utils
 %{_sbindir}/qcow-create
 %{_sbindir}/qcow2raw
@@ -448,9 +506,18 @@ rm -rf %{buildroot}
 # Misc stuff
 %{_bindir}/xen-detect
 %{_sbindir}/fs-backend
+%{_sbindir}/gdbsx
+%{_sbindir}/gtrace*
+%{_sbindir}/lock-util
+%{_sbindir}/td-util
+%{_sbindir}/vhd-*
 %{_sbindir}/xen-bugtool
+%{_sbindir}/xen-hvmctx
+%{_sbindir}/xen-tmem-list-parse
 %{_sbindir}/xenconsoled
+%{_sbindir}/xenlockprof
 %{_sbindir}/xenmon.py*
+%{_sbindir}/xenpaging
 %{_sbindir}/xentop
 %{_sbindir}/xentrace_setmask
 %{_sbindir}/xenbaked
@@ -458,6 +525,7 @@ rm -rf %{buildroot}
 %{_sbindir}/xenpm
 %{_sbindir}/xenpmd
 %{_sbindir}/xenperf
+%{_sbindir}/xl
 %{_sbindir}/xsview
 
 # Xen logfiles
@@ -484,7 +552,62 @@ rm -rf %{buildroot}
 %{_includedir}/xen/*
 %{_libdir}/*.so
 
+%files licenses
+%defattr(-,root,root)
+%doc licensedir/*
+
 %changelog
+* Tue Oct 12 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-6
+- add upstream xen patch xen.8259afix.patch to fix boot panic
+  "IO-APIC + timer doesn't work!" (#642108)
+
+* Thu Oct 07 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-5
+- add ext4 support for pvgrub (grub-ext4-support.patch from grub-0.97-66.fc14)
+
+* Wed Sep 29 2010 jkeating - 4.0.1-4
+- Rebuilt for gcc bug 634757
+
+* Fri Sep 24 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-3
+- create symlink for qemu-dm on x86_64 for compatibility with 3.4
+- apply some patches destined for 4.0.2
+    add some irq fixes
+    disable xsave which causes problems for HVM
+
+* Sun Aug 29 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-2
+- fix compile problems on Fedora 15, I suspect due to gcc 4.5.1
+
+* Wed Aug 25 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-1
+- update to 4.0.1 release - many bug fixes
+- xen-dev-create-cleanup.patch no longer needed
+- remove part of localgcc45fix.patch no longer needed
+- package new files /etc/bash_completion.d/xl.sh
+  and /usr/sbin/gdbsx
+- add patch to get xm and xend working with python 2.7
+
+* Mon Aug 2 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.0-5
+- add newer module names and xen-gntdev to xen.modules
+- Update dom0-kernel.repo file to use repos.fedorapeople.org location
+
+* Mon Jul 26 2010 Michael Young <m.a.young@durham.ac.uk>
+- create a xen-licenses package to satisfy revised the Fedora
+  Licensing Guidelines
+
+* Sun Jul 25 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.0-4
+- fix gcc 4.5 compile problems
+
+* Thu Jul 22 2010 David Malcolm <dmalcolm@redhat.com> - 4.0.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Features/Python_2.7/MassRebuild
+
+* Sun Jun 20 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.0-2
+- add patch to remove some old device creation code that doesn't
+  work with the latest pvops kernels
+
+* Tue Jun 7 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.0-1
+- update to 4.0.0 release
+- rebase xen-initscript.patch and xen-dumpdir.patch patches
+- adjust spec file for files added to or removed from the packages
+- add new build dependencies libuuid-devel and iasl
+
 * Tue Jun 1 2010 Michael Young <m.a.young@durham.ac.uk> - 3.4.3-1
 - update to 3.4.3 release including
     support for latest pv_ops kernels (possibly incomplete)

@@ -1,7 +1,6 @@
-diff -up xen-3.4.0/tools/misc/xend.fix xen-3.4.0/tools/misc/xend
---- xen-3.4.0/tools/misc/xend.fix	2009-05-20 15:39:12.000000000 +0200
-+++ xen-3.4.0/tools/misc/xend	2009-05-20 15:40:32.000000000 +0200
-@@ -8,140 +8,16 @@
+--- xen-4.0.0/tools/misc/xend.orig	2010-02-02 20:43:01.000000000 +0000
++++ xen-4.0.0/tools/misc/xend	2010-02-02 21:16:13.000000000 +0000
+@@ -8,151 +8,16 @@
  """Xen management daemon.
     Provides console server and HTTP management api.
  
@@ -104,6 +103,14 @@ diff -up xen-3.4.0/tools/misc/xend.fix xen-3.4.0/tools/misc/xend
 -def start_blktapctrl():
 -    start_daemon("blktapctrl", "")
 -
+-def start_xenbackendd():
+-    XENBACKENDD_DEBUG = os.getenv("XENBACKENDD_DEBUG")
+-    args = ""
+-    if XENBACKENDD_DEBUG:
+-        args += "-d"
+-    if os.uname()[0] == 'NetBSD':
+-        start_daemon("xenbackendd", args)
+-
  def main():
 -    try:
 -        check_logging()
@@ -118,11 +125,13 @@ diff -up xen-3.4.0/tools/misc/xend.fix xen-3.4.0/tools/misc/xend
 -        if os.uname()[0] != "SunOS":
 -            start_xenstored()
 -            start_consoled()
+-            start_xenbackendd()
 -            start_blktapctrl()
 -        return daemon.start()
 -    elif sys.argv[1] == 'trace_start':
 -        start_xenstored()
 -        start_consoled()
+-        start_xenbackendd()
 -        start_blktapctrl()
 -        return daemon.start(trace=1)
 -    elif sys.argv[1] == 'stop':
@@ -132,6 +141,7 @@ diff -up xen-3.4.0/tools/misc/xend.fix xen-3.4.0/tools/misc/xend
 -    elif sys.argv[1] == 'restart':
 -        start_xenstored()
 -        start_consoled()
+-        start_xenbackendd()
 -        start_blktapctrl()
 -        return daemon.stop() or daemon.start()
 -    elif sys.argv[1] == 'status':
