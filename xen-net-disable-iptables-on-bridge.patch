@@ -1,13 +1,15 @@
---- xen-3.3.0-orig/tools/hotplug/Linux/vif-bridge	2008-08-22 10:49:07.000000000 +0100
-+++ xen-3.3.0-new/tools/hotplug/Linux/vif-bridge	2008-08-29 11:29:38.000000000 +0100
-@@ -91,8 +91,6 @@ case "$command" in
+--- xen-4.1.0-orig/tools/hotplug/Linux/vif-bridge	2008-08-22 10:49:07.000000000 +0100
++++ xen-4.1.0-new/tools/hotplug/Linux/vif-bridge	2008-08-29 11:29:38.000000000 +0100
+@@ -96,10 +96,6 @@ case "$command" in
          ;;
  esac
  
--handle_iptable
+-if [ "$type_if" = vif ]; then
+-    handle_iptable
+-fi
 -
- log debug "Successful vif-bridge $command for $vif, bridge $bridge."
- if [ "$command" == "online" ]
+ log debug "Successful vif-bridge $command for $dev, bridge $bridge."
+ if [ "$type_if" = vif -a "$command" = "online" ]
  then
 --- xen-3.3.0-orig/tools/hotplug/Linux/xen-network-common.sh	2008-08-22 10:49:07.000000000 +0100
 +++ xen-3.3.0-new/tools/hotplug/Linux/xen-network-common.sh	2008-08-29 11:29:38.000000000 +0100

@@ -1,0 +1,28 @@
+--- xen-4.1.0/tools/pygrub/src/pygrub.orig	2010-12-31 15:24:11.000000000 +0000
++++ xen-4.1.0/tools/pygrub/src/pygrub	2011-01-30 18:58:17.000000000 +0000
+@@ -96,6 +96,7 @@
+ 
+     fd = os.open(file, os.O_RDONLY)
+     buf = os.read(fd, 512)
++    offzerocount = 0
+     for poff in (446, 462, 478, 494): # partition offsets
+ 
+         # MBR contains a 16 byte descriptor per partition
+@@ -105,6 +106,7 @@
+         
+         # offset == 0 implies this partition is not enabled
+         if offset == 0:
++            offzerocount += 1
+             continue
+ 
+         if type == FDISK_PART_SOLARIS or type == FDISK_PART_SOLARIS_OLD:
+@@ -123,6 +125,9 @@
+         else:
+             part_offs.append(offset)
+ 
++    if offzerocount == 4:
++        # Might be a grub boot sector pretending to be an MBR
++        part_offs.append(0)
+     return part_offs
+ 
+ class GrubLineEditor(curses.textpad.Textbox):

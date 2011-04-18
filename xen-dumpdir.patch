@@ -10,17 +10,6 @@ diff -up xen-3.4.0/tools/Makefile.dump xen-3.4.0/tools/Makefile
  	$(INSTALL_DIR) $(DESTDIR)/var/log/xen
  	$(INSTALL_DIR) $(DESTDIR)/var/lib/xen
  	$(INSTALL_DIR) $(DESTDIR)/var/lock/subsys
-diff -up xen-3.4.0/tools/debugger/gdb/README.dump xen-3.4.0/tools/debugger/gdb/README
---- xen-3.4.0/tools/debugger/gdb/README.dump	2009-05-18 13:05:38.000000000 +0200
-+++ xen-3.4.0/tools/debugger/gdb/README	2009-05-20 17:03:26.000000000 +0200
-@@ -33,6 +33,6 @@ To debug a crashed domU guest:
-  1. Add '(enable-dump yes)' to /etc/xen/xend-config.sxp before
-     starting xend.
-  2. When the domain crashes, a core file is written to
--    '/var/xen/dump/<domain-name>.<domain-id>.core'.
-+    '/var/lib/xen/dump/<domain-name>.<domain-id>.core'.
-  3. Run 'gdbserver-xen 127.0.0.1:9999 --file <core-file>'.
-  4. Connect to the server as for a running guest.
 --- xen-4.0.0/tools/python/xen/xend/XendDomainInfo.py.orig	2010-02-02 20:43:01.000000000 +0000
 +++ xen-4.0.0/tools/python/xen/xend/XendDomainInfo.py	2010-02-02 21:36:57.000000000 +0000
 @@ -2287,7 +2287,7 @@

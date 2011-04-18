@@ -1,13 +1,13 @@
 %{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 
 # Hypervisor ABI
-%define hv_abi  4.0
+%define hv_abi  4.1
 
 %define dist .qubes
 Summary: Xen is a virtual machine monitor
 Name:    xen
-Version: 4.0.1
-Release: 6%{?dist}
+Version: 4.1.0
+Release: 1%{?dist}
 Epoch:   1000
 Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
@@ -21,6 +21,7 @@ Source11: newlib-1.16.0.tar.gz
 Source12: zlib-1.2.3.tar.gz
 Source13: pciutils-2.2.9.tar.bz2
 Source14: grub-0.97.tar.gz
+Source15: ipxe-git-v1.0.0.tar.gz
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
@@ -32,19 +33,16 @@ Source31: sysconfig.xenconsoled
 Source32: sysconfig.blktapctrl
 
 Patch1: xen-initscript.patch
-Patch3: xen-xenstore-cli.patch
 Patch4: xen-dumpdir.patch
 Patch5: xen-net-disable-iptables-on-bridge.patch
 
 Patch10: xen-no-werror.patch
 
 Patch18: localgcc45fix.patch
-Patch19: localpy27fixes.patch
 Patch20: localgcc451fix.patch
-Patch21: xen.irq.fixes.patch
-Patch22: xen.xsave.disable.patch
 Patch23: grub-ext4-support.patch
-Patch24: xen.8259afix.patch
+Patch26: localgcc46fix.patch
+Patch28: pygrubfix.patch
 
 Patch100: xen-configure-xend.patch
 
@@ -167,24 +165,22 @@ to build the xen packages.
 %prep
 %setup -q
 %patch1 -p1
-%patch3 -p1
 %patch4 -p1
 %patch5 -p1
 
 %patch10 -p1
 
 %patch18 -p1
-%patch19 -p1
 %patch20 -p1
-%patch21 -p1
-%patch22 -p1
-%patch24 -p1
+%patch26 -p1
+%patch28 -p1
 
 %patch100 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
 cp -v %{PATCH23} stubdom/grub.patches/99grub-ext4-support.patch
+cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
 
 
 %build
@@ -214,7 +210,7 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-4.0.gz
+rm -rf %{buildroot}/boot/xen-4.1.gz
 rm -rf %{buildroot}/boot/xen-4.gz
 
 # silly doc dir fun
@@ -248,8 +244,8 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 ############ fixup files in /etc ############
 
 # udev
-rm -rf %{buildroot}/etc/udev/rules.d/xen*.rules
-mv %{buildroot}/etc/udev/xen*.rules %{buildroot}/etc/udev/rules.d
+#rm -rf %{buildroot}/etc/udev/rules.d/xen*.rules
+#mv %{buildroot}/etc/udev/xen*.rules %{buildroot}/etc/udev/rules.d
 
 # modules
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/modules
@@ -260,9 +256,9 @@ mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
 install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 
 # init scripts
-mkdir -p %{buildroot}%{_sysconfdir}/rc.d/init.d
-mv %{buildroot}%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
-rmdir %{buildroot}%{_sysconfdir}/init.d
+#mkdir -p %{buildroot}%{_sysconfdir}/rc.d/init.d
+#mv %{buildroot}%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
+#rmdir %{buildroot}%{_sysconfdir}/init.d
 install -m 755 %{SOURCE20} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenstored
 install -m 755 %{SOURCE21} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenconsoled
 install -m 755 %{SOURCE22} %{buildroot}%{_sysconfdir}/rc.d/init.d/blktapctrl
@@ -429,11 +425,16 @@ rm -rf %{buildroot}
 %{_sysconfdir}/rc.d/init.d/blktapctrl
 %{_sysconfdir}/rc.d/init.d/xenstored
 %{_sysconfdir}/rc.d/init.d/xenconsoled
+%{_sysconfdir}/rc.d/init.d/xen-watchdog
+%{_sysconfdir}/rc.d/init.d/xencommons
 %{_sysconfdir}/bash_completion.d/xl.sh
 
 %config(noreplace) %{_sysconfdir}/sysconfig/xenstored
 %config(noreplace) %{_sysconfdir}/sysconfig/xenconsoled
 %config(noreplace) %{_sysconfdir}/sysconfig/blktapctrl
+%config(noreplace) %{_sysconfdir}/sysconfig/xencommons
+%config(noreplace) %{_sysconfdir}/xen/xl.conf
+%config(noreplace) %{_sysconfdir}/xen/cpupool
 
 # Auto-load xen backend drivers
 %attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
@@ -482,10 +483,10 @@ rm -rf %{buildroot}
 # Xenstore persistent state
 %dir %{_localstatedir}/lib/xenstored
 # Xenstore runtime state
-%dir %{_localstatedir}/run/xenstored
+%ghost %{_localstatedir}/run/xenstored
 # XenD runtime state
-%dir %attr(0700,root,root) %{_localstatedir}/run/xend
-%dir %attr(0700,root,root) %{_localstatedir}/run/xend/boot
+%ghost %attr(0700,root,root) %{_localstatedir}/run/xend
+%ghost %attr(0700,root,root) %{_localstatedir}/run/xend/boot
 
 # All xenstore CLI tools
 %{_bindir}/qemu-*-xen
@@ -505,13 +506,16 @@ rm -rf %{buildroot}
 %{_sbindir}/img2qcow
 # Misc stuff
 %{_bindir}/xen-detect
-%{_sbindir}/fs-backend
 %{_sbindir}/gdbsx
 %{_sbindir}/gtrace*
+%{_sbindir}/kdd
 %{_sbindir}/lock-util
+%{_sbindir}/tap-ctl
 %{_sbindir}/td-util
 %{_sbindir}/vhd-*
 %{_sbindir}/xen-bugtool
+%{_sbindir}/xen-hptool
+%{_sbindir}/xen-hvmcrash
 %{_sbindir}/xen-hvmctx
 %{_sbindir}/xen-tmem-list-parse
 %{_sbindir}/xenconsoled
@@ -525,6 +529,7 @@ rm -rf %{buildroot}
 %{_sbindir}/xenpm
 %{_sbindir}/xenpmd
 %{_sbindir}/xenperf
+%{_sbindir}/xenwatchdogd
 %{_sbindir}/xl
 %{_sbindir}/xsview
 
@@ -557,6 +562,42 @@ rm -rf %{buildroot}
 %doc licensedir/*
 
 %changelog
+* Fri Mar 25 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.0-1
+- update to 4.1.0 final
+
+* Tue Mar 22 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.0-0.1.rc8
+- update to 4.1.0-rc8 release candidate
+- create xen-4.1.0-rc8.tar.xz file from git/hg repositories
+- rebase xen-initscript.patch xen-dumpdir.patch
+  xen-net-disable-iptables-on-bridge.patch localgcc45fix.patch
+  sysconfig.xenstored init.xenstored
+- remove unnecessary or conflicting xen-xenstore-cli.patch localpy27fixes.patch
+  xen.irq.fixes.patch xen.xsave.disable.patch xen.8259afix.patch
+  localcleanups.patch libpermfixes.patch
+- add patch to allow pygrub to work with single partitions with boot sectors
+- create ipxe-git-v1.0.0.tar.gz from http://git.ipxe.org/ipxe.git
+  to avoid downloading at build time
+- no need to move udev rules or init scripts as now created in the right place
+- amend list of files shipped - remove fs-backend
+  add init.d scripts xen-watchdog xencommons
+  add config files xencommons xl.conf cpupool
+  add programs kdd tap-ctl xen-hptool xen-hvmcrash xenwatchdogd
+
+* Mon Feb 07 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.0.1-10
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
+
+* Mon Jan 31 2011 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-9
+- Make libraries executable so that rpm gets dependencies right
+
+* Sat Jan 29 2011 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-8
+- Temporarily turn off some compile options so it will build on rawhide
+
+* Fri Jan 28 2011 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-7
+- ghost directories in /var/run (#656724)
+- minor fixes to /usr/share/doc/xen-doc-4.?.?/misc/network_setup.txt (#653159)
+  /etc/xen/scripts/network-route, /etc/xen/scripts/vif-common.sh (#669747)
+  and /etc/sysconfig/modules/xen.modules (#656536)
+
 * Tue Oct 12 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.1-6
 - add upstream xen patch xen.8259afix.patch to fix boot panic
   "IO-APIC + timer doesn't work!" (#642108)

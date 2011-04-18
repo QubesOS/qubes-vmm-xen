@@ -1,20 +1,3 @@
-Adapt http://xenbits.xen.org/linux-2.6.18-xen.hg?rev/efae51e0fa91
-to solve error
-variably modified 'tx_freelist' at file scope
-with gcc 4.5
---- xen-4.0.1/extras/mini-os/netfront.c.orig	2010-05-22 14:39:10.000000000 +0100
-+++ xen-4.0.1/extras/mini-os/netfront.c	2010-07-24 21:54:55.000000000 +0100
-@@ -25,8 +25,8 @@
- 
- 
- 
--#define NET_TX_RING_SIZE __RING_SIZE((struct netif_tx_sring *)0, PAGE_SIZE)
--#define NET_RX_RING_SIZE __RING_SIZE((struct netif_rx_sring *)0, PAGE_SIZE)
-+#define NET_TX_RING_SIZE __CONST_RING_SIZE(netif_tx, PAGE_SIZE)
-+#define NET_RX_RING_SIZE __CONST_RING_SIZE(netif_rx, PAGE_SIZE)
- #define GRANT_INVALID_REF 0
- 
- 
 xen-4.0.1/extras/mini-os/lib/math.c generates the warning
 'tmp.ul[1]' may be used uninitialized in this function
 under gcc 4.5 which I think is incorrect
@@ -28,17 +11,3 @@ under gcc 4.5 which I think is incorrect
  DEF_CPPFLAGS += -D__XEN_INTERFACE_VERSION__=$(XEN_INTERFACE_VERSION)
  
  DEF_ASFLAGS += -D__ASSEMBLY__
-gcc 4.5 complains
-mm.c:321:46: error: taking address of expression of type 'void'
-so make it consistent with the definition in setup.c
---- xen-4.0.1/extras/mini-os/arch/x86/mm.c.orig	2010-02-02 20:43:00.000000000 +0000
-+++ xen-4.0.1/extras/mini-os/arch/x86/mm.c	2010-07-25 09:29:49.000000000 +0100
-@@ -281,7 +281,7 @@
- /*
-  * Mark portion of the address space read only.
-  */
--extern void shared_info;
-+extern char shared_info[PAGE_SIZE];
- static void set_readonly(void *text, void *etext)
- {
-     unsigned long start_address =
