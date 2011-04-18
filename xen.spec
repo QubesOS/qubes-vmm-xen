@@ -115,6 +115,7 @@ Summary: Core Xen runtime environment
 Group: Development/Libraries
 Requires: xen-libs = %{version}-%{release}
 Requires: /usr/bin/qemu-img /usr/bin/qemu-nbd
+Requires: python-lxml
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
