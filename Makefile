@@ -96,7 +96,7 @@ RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
 rpms: get-sources $(SPECFILE)
 	$(RPM_WITH_DIRS) -bb $(SPECFILE)
-	rpm --addsign $(RPMDIR)/x86_64/*.rpm
+	rpm --addsign $(RPMDIR)/x86_64/*$(VERSION)-$(RELEASE)*.rpm
 
 rpms-nobuild:
 	$(RPM_WITH_DIRS) --nobuild -bb $(SPECFILE)
@@ -123,6 +123,21 @@ clean ::
 	@echo "Running the %clean script of the rpmbuild..."
 	$(RPM_WITH_DIRS) --clean --nodeps $(SPECFILE)
 
+update-repo-current:
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/dom0/rpm/
+
+update-repo-unstable:
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/dom0/rpm/
+
+update-repo-installer:
+	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	cd ../installer/yum && ./update_repo.sh
+
 help:
 	@echo "Usage: make <target>"
 	@echo
@@ -135,4 +150,5 @@ help:
 	@echo "rpms-just-build  Skip packaging (just test compilation)"
 	@echo "srpm             Create an srpm"
 	@echo
-
+	@echo "make update-repo-current  -- copy newly generated rpms to qubes yum repo"
+	@echo "make update-repo-unstable -- same, but to -testing repo"
