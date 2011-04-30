@@ -72,10 +72,10 @@ $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE)
 verify-sources: verify-sources-sig verify-sources-sign verify-sources-sum
 
 verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
-	@for f in $^; do gpg --verify $$f.sig $$f; done
+	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sig $$f; done
 
 verify-sources-sign: $(PCIUTILS_FILE)
-	@for f in $^; do gpg --verify $$f.sign $$f; done
+	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sign $$f; done
 
 verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE)
 	@for f in $^; do md5sum -c $$f.md5sum; done
@@ -94,7 +94,7 @@ RPM := rpmbuild
 
 RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
-rpms: get-sources $(SPECFILE)
+rpms: get-sources verify-sources $(SPECFILE)
 	$(RPM_WITH_DIRS) -bb $(SPECFILE)
 	rpm --addsign $(RPMDIR)/x86_64/*$(VERSION)-$(RELEASE)*.rpm
 
