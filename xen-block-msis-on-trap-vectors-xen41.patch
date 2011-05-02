@@ -1,0 +1,126 @@
+# HG changeset patch
+# User Keir Fraser <keir@xen.org>
+# Date 1304332766 -3600
+# Node ID 0bc9f306cb5222f39b0edcc830fb75d796ef146e
+# Parent  24346f749826275540ab7bc95980355ec96c8cf8
+x86, vtd: Protect against malicious MSIs from untrusted devices.
+
+In the absence of VT-d interrupt remapping support, a device can send
+arbitrary APIC messages to host CPUs. One class of attack that results
+is to confuse the hypervisor by delivering asynchronous interrupts to
+vectors that are expected to handle only synchronous
+traps/exceptions.
+
+We block this class of attack by:
+(1) setting APIC.TPR=0x10, to block all interrupts below vector
+0x20. This blocks delivery to all architectural exception vectors.
+(2) checking APIC.ISR[vec] for vectors 0x80 (fast syscall) and 0x82
+(hypercall). In these cases we BUG if we detect we are handling a
+hardware interrupt -- turning a potentially more severe infiltration
+into a straightforward system crash (i.e, DoS).
+
+Thanks to Invisible Things Lab <http://www.invisiblethingslab.com>
+for discovery and detailed investigation of this attack.
+
+Signed-off-by: Keir Fraser <keir@xen.org>
+
+diff -r 24346f749826 -r 0bc9f306cb52 xen/arch/x86/apic.c
+--- a/xen/arch/x86/apic.c	Sun May 01 13:17:44 2011 +0100
++++ b/xen/arch/x86/apic.c	Mon May 02 11:39:26 2011 +0100
+@@ -560,12 +560,9 @@
+     init_apic_ldr();
+ 
+     /*
+-     * Set Task Priority to 'accept all'. We never change this
+-     * later on.
++     * Set Task Priority to reject any interrupts below FIRST_DYNAMIC_VECTOR.
+      */
+-    value = apic_read(APIC_TASKPRI);
+-    value &= ~APIC_TPRI_MASK;
+-    apic_write_around(APIC_TASKPRI, value);
++    apic_write_around(APIC_TASKPRI, (FIRST_DYNAMIC_VECTOR & 0xF0) - 0x10);
+ 
+     /*
+      * After a crash, we no longer service the interrupts and a pending
+@@ -1439,3 +1436,9 @@
+ 
+     return 0;
+ }
++
++void check_for_unexpected_msi(unsigned int vector)
++{
++    unsigned long v = apic_read(APIC_ISR + ((vector & ~0x1f) >> 1));
++    BUG_ON(v & (1 << (vector & 0x1f)));
++}
+diff -r 24346f749826 -r 0bc9f306cb52 xen/arch/x86/x86_64/compat/entry.S
+--- a/xen/arch/x86/x86_64/compat/entry.S	Sun May 01 13:17:44 2011 +0100
++++ b/xen/arch/x86/x86_64/compat/entry.S	Mon May 02 11:39:26 2011 +0100
+@@ -10,12 +10,22 @@
+ #include <asm/page.h>
+ #include <asm/desc.h>
+ #include <public/xen.h>
++#include <irq_vectors.h>
+ 
+         ALIGN
+ ENTRY(compat_hypercall)
+         pushq $0
+         movl  $TRAP_syscall,4(%rsp)
+         SAVE_ALL
++
++        cmpb  $0,untrusted_msi(%rip)
++UNLIKELY_START(ne, msi_check)
++        movl  $HYPERCALL_VECTOR,%edi
++        call  check_for_unexpected_msi
++        RESTORE_ALL
++        SAVE_ALL
++UNLIKELY_END(msi_check)
++
+         GET_CURRENT(%rbx)
+ 
+         cmpl  $NR_hypercalls,%eax
+diff -r 24346f749826 -r 0bc9f306cb52 xen/arch/x86/x86_64/entry.S
+--- a/xen/arch/x86/x86_64/entry.S	Sun May 01 13:17:44 2011 +0100
++++ b/xen/arch/x86/x86_64/entry.S	Mon May 02 11:39:26 2011 +0100
+@@ -297,6 +297,14 @@
+         pushq $0
+         SAVE_ALL
+ 
++        cmpb  $0,untrusted_msi(%rip)
++UNLIKELY_START(ne, msi_check)
++        movl  $0x80,%edi
++        call  check_for_unexpected_msi
++        RESTORE_ALL
++        SAVE_ALL
++UNLIKELY_END(msi_check)
++
+         GET_CURRENT(%rbx)
+ 
+         /* Check that the callback is non-null. */
+diff -r 24346f749826 -r 0bc9f306cb52 xen/drivers/passthrough/vtd/iommu.c
+--- a/xen/drivers/passthrough/vtd/iommu.c	Sun May 01 13:17:44 2011 +0100
++++ b/xen/drivers/passthrough/vtd/iommu.c	Mon May 02 11:39:26 2011 +0100
+@@ -45,6 +45,9 @@
+ #define nr_ioapics              iosapic_get_nr_iosapics()
+ #endif
+ 
++/* Possible unfiltered LAPIC/MSI messages from untrusted sources? */
++bool_t __read_mostly untrusted_msi;
++
+ int nr_iommus;
+ 
+ static void setup_dom0_devices(struct domain *d);
+@@ -1579,6 +1582,14 @@
+     if (!pdev)
+         return -ENODEV;
+ 
++    /*
++     * Devices assigned to untrusted domains (here assumed to be any domU)
++     * can attempt to send arbitrary LAPIC/MSI messages. We are unprotected
++     * by the root complex unless interrupt remapping is enabled.
++     */
++    if ( (target != dom0) && !iommu_intremap )
++        untrusted_msi = 1;
++
+     ret = domain_context_unmap(source, bus, devfn);
+     if ( ret )
+         return ret;
