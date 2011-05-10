@@ -126,6 +126,9 @@ clean ::
 update-repo-current:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/dom0/rpm/
 
+update-repo-current-testing:
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/dom0/rpm/
+
 update-repo-unstable:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/dom0/rpm/
 
@@ -151,4 +154,5 @@ help:
 	@echo "srpm             Create an srpm"
 	@echo
 	@echo "make update-repo-current  -- copy newly generated rpms to qubes yum repo"
+	@echo "make update-repo-current-testing  -- same, but to -current-testing repo"
 	@echo "make update-repo-unstable -- same, but to -testing repo"
