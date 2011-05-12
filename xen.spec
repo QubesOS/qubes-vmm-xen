@@ -22,6 +22,10 @@ Source12: zlib-1.2.3.tar.gz
 Source13: pciutils-2.2.9.tar.bz2
 Source14: grub-0.97.tar.gz
 Source15: ipxe-git-v1.0.0.tar.gz
+Source16: ocaml-3.11.0.tar.gz
+Source17: gc.tar.gz
+Source18: tpm_emulator-0.5.1.tar.gz
+Source19: tboot-20090330.tar.gz
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
@@ -45,6 +49,7 @@ Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
 
 Patch100: xen-configure-xend.patch
+Patch101: xen-no-downloads.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -177,12 +182,17 @@ to build the xen packages.
 %patch28 -p1
 
 %patch100 -p1
+%patch101 -p1
 
 # stubdom sources
-cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
+cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
 cp -v %{PATCH23} stubdom/grub.patches/99grub-ext4-support.patch
 cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
+cp -v %{SOURCE17} tools/vnet/
+cp -v %{SOURCE18} tools/vtpm/
 
+mkdir -p tboot
+cp -v %{SOURCE19} tboot/
 
 %build
 export XEN_VENDORVERSION="-%{release}"

@@ -1,0 +1,150 @@
+diff -ru xen-4.1.0.orig/Makefile xen-4.1.0/Makefile
+--- xen-4.1.0.orig/Makefile	2011-03-25 11:42:47.000000000 +0100
++++ xen-4.1.0/Makefile	2011-05-12 16:43:57.998690847 +0200
+@@ -272,7 +272,3 @@
+ 
+ tboot/Makefile: tboot/$(TBOOT_TARFILE)
+ 	[ -e tboot/Makefile ] || tar -xzf tboot/$(TBOOT_TARFILE) -C tboot/ --strip-components 1
+-
+-tboot/$(TBOOT_TARFILE):
+-	mkdir -p tboot
+-	wget -O tboot/$(TBOOT_TARFILE) $(TBOOT_BASE_URL)/$(TBOOT_TARFILE)
+diff -ru xen-4.1.0.orig/stubdom/Makefile xen-4.1.0/stubdom/Makefile
+--- xen-4.1.0.orig/stubdom/Makefile	2011-03-25 11:42:49.000000000 +0100
++++ xen-4.1.0/stubdom/Makefile	2011-05-12 16:43:57.998690847 +0200
+@@ -31,8 +31,6 @@
+ OCAML_URL?=http://caml.inria.fr/pub/distrib/ocaml-3.11
+ OCAML_VERSION=3.11.0
+ 
+-WGET=wget -c
+-
+ GNU_TARGET_ARCH:=$(XEN_TARGET_ARCH)
+ ifeq ($(XEN_TARGET_ARCH),x86_32)
+ GNU_TARGET_ARCH:=i686
+@@ -94,9 +92,6 @@
+ # Cross-newlib
+ ##############
+ 
+-newlib-$(NEWLIB_VERSION).tar.gz:
+-	$(WGET) $(NEWLIB_URL)/$@
+-
+ newlib-$(NEWLIB_VERSION): newlib-$(NEWLIB_VERSION).tar.gz
+ 	tar xzf $<
+ 	patch -d $@ -p0 < newlib.patch
+@@ -120,9 +115,6 @@
+ # Cross-zlib
+ ############
+ 
+-zlib-$(ZLIB_VERSION).tar.gz:
+-	$(WGET) $(ZLIB_URL)/$@
+-
+ zlib-$(XEN_TARGET_ARCH): zlib-$(ZLIB_VERSION).tar.gz 
+ 	tar xzf $<
+ 	mv zlib-$(ZLIB_VERSION) $@
+@@ -140,9 +132,6 @@
+ # Cross-libpci
+ ##############
+ 
+-pciutils-$(LIBPCI_VERSION).tar.bz2:
+-	$(WGET) $(LIBPCI_URL)/$@
+-
+ pciutils-$(XEN_TARGET_ARCH): pciutils-$(LIBPCI_VERSION).tar.bz2
+ 	tar xjf $<
+ 	mv pciutils-$(LIBPCI_VERSION) $@
+@@ -168,9 +157,6 @@
+ # lwIP
+ ######
+ 
+-lwip-$(LWIP_VERSION).tar.gz:
+-	$(WGET) $(LWIP_URL)/$@
+-
+ lwip-$(XEN_TARGET_ARCH): lwip-$(LWIP_VERSION).tar.gz
+ 	tar xzf $<
+ 	mv lwip $@
+@@ -184,9 +170,6 @@
+ CAMLLIB = $(CROSS_PREFIX)/$(GNU_TARGET_ARCH)-xen-elf/lib/ocaml
+ OCAML_STAMPFILE=$(CAMLLIB)/.dirstamp
+ 
+-ocaml-$(OCAML_VERSION).tar.gz:
+-	$(WGET) $(OCAML_URL)/$@
+-
+ ocaml-$(XEN_TARGET_ARCH)/.dirstamp: ocaml-$(OCAML_VERSION).tar.gz ocaml.patch
+ 	tar xzf $<
+ 	cd ocaml-$(OCAML_VERSION) && patch -p0 < ../ocaml.patch
+@@ -320,9 +303,6 @@
+ # Grub
+ ######
+ 
+-grub-$(GRUB_VERSION).tar.gz:
+-	$(WGET) $(GRUB_URL)/$@
+-
+ grub-upstream: grub-$(GRUB_VERSION).tar.gz
+ 	tar xzf $<
+ 	mv grub-$(GRUB_VERSION) $@
+diff -ru xen-4.1.0.orig/tools/firmware/etherboot/Makefile xen-4.1.0/tools/firmware/etherboot/Makefile
+--- xen-4.1.0.orig/tools/firmware/etherboot/Makefile	2011-03-25 11:42:50.000000000 +0100
++++ xen-4.1.0/tools/firmware/etherboot/Makefile	2011-05-12 16:46:42.405730483 +0200
+@@ -34,15 +34,6 @@
+ 	$(MAKE) NO_WERROR=1 $@.new
+ 	mv -f $@.new $@
+ 
+-$T:
+-	if ! wget -O _$T $(IPXE_TARBALL_URL); then \
+-		$(GIT) clone $(IPXE_GIT_URL) $D.git; \
+-		(cd $D.git && $(GIT) archive --format=tar --prefix=$D/ \
+-		$(IPXE_GIT_TAG) | gzip >../_$T); \
+-		rm -rf $D.git; \
+-	fi
+-	mv _$T $T
+-
+ $D/src/arch/i386/Makefile: $T Config
+ 	rm -rf $D
+ 	gzip -dc $T | tar xf -
+diff -ru xen-4.1.0.orig/tools/vnet/Makefile xen-4.1.0/tools/vnet/Makefile
+--- xen-4.1.0.orig/tools/vnet/Makefile	2011-03-25 11:42:52.000000000 +0100
++++ xen-4.1.0/tools/vnet/Makefile	2011-05-12 16:43:57.998690847 +0200
+@@ -16,10 +16,6 @@
+ .PHONY: all
+ all: compile
+ 
+-gc.tar.gz:
+-	#wget http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/$@
+-	wget $(XEN_EXTFILES_URL)/$@
+-
+ .PHONY: gc
+ gc: gc.tar.gz
+ 	tar xfz gc.tar.gz
+diff -ru xen-4.1.0.orig/tools/vtpm/Makefile xen-4.1.0/tools/vtpm/Makefile
+--- xen-4.1.0.orig/tools/vtpm/Makefile	2011-03-25 11:42:53.000000000 +0100
++++ xen-4.1.0/tools/vtpm/Makefile	2011-05-12 16:43:58.002803897 +0200
+@@ -39,10 +39,6 @@
+ 	rm -f $(TPM_EMULATOR_TARFILE) tpm_emulator.patch.old vtpm.patch.old
+ 	rm -rf $(TPM_EMULATOR_DIR) $(VTPM_DIR) $(ORIG_DIR)
+ 
+-# Download Swiss emulator
+-$(TPM_EMULATOR_TARFILE):
+-	wget http://download.berlios.de/tpm-emulator/$(TPM_EMULATOR_TARFILE)
+-
+ # Create vtpm dirs
+ $(VTPM_DIR)/tpmd/tpmd: $(TPM_EMULATOR_TARFILE) vtpm-0.5.1.patch
+ 	rm -rf $(VTPM_DIR)
+diff -ru xen-4.1.0.orig1/buildconfigs/src.tarball xen-4.1.0/buildconfigs/src.tarball
+--- xen-4.1.0.orig1/buildconfigs/src.tarball	2011-03-25 11:42:47.000000000 +0100
++++ xen-4.1.0/buildconfigs/src.tarball	2011-05-12 17:28:31.906486192 +0200
+@@ -3,8 +3,6 @@
+ 
+ LINUX_SRCDIR ?= linux-$(LINUX_VER)
+ 
+-KETCHUP ?= python buildconfigs/ketchup
+-
+ vpath linux-%.tar.bz2 $(LINUX_SRC_PATH)
+ 
+ # download a pristine Linux kernel tarball if there isn't one in LINUX_SRC_PATH
+@@ -13,7 +11,3 @@
+ 	false wget $(XEN_LINUX_MIRROR)/$@ -O./$@
+ 
+ # XXX create a pristine tree for diff -Nurp convenience
+-
+-%/.valid-src: $(__XEN_LINUX_UPDATE)
+-	$(KETCHUP) -d $(@D) $(LINUX_VER)
+-	touch $@ # update timestamp to avoid rebuild
