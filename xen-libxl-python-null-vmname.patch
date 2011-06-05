@@ -1,0 +1,35 @@
+# HG changeset patch
+# User Marek Marczykowski <marmarek@mimuw.edu.pl>
+# Date 1307285583 -7200
+# Node ID b77de60c85431593d439f2c4ac46023c6f8e5ee2
+# Parent  f33981cd7d3df1718123cd364ee91a7bad064283
+xen.lowlevel.xl: Return None on empty domain name
+
+Previously PyString_FromString(NULL) was called, which caused assertion
+failure.
+
+Signed-off-by: Marek Marczykowski <marmarek@mimuw.edu.pl>
+
+diff -r f33981cd7d3d -r b77de60c8543 tools/python/xen/lowlevel/xl/xl.c
+--- a/tools/python/xen/lowlevel/xl/xl.c	Sun Jun 05 16:51:58 2011 +0200
++++ b/tools/python/xen/lowlevel/xl/xl.c	Sun Jun 05 16:53:03 2011 +0200
+@@ -412,14 +412,16 @@ static PyObject *pyxl_domid_to_name(XlOb
+ {
+     char *domname;
+     int domid;
+-    PyObject *ret;
++    PyObject *ret = Py_None;
+ 
+     if ( !PyArg_ParseTuple(args, "i", &domid) )
+         return NULL;
+ 
+     domname = libxl_domid_to_name(&self->ctx, domid);
+-    ret = PyString_FromString(domname);
+-    free(domname);
++    if (domname) {
++        ret = PyString_FromString(domname);
++        free(domname);
++    }
+ 
+     return ret;
+ }

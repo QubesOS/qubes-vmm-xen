@@ -1,0 +1,30 @@
+# HG changeset patch
+# User Marek Marczykowski <marmarek@mimuw.edu.pl>
+# Date 1306962954 -7200
+# Node ID aa6e0521bb3853b0e1d90e870220568020929cf5
+# Parent  8080606fb87a751f7cde4c6a08e3945a21d397b0
+libxl: Allocate memory for strings in libxl_device_disk
+
+Memory for strings in libxl_device_disk must be allocated from outside of
+libxl__gc to not be freed at the end of function (by libxl__free_all).
+
+Fixes xl block-detach
+
+Signed-off-by: Marek Marczykowski <marmarek@mimuw.edu.pl>
+
+diff -r 8080606fb87a -r aa6e0521bb38 tools/libxl/libxl_utils.c
+--- a/tools/libxl/libxl_utils.c	Sun Jun 05 16:48:17 2011 +0200
++++ b/tools/libxl/libxl_utils.c	Wed Jun 01 23:15:54 2011 +0200
+@@ -551,10 +551,10 @@ int libxl_devid_to_device_disk(libxl_ctx
+     disk->backend_domid = strtoul(val, NULL, 10);
+     disk->domid = domid;
+     be_path = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/backend", diskpath));
+-    disk->pdev_path = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/params", be_path));
++    disk->pdev_path = xs_read(ctx->xsh, XBT_NULL, libxl__sprintf(&gc, "%s/params", be_path), NULL);
+     val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/type", be_path));
+     libxl_string_to_backend(ctx, val, &(disk->backend));
+-    disk->vdev = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/dev", be_path));
++    disk->vdev = xs_read(ctx->xsh, XBT_NULL, libxl__sprintf(&gc, "%s/dev", be_path), NULL);
+     val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/removable", be_path));
+     disk->unpluggable = !strcmp(val, "1");
+     val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/mode", be_path));

@@ -51,6 +51,17 @@ Patch28: pygrubfix.patch
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
 
+# libxl fixes
+# 102-109 are candidates to be included in upstream release
+Patch102: xen-libxl-destroy-dev-fe-be-too.patch
+Patch103: xen-libxl-devid-name.patch
+Patch104: xen-libxl-devid-to-device-strings.patch
+Patch105: xen-xl-networkattach-memory-allocation.patch
+Patch106: xen-libxl-python-null-vmname.patch
+Patch107: xen-libxl-removable-null.patch
+Patch108: xen-libxl-devid-to-nic-domid.patch
+Patch109: xen-libxl-device-model-disks-only-when-needed.patch
+
 # Xen security patches
 Patch201: xen-block-msis-on-trap-vectors-xen41.patch
 
@@ -186,6 +197,15 @@ to build the xen packages.
 
 %patch100 -p1
 %patch101 -p1
+
+%patch102 -p1
+%patch103 -p1
+%patch104 -p1
+%patch105 -p1
+%patch106 -p1
+%patch107 -p1
+%patch108 -p1
+%patch109 -p1
 
 %patch201 -p1
 
