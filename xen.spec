@@ -62,6 +62,7 @@ Patch107: xen-libxl-removable-null.patch
 Patch108: xen-libxl-devid-to-nic-domid.patch
 Patch109: xen-libxl-device-model-disks-only-when-needed.patch
 Patch110: xen-libxl-script-block-backend.patch
+Patch111: xen-hotplug-external-store.patch
 
 # Xen security patches
 Patch201: xen-block-msis-on-trap-vectors-xen41.patch
@@ -208,6 +209,7 @@ to build the xen packages.
 %patch108 -p1
 %patch109 -p1
 %patch110 -p1
+%patch111 -p1
 
 %patch201 -p1
 

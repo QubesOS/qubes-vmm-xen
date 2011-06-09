@@ -1,0 +1,52 @@
+Use /var/run/xen-hotplug for storing information needed to cleanup devices.
+When called "remove" action - xenstore entriens can be already deleted.
+
+Signed-off-by: Marek Marczykowski <marmarek@mimuw.edu.pl>
+--- xen-4.1.0/tools/hotplug/Linux/block	2011-03-25 11:42:50.000000000 +0100
++++ xen-4.1.0/tools/hotplug/Linux/block	2011-06-09 13:57:15.000000000 +0200
+@@ -3,6 +3,8 @@
+ dir=$(dirname "$0")
+ . "$dir/block-common.sh"
+ 
++HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
++
+ expand_dev() {
+   local dev
+   case $1 in
+@@ -221,6 +225,9 @@
+     then
+       p=$(xenstore_read "$XENBUS_PATH/params")
+       mode=$(xenstore_read "$XENBUS_PATH/mode")
++      echo $p > "$HOTPLUG_STORE-params"
++      echo $mode > "$HOTPLUG_STORE-mode"
++      echo $t > "$HOTPLUG_STORE-type"
+     fi
+     FRONTEND_ID=$(xenstore_read "$XENBUS_PATH/frontend-id")
+     FRONTEND_UUID=$(xenstore_read_default \
+@@ -305,6 +312,7 @@
+         fi
+         do_or_die losetup $roflag "$loopdev" "$file"
+         xenstore_write "$XENBUS_PATH/node" "$loopdev"
++        echo $loopdev > "$HOTPLUG_STORE-node"
+         write_dev "$loopdev"
+         release_lock "block"
+         exit 0
+@@ -319,6 +327,7 @@
+     ;;
+ 
+   remove)
++    t=$(cat $HOTPLUG_STORE-type)
+     case $t in 
+       phy)
+ 	exit 0
+@@ -326,8 +335,8 @@
+ 
+       file)
+         claim_lock "block"
+-        node=$(xenstore_read "$XENBUS_PATH/node")
+-	losetup -d "$node"
++        node=$(cat "$HOTPLUG_STORE-node")
++        losetup -d "$node"
+         release_lock "block"
+ 	exit 0
+ 	;;
