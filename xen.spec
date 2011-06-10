@@ -52,7 +52,7 @@ Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
 
 # libxl fixes
-# 102-109 are candidates to be included in upstream release
+# 102-109,112-113 are candidates to be included in upstream release
 Patch102: xen-libxl-destroy-dev-fe-be-too.patch
 Patch103: xen-libxl-devid-name.patch
 Patch104: xen-libxl-devid-to-device-strings.patch
@@ -63,6 +63,8 @@ Patch108: xen-libxl-devid-to-nic-domid.patch
 Patch109: xen-libxl-device-model-disks-only-when-needed.patch
 Patch110: xen-libxl-script-block-backend.patch
 Patch111: xen-hotplug-external-store.patch
+Patch112: xen-libxl-add-all-pci-at-once.patch
+Patch113: xen-libxl-pci-detach-fix.patch
 
 # Xen security patches
 Patch201: xen-block-msis-on-trap-vectors-xen41.patch
@@ -210,6 +212,8 @@ to build the xen packages.
 %patch109 -p1
 %patch110 -p1
 %patch111 -p1
+%patch112 -p1
+%patch113 -p1
 
 %patch201 -p1
 
