@@ -27,7 +27,7 @@ diff -r aa6e0521bb38 -r f33981cd7d3d tools/libxl/xl_cmdimpl.c
 +    return !rc;
 +}
 +#define match_option(_prefix, _arg, _oparg) \
-+	    match_option_size((_prefix "="), sizeof((_prefix)) + 1, (_arg), &(_oparg))
++	    match_option_size((_prefix "="), sizeof((_prefix)), (_arg), &(_oparg))
 +
 +static void replace_string(char **str, const char *val)
 +{
