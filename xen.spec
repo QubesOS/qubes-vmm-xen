@@ -46,9 +46,6 @@ Patch28: pygrubfix.patch
 
 Patch100: xen-configure-xend.patch
 
-# Xen security patches
-Patch201: xen-block-msis-on-trap-vectors-xen41.patch
-
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript tetex-latex
@@ -180,8 +177,6 @@ to build the xen packages.
 %patch28 -p1
 
 %patch100 -p1
-
-%patch201 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
