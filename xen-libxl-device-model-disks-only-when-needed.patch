@@ -1,0 +1,50 @@
+# HG changeset patch
+# User Ian Campbell <ian.campbell@citrix.com>
+# Date 1300213187 0
+# Node ID a7a95a95a0e0e1688330a29fea374eec6c6995b8
+# Parent  aba125aa3f1aeae055b7531a3030380d9467cec7
+libxl: do not start a xenpv qemu solely for tap devices if blktap is available
+
+qemu is used as a fallback for DISK_BACKEND_TAP if no blktap is
+available but if blktap is available, or for DISK_BACKEND_PHY, we
+don't need a qemu process.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Committed-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+diff -r aba125aa3f1a -r a7a95a95a0e0 tools/libxl/libxl_dm.c
+--- a/tools/libxl/libxl_dm.c	Wed Jun 01 23:16:20 2011 +0200
++++ b/tools/libxl/libxl_dm.c	Tue Mar 15 18:19:47 2011 +0000
+@@ -828,8 +828,29 @@ int libxl__need_xenpv_qemu(libxl_ctx *ct
+         goto out;
+     }
+ 
+-    if (nr_disks > 0 && !libxl__blktap_enabled(&gc))
+-        ret = 1;
++    if (nr_disks > 0) {
++        int blktap_enabled = -1;
++        for (i = 0; i < nr_disks; i++) {
++            switch (disks[i].backend) {
++            case DISK_BACKEND_TAP:
++                if (blktap_enabled == -1)
++                    blktap_enabled = libxl__blktap_enabled(&gc);
++                if (!blktap_enabled) {
++                    ret = 1;
++                    goto out;
++                }
++                break;
++
++            case DISK_BACKEND_QDISK:
++                ret = 1;
++                goto out;
++
++            case DISK_BACKEND_PHY:
++            case DISK_BACKEND_UNKNOWN:
++                break;
++            }
++        }
++    }
+ 
+ out:
+     libxl__free_all(&gc);

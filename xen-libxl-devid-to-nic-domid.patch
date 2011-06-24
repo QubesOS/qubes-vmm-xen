@@ -1,0 +1,22 @@
+# HG changeset patch
+# User Marek Marczykowski <marmarek@mimuw.edu.pl>
+# Date 1306962980 -7200
+# Node ID aba125aa3f1aeae055b7531a3030380d9467cec7
+# Parent  fed2015fe1745e5e712380960cc50a71629698fc
+libxl: Set libxl_device_nic->domid when looking up by devid
+
+Fixes xl network-detach with device specified by id, not MAC
+
+Signed-off-by: Marek Marczykowski <marmarek@mimuw.edu.pl>
+
+diff -r fed2015fe174 -r aba125aa3f1a tools/libxl/libxl_utils.c
+--- a/tools/libxl/libxl_utils.c	Sun Jun 05 16:55:21 2011 +0200
++++ b/tools/libxl/libxl_utils.c	Wed Jun 01 23:16:20 2011 +0200
+@@ -512,6 +512,7 @@ int libxl_devid_to_device_nic(libxl_ctx 
+     }
+     nic->backend_domid = strtoul(val, NULL, 10);
+     nic->devid = strtoul(devid, NULL, 10);
++    nic->domid = domid;
+ 
+     val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/mac", nic_path_fe));
+     for (i = 0, tok = strtok(val, ":"); tok && (i < 6);

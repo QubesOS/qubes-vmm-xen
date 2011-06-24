@@ -1,0 +1,151 @@
+# HG changeset patch
+# User Marek Marczykowski <marmarek@mimuw.edu.pl>
+# Date 1307291360 -7200
+# Node ID 0f8e34c6564ea5190dc0bef93f59ac299f694bdb
+# Parent  a7a95a95a0e0e1688330a29fea374eec6c6995b8
+libxl: "script:" prefix in block device description to setup vbd by hotplug scripts
+
+Implements old behaviour of block-attach - only write parameters to xenstore
+and left all work for hotplug scripts. Allows to directly reuse xen block
+scripts (and maybe some custom ones). Example use:
+
+xl block-attach vm "script:nbd 1.1.1.1 9999" xvdg w
+
+Signed-off-by: Marek Marczykowski <marmarek@mimuw.edu.pl>
+
+diff -r a7a95a95a0e0 -r 0f8e34c6564e tools/libxl/libxl.c
+--- a/tools/libxl/libxl.c	Tue Mar 15 18:19:47 2011 +0000
++++ b/tools/libxl/libxl.c	Sun Jun 05 18:29:20 2011 +0200
+@@ -896,6 +896,13 @@ static int validate_virtual_disk(libxl_c
+         }
+     }
+ 
++    if (disk->backend == DISK_BACKEND_SCRIPT) {
++        delimiter = strchr(file_name, ':');
++        if (!delimiter)
++            return ERROR_INVAL;
++        return 0;
++    }
++
+     if ( stat(file_name, &stat_buf) != 0 ) {
+         LIBXL__LOG_ERRNO(ctx, LIBXL__LOG_ERROR, "failed to stat %s", file_name);
+         return ERROR_INVAL;
+@@ -965,6 +972,24 @@ int libxl_device_disk_add(libxl_ctx *ctx
+ 
+             device.backend_kind = DEVICE_VBD;
+             break;
++        case DISK_BACKEND_SCRIPT:
++			{
++				char *delimiter;
++				backend_type = libxl__strdup(&gc, disk->pdev_path);
++				delimiter = strchr(backend_type, ':');
++				if (!delimiter) {
++					rc = ERROR_FAIL;
++					goto out_free;
++				}
++				*delimiter = '\0';
++				flexarray_append(back, "params");
++				flexarray_append(back, delimiter+1);
++                flexarray_append(back, "scripted");
++                flexarray_append(back, "1");
++
++				device.backend_kind = DEVICE_VBD;
++			}
++            break;
+         case DISK_BACKEND_TAP:
+             if (libxl__blktap_enabled(&gc) && disk->format != DISK_FORMAT_EMPTY) {
+                 const char *dev = libxl__blktap_devpath(&gc,
+@@ -1060,7 +1085,7 @@ int libxl_device_disk_del(libxl_ctx *ctx
+     device.backend_domid    = disk->backend_domid;
+     device.backend_devid    = devid;
+     device.backend_kind     = 
+-        (disk->backend == DISK_BACKEND_PHY) ? DEVICE_VBD : DEVICE_TAP;
++        (disk->backend == DISK_BACKEND_PHY || disk->backend == DISK_BACKEND_SCRIPT) ? DEVICE_VBD : DEVICE_TAP;
+     device.domid            = disk->domid;
+     device.devid            = devid;
+     device.kind             = DEVICE_VBD;
+diff -r a7a95a95a0e0 -r 0f8e34c6564e tools/libxl/libxl.h
+--- a/tools/libxl/libxl.h	Tue Mar 15 18:19:47 2011 +0000
++++ b/tools/libxl/libxl.h	Sun Jun 05 18:29:20 2011 +0200
+@@ -185,6 +185,7 @@ typedef enum {
+     DISK_BACKEND_PHY,
+     DISK_BACKEND_TAP,
+     DISK_BACKEND_QDISK,
++    DISK_BACKEND_SCRIPT,
+ } libxl_disk_backend;
+ 
+ typedef enum {
+diff -r a7a95a95a0e0 -r 0f8e34c6564e tools/libxl/libxl_device.c
+--- a/tools/libxl/libxl_device.c	Tue Mar 15 18:19:47 2011 +0000
++++ b/tools/libxl/libxl_device.c	Sun Jun 05 18:29:20 2011 +0200
+@@ -139,6 +139,7 @@ char *libxl__device_disk_string_of_backe
+         case DISK_BACKEND_QDISK: return "qdisk";
+         case DISK_BACKEND_TAP: return "tap";
+         case DISK_BACKEND_PHY: return "phy";
++        case DISK_BACKEND_SCRIPT: return "script";
+         default: return NULL;
+     }
+ }
+diff -r a7a95a95a0e0 -r 0f8e34c6564e tools/libxl/libxl_dm.c
+--- a/tools/libxl/libxl_dm.c	Tue Mar 15 18:19:47 2011 +0000
++++ b/tools/libxl/libxl_dm.c	Sun Jun 05 18:29:20 2011 +0200
+@@ -847,6 +847,7 @@ int libxl__need_xenpv_qemu(libxl_ctx *ct
+ 
+             case DISK_BACKEND_PHY:
+             case DISK_BACKEND_UNKNOWN:
++            case DISK_BACKEND_SCRIPT:
+                 break;
+             }
+         }
+diff -r a7a95a95a0e0 -r 0f8e34c6564e tools/libxl/libxl_utils.c
+--- a/tools/libxl/libxl_utils.c	Tue Mar 15 18:19:47 2011 +0000
++++ b/tools/libxl/libxl_utils.c	Sun Jun 05 18:29:20 2011 +0200
+@@ -282,6 +282,8 @@ int libxl_string_to_backend(libxl_ctx *c
+ 
+     if (!strcmp(s, "phy")) {
+         *backend = DISK_BACKEND_PHY;
++    } else if (!strcmp(s, "script")) {
++        *backend = DISK_BACKEND_SCRIPT;
+     } else if (!strcmp(s, "file")) {
+         *backend = DISK_BACKEND_TAP;
+     } else if (!strcmp(s, "tap")) {
+@@ -553,7 +555,13 @@ int libxl_devid_to_device_disk(libxl_ctx
+     disk->domid = domid;
+     be_path = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/backend", diskpath));
+     disk->pdev_path = xs_read(ctx->xsh, XBT_NULL, libxl__sprintf(&gc, "%s/params", be_path), NULL);
+-    val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/type", be_path));
++    val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/scripted", be_path));
++    if (val && atoi(val))
++        disk->backend = DISK_BACKEND_SCRIPT;
++    else {
++        val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/type", be_path));
++        libxl_string_to_backend(ctx, val, &(disk->backend));
++    }
+     libxl_string_to_backend(ctx, val, &(disk->backend));
+     disk->vdev = xs_read(ctx->xsh, XBT_NULL, libxl__sprintf(&gc, "%s/dev", be_path), NULL);
+     val = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/removable", be_path));
+diff -r a7a95a95a0e0 -r 0f8e34c6564e tools/libxl/xl_cmdimpl.c
+--- a/tools/libxl/xl_cmdimpl.c	Tue Mar 15 18:19:47 2011 +0000
++++ b/tools/libxl/xl_cmdimpl.c	Sun Jun 05 18:29:20 2011 +0200
+@@ -481,6 +481,10 @@ static int parse_disk_config(libxl_devic
+                     state = DSTATE_PHYSPATH;
+                     disk->format = DISK_FORMAT_RAW;
+                     disk->backend = DISK_BACKEND_PHY;
++                }else if ( !strcmp(tok, "script") ) {
++                    state = DSTATE_PHYSPATH;
++                    disk->format = DISK_FORMAT_RAW;
++                    disk->backend = DISK_BACKEND_SCRIPT;
+                 }else if ( !strcmp(tok, "file") ) {
+                     state = DSTATE_PHYSPATH;
+                     disk->format = DISK_FORMAT_RAW;
+@@ -4448,6 +4452,8 @@ int main_blockattach(int argc, char **ar
+     tok = strtok(argv[optind+1], ":");
+     if (!strcmp(tok, "phy")) {
+         disk.backend = DISK_BACKEND_PHY;
++    } else if (!strcmp(tok, "script")) {
++        disk.backend = DISK_BACKEND_SCRIPT;
+     } else if (!strcmp(tok, "file")) {
+         disk.backend = DISK_BACKEND_TAP;
+     } else if (!strcmp(tok, "tap")) {
+exporting patch:
+<fdopen>

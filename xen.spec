@@ -7,7 +7,7 @@
 Summary: Xen is a virtual machine monitor
 Name:    xen
 Version: 4.1.0
-Release: 1%{?dist}
+Release: 3%{?dist}
 Epoch:   1000
 Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
@@ -22,6 +22,10 @@ Source12: zlib-1.2.3.tar.gz
 Source13: pciutils-2.2.9.tar.bz2
 Source14: grub-0.97.tar.gz
 Source15: ipxe-git-v1.0.0.tar.gz
+Source16: ocaml-3.11.0.tar.gz
+Source17: gc.tar.gz
+Source18: tpm_emulator-0.5.1.tar.gz
+Source19: tboot-20090330.tar.gz
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
@@ -45,6 +49,25 @@ Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
 
 Patch100: xen-configure-xend.patch
+Patch101: xen-no-downloads.patch
+
+# libxl fixes
+# 102-109,112-113 are candidates to be included in upstream release
+Patch102: xen-libxl-destroy-dev-fe-be-too.patch
+Patch103: xen-libxl-devid-name.patch
+Patch104: xen-libxl-devid-to-device-strings.patch
+Patch105: xen-xl-networkattach-memory-allocation.patch
+Patch106: xen-libxl-python-null-vmname.patch
+Patch107: xen-libxl-removable-null.patch
+Patch108: xen-libxl-devid-to-nic-domid.patch
+Patch109: xen-libxl-device-model-disks-only-when-needed.patch
+Patch110: xen-libxl-script-block-backend.patch
+Patch111: xen-hotplug-external-store.patch
+Patch112: xen-libxl-add-all-pci-at-once.patch
+Patch113: xen-libxl-pci-detach-fix.patch
+
+# Xen security patches
+Patch201: xen-block-msis-on-trap-vectors-xen41.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -177,12 +200,32 @@ to build the xen packages.
 %patch28 -p1
 
 %patch100 -p1
+%patch101 -p1
+
+%patch102 -p1
+%patch103 -p1
+%patch104 -p1
+%patch105 -p1
+%patch106 -p1
+%patch107 -p1
+%patch108 -p1
+%patch109 -p1
+%patch110 -p1
+%patch111 -p1
+%patch112 -p1
+%patch113 -p1
+
+%patch201 -p1
 
 # stubdom sources
-cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
+cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
 cp -v %{PATCH23} stubdom/grub.patches/99grub-ext4-support.patch
 cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
+cp -v %{SOURCE17} tools/vnet/
+cp -v %{SOURCE18} tools/vtpm/
 
+mkdir -p tboot
+cp -v %{SOURCE19} tboot/
 
 %build
 export XEN_VENDORVERSION="-%{release}"
