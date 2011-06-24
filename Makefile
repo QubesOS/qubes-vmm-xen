@@ -139,35 +139,27 @@ clean ::
 
 update-repo-current:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/vm/f14/rpm/
-	ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/vm/f14/rpm/
-	ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/vm/f14/rpm/
-
+	for vmrepo in ../yum/current-release/current/vm/* ; do \
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+	done
 
 update-repo-current-testing:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/vm/f14/rpm/
-	ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/vm/f14/rpm/
-	ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/vm/f14/rpm/
-
-
+	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+	done
 
 update-repo-unstable:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/vm/f14/rpm/
-	ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/vm/f14/rpm/
-	ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/vm/f13/rpm/
-	ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/vm/f14/rpm/
-
-
+	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+	done
 
 update-repo-installer:
 	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
