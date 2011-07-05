@@ -1,0 +1,25 @@
+# HG changeset patch
+# User Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+# Date 1308674157 -3600
+# Node ID dfefeee946d5fa52b6edfa497e789d0701e7bbf2
+# Parent  8a7f52c59d64360c6286d6c13e64be7be3cb6157
+libxl: always set list out parameter of libxl_device_pci_list_assigned
+
+Signed-off-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Committed-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+diff -r 8a7f52c59d64 -r dfefeee946d5 tools/libxl/libxl_pci.c
+--- a/tools/libxl/libxl_pci.c	Fri Jun 10 10:47:02 2011 +0200
++++ b/tools/libxl/libxl_pci.c	Tue Jun 21 17:35:57 2011 +0100
+@@ -1026,8 +1026,7 @@ int libxl_device_pci_list_assigned(libxl
+             } while ((p = strtok_r(NULL, ",=", &saveptr)) != NULL);
+         }
+     }
+-    if ( *num )
+-        *list = pcidevs;
++    *list = pcidevs;
+     libxl__free_all(&gc);
+     return 0;
+ }
+exporting patch:
+<fdopen>
