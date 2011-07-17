@@ -65,6 +65,7 @@ Patch110: xen-libxl-script-block-backend.patch
 Patch111: xen-hotplug-external-store.patch
 Patch112: xen-libxl-add-all-pci-at-once.patch
 Patch113: xen-libxl-pci-detach-fix.patch
+Patch114: xen-libxl-pci-list-segv-fix.patch
 
 # Xen security patches
 Patch201: xen-block-msis-on-trap-vectors-xen41.patch
@@ -214,6 +215,7 @@ to build the xen packages.
 %patch111 -p1
 %patch112 -p1
 %patch113 -p1
+%patch114 -p1
 
 %patch201 -p1
 
