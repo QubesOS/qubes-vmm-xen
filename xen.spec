@@ -4,10 +4,13 @@
 %define hv_abi  4.1
 
 %define dist .qubes
+%{!?version: %define version %(cat version)}
+%{!?rel: %define rel %(cat rel)}
+
 Summary: Xen is a virtual machine monitor
 Name:    xen
-Version: 4.1.0
-Release: 4%{?dist}
+Version: %{version}
+Release: %{rel}%{?dist}
 Epoch:   1000
 Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
