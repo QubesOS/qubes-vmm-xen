@@ -1,0 +1,34 @@
+--- xen-4.1.0.ori/tools/libxl/libxl_device.c	2011-06-25 23:57:47.784568053 +0200
++++ xen-4.1.0/tools/libxl/libxl_device.c	2011-07-24 19:03:35.001130918 +0200
+@@ -65,7 +65,8 @@
+                              char **bents, char **fents)
+ {
+     libxl__gc gc = LIBXL_INIT_GC(ctx);
+-    char *frontend_path, *backend_path;
++    char *frontend_path, *backend_path, *backend_domain_path;
++    char *tmp;
+     xs_transaction_t t;
+     struct xs_permissions frontend_perms[2];
+     struct xs_permissions backend_perms[2];
+@@ -78,6 +79,10 @@
+ 
+     frontend_path = libxl__device_frontend_path(&gc, device);
+     backend_path = libxl__device_backend_path(&gc, device);
++    backend_domain_path = libxl__strdup(&gc, backend_path);
++    if ((tmp = rindex(backend_domain_path, '/'))) {
++        *tmp ='\0';
++    }
+ 
+     frontend_perms[0].id = device->domid;
+     frontend_perms[0].perms = XS_PERM_NONE;
+@@ -103,8 +108,9 @@
+ 
+     if (bents) {
+         xs_rm(ctx->xsh, t, backend_path);
++        xs_mkdir(ctx->xsh, t, backend_domain_path);
++        xs_set_permissions(ctx->xsh, t, backend_domain_path, backend_perms, ARRAY_SIZE(backend_perms));
+         xs_mkdir(ctx->xsh, t, backend_path);
+-        xs_set_permissions(ctx->xsh, t, backend_path, backend_perms, ARRAY_SIZE(backend_perms));
+         xs_write(ctx->xsh, t, libxl__sprintf(&gc, "%s/frontend", backend_path), frontend_path, strlen(frontend_path));
+         libxl__xs_writev(&gc, t, backend_path, bents);
+     }
