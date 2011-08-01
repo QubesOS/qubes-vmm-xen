@@ -1,0 +1,15 @@
+--- xen-4.1.0/tools/libxl/libxl.c.orig	2011-08-01 08:20:49.388002097 -0400
++++ xen-4.1.0/tools/libxl/libxl.c	2011-08-01 08:23:49.744002195 -0400
+@@ -1235,7 +1235,11 @@
+                                      libxl__sprintf(&gc, "%s/device/vif", dompath), &nb))) {
+             nic->devid = 0;
+         } else {
+-            nic->devid = strtoul(l[nb - 1], NULL, 10) + 1;
++            if (nb > 0)
++                nic->devid = strtoul(l[nb - 1], NULL, 10) + 1;
++            else
++                /* happens after network-detach */
++                nic->devid = 0;
+         }
+     }
+ 

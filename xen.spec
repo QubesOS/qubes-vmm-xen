@@ -55,7 +55,7 @@ Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
 
 # libxl fixes
-# 102-109,112-113 are candidates to be included in upstream release
+# 102-109,112-113,117 are candidates to be included in upstream release
 Patch102: xen-libxl-destroy-dev-fe-be-too.patch
 Patch103: xen-libxl-devid-name.patch
 Patch104: xen-libxl-devid-to-device-strings.patch
@@ -71,6 +71,7 @@ Patch113: xen-libxl-pci-detach-fix.patch
 Patch114: xen-libxl-pci-list-segv-fix.patch
 Patch115: xen-libxl-backend-xenstore-perms.patch
 Patch116: xen-shared-loop-fix.patch
+Patch117: xen-libxl-networkattach-empty-vif-dir.patch
 
 # Xen security patches
 Patch201: xen-block-msis-on-trap-vectors-xen41.patch
