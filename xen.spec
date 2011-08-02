@@ -224,6 +224,7 @@ to build the xen packages.
 %patch114 -p1
 %patch115 -p1
 %patch116 -p1
+%patch117 -p1
 
 %patch201 -p1
 
