@@ -73,9 +73,6 @@ Patch115: xen-libxl-backend-xenstore-perms.patch
 Patch116: xen-shared-loop-fix.patch
 Patch117: xen-libxl-networkattach-empty-vif-dir.patch
 
-# Xen security patches
-Patch201: xen-block-msis-on-trap-vectors-xen41.patch
-
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript tetex-latex
@@ -225,8 +222,6 @@ to build the xen packages.
 %patch115 -p1
 %patch116 -p1
 %patch117 -p1
-
-%patch201 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
