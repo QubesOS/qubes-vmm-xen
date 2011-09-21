@@ -83,6 +83,9 @@ $(ALL_FILES):
 	@wget -c $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(PCIUTILS_URL)$(PCIUTILS_SIGN_SUFF) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
 	@echo "OK."
 
+import-keys:
+	 gpg --import *-key.asc
+
 verify-sources: verify-sources-sig verify-sources-sign verify-sources-sum
 
 verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
