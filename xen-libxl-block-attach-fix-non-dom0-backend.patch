@@ -1,0 +1,38 @@
+# HG changeset patch
+# Parent 4683409fac3d4fef836ce78f01f12b31f5f9e12a
+libxl: fix block attach with non-dom0 backend
+
+When backend!=dom0 there is no simple way to get major:minor numbers. So just
+no verify it and leave filling it to hotplug script (as xend does).
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+diff -r 4683409fac3d tools/libxl/libxl.c
+--- a/tools/libxl/libxl.c	Sun Sep 04 23:49:56 2011 +0200
++++ b/tools/libxl/libxl.c	Fri Sep 30 00:17:58 2011 +0200
+@@ -886,6 +886,10 @@ static int validate_virtual_disk(libxl_c
+     if (disk->format == DISK_FORMAT_EMPTY)
+         return 0;
+ 
++    // cannot validate device from domU
++    if (disk->backend_domid != 0)
++        return 0;
++
+     if (disk->format == DISK_FORMAT_RAW) {
+         delimiter = strchr(file_name, ':');
+         if (delimiter) {
+@@ -956,9 +960,11 @@ int libxl_device_disk_add(libxl_ctx *ctx
+ 
+     switch (disk->backend) {
+         case DISK_BACKEND_PHY: 
+-            libxl__device_physdisk_major_minor(disk->pdev_path, &major, &minor);
+-            flexarray_append(back, "physical-device");
+-            flexarray_append(back, libxl__sprintf(&gc, "%x:%x", major, minor));
++            if (disk->backend_domid == 0) {
++                libxl__device_physdisk_major_minor(disk->pdev_path, &major, &minor);
++                flexarray_append(back, "physical-device");
++                flexarray_append(back, libxl__sprintf(&gc, "%x:%x", major, minor));
++            }
+ 
+             flexarray_append(back, "params");
+             flexarray_append(back, disk->pdev_path);
