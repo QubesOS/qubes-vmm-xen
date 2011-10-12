@@ -1,0 +1,11 @@
+--- a/tools/libxl/xl_cmdimpl.c	2011-10-12 15:53:38.000000000 +0200
++++ b/tools/libxl/xl_cmdimpl.c	2011-10-12 15:54:22.356000598 +0200
+@@ -1573,7 +1573,7 @@
+ 
+         child1 = libxl_fork(&ctx);
+         if (child1) {
+-            printf("Daemon running with PID %d\n", child1);
++            fprintf(stderr, "Daemon running with PID %d\n", child1);
+ 
+             for (;;) {
+                 got_child = waitpid(child1, &status, 0);
