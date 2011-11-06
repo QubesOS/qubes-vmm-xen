@@ -175,7 +175,6 @@ update-repo-installer:
 	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
 	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
 	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	cd ../installer/yum && ./update_repo.sh
 
 help:
 	@echo "Usage: make <target>"
