@@ -86,7 +86,7 @@ $(ALL_FILES):
 import-keys:
 	 gpg --import *-key.asc
 
-verify-sources: verify-sources-sig verify-sources-sign verify-sources-sum
+verify-sources: import-keys verify-sources-sig verify-sources-sign verify-sources-sum
 
 verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
 	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sig $$f; done
