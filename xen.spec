@@ -244,6 +244,7 @@ cp -v %{SOURCE19} tboot/
 %build
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
+export OCAML_TOOLS=n
 make %{?_smp_mflags} prefix=/usr dist-xen
 make %{?_smp_mflags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
@@ -253,6 +254,7 @@ make dist-stubdom
 
 %install
 rm -rf %{buildroot}
+export OCAML_TOOLS=n
 make DESTDIR=%{buildroot} prefix=/usr install-xen
 make DESTDIR=%{buildroot} prefix=/usr install-tools
 make DESTDIR=%{buildroot} prefix=/usr install-docs
