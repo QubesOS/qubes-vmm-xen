@@ -1,0 +1,109 @@
+diff -ru xen/xen-4.1.1/tools/libxl/libxl.c xen-hvm/xen-4.1.1/tools/libxl/libxl.c
+--- xen/xen-4.1.1/tools/libxl/libxl.c	2011-10-12 15:53:38.780000594 +0200
++++ xen-hvm/xen-4.1.1/tools/libxl/libxl.c	2012-02-22 02:06:57.188002819 +0100
+@@ -673,10 +673,12 @@
+     sscanf(backend,
+             "/local/domain/%d/backend/%" TOSTRING(BACKEND_STRING_SIZE) "[a-z]/%*d/%*d",
+             &disk->backend_domid, backend_type);
+-	if (!strcmp(backend_type, "tap") || !strcmp(backend_type, "vbd")) {
++	if (!strcmp(backend_type, "tap")) {
+ 		disk->backend = DISK_BACKEND_TAP;
+ 	} else if (!strcmp(backend_type, "qdisk")) {
+ 		disk->backend = DISK_BACKEND_QDISK;
++	} else if (!strcmp(backend_type, "vbd")) {
++		disk->backend = DISK_BACKEND_PHY;
+ 	} else {
+ 		disk->backend = DISK_BACKEND_UNKNOWN;
+ 	} 
+@@ -1788,7 +1790,7 @@
+             else
+                 pdisk->readwrite = 0;
+             type = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/device-type", libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/%s/frontend", be_path, *dir))));
+-            pdisk->is_cdrom = !strcmp(type, "cdrom");
++            pdisk->is_cdrom = type && !strcmp(type, "cdrom");
+         }
+     }
+ 
+diff -ru xen/xen-4.1.1/tools/libxl/libxl_dm.c xen-hvm/xen-4.1.1/tools/libxl/libxl_dm.c
+--- xen/xen-4.1.1/tools/libxl/libxl_dm.c	2012-02-22 00:13:13.932004341 +0100
++++ xen-hvm/xen-4.1.1/tools/libxl/libxl_dm.c	2012-02-22 18:18:09.128004600 +0100
+@@ -520,6 +520,8 @@
+     xs_set_permissions(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/0/device-model/%d", info->domid), perm, ARRAY_SIZE(perm));
+     xs_mkdir(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vfs", domid));
+     xs_set_permissions(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vfs",domid), perm, ARRAY_SIZE(perm));
++    xs_mkdir(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vchan", domid));
++    xs_set_permissions(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vchan",domid), perm, ARRAY_SIZE(perm));
+     if (!xs_transaction_end(ctx->xsh, t, 0))
+         if (errno == EAGAIN)
+             goto retry_transaction;
+@@ -536,14 +538,16 @@
+         if (ret)
+             goto out_free;
+     }
+-    vfb->domid = domid;
+-    ret = libxl_device_vfb_add(ctx, domid, vfb);
+-    if (ret)
+-        goto out_free;
+-    vkb->domid = domid;
+-    ret = libxl_device_vkb_add(ctx, domid, vkb);
+-    if (ret)
+-        goto out_free;
++    if (vfb && vkb) {
++        vfb->domid = domid;
++        ret = libxl_device_vfb_add(ctx, domid, vfb);
++        if (ret)
++            goto out_free;
++        vkb->domid = domid;
++        ret = libxl_device_vkb_add(ctx, domid, vkb);
++        if (ret)
++            goto out_free;
++    }
+ 
+     if (info->serial)
+         num_console++;
+@@ -587,13 +591,15 @@
+         if (ret)
+             goto out_free;
+     }
+-    if (libxl__create_xenpv_qemu(ctx, domid, vfb, &dm_starting) < 0) {
+-        ret = ERROR_FAIL;
+-        goto out_free;
+-    }
+-    if (libxl__confirm_device_model_startup(ctx, dm_starting) < 0) {
+-        ret = ERROR_FAIL;
+-        goto out_free;
++    if (libxl__need_xenpv_qemu(ctx, num_console, console, vfb ? 1 : 0, vfb, num_disks, disks)) {
++        if (libxl__create_xenpv_qemu(ctx, domid, vfb, &dm_starting) < 0) {
++            ret = ERROR_FAIL;
++            goto out_free;
++        }
++        if (libxl__confirm_device_model_startup(ctx, dm_starting) < 0) {
++            ret = ERROR_FAIL;
++            goto out_free;
++        }
+     }
+ 
+     libxl_domain_unpause(ctx, domid);
+@@ -631,11 +637,18 @@
+     char **pass_stuff;
+ 
+     if (strstr(info->device_model, "stubdom-dm")) {
+-        libxl_device_vfb vfb;
+-        libxl_device_vkb vkb;
++        libxl_device_vfb vfb, *vfb_p;
++        libxl_device_vkb vkb, *vkb_p;
+ 
+-        libxl_vfb_and_vkb_from_device_model_info(ctx, info, &vfb, &vkb);
+-        rc = libxl_create_stubdom(ctx, info, disks, num_disks, vifs, num_vifs, &vfb, &vkb, starting_r);
++        if (info->vnc || info->sdl) {
++            libxl_vfb_and_vkb_from_device_model_info(ctx, info, &vfb, &vkb);
++            vfb_p = &vfb;
++            vkb_p = &vkb;
++        } else {
++            vfb_p = NULL;
++            vkb_p = NULL;
++        }
++        rc = libxl_create_stubdom(ctx, info, disks, num_disks, vifs, num_vifs, vfb_p, vkb_p, starting_r);
+         goto out;
+     }
+ 
