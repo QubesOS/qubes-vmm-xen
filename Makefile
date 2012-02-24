@@ -53,7 +53,7 @@ NEWLIB_FILE := newlib-1.16.0.tar.gz
 NEWLIB_URL := ftp://sources.redhat.com/pub/newlib/$(NEWLIB_FILE)
 
 PCIUTILS_FILE := pciutils-2.2.9.tar.bz2
-PCIUTILS_URL := http://kernel.inode.at/pub/software/utils/pciutils/$(PCIUTILS_FILE)
+PCIUTILS_URL := http://www.kernel.org/pub/software/utils/pciutils/$(PCIUTILS_FILE)
 PCIUTILS_SIGN_SUFF := .sign
 
 ZLIB_FILE := zlib-1.2.3.tar.gz
