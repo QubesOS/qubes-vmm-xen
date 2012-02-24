@@ -39,6 +39,10 @@ Source30: sysconfig.xenstored
 Source31: sysconfig.xenconsoled
 Source32: sysconfig.blktapctrl
 
+# Qubes components for stubdom
+Source33: gui
+Source34: core
+
 Patch1: xen-initscript.patch
 Patch4: xen-dumpdir.patch
 Patch5: xen-net-disable-iptables-on-bridge.patch
@@ -76,6 +80,9 @@ Patch118: xen-libxl-double-free.patch
 Patch119: xen-libxl-pci-list-segv-fix2.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
 Patch121: xen-libxl-daemon-pid-stderr.patch
+
+# Qubes HVM
+Patch200: xen-stubdom-qubes-gui.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -231,12 +238,22 @@ to build the xen packages.
 %patch120 -p1
 %patch121 -p1
 
+%patch200 -p0
+
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
 cp -v %{PATCH23} stubdom/grub.patches/99grub-ext4-support.patch
 cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
 cp -v %{SOURCE17} tools/vnet/
 cp -v %{SOURCE18} tools/vtpm/
+
+# qubes specific parts of stubdom
+mkdir tools/qubes-gui/
+cp -a %{SOURCE33}/* tools/qubes-gui/
+make -C tools/qubes-gui clean
+cp -a %{SOURCE34}/vchan tools/
+make -C tools/vchan clean
+patch -p1 < tools/qubes-gui/gui-agent-qemu/qemu-glue.patch
 
 mkdir -p tboot
 cp -v %{SOURCE19} tboot/
