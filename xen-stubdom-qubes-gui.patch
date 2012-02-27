@@ -1,0 +1,64 @@
+--- stubdom/Makefile.orig	2012-02-21 15:42:20.364000956 +0100
++++ stubdom/Makefile	2012-02-21 15:43:40.916001086 +0100
+@@ -245,6 +245,11 @@
+ 	  ln -sf ../$(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.c . && \
+ 	  ln -sf ../$(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.h . && \
+ 	  ln -sf ../$(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/Makefile . )
++	mkdir -p vchan-$(XEN_TARGET_ARCH)
++	[ -h vchan-$(XEN_TARGET_ARCH) ] || ( cd vchan-$(XEN_TARGET_ARCH) && \
++	  ln -sf ../$(XEN_ROOT)/tools/vchan/*.c . && \
++	  ln -sf ../$(XEN_ROOT)/tools/vchan/*.h . && \
++	  ln -sf ../$(XEN_ROOT)/tools/vchan/Makefile.stubdom ./Makefile )
+ 	$(CROSS_MAKE) -C $(MINI_OS) links
+ 	touch mk-headers-$(XEN_TARGET_ARCH)
+ 
+@@ -267,6 +272,15 @@
+  libxc-$(XEN_TARGET_ARCH)/libxenguest.a: libxc-$(XEN_TARGET_ARCH)/libxenctrl.a
+ 
+ #######
++# vchan
++#######
++
++.PHONY: vchan
++vchan: vchan-$(XEN_TARGET_ARCH)/libvchan.a
++vchan-$(XEN_TARGET_ARCH)/libvchan.a:
++	CPPFLAGS="$(TARGET_CPPFLAGS)" CFLAGS="$(TARGET_CFLAGS)" $(CROSS_MAKE) -C vchan-$(XEN_TARGET_ARCH)
++
++#######
+ # ioemu
+ #######
+ 
+@@ -321,19 +335,19 @@
+ 
+ .PHONY: ioemu-stubdom
+ ioemu-stubdom: APP_OBJS=$(CURDIR)/ioemu/i386-stubdom/qemu.a $(CURDIR)/ioemu/i386-stubdom/libqemu.a $(CURDIR)/ioemu/libqemu_common.a
+-ioemu-stubdom: mini-os-$(XEN_TARGET_ARCH)-ioemu lwip-$(XEN_TARGET_ARCH) libxc ioemu
++ioemu-stubdom: mini-os-$(XEN_TARGET_ARCH)-ioemu lwip-$(XEN_TARGET_ARCH) libxc ioemu vchan
+ 	DEF_CPPFLAGS="$(TARGET_CPPFLAGS)" DEF_CFLAGS="-DCONFIG_QEMU $(TARGET_CFLAGS)" DEF_LDFLAGS="$(TARGET_LDFLAGS)" $(CROSS_MAKE) -C $(MINI_OS) OBJ_DIR=$(CURDIR)/$< LWIPDIR=$(CURDIR)/lwip-$(XEN_TARGET_ARCH) APP_OBJS="$(APP_OBJS)"
+ 
+ .PHONY: caml-stubdom
+-caml-stubdom: mini-os-$(XEN_TARGET_ARCH)-caml lwip-$(XEN_TARGET_ARCH) libxc cross-ocaml caml
++caml-stubdom: mini-os-$(XEN_TARGET_ARCH)-caml lwip-$(XEN_TARGET_ARCH) libxc cross-ocaml caml vchan
+ 	DEF_CPPFLAGS="$(TARGET_CPPFLAGS)" DEF_CFLAGS="-DCONFIG_CAML $(TARGET_CFLAGS)" DEF_LDFLAGS="$(TARGET_LDFLAGS)" $(CROSS_MAKE) -C $(MINI_OS) OBJ_DIR=$(CURDIR)/$< LWIPDIR=$(CURDIR)/lwip-$(XEN_TARGET_ARCH) APP_OBJS="$(CURDIR)/caml/main-caml.o $(CURDIR)/caml/caml.o $(CAMLLIB)/libasmrun.a"
+ 
+ .PHONY: c-stubdom
+-c-stubdom: mini-os-$(XEN_TARGET_ARCH)-c lwip-$(XEN_TARGET_ARCH) libxc c
++c-stubdom: mini-os-$(XEN_TARGET_ARCH)-c lwip-$(XEN_TARGET_ARCH) libxc c vchan
+ 	DEF_CPPFLAGS="$(TARGET_CPPFLAGS)" DEF_CFLAGS="-DCONFIG_C $(TARGET_CFLAGS)" DEF_LDFLAGS="$(TARGET_LDFLAGS)" $(CROSS_MAKE) -C $(MINI_OS) OBJ_DIR=$(CURDIR)/$< LWIPDIR=$(CURDIR)/lwip-$(XEN_TARGET_ARCH) APP_OBJS=$(CURDIR)/c/main.a
+ 
+ .PHONY: pv-grub
+-pv-grub: mini-os-$(XEN_TARGET_ARCH)-grub libxc grub
++pv-grub: mini-os-$(XEN_TARGET_ARCH)-grub libxc grub vchan
+ 	DEF_CPPFLAGS="$(TARGET_CPPFLAGS)" DEF_CFLAGS="-DCONFIG_GRUB $(TARGET_CFLAGS)" DEF_LDFLAGS="$(TARGET_LDFLAGS)" $(CROSS_MAKE) -C $(MINI_OS) OBJ_DIR=$(CURDIR)/$< APP_OBJS=$(CURDIR)/grub-$(XEN_TARGET_ARCH)/main.a
+ 
+ #########
+--- extras/mini-os/Makefile	2011-06-14 18:03:43.000000000 +0200
++++ extras/mini-os/Makefile	2012-02-18 01:05:39.288000355 +0100
+@@ -83,6 +83,7 @@
+ APP_LDLIBS += -lpci
+ APP_LDLIBS += -lz
+ APP_LDLIBS += -lm
++APP_LDLIBS += -L$(XEN_ROOT)/stubdom/vchan-$(XEN_TARGET_ARCH) -lvchan
+ LDLIBS += -lc
+ endif
+ 
