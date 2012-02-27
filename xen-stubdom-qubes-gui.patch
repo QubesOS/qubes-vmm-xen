@@ -1,14 +1,14 @@
 --- stubdom/Makefile.orig	2012-02-21 15:42:20.364000956 +0100
 +++ stubdom/Makefile	2012-02-21 15:43:40.916001086 +0100
 @@ -245,6 +245,11 @@
- 	  ln -sf ../$(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.c . && \
- 	  ln -sf ../$(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.h . && \
- 	  ln -sf ../$(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/Makefile . )
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.c . && \
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.h . && \
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/Makefile . )
 +	mkdir -p vchan-$(XEN_TARGET_ARCH)
 +	[ -h vchan-$(XEN_TARGET_ARCH) ] || ( cd vchan-$(XEN_TARGET_ARCH) && \
-+	  ln -sf ../$(XEN_ROOT)/tools/vchan/*.c . && \
-+	  ln -sf ../$(XEN_ROOT)/tools/vchan/*.h . && \
-+	  ln -sf ../$(XEN_ROOT)/tools/vchan/Makefile.stubdom ./Makefile )
++	  ln -sf $(XEN_ROOT)/tools/vchan/*.c . && \
++	  ln -sf $(XEN_ROOT)/tools/vchan/*.h . && \
++	  ln -sf $(XEN_ROOT)/tools/vchan/Makefile.stubdom ./Makefile )
  	$(CROSS_MAKE) -C $(MINI_OS) links
  	touch mk-headers-$(XEN_TARGET_ARCH)
  
