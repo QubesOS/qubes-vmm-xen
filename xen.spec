@@ -60,14 +60,8 @@ Patch101: xen-no-downloads.patch
 
 # libxl fixes
 # 102-109,112-113,117 are candidates to be included in upstream release
-Patch102: xen-libxl-destroy-dev-fe-be-too.patch
-Patch103: xen-libxl-devid-name.patch
-Patch104: xen-libxl-devid-to-device-strings.patch
 Patch105: xen-xl-networkattach-memory-allocation.patch
-Patch106: xen-libxl-python-null-vmname.patch
-Patch107: xen-libxl-removable-null.patch
 Patch108: xen-libxl-devid-to-nic-domid.patch
-Patch109: xen-libxl-device-model-disks-only-when-needed.patch
 Patch110: xen-libxl-script-block-backend.patch
 Patch111: xen-hotplug-external-store.patch
 Patch112: xen-libxl-add-all-pci-at-once.patch
@@ -76,8 +70,6 @@ Patch114: xen-libxl-pci-list-segv-fix.patch
 Patch115: xen-libxl-backend-xenstore-perms.patch
 Patch116: xen-shared-loop-fix.patch
 Patch117: xen-libxl-networkattach-empty-vif-dir.patch
-Patch118: xen-libxl-double-free.patch
-Patch119: xen-libxl-pci-list-segv-fix2.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
 Patch121: xen-libxl-daemon-pid-stderr.patch
 
@@ -218,14 +210,8 @@ to build the xen packages.
 %patch100 -p1
 %patch101 -p1
 
-%patch102 -p1
-%patch103 -p1
-%patch104 -p1
 %patch105 -p1
-%patch106 -p1
-%patch107 -p1
 %patch108 -p1
-%patch109 -p1
 %patch110 -p1
 %patch111 -p1
 %patch112 -p1
@@ -234,8 +220,6 @@ to build the xen packages.
 %patch115 -p1
 %patch116 -p1
 %patch117 -p1
-%patch118 -p1
-%patch119 -p1
 %patch120 -p1
 %patch121 -p1
 
