@@ -76,6 +76,7 @@ Patch121: xen-libxl-daemon-pid-stderr.patch
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
 Patch201: xen-libxl-qubes-minimal-stubdom.patch
+Patch202: xen-disable-dom0-qemu.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -225,6 +226,7 @@ to build the xen packages.
 
 %patch200 -p0
 %patch201 -p2
+%patch202 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
