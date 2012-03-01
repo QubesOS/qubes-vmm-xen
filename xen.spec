@@ -7,6 +7,8 @@
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
+%{!?version_gui: %define version_gui %(cat gui/version)}
+
 Summary: Xen is a virtual machine monitor
 Name:    xen
 Version: %{version}
@@ -76,6 +78,7 @@ Patch121: xen-libxl-daemon-pid-stderr.patch
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
 Patch201: xen-libxl-qubes-minimal-stubdom.patch
+Patch202: xen-disable-dom0-qemu.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -140,7 +143,6 @@ AutoReq: 0
 %description qubes-vm-essentials
 Just a few xenstore-* tools and hotplug scripts needed by Qubes VMs (including netvm)
 
-
 %package runtime
 Summary: Core Xen runtime environment
 Group: Development/Libraries
@@ -193,6 +195,15 @@ Group: Documentation
 This package contains the license files from the source used
 to build the xen packages.
 
+%package hvm
+Summary: Loader and device-model for HVM
+Requires: xen-libs = %{version}-%{release}
+Requires: xen-runtime = %{version}-%{release}
+Version: %{version}gui%{version_gui}
+
+%description hvm
+This package contains files for HVM domains, especially stubdomain with device model.
+
 
 %prep
 %setup -q
@@ -225,6 +236,7 @@ to build the xen packages.
 
 %patch200 -p0
 %patch201 -p2
+%patch202 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
@@ -523,22 +535,6 @@ rm -rf %{buildroot}
 %{python_sitearch}/grub
 %{python_sitearch}/pygrub-*.egg-info
 
-# The firmware
-%ifnarch ia64
-# Avoid owning /usr/lib twice on i386
-%if "%{_libdir}" != "/usr/lib"
-%dir /usr/lib/%{name}
-%dir /usr/lib/%{name}/bin
-/usr/lib/%{name}/bin/stubdom-dm
-/usr/lib/%{name}/bin/qemu-dm
-/usr/lib/%{name}/bin/stubdompath.sh
-%endif
-%dir /usr/lib/%{name}/boot
-# HVM loader is always in /usr/lib regardless of multilib
-/usr/lib/xen/boot/hvmloader
-/usr/lib/xen/boot/ioemu-stubdom.gz
-/usr/lib/xen/boot/pv-grub*.gz
-%endif
 # General Xen state
 %dir %{_localstatedir}/lib/%{name}
 %dir %{_localstatedir}/lib/%{name}/dump
@@ -623,6 +619,24 @@ rm -rf %{buildroot}
 %files licenses
 %defattr(-,root,root)
 %doc licensedir/*
+
+%files hvm
+# The firmware
+%ifnarch ia64
+# Avoid owning /usr/lib twice on i386
+%if "%{_libdir}" != "/usr/lib"
+%dir /usr/lib/%{name}
+%dir /usr/lib/%{name}/bin
+/usr/lib/%{name}/bin/stubdom-dm
+/usr/lib/%{name}/bin/qemu-dm
+/usr/lib/%{name}/bin/stubdompath.sh
+%endif
+%dir /usr/lib/%{name}/boot
+# HVM loader is always in /usr/lib regardless of multilib
+/usr/lib/xen/boot/hvmloader
+/usr/lib/xen/boot/ioemu-stubdom.gz
+/usr/lib/xen/boot/pv-grub*.gz
+%endif
 
 %changelog
 * Fri Mar 25 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.0-1

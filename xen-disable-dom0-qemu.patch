@@ -1,0 +1,21 @@
+--- xen-4.1.1/tools/libxl/libxl_dm.c	2012-02-22 18:18:09.128004600 +0100
++++ xen-4.1.1/tools/libxl/libxl_dm.c.new	2012-02-28 02:11:35.632006179 +0100
+@@ -574,6 +574,7 @@
+                 libxl_create_logfile(ctx, name, &filename);
+                 console[i].output = libxl__sprintf(&gc, "file:%s", filename);
+                 console[i].build_state = &state;
++                console[i].consback = LIBXL_CONSBACK_XENCONSOLED;
+                 free(filename);
+                 break;
+             case STUBDOM_CONSOLE_SAVE:
+@@ -591,7 +592,9 @@
+         if (ret)
+             goto out_free;
+     }
+-    if (libxl__need_xenpv_qemu(ctx, num_console, console, vfb ? 1 : 0, vfb, num_disks, disks)) {
++	// dirty hack: ignore STUBDOM_CONSOLE_SAVE and STUBDOM_CONSOLE_RESTORE when deciding for qemu
++	// will be enabled if serial console passed to VM (then num_console=4)
++    if (libxl__need_xenpv_qemu(ctx, num_console - 2, console, vfb ? 1 : 0, vfb, num_disks, disks)) {
+         if (libxl__create_xenpv_qemu(ctx, domid, vfb, &dm_starting) < 0) {
+             ret = ERROR_FAIL;
+             goto out_free;
