@@ -64,6 +64,7 @@ Patch101: xen-no-downloads.patch
 # libxl fixes
 # 102-109,112-113,117 are candidates to be included in upstream release
 Patch105: xen-xl-networkattach-memory-allocation.patch
+Patch106: xen-libxl-python-missing-pyincref.patch
 Patch108: xen-libxl-devid-to-nic-domid.patch
 Patch110: xen-libxl-script-block-backend.patch
 Patch111: xen-hotplug-external-store.patch
@@ -224,6 +225,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch101 -p1
 
 %patch105 -p1
+%patch106 -p1
 %patch108 -p1
 %patch110 -p1
 %patch111 -p1
