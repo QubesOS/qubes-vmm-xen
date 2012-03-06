@@ -53,8 +53,7 @@ NEWLIB_FILE := newlib-1.16.0.tar.gz
 NEWLIB_URL := ftp://sources.redhat.com/pub/newlib/$(NEWLIB_FILE)
 
 PCIUTILS_FILE := pciutils-2.2.9.tar.bz2
-PCIUTILS_URL := http://kernel.inode.at/pub/software/utils/pciutils/$(PCIUTILS_FILE)
-PCIUTILS_SIGN_SUFF := .sign
+PCIUTILS_URL := http://www.kernel.org/pub/software/utils/pciutils/$(PCIUTILS_FILE)
 
 ZLIB_FILE := zlib-1.2.3.tar.gz
 ZLIB_URL := http://downloads.sourceforge.net/project/libpng/zlib/1.2.3/$(ZLIB_FILE)
@@ -74,27 +73,24 @@ TBOOT_URL := http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
 URL := $(SRC_BASEURL)/$(SRC_FILE)
 URL_SIGN := $(SRC_BASEURL)/$(SIGN_FILE)
 
-ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(PCIUTILS_FILE)$(PCIUTILS_SIGN_SUFF) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE)
+ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE)
 
 get-sources: $(ALL_FILES)
 
 $(ALL_FILES):
 	@echo -n "Downloading sources... "
-	@wget -c $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(PCIUTILS_URL)$(PCIUTILS_SIGN_SUFF) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
+	@wget -c $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
 	@echo "OK."
 
 import-keys:
 	 gpg --import *-key.asc
 
-verify-sources: import-keys verify-sources-sig verify-sources-sign verify-sources-sum
+verify-sources: import-keys verify-sources-sig verify-sources-sum
 
 verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
 	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sig $$f; done
 
-verify-sources-sign: $(PCIUTILS_FILE)
-	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sign $$f; done
-
-verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE)
+verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE)
 	@for f in $^; do md5sum -c $$f.md5sum; done
 	@for f in $^; do sha1sum -c $$f.sha1sum; done
 
