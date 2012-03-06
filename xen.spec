@@ -44,6 +44,7 @@ Source32: sysconfig.blktapctrl
 # Qubes components for stubdom
 Source33: gui
 Source34: core
+Source35: stubdom-dhcp
 
 Patch1: xen-initscript.patch
 Patch4: xen-dumpdir.patch
@@ -79,6 +80,7 @@ Patch121: xen-libxl-daemon-pid-stderr.patch
 Patch200: xen-stubdom-qubes-gui.patch
 Patch201: xen-libxl-qubes-minimal-stubdom.patch
 Patch202: xen-disable-dom0-qemu.patch
+Patch203: stubdom-lwip-fix-for-dhcp.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -237,6 +239,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch200 -p0
 %patch201 -p2
 %patch202 -p1
+%patch203 -p2
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
@@ -252,6 +255,9 @@ make -C tools/qubes-gui clean
 cp -a %{SOURCE34}/vchan tools/
 make -C tools/vchan clean
 patch -p1 < tools/qubes-gui/gui-agent-qemu/qemu-glue.patch
+
+cp -a %{SOURCE35}/* tools/ioemu-qemu-xen/
+patch -d tools/ioemu-qemu-xen -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
 
 mkdir -p tboot
 cp -v %{SOURCE19} tboot/
