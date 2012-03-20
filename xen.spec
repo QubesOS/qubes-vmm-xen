@@ -69,6 +69,7 @@ Patch116: xen-shared-loop-fix.patch
 Patch117: xen-libxl-networkattach-empty-vif-dir.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
 Patch121: xen-libxl-daemon-pid-stderr.patch
+Patch122: xl-disk-backend-domid.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -216,6 +217,7 @@ to build the xen packages.
 %patch117 -p1
 %patch120 -p1
 %patch121 -p1
+%patch122 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom

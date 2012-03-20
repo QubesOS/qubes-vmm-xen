@@ -1,0 +1,33 @@
+Index: xen-hvm/tools/libxl/xl_cmdimpl.c
+===================================================================
+--- xen-hvm.orig/tools/libxl/xl_cmdimpl.c
++++ xen-hvm/tools/libxl/xl_cmdimpl.c
+@@ -464,6 +464,7 @@ static int parse_action_on_shutdown(cons
+ #define DSTATE_VIRTTYPE  4
+ #define DSTATE_RW        5
+ #define DSTATE_TERMINAL  6
++#define DSTATE_BACKEND   7
+ 
+ static int parse_disk_config(libxl_device_disk *disk, char *buf2)
+ {
+@@ -593,9 +594,19 @@ static int parse_disk_config(libxl_devic
+             }
+             break;
+         case DSTATE_RW:
+-            if ( *p == '\0' ) {
++            if ( *p == '\0' || *p == ',' ) {
+                 disk->readwrite = (tok[0] == 'w');
+                 tok = p + 1;
++                if (*p == ',')
++                    state = DSTATE_BACKEND;
++                else
++                    state = DSTATE_TERMINAL;
++            }
++            break;
++        case DSTATE_BACKEND:
++            if ( *p == '\0') {
++                libxl_name_to_domid(&ctx, tok, &(disk->backend_domid));
++                tok = p + 1;
+                 state = DSTATE_TERMINAL;
+             }
+             break;
