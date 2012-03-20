@@ -76,6 +76,7 @@ Patch116: xen-shared-loop-fix.patch
 Patch117: xen-libxl-networkattach-empty-vif-dir.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
 Patch121: xen-libxl-daemon-pid-stderr.patch
+Patch122: xl-disk-backend-domid.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -237,6 +238,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch117 -p1
 %patch120 -p1
 %patch121 -p1
+%patch122 -p1
 
 %patch200 -p0
 %patch201 -p2
