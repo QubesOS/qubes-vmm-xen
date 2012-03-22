@@ -77,10 +77,14 @@ void recv_from_lwip(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 	struct ip_addr dst_addr;
 
 	LWIP_DEBUGF(DHCP_DEBUG | 1, ("dhcp: received packet addr: %x, port %d\n", addr->addr, port));
+	if (p == NULL) {
+		fprintf(stderr, "DHCP: No packet data given\n");
+		return;
+	}
 		
 	if (p->tot_len > sizeof (struct dhcp_msg)) {
 		fprintf(stderr, "DHCP: Packet to big (%u > %lu)\n", p->tot_len, sizeof (struct dhcp_msg));
-		return;
+		goto out;
 	}
 	pbuf_copy_partial(p, &msg, sizeof(struct dhcp_msg), 0);
 
@@ -89,7 +93,7 @@ void recv_from_lwip(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 	if (p->tot_len < sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN)
 	{
 		fprintf(stderr, "DHCP: Message truncated (length was %d)\r\n", p->tot_len);
-		return;
+		goto out;
 	}
 
 	msg.sname[sizeof (msg.sname) - 1] = 0;
@@ -104,7 +108,7 @@ void recv_from_lwip(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 	if (msg.op != DHCP_BOOTREQUEST)
 	{
 		fprintf(stderr, "DHCP: DhcpSrv Request %d not processed\r\n", msg.op);
-		return;
+		goto out;
 	}
 
 	/* if packet was sent to our unicast address -> will reply directly; otherwise will reply to broadcast */
@@ -125,7 +129,7 @@ void recv_from_lwip(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 		p_out = pbuf_alloc(PBUF_TRANSPORT, nSize, PBUF_RAM);
 		if (p_out == NULL) {
 			fprintf(stderr, "dhcp: pbuf_alloc failed\n");
-			return;
+			goto out;
 		}
 		memcpy(p_out->payload, &msg, nSize);
 		LWIP_DEBUGF(DHCP_DEBUG | 1, ("DhcpSrv: send %d bytes\n", nSize));
@@ -135,6 +139,8 @@ void recv_from_lwip(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 		}
 		pbuf_free(p_out);
 	}
+out:
+	pbuf_free(p);
 }
 
 /* "public" functions end */
