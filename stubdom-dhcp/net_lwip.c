@@ -86,6 +86,10 @@ static void lwip_receive(void *opaque, const uint8_t *buf, int size)
 
 	/* move received packet into a new pbuf */
 	p = pbuf_alloc(PBUF_RAW, size, PBUF_POOL);
+	if (p == NULL) {
+		fprintf(stderr, "lwip_receive: cannot allocate memory\n");
+		return;
+	}
 
 #if ETH_PAD_SIZE
   pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
