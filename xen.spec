@@ -455,7 +455,10 @@ rm -rf %{buildroot}
 # Xen logfiles
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen
 
-
+# Python modules
+%dir %{python_sitearch}/%{name}
+%{python_sitearch}/%{name}/__init__.*
+%{python_sitearch}/%{name}/lowlevel
 
 
 # All runtime stuff except for XenD/xm python stuff
