@@ -72,6 +72,7 @@ Patch121: xen-libxl-daemon-pid-stderr.patch
 Patch122: xl-disk-backend-domid.patch
 Patch123: stubdom-vbd-non-dom0-backend.patch
 Patch124: xl-block-parse-cdrom.patch
+Patch125: xen-libxl-error-write-perm.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -222,6 +223,7 @@ to build the xen packages.
 %patch122 -p1
 %patch123 -p1
 %patch124 -p1
+%patch125 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom

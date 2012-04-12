@@ -1,0 +1,19 @@
+libxl: allow domain to report errors through xenstore
+
+Grant access to error/ dir, so backend (mostly) and frontend drivers can report
+problems.
+Index: xen-hvm/tools/libxl/libxl_create.c
+===================================================================
+--- xen-hvm.orig/tools/libxl/libxl_create.c
++++ xen-hvm/tools/libxl/libxl_create.c
+@@ -287,8 +287,8 @@ int libxl__domain_make(libxl_ctx *ctx, l
+     libxl__gc gc = LIBXL_INIT_GC(ctx); /* fixme: should be done by caller */
+     int flags, ret, i, rc;
+     char *uuid_string;
+-    char *rw_paths[] = { "control/shutdown", "device", "device/suspend/event-channel" , "data"};
+-    char *ro_paths[] = { "cpu", "memory", "device", "error", "drivers",
++    char *rw_paths[] = { "control/shutdown", "device", "error", "device/suspend/event-channel" , "data"};
++    char *ro_paths[] = { "cpu", "memory", "device", "drivers",
+                          "control", "attr", "messages" };
+     char *dom_path, *vm_path;
+     struct xs_permissions roperm[2];
