@@ -12,6 +12,7 @@ BUILDDIR ?= $(WORKDIR)
 RPMDIR ?= $(WORKDIR)/rpm
 SOURCEDIR := $(WORKDIR)
 VERSION := $(shell cat version)
+RELEASE := $(shell cat rel).qubes
 
 NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
@@ -23,8 +24,6 @@ RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
 		--define "version $(VERSION)" \
 		--define "jobs $(NO_OF_CPUS)"
 
-VER_REL := $(shell rpm $(RPM_DEFINES) -q --qf "%{VERSION} %{RELEASE}\n" --specfile $(SPECFILE)| head -1)
-
 ifndef NAME
 $(error "You can not run this Makefile without having NAME defined")
 endif
@@ -32,7 +31,7 @@ ifndef VERSION
 $(error "You can not run this Makefile without having VERSION defined")
 endif
 ifndef RELEASE
-RELEASE := $(word 2, $(VER_REL))
+$(error "You can not run this Makefile without having RELEASE defined")
 endif
 
 all: help
