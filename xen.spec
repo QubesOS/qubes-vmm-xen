@@ -88,6 +88,7 @@ Patch202: xen-disable-dom0-qemu.patch
 Patch203: stubdom-lwip-fix-for-dhcp.patch
 Patch204: xen-libxl-stubdom-pci-create.patch
 Patch205: xen-libxl-timeoffset-localtime.patch
+Patch206: msi-after-sleep.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -254,6 +255,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch203 -p2
 %patch204 -p1
 %patch205 -p1
+%patch206 -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
