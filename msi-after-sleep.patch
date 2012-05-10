@@ -1,0 +1,58 @@
+diff --git a/hw/pass-through.c b/hw/pass-through.c
+index f832c5a..5c32a2e 100644
+--- a/tools/ioemu-qemu-xen/hw/pass-through.c
++++ b/tools/ioemu-qemu-xen/hw/pass-through.c
+@@ -3772,6 +3772,21 @@ static int pt_pmcsr_reg_write(struct pt_dev *ptdev,
+     return 0;
+ }
+ 
++static int msi_is_enable(struct pt_dev *dev)
++{
++    uint16_t val = 0;
++    uint32_t address = 0;
++    if (!dev->msi)
++        return 0;
++
++    address = dev->msi->ctrl_offset;
++    if (!address)
++        return 0;
++
++    val = pci_read_word(dev->pci_dev, address);
++    return val & PCI_MSI_FLAGS_ENABLE;
++}
++
+ /* write Message Control register */
+ static int pt_msgctrl_reg_write(struct pt_dev *ptdev,
+     struct pt_reg_tbl *cfg_entry,
+@@ -3835,6 +3850,14 @@ static int pt_msgctrl_reg_write(struct pt_dev *ptdev,
+             ptdev->msi->flags &= ~MSI_FLAG_UNINIT;
+             ptdev->msi->flags |= PT_MSI_MAPPED;
+         }
++        else
++        {
++            if (!msi_is_enable(ptdev))
++            {
++                pt_msi_setup(ptdev);
++                pt_msi_update(ptdev);
++            }
++        }
+         ptdev->msi->flags |= PCI_MSI_FLAGS_ENABLE;
+     }
+     else
+diff --git a/hw/pt-msi.c b/hw/pt-msi.c
+index 70c4023..99f9afd 100644
+--- a/tools/ioemu-qemu-xen/hw/pt-msi.c
++++ b/tools/ioemu-qemu-xen/hw/pt-msi.c
+@@ -67,12 +67,6 @@ int pt_msi_setup(struct pt_dev *dev)
+     int pirq = -1;
+     uint8_t gvec = 0;
+ 
+-    if ( !(dev->msi->flags & MSI_FLAG_UNINIT) )
+-    {
+-        PT_LOG("Error: setup physical after initialized?? \n");
+-        return -1;
+-    }
+-
+     gvec = dev->msi->data & 0xFF;
+     if (!gvec) {
+         /* if gvec is 0, the guest is asking for a particular pirq that
