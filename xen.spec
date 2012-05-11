@@ -60,6 +60,7 @@ Patch28: pygrubfix.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
+Patch102: xen-acpi-override-query.patch
 
 # libxl fixes
 # 102-109,112-113,117 are candidates to be included in upstream release
@@ -229,6 +230,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 
 %patch100 -p1
 %patch101 -p1
+%patch102 -p1
 
 %patch105 -p1
 %patch106 -p1
