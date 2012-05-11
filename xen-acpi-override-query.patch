@@ -1,0 +1,287 @@
+# HG changeset patch
+# User Jan Beulich <jbeulich@novell.com>
+# Date 1314004356 -3600
+# Node ID 2029263c501c315fa4d94845e5cfa6a9b0b395d5
+# Parent  25dfe53bb1898b3967ceb71a7eb60a8b760c25fb
+ACPI: add _PDC input override mechanism
+
+In order to have Dom0 call _PDC with input fully representing Xen's
+capabilities, and in order to avoid building knowledge of Xen
+implementation details into Dom0, this provides a mechanism by which
+the Dom0 kernel can, once it filled the _PDC input buffer according to
+its own knowledge, present the buffer to Xen to apply overrides for
+the parts of the C-, P-, and T-state management that it controls. This
+is particularly to address the dependency of Xen using MWAIT to enter
+certain C-states on the availability of the break-on-interrupt
+extension (which the Dom0 kernel should have no need to know about).
+
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
+Backported-to-4-1-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+Index: xen-hvm/xen/arch/ia64/linux-xen/acpi.c
+===================================================================
+--- xen-hvm.orig/xen/arch/ia64/linux-xen/acpi.c
++++ xen-hvm/xen/arch/ia64/linux-xen/acpi.c
+@@ -240,6 +240,13 @@ int get_cpu_id(u8 acpi_id)
+ 
+ 	return -1;
+ }
++
++int arch_acpi_set_pdc_bits(u32 acpi_id, u32 *pdc, u32 mask)
++{
++	pdc[2] |= ACPI_PDC_EST_CAPABILITY_SMP & mask;
++	return 0;
++}
++
+ #endif
+ 
+ static int __init
+Index: xen-hvm/xen/arch/x86/acpi/boot.c
+===================================================================
+--- xen-hvm.orig/xen/arch/x86/acpi/boot.c
++++ xen-hvm/xen/arch/x86/acpi/boot.c
+@@ -1006,3 +1006,47 @@ unsigned int acpi_get_processor_id(unsig
+ 
+ 	return INVALID_ACPIID;
+ }
++
++static void get_mwait_ecx(void *info)
++{
++	*(u32 *)info = cpuid_ecx(CPUID_MWAIT_LEAF);
++}
++
++int arch_acpi_set_pdc_bits(u32 acpi_id, u32 *pdc, u32 mask)
++{
++	unsigned int cpu = get_cpu_id(acpi_id);
++	struct cpuinfo_x86 *c;
++	u32 ecx;
++
++	if (!(acpi_id + 1))
++		c = &boot_cpu_data;
++	else if (cpu >= NR_CPUS || !cpu_online(cpu))
++		return -EINVAL;
++	else
++		c = cpu_data + cpu;
++
++	pdc[2] |= ACPI_PDC_C_CAPABILITY_SMP & mask;
++
++	if (cpu_has(c, X86_FEATURE_EST))
++		pdc[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP & mask;
++
++	if (cpu_has(c, X86_FEATURE_ACPI))
++		pdc[2] |= ACPI_PDC_T_FFH & mask;
++
++	/*
++	 * If mwait/monitor or its break-on-interrupt extension are
++	 * unsupported, Cx_FFH will be disabled.
++	 */
++	if (!cpu_has(c, X86_FEATURE_MWAIT) ||
++	    c->cpuid_level < CPUID_MWAIT_LEAF)
++		ecx = 0;
++	else if (c == &boot_cpu_data || cpu == smp_processor_id())
++		ecx = cpuid_ecx(CPUID_MWAIT_LEAF);
++	else
++		on_selected_cpus(cpumask_of(cpu), get_mwait_ecx, &ecx, 1);
++	if (!(ecx & CPUID5_ECX_EXTENSIONS_SUPPORTED) ||
++	    !(ecx & CPUID5_ECX_INTERRUPT_BREAK))
++		pdc[2] &= ~(ACPI_PDC_C_C1_FFH | ACPI_PDC_C_C2C3_FFH);
++
++	return 0;
++}
+Index: xen-hvm/xen/arch/x86/acpi/cpu_idle.c
+===================================================================
+--- xen-hvm.orig/xen/arch/x86/acpi/cpu_idle.c
++++ xen-hvm/xen/arch/x86/acpi/cpu_idle.c
+@@ -649,12 +649,6 @@ static int cpuidle_init_cpu(int cpu)
+     return 0;
+ }
+ 
+-#define CPUID_MWAIT_LEAF (5)
+-#define CPUID5_ECX_EXTENSIONS_SUPPORTED (0x1)
+-#define CPUID5_ECX_INTERRUPT_BREAK      (0x2)
+-
+-#define MWAIT_ECX_INTERRUPT_BREAK       (0x1)
+-
+ #define MWAIT_SUBSTATE_MASK (0xf)
+ #define MWAIT_SUBSTATE_SIZE (4)
+ 
+Index: xen-hvm/xen/arch/x86/platform_hypercall.c
+===================================================================
+--- xen-hvm.orig/xen/arch/x86/platform_hypercall.c
++++ xen-hvm/xen/arch/x86/platform_hypercall.c
+@@ -399,6 +399,15 @@ ret_t do_platform_op(XEN_GUEST_HANDLE(xe
+             ret = -EINVAL;
+             break;
+ 
++        case XEN_PM_PDC:
++        {
++            XEN_GUEST_HANDLE(uint32) pdc;
++
++            guest_from_compat_handle(pdc, op->u.set_pminfo.u.pdc);
++            ret = acpi_set_pdc_bits(op->u.set_pminfo.id, pdc);
++        }
++        break;
++
+         default:
+             ret = -EINVAL;
+             break;
+Index: xen-hvm/xen/drivers/acpi/pmstat.c
+===================================================================
+--- xen-hvm.orig/xen/drivers/acpi/pmstat.c
++++ xen-hvm/xen/drivers/acpi/pmstat.c
+@@ -519,3 +519,34 @@ int do_pm_op(struct xen_sysctl_pm_op *op
+ 
+     return ret;
+ }
++
++int acpi_set_pdc_bits(u32 acpi_id, XEN_GUEST_HANDLE(uint32) pdc)
++{
++    u32 bits[3];
++    int ret;
++
++    if ( copy_from_guest(bits, pdc, 2) )
++        ret = -EFAULT;
++    else if ( bits[0] != ACPI_PDC_REVISION_ID || !bits[1] )
++        ret = -EINVAL;
++    else if ( copy_from_guest_offset(bits + 2, pdc, 2, 1) )
++        ret = -EFAULT;
++    else
++    {
++        u32 mask = 0;
++
++        if ( xen_processor_pmbits & XEN_PROCESSOR_PM_CX )
++            mask |= ACPI_PDC_C_MASK | ACPI_PDC_SMP_C1PT;
++        if ( xen_processor_pmbits & XEN_PROCESSOR_PM_PX )
++            mask |= ACPI_PDC_P_MASK | ACPI_PDC_SMP_C1PT;
++        if ( xen_processor_pmbits & XEN_PROCESSOR_PM_TX )
++            mask |= ACPI_PDC_T_MASK | ACPI_PDC_SMP_C1PT;
++        bits[2] &= (ACPI_PDC_C_MASK | ACPI_PDC_P_MASK | ACPI_PDC_T_MASK |
++                    ACPI_PDC_SMP_C1PT) & ~mask;
++        ret = arch_acpi_set_pdc_bits(acpi_id, bits, mask);
++    }
++    if ( !ret )
++        ret = copy_to_guest_offset(pdc, 2, bits + 2, 1);
++
++    return ret;
++}
+Index: xen-hvm/xen/include/acpi/cpufreq/processor_perf.h
+===================================================================
+--- xen-hvm.orig/xen/include/acpi/cpufreq/processor_perf.h
++++ xen-hvm/xen/include/acpi/cpufreq/processor_perf.h
+@@ -3,10 +3,10 @@
+ 
+ #include <public/platform.h>
+ #include <public/sysctl.h>
++#include <xen/acpi.h>
+ 
+ #define XEN_PX_INIT 0x80000000
+ 
+-int get_cpu_id(u8);
+ int powernow_cpufreq_init(void);
+ unsigned int powernow_register_driver(void);
+ unsigned int get_measured_perf(unsigned int cpu, unsigned int flag);
+Index: xen-hvm/xen/include/acpi/pdc_intel.h
+===================================================================
+--- xen-hvm.orig/xen/include/acpi/pdc_intel.h
++++ xen-hvm/xen/include/acpi/pdc_intel.h
+@@ -4,6 +4,8 @@
+ #ifndef __PDC_INTEL_H__
+ #define __PDC_INTEL_H__
+ 
++#define ACPI_PDC_REVISION_ID		1
++
+ #define ACPI_PDC_P_FFH			(0x0001)
+ #define ACPI_PDC_C_C1_HALT		(0x0002)
+ #define ACPI_PDC_T_FFH			(0x0004)
+@@ -14,6 +16,7 @@
+ #define ACPI_PDC_SMP_T_SWCOORD		(0x0080)
+ #define ACPI_PDC_C_C1_FFH		(0x0100)
+ #define ACPI_PDC_C_C2C3_FFH		(0x0200)
++#define ACPI_PDC_SMP_P_HWCOORD		(0x0800)
+ 
+ #define ACPI_PDC_EST_CAPABILITY_SMP	(ACPI_PDC_SMP_C1PT | \
+ 					 ACPI_PDC_C_C1_HALT | \
+@@ -22,6 +25,7 @@
+ #define ACPI_PDC_EST_CAPABILITY_SWSMP	(ACPI_PDC_SMP_C1PT | \
+ 					 ACPI_PDC_C_C1_HALT | \
+ 					 ACPI_PDC_SMP_P_SWCOORD | \
++					 ACPI_PDC_SMP_P_HWCOORD | \
+ 					 ACPI_PDC_P_FFH)
+ 
+ #define ACPI_PDC_C_CAPABILITY_SMP	(ACPI_PDC_SMP_C2C3  | \
+@@ -30,4 +34,17 @@
+ 					 ACPI_PDC_C_C1_FFH  | \
+ 					 ACPI_PDC_C_C2C3_FFH)
+ 
++#define ACPI_PDC_C_MASK			(ACPI_PDC_C_C1_HALT | \
++					 ACPI_PDC_C_C1_FFH | \
++					 ACPI_PDC_SMP_C2C3 | \
++					 ACPI_PDC_SMP_C_SWCOORD | \
++					 ACPI_PDC_C_C2C3_FFH)
++
++#define ACPI_PDC_P_MASK			(ACPI_PDC_P_FFH | \
++					 ACPI_PDC_SMP_P_SWCOORD | \
++					 ACPI_PDC_SMP_P_HWCOORD)
++
++#define ACPI_PDC_T_MASK			(ACPI_PDC_T_FFH | \
++					 ACPI_PDC_SMP_T_SWCOORD)
++
+ #endif				/* __PDC_INTEL_H__ */
+Index: xen-hvm/xen/include/asm-x86/cpufeature.h
+===================================================================
+--- xen-hvm.orig/xen/include/asm-x86/cpufeature.h
++++ xen-hvm/xen/include/asm-x86/cpufeature.h
+@@ -151,6 +151,10 @@
+ #define boot_cpu_has(bit)	test_bit(bit, boot_cpu_data.x86_capability)
+ #define cpufeat_mask(idx)       (1u << ((idx) & 31))
+ 
++#define CPUID_MWAIT_LEAF                5
++#define CPUID5_ECX_EXTENSIONS_SUPPORTED 0x1
++#define CPUID5_ECX_INTERRUPT_BREAK      0x2
++
+ #ifdef __i386__
+ #define cpu_has_vme		boot_cpu_has(X86_FEATURE_VME)
+ #define cpu_has_de		boot_cpu_has(X86_FEATURE_DE)
+Index: xen-hvm/xen/include/public/platform.h
+===================================================================
+--- xen-hvm.orig/xen/include/public/platform.h
++++ xen-hvm/xen/include/public/platform.h
+@@ -210,6 +210,7 @@ DEFINE_XEN_GUEST_HANDLE(xenpf_getidletim
+ #define XEN_PM_CX   0
+ #define XEN_PM_PX   1
+ #define XEN_PM_TX   2
++#define XEN_PM_PDC  3
+ 
+ /* Px sub info type */
+ #define XEN_PX_PCT   1
+@@ -307,6 +308,7 @@ struct xenpf_set_processor_pminfo {
+     union {
+         struct xen_processor_power          power;/* Cx: _CST/_CSD */
+         struct xen_processor_performance    perf; /* Px: _PPC/_PCT/_PSS/_PSD */
++        XEN_GUEST_HANDLE(uint32)            pdc;  /* _PDC */
+     } u;
+ };
+ typedef struct xenpf_set_processor_pminfo xenpf_set_processor_pminfo_t;
+Index: xen-hvm/xen/include/xen/acpi.h
+===================================================================
+--- xen-hvm.orig/xen/include/xen/acpi.h
++++ xen-hvm/xen/include/xen/acpi.h
+@@ -334,6 +334,8 @@ static inline int acpi_boot_table_init(v
+ 
+ #endif 	/*!CONFIG_ACPI_BOOT*/
+ 
++int get_cpu_id(u8 acpi_id);
++
+ unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
+ int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
+ 
+@@ -431,6 +433,9 @@ static inline unsigned int acpi_get_csta
+ static inline void acpi_set_cstate_limit(unsigned int new_limit) { return; }
+ #endif
+ 
++int acpi_set_pdc_bits(u32 acpi_id, XEN_GUEST_HANDLE(uint32));
++int arch_acpi_set_pdc_bits(u32 acpi_id, u32 *, u32 mask);
++
+ #ifdef CONFIG_ACPI_NUMA
+ int acpi_get_pxm(acpi_handle handle);
+ #else
