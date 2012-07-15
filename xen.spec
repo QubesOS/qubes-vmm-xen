@@ -273,7 +273,7 @@ mkdir tools/qubes-gui/
 cp -a %{SOURCE33}/* tools/qubes-gui/
 make -C tools/qubes-gui clean
 cp -a %{SOURCE34}/vchan tools/
-make -C tools/vchan clean
+make -C tools/vchan -f Makefile.stubdom clean
 patch -p1 < tools/qubes-gui/gui-agent-qemu/qemu-glue.patch
 
 cp -a %{SOURCE35}/* tools/ioemu-qemu-xen/
