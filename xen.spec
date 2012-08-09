@@ -453,9 +453,6 @@ rm -rf %{buildroot}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
 %config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
 
-# Auto-load xen backend drivers
-%attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
-
 # Programs run by other programs
 %dir %{_libdir}/%{name}
 %dir %{_libdir}/%{name}/bin
