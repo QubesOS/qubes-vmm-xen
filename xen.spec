@@ -76,6 +76,12 @@ Patch124: xl-block-parse-cdrom.patch
 Patch125: xen-libxl-error-write-perm.patch
 
 Patch666: xen-nergal-sysret-attack.patch
+Patch667: xsa11-4.1.patch
+Patch668: xsa12-all.patch
+Patch669: xsa13-xen-4.1.patch
+Patch670: xsa14-xen-3.4-and-4.x.patch
+Patch671: xsa16-xen-4.1.patch
+Patch672: xsa17-qemu-xen-traditional-all.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -230,6 +236,12 @@ to build the xen packages.
 %patch125 -p1
 
 %patch666 -p1
+%patch667 -p1
+%patch668 -p1
+%patch669 -p1
+%patch670 -p1
+%patch671 -p1
+%patch672 -d tools/ioemu-qemu-xen -p1
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
