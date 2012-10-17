@@ -107,6 +107,7 @@ RPM := rpmbuild
 RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
 rpms: get-sources verify-sources $(SPECFILE)
+	[ -d gui -a -d core ] || { echo "You must copy Qubes 'gui' and 'core' here to build Xen for HVM domain; it is done automatically by qubes-builder"; exit 1; }
 	$(RPM_WITH_DIRS) -bb $(SPECFILE)
 	rpm --addsign $(RPMDIR)/x86_64/*$(VERSION)-$(RELEASE)*.rpm
 
@@ -170,6 +171,7 @@ update-repo-installer:
 	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
 	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
 	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
 
 help:
 	@echo "Usage: make <target>"
