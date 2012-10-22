@@ -528,6 +528,11 @@ rm -rf %{buildroot}
 %{python_sitearch}/%{name}/__init__.*
 %{python_sitearch}/%{name}/lowlevel
 
+%dir %{python_sitearch}/%{name}/util
+%{python_sitearch}/%{name}/util/__init__.py*
+%{python_sitearch}/%{name}/util/vusb_util.py*
+%{python_sitearch}/%{name}/util/utils.py*
+
 
 # All runtime stuff except for XenD/xm python stuff
 %files runtime
