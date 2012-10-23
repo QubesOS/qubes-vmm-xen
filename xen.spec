@@ -82,13 +82,11 @@ Patch124: xl-block-parse-cdrom.patch
 Patch125: xen-libxl-error-write-perm.patch
 
 Patch666: xen-nergal-sysret-attack.patch
-Patch667: xsa11-4.1.patch
 Patch668: xsa12-all.patch
 Patch669: xsa13-xen-4.1.patch
 Patch670: xsa14-xen-3.4-and-4.x.patch
 Patch671: xsa16-xen-4.1.patch
 Patch672: xsa17-qemu-xen-traditional-all.patch
-Patch673: xsa10-4.1.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -96,7 +94,6 @@ Patch201: xen-libxl-qubes-minimal-stubdom.patch
 Patch202: xen-disable-dom0-qemu.patch
 Patch203: stubdom-lwip-fix-for-dhcp.patch
 Patch204: xen-libxl-stubdom-pci-create.patch
-Patch205: xen-libxl-timeoffset-localtime.patch
 Patch206: msi-after-sleep.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
@@ -260,20 +257,17 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch125 -p1
 
 %patch666 -p1
-%patch667 -p1
 %patch668 -p1
 %patch669 -p1
 %patch670 -p1
 %patch671 -p1
 %patch672 -d tools/ioemu-qemu-xen -p1
-%patch673 -p1
 
 %patch200 -p0
 %patch201 -p2
 %patch202 -p1
 %patch203 -p2
 %patch204 -p1
-%patch205 -p1
 %patch206 -p1
 
 # stubdom sources
