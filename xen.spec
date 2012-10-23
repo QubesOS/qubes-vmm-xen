@@ -3,7 +3,6 @@
 # Hypervisor ABI
 %define hv_abi  4.1
 
-%define dist .qubes
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
