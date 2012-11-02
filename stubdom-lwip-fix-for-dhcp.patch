@@ -1,0 +1,30 @@
+diff -Nru xen/xen-4.1.2/stubdom/Makefile xen-hvm/xen-4.1.2/stubdom/Makefile
+--- xen/xen-4.1.2/stubdom/Makefile	2012-03-04 17:28:24.834834685 +0100
++++ xen-hvm/xen-4.1.2/stubdom/Makefile	2012-03-06 02:14:12.934652038 +0100
+@@ -161,6 +161,7 @@
+ 	tar xzf $<
+ 	mv lwip $@
+ 	patch -d $@ -p0 < lwip.patch-cvs
++	patch -d $@ -p1 < lwip-fix-for-dhcp-server.patch
+ 	touch $@
+ 
+ #############
+diff -Nru xen/xen-4.1.2/stubdom/lwip-fix-for-dhcp-server.patch xen-hvm/xen-4.1.2/stubdom/lwip-fix-for-dhcp-server.patch
+--- xen/xen-4.1.2/stubdom/lwip-fix-for-dhcp-server.patch	1970-01-01 01:00:00.000000000 +0100
++++ xen-hvm/xen-4.1.2/stubdom/lwip-fix-for-dhcp-server.patch	2012-03-06 02:13:11.486652036 +0100
+@@ -0,0 +1,15 @@
++--- lwip-x86_64/src/core/ipv4/ip.c	2012-03-04 17:42:42.674834685 +0100
+++++ lwip-x86_64/src/core/ipv4/ip.c	2012-03-05 19:59:52.146651987 +0100
++@@ -303,9 +303,12 @@
++         check_ip_src = 0;
++       }
++     }
+++  } else if (IPH_PROTO(iphdr) == IP_PROTO_UDP && ip_addr_isbroadcast(&(iphdr->dest), netif)) {
+++	  /* dont check src address of broadcast UDP packets (eg. DHCP requests) */
+++	  check_ip_src = 0;
++   }
++ #endif /* LWIP_DHCP */
++ 
++   /* broadcast or multicast packet source address? Compliant with RFC 1122: 3.2.1.3 */
++ #if LWIP_DHCP
++   if (check_ip_src)

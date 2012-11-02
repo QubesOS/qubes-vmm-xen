@@ -12,7 +12,7 @@ BUILDDIR ?= $(WORKDIR)
 RPMDIR ?= $(WORKDIR)/rpm
 SOURCEDIR := $(WORKDIR)
 VERSION := $(shell cat version)
-RELEASE := $(shell cat rel).qubes
+RELEASE := $(shell cat rel)
 
 NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
@@ -107,6 +107,7 @@ RPM := rpmbuild
 RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
 rpms: get-sources verify-sources $(SPECFILE)
+	[ -d gui -a -d core ] || { echo "You must copy Qubes 'gui' and 'core' here to build Xen for HVM domain; it is done automatically by qubes-builder"; exit 1; }
 	$(RPM_WITH_DIRS) -bb $(SPECFILE)
 	rpm --addsign $(RPMDIR)/x86_64/*$(VERSION)-$(RELEASE)*.rpm
 
@@ -136,40 +137,44 @@ clean ::
 	$(RPM_WITH_DIRS) --clean --nodeps $(SPECFILE)
 
 update-repo-current:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/current/dom0/rpm/
 	for vmrepo in ../yum/current-release/current/vm/* ; do \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+	    	dist=$$(basename $$vmrepo); \
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
 update-repo-current-testing:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
 	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+	    	dist=$$(basename $$vmrepo); \
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
 update-repo-unstable:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE)*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
 	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE)*.rpm $$vmrepo/rpm/ ;\
+	    	dist=$$(basename $$vmrepo); \
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
 update-repo-installer:
-	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
 
 help:
 	@echo "Usage: make <target>"
