@@ -168,6 +168,15 @@ update-repo-unstable:
 		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
+update-repo-template:
+	for vmrepo in ../template-builder/yum_repo_qubes/* ; do \
+		dist=$$(basename $$vmrepo) ;\
+		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+	done
+
 update-repo-installer:
 	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
 	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
