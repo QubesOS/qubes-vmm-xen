@@ -106,6 +106,10 @@ RPM := rpmbuild
 
 RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
+rpms-vm: rpms
+
+rpms-dom0: rpms
+
 rpms: get-sources verify-sources $(SPECFILE)
 	[ -d gui -a -d core ] || { echo "You must copy Qubes 'gui' and 'core' here to build Xen for HVM domain; it is done automatically by qubes-builder"; exit 1; }
 	$(RPM_WITH_DIRS) -bb $(SPECFILE)
