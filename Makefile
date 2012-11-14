@@ -77,17 +77,15 @@ ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF)
 get-sources: $(ALL_FILES)
 
 $(ALL_FILES):
-	@echo -n "Downloading sources... "
-	@wget -c $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
-	@echo "OK."
+	@wget -q -c $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
 
 import-keys:
-	 gpg --import *-key.asc
+	@gpg -q --import *-key.asc
 
 verify-sources: import-keys verify-sources-sig verify-sources-sum
 
 verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
-	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sig $$f; done
+	@for f in $^; do gpg --verify $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
 
 verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE)
 	@for f in $^; do md5sum --quiet -c $$f.md5sum || exit 1; done
