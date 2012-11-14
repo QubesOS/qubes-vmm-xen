@@ -90,8 +90,8 @@ verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
 	@for f in $^; do echo "Checking gpg sig of $$f..."; gpg --verify $$f.sig $$f; done
 
 verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE)
-	@for f in $^; do md5sum -c $$f.md5sum; done
-	@for f in $^; do sha1sum -c $$f.sha1sum; done
+	@for f in $^; do md5sum --quiet -c $$f.md5sum || exit 1; done
+	@for f in $^; do sha1sum --quiet -c $$f.sha1sum || exit 1; done
 
 
 .PHONY: clean-sources
