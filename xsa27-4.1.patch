@@ -157,7 +157,7 @@ diff -r 5639047d6c9f xen/include/asm-x86/config.h
 +
  #endif
  
- #define asmlinkage
+ #if defined(__x86_64__)
 @@ -123,7 +126,6 @@ extern unsigned int video_mode, video_fl
  #define PML4_ADDR(_slot)                             \
      ((((_slot ## UL) >> 8) * 0xffff000000000000UL) | \
