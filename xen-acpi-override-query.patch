@@ -22,7 +22,7 @@ Index: xen-hvm/xen/arch/ia64/linux-xen/acpi.c
 ===================================================================
 --- xen-hvm.orig/xen/arch/ia64/linux-xen/acpi.c
 +++ xen-hvm/xen/arch/ia64/linux-xen/acpi.c
-@@ -240,6 +240,13 @@ int get_cpu_id(u32 acpi_id)
+@@ -240,6 +240,13 @@ int get_cpu_id(u8 acpi_id)
  
  	return -1;
  }
@@ -176,7 +176,7 @@ Index: xen-hvm/xen/include/acpi/cpufreq/processor_perf.h
  
  #define XEN_PX_INIT 0x80000000
  
--int get_cpu_id(u32);
+-int get_cpu_id(u8);
  int powernow_cpufreq_init(void);
  unsigned int powernow_register_driver(void);
  unsigned int get_measured_perf(unsigned int cpu, unsigned int flag);
@@ -270,7 +270,7 @@ Index: xen-hvm/xen/include/xen/acpi.h
  
  #endif 	/*!CONFIG_ACPI_BOOT*/
  
-+int get_cpu_id(u32 acpi_id);
++int get_cpu_id(u8 acpi_id);
 +
  unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
  int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
