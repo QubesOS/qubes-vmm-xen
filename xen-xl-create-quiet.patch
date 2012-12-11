@@ -1,0 +1,12 @@
+--- a/tools/libxl/xl_cmdimpl.c
++++ b/tools/libxl/xl_cmdimpl.c
+@@ -1419,6 +1419,9 @@ static int create_domain(struct domain_create *dom_info)
+ 
+     memset(&d_config, 0x00, sizeof(d_config));
+ 
++    if (dom_info->quiet)
++	xtl_stdiostream_set_minlevel(logger, XTL_WARN);
++
+     if (restore_file) {
+         uint8_t *optdata_begin = 0;
+         const uint8_t *optdata_here = 0;
