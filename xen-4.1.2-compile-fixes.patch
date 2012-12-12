@@ -1,0 +1,347 @@
+# HG changeset patch
+# User Keir Fraser <keir@xen.org>
+# Date 1337011152 -3600
+# Node ID 35248be669e71520eb40e85986b106bd5164d7ea
+# Parent  89c61e66f45f8ca3c8e96b1d348088f0caa12e73
+blktap2: Fix naked unchecked uses of read/write/chdir.
+
+These cause warnings under warn_unused_result, and for read/write we
+ought to deal with partial io results.
+
+Signed-off-by: Keir Fraser <keir@xen.org>
+xen-unstable changeset:   25299:01d64a3dea71
+xen-unstable date:        Fri May 11 18:30:29 2012 +0100
+
+
+blktap2: Fix another uninitialised value error
+
+gcc  -O1 -fno-omit-frame-pointer -m32 -march=i686 -g
+-fno-strict-aliasing -std=gnu99 -Wall -Wstrict-prototypes
+-Wdeclaration-after-statement   -D__XEN_TOOLS__ -MMD -MF
+.block-remus.o.d -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -fno-optimize-sibling-calls
+-mno-tls-direct-seg-refs -Werror -g -Wno-unused -fno-strict-aliasing
+-I../include -I../drivers
+-I/home/osstest/build.12828.build-i386/xen-unstable/tools/blktap2/drivers/../../../tools/libxc
+-I/home/osstest/build.12828.build-i386/xen-unstable/tools/blktap2/drivers/../../../tools/include
+-D_GNU_SOURCE -DUSE_NFS_LOCKS  -c -o block-remus.o block-remus.c
+
+block-remus.c: In function 'ramdisk_flush':
+block-remus.c:508: error: 'buf' may be used uninitialized in this
+function
+make[5]: *** [block-remus.o] Error 1
+
+This is because gcc can see that merge_requests doesn't always set
+*mergedbuf but gcc isn't able to prove that it always does so if
+merge_requests returns 0 and that in that case the value of
+ramdisk_flush::buf isn't used.
+
+This is too useful a warning to disable, despite the occasional false
+positive of this form.  The conventional approach is to suppress the
+warning by explicitly initialising the variable to 0.
+
+This has just come to light because 25275:27d63b9f111a reenabled
+optimisation for this area of code, and gcc's data flow analysis
+(which is required to trigger the uninitialised variable warning) only
+occurs when optimisation is turned on.
+
+Signed-off-by: Ian Jackson <ian.jackson@eu.citrix.com>
+xen-unstable changeset:   25281:60064411a8a9
+xen-unstable date:        Thu May 10 14:26:14 2012 +0100
+
+
+blktap2: Do not build with -O0
+
+Signed-off-by: Keir Fraser <keir@xen.org>
+xen-unstable changeset:   25275:27d63b9f111a
+xen-unstable date:        Thu May 10 11:22:18 2012 +0100
+
+
+blktap2: Fix uninitialised value error.
+
+Signed-off-by: Keir Fraser <keir@xen.org>
+xen-unstable changeset:   25274:cb82b5aa73bd
+xen-unstable date:        Thu May 10 11:21:59 2012 +0100
+
+
+tools/blktap2: fix out of bounds access in block-log.c
+
+block-log.c: In function 'ctl_close_sock':
+block-log.c:363:23: warning: array subscript is above array bounds
+[-Warray-bounds]
+
+Adjust loop condition in ctl_close_sock() to fix warning.
+Adjust array acccess in ctl_close() to actually access the array
+member.
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Committed-by: Keir Fraser <keir@xen.org>
+xen-unstable changeset:   25273:83a02f225bde
+xen-unstable date:        Thu May 10 11:20:04 2012 +0100
+
+
+tools/blktap2: fix build errors caused by Werror in
+vhd_journal_write_entry
+
+-O2 -Wall -Werror triggers these warnings:
+
+libvhd-journal.c: In function 'vhd_journal_write_entry':
+libvhd-journal.c:335: warning: statement with no effect
+
+Really return the error from vhd_journal_write() to caller.
+
+v2:
+ - simplify the patch by just adding the missing return statement
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Committed-by: Keir Fraser <keir@xen.org>
+xen-unstable changeset:   25272:ca02580986d2
+xen-unstable date:        Thu May 10 11:19:05 2012 +0100
+
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/Makefile
+--- a/tools/blktap2/drivers/Makefile	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/Makefile	Mon May 14 16:59:12 2012 +0100
+@@ -9,7 +9,7 @@ QCOW_UTIL  = img2qcow qcow-create qcow2r
+ LOCK_UTIL  = lock-util
+ INST_DIR   = $(SBINDIR)
+ 
+-CFLAGS    += -Werror -g -O0
++CFLAGS    += -Werror -g
+ CFLAGS    += -Wno-unused
+ CFLAGS    += -fno-strict-aliasing
+ CFLAGS    += -I$(BLKTAP_ROOT)/include -I$(BLKTAP_ROOT)/drivers
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/block-log.c
+--- a/tools/blktap2/drivers/block-log.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/block-log.c	Mon May 14 16:59:12 2012 +0100
+@@ -347,11 +347,11 @@ static int ctl_open(struct tdlog_state* 
+ static int ctl_close(struct tdlog_state* s)
+ {
+   while (s->connected) {
++    s->connected--;
+     tapdisk_server_unregister_event(s->connections[s->connected].id);
+     close(s->connections[s->connected].fd);
+     s->connections[s->connected].fd = -1;
+     s->connections[s->connected].id = 0;
+-    s->connected--;
+   }
+ 
+   if (s->ctl.fd >= 0) {
+@@ -382,7 +382,7 @@ static int ctl_close_sock(struct tdlog_s
+ {
+   int i;
+ 
+-  for (i = 0; i <= s->connected; i++) {
++  for (i = 0; i < s->connected; i++) {
+     if (s->connections[i].fd == fd) {
+       tapdisk_server_unregister_event(s->connections[i].id);
+       close(s->connections[i].fd);
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/block-qcow.c
+--- a/tools/blktap2/drivers/block-qcow.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/block-qcow.c	Mon May 14 16:59:12 2012 +0100
+@@ -1428,7 +1428,7 @@ int tdqcow_get_parent_id(td_driver_t *dr
+ {
+ 	off_t off;
+ 	char *buf, *filename;
+-	int len, secs, type, err = -EINVAL;
++	int len, secs, type = 0, err = -EINVAL;
+ 	struct tdqcow_state *child  = (struct tdqcow_state *)driver->data;
+ 
+ 	if (!child->backing_file_offset)
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/block-remus.c
+--- a/tools/blktap2/drivers/block-remus.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/block-remus.c	Mon May 14 16:59:12 2012 +0100
+@@ -505,7 +505,7 @@ fail:
+ static int ramdisk_flush(td_driver_t *driver, struct tdremus_state* s)
+ {
+ 	uint64_t* sectors;
+-	char* buf;
++	char* buf = NULL;
+ 	uint64_t base, batchlen;
+ 	int i, j, count = 0;
+ 
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk-diff.c
+--- a/tools/blktap2/drivers/tapdisk-diff.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk-diff.c	Mon May 14 16:59:12 2012 +0100
+@@ -39,6 +39,7 @@
+ #include "tapdisk-vbd.h"
+ #include "tapdisk-server.h"
+ #include "tapdisk-disktype.h"
++#include "tapdisk-utils.h"
+ #include "libvhd.h"
+ 
+ #define POLL_READ                        0
+@@ -170,7 +171,7 @@ tapdisk_stream_poll_clear(struct tapdisk
+ {
+ 	int dummy;
+ 
+-	read(p->pipe[POLL_READ], &dummy, sizeof(dummy));
++	read_exact(p->pipe[POLL_READ], &dummy, sizeof(dummy));
+ 	p->set = 0;
+ }
+ 
+@@ -180,7 +181,7 @@ tapdisk_stream_poll_set(struct tapdisk_s
+ 	int dummy = 0;
+ 
+ 	if (!p->set) {
+-		write(p->pipe[POLL_WRITE], &dummy, sizeof(dummy));
++		write_exact(p->pipe[POLL_WRITE], &dummy, sizeof(dummy));
+ 		p->set = 1;
+ 	}
+ }
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk-log.c
+--- a/tools/blktap2/drivers/tapdisk-log.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk-log.c	Mon May 14 16:59:12 2012 +0100
+@@ -37,6 +37,7 @@
+ #include <sys/time.h>
+ 
+ #include "tapdisk-log.h"
++#include "tapdisk-utils.h"
+ 
+ #define MAX_ENTRY_LEN      512
+ #define MAX_ERROR_MESSAGES 16
+@@ -247,7 +248,7 @@ tlog_flush(void)
+ 	wsize = ((size + 511) & (~511));
+ 
+ 	memset(tapdisk_log.buf + size, '\n', wsize - size);
+-	write(fd, tapdisk_log.buf, wsize);
++	write_exact(fd, tapdisk_log.buf, wsize);
+ 
+ 	tapdisk_log.p = tapdisk_log.buf;
+ 
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk-queue.c
+--- a/tools/blktap2/drivers/tapdisk-queue.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk-queue.c	Mon May 14 16:59:12 2012 +0100
+@@ -435,7 +435,7 @@ tapdisk_lio_ack_event(struct tqueue *que
+ 	uint64_t val;
+ 
+ 	if (lio->flags & LIO_FLAG_EVENTFD)
+-		read(lio->event_fd, &val, sizeof(val));
++		read_exact(lio->event_fd, &val, sizeof(val));
+ }
+ 
+ static void
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk-stream.c
+--- a/tools/blktap2/drivers/tapdisk-stream.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk-stream.c	Mon May 14 16:59:12 2012 +0100
+@@ -38,6 +38,7 @@
+ #include "tapdisk-vbd.h"
+ #include "tapdisk-server.h"
+ #include "tapdisk-disktype.h"
++#include "tapdisk-utils.h"
+ 
+ #define POLL_READ                        0
+ #define POLL_WRITE                       1
+@@ -145,7 +146,7 @@ tapdisk_stream_poll_clear(struct tapdisk
+ {
+ 	int dummy;
+ 
+-	read(p->pipe[POLL_READ], &dummy, sizeof(dummy));
++	read_exact(p->pipe[POLL_READ], &dummy, sizeof(dummy));
+ 	p->set = 0;
+ }
+ 
+@@ -155,7 +156,7 @@ tapdisk_stream_poll_set(struct tapdisk_s
+ 	int dummy = 0;
+ 
+ 	if (!p->set) {
+-		write(p->pipe[POLL_WRITE], &dummy, sizeof(dummy));
++		write_exact(p->pipe[POLL_WRITE], &dummy, sizeof(dummy));
+ 		p->set = 1;
+ 	}
+ }
+@@ -203,7 +204,7 @@ tapdisk_stream_print_request(struct tapd
+ {
+ 	unsigned long idx = (unsigned long)tapdisk_stream_request_idx(s, sreq);
+ 	char *buf = (char *)MMAP_VADDR(s->vbd->ring.vstart, idx, 0);
+-	write(s->out_fd, buf, sreq->secs << SECTOR_SHIFT);
++	write_exact(s->out_fd, buf, sreq->secs << SECTOR_SHIFT);
+ }
+ 
+ static void
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk-utils.c
+--- a/tools/blktap2/drivers/tapdisk-utils.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk-utils.c	Mon May 14 16:59:12 2012 +0100
+@@ -175,3 +175,40 @@ int tapdisk_linux_version(void)
+ }
+ 
+ #endif
++int read_exact(int fd, void *data, size_t size)
++{
++    size_t offset = 0;
++    ssize_t len;
++
++    while ( offset < size )
++    {
++        len = read(fd, (char *)data + offset, size - offset);
++        if ( (len == -1) && (errno == EINTR) )
++            continue;
++        if ( len == 0 )
++            errno = 0;
++        if ( len <= 0 )
++            return -1;
++        offset += len;
++    }
++
++    return 0;
++}
++
++int write_exact(int fd, const void *data, size_t size)
++{
++    size_t offset = 0;
++    ssize_t len;
++
++    while ( offset < size )
++    {
++        len = write(fd, (const char *)data + offset, size - offset);
++        if ( (len == -1) && (errno == EINTR) )
++            continue;
++        if ( len <= 0 )
++            return -1;
++        offset += len;
++    }
++
++    return 0;
++}
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk-utils.h
+--- a/tools/blktap2/drivers/tapdisk-utils.h	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk-utils.h	Mon May 14 16:59:12 2012 +0100
+@@ -39,4 +39,7 @@ int tapdisk_namedup(char **, const char 
+ int tapdisk_get_image_size(int, uint64_t *, uint32_t *);
+ int tapdisk_linux_version(void);
+ 
++int read_exact(int fd, void *data, size_t size); /* EOF => -1, errno=0 */
++int write_exact(int fd, const void *data, size_t size);
++
+ #endif
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/drivers/tapdisk2.c
+--- a/tools/blktap2/drivers/tapdisk2.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/drivers/tapdisk2.c	Mon May 14 16:59:12 2012 +0100
+@@ -79,7 +79,12 @@ main(int argc, char *argv[])
+ 	if (optind != argc)
+ 		usage(argv[0], EINVAL);
+ 
+-	chdir("/");
++	if (chdir("/")) {
++		DPRINTF("failed to chdir(/): %d\n", errno);
++		err = 1;
++		goto out;
++	}
++
+ 	tapdisk_start_logging("tapdisk2");
+ 
+ 	err = tapdisk_server_init();
+diff -r 89c61e66f45f -r 35248be669e7 tools/blktap2/vhd/lib/libvhd-journal.c
+--- a/tools/blktap2/vhd/lib/libvhd-journal.c	Mon May 14 16:51:27 2012 +0100
++++ b/tools/blktap2/vhd/lib/libvhd-journal.c	Mon May 14 16:59:12 2012 +0100
+@@ -332,7 +332,7 @@ vhd_journal_write_entry(vhd_journal_t *j
+ 
+ 	err = vhd_journal_write(j, &e, sizeof(vhd_journal_entry_t));
+ 	if (err)
+-		err;
++		return err;
+ 
+ 	return 0;
+ }
+exporting patch:
+<fdopen>

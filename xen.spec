@@ -56,6 +56,7 @@ Patch20: localgcc451fix.patch
 Patch23: grub-ext4-support.patch
 Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
+Patch29: xen-4.1.2-compile-fixes.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
@@ -251,6 +252,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch20 -p1
 %patch26 -p1
 %patch28 -p1
+%patch29 -p1
 
 %patch100 -p1
 %patch101 -p1
