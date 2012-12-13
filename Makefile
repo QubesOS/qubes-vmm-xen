@@ -140,6 +140,7 @@ clean ::
 
 update-repo-current:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).fc13*.rpm ../yum/current-release/current/dom0/rpm/
 	for vmrepo in ../yum/current-release/current/vm/* ; do \
 	    	dist=$$(basename $$vmrepo); \
 		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -150,6 +151,7 @@ update-repo-current:
 
 update-repo-current-testing:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
 	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
 	    	dist=$$(basename $$vmrepo); \
 		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -160,6 +162,7 @@ update-repo-current-testing:
 
 update-repo-unstable:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).fc13*.rpm ../yum/current-release/unstable-testing/dom0/rpm/
 	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
 	    	dist=$$(basename $$vmrepo); \
 		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
