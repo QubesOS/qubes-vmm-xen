@@ -14,7 +14,7 @@ diff -Nru xen/xen-4.1.2/tools/ioemu-qemu-xen/net.c xen-hvm/xen-4.1.2/tools/ioemu
  /***********************************************************/
  /* network device redirectors */
  
-@@ -1724,6 +1730,44 @@
+@@ -1724,6 +1730,48 @@
          ret = 0;
      } else
  #endif
@@ -26,7 +26,8 @@ diff -Nru xen/xen-4.1.2/tools/ioemu-qemu-xen/net.c xen-hvm/xen-4.1.2/tools/ioemu
 +            p_mask = lwip_mask;
 +        } else
 +            p_mask = xenstore_read("qubes_netmask");
-+        lwip_dhcp_config("netmask", p_mask);
++        if (p_mask)
++	    lwip_dhcp_config("netmask", p_mask);
 +
 +        if (get_param_value(lwip_ip, sizeof(lwip_ip), "server_ip", p)) {
 +            p_ip = lwip_ip;
@@ -37,19 +38,22 @@ diff -Nru xen/xen-4.1.2/tools/ioemu-qemu-xen/net.c xen-hvm/xen-4.1.2/tools/ioemu
 +            p_gw = lwip_gw;
 +        } else
 +            p_gw = xenstore_read("qubes_gateway");
-+        lwip_dhcp_config("gw", p_gw);
++        if (p_gw)
++	    lwip_dhcp_config("gw", p_gw);
 +
 +        if (get_param_value(buf, sizeof(buf), "dns", p)) {
 +            p_dns = buf;
 +        } else
 +            p_dns = xenstore_read("qubes_gateway");
-+        lwip_dhcp_config("dns1", p_dns);
++        if (p_dns)
++	    lwip_dhcp_config("dns1", p_dns);
 +
 +        if (get_param_value(buf, sizeof(buf), "client_ip", p)) {
 +            p_client_ip = buf;
 +        } else
 +            p_client_ip = xenstore_read("qubes_ip");
-+        lwip_dhcp_config("ip", p_client_ip);
++        if (p_client_ip)
++	    lwip_dhcp_config("ip", p_client_ip);
 +
 +        vlan->nb_host_devs++;
 +        ret = net_lwip_init(vlan, device, name, p_ip, p_mask, p_gw);
