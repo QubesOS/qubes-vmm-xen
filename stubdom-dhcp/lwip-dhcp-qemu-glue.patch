@@ -19,42 +19,42 @@ diff -Nru xen/xen-4.1.2/tools/ioemu-qemu-xen/net.c xen-hvm/xen-4.1.2/tools/ioemu
      } else
  #endif
 +#ifdef CONFIG_STUBDOM
-+	if (!strcmp(device, "lwip")) {
-+		char lwip_gw[16], lwip_ip[16], lwip_mask[16];
-+		char *p_gw = NULL, *p_ip = NULL, *p_mask = NULL, *p_dns = NULL, *p_client_ip = NULL;
++    if (!strcmp(device, "lwip")) {
++        char lwip_gw[16], lwip_ip[16], lwip_mask[16];
++        char *p_gw = NULL, *p_ip = NULL, *p_mask = NULL, *p_dns = NULL, *p_client_ip = NULL;
 +        if (get_param_value(lwip_mask, sizeof(lwip_mask), "netmask", p)) {
-+			p_mask = lwip_mask;
++            p_mask = lwip_mask;
 +        } else
-+			p_mask = xenstore_read("qubes_netmask");
-+		lwip_dhcp_config("netmask", p_mask);
++            p_mask = xenstore_read("qubes_netmask");
++        lwip_dhcp_config("netmask", p_mask);
 +
 +        if (get_param_value(lwip_ip, sizeof(lwip_ip), "server_ip", p)) {
-+			p_ip = lwip_ip;
++            p_ip = lwip_ip;
 +        } else
-+			p_ip = xenstore_read("qubes_secondary_dns");
-+        
-+		if (get_param_value(lwip_gw, sizeof(lwip_gw), "gw", p)) {
-+			p_gw = lwip_gw;
++            p_ip = xenstore_read("qubes_secondary_dns");
++
++        if (get_param_value(lwip_gw, sizeof(lwip_gw), "gw", p)) {
++            p_gw = lwip_gw;
 +        } else
-+			p_gw = xenstore_read("qubes_gateway");
-+		lwip_dhcp_config("gw", p_gw);
-+        
-+		if (get_param_value(buf, sizeof(buf), "dns", p)) {
-+			p_dns = buf;
++            p_gw = xenstore_read("qubes_gateway");
++        lwip_dhcp_config("gw", p_gw);
++
++        if (get_param_value(buf, sizeof(buf), "dns", p)) {
++            p_dns = buf;
 +        } else
-+			p_dns = xenstore_read("qubes_gateway");
-+		lwip_dhcp_config("dns1", p_dns);
-+        
-+		if (get_param_value(buf, sizeof(buf), "client_ip", p)) {
-+			p_client_ip = buf;
++            p_dns = xenstore_read("qubes_gateway");
++        lwip_dhcp_config("dns1", p_dns);
++
++        if (get_param_value(buf, sizeof(buf), "client_ip", p)) {
++            p_client_ip = buf;
 +        } else
-+			p_client_ip = xenstore_read("qubes_ip");
-+		lwip_dhcp_config("ip", p_client_ip);
-+        
-+		vlan->nb_host_devs++;
++            p_client_ip = xenstore_read("qubes_ip");
++        lwip_dhcp_config("ip", p_client_ip);
++
++        vlan->nb_host_devs++;
 +        ret = net_lwip_init(vlan, device, name, p_ip, p_mask, p_gw);
 +
-+	} else
++    } else
 +#endif
  #ifdef _WIN32
      if (!strcmp(device, "tap")) {
