@@ -45,7 +45,7 @@ GRUB_URL := ftp://alpha.gnu.org/gnu/grub/$(GRUB_FILE)
 GRUB_SIGN_SUFF := .sig
 
 LWIP_FILE := lwip-1.3.0.tar.gz
-LWIP_URL := http://download.savannah.gnu.org/releases/lwip/$(LWIP_FILE)
+LWIP_URL := http://download.savannah.gnu.org/releases/lwip/older_versions/$(LWIP_FILE)
 LWIP_SIGN_SUFF := .sig
 
 NEWLIB_FILE := newlib-1.16.0.tar.gz
