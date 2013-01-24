@@ -57,6 +57,7 @@ Patch23: grub-ext4-support.patch
 Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
 Patch29: xen-4.1.2-compile-fixes.patch
+Patch30: gdbsx-glibc2.17.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
@@ -254,6 +255,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch26 -p1
 %patch28 -p1
 %patch29 -p1
+%patch30 -p1
 
 %patch100 -p1
 %patch101 -p1
@@ -306,6 +308,9 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch203 -p2
 %patch204 -p1
 %patch205 -p1
+
+# Fix for glibc 2.7
+sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
