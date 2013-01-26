@@ -62,6 +62,8 @@ Patch28: pygrubfix.patch
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
 Patch102: xen-acpi-override-query.patch
+Patch103: xen-dont-install-outdated-latex-documentation.patch
+Patch104: xen-tools-canonicalize-python-location.patch
 
 # libxl fixes
 # 102-109,112-113,117 are candidates to be included in upstream release
@@ -160,7 +162,6 @@ Just a few xenstore-* tools and hotplug scripts needed by Qubes VMs (including n
 Summary: Core Xen runtime environment
 Group: Development/Libraries
 Requires: xen-libs = %{version}-%{release}
-Requires: /usr/bin/qemu-img /usr/bin/qemu-nbd
 Requires: python-lxml
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
@@ -234,6 +235,8 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch100 -p1
 %patch101 -p1
 %patch102 -p1
+%patch103 -p1
+%patch104 -p1
 
 %patch105 -p1
 %patch106 -p1
@@ -324,9 +327,6 @@ rm -f %{buildroot}%{_sbindir}/xen-python-path
 
 # qemu stuff (unused or available from upstream)
 rm -rf %{buildroot}/usr/share/xen/man
-rm -rf %{buildroot}/usr/bin/qemu-*-xen
-ln -s qemu-img %{buildroot}/%{_bindir}/qemu-img-xen
-ln -s qemu-img %{buildroot}/%{_bindir}/qemu-nbd-xen
 for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
          pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
          vgabios.bin vgabios-cirrus.bin video.x openbios-ppc bamboo.dtb
@@ -348,6 +348,7 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 # udev
 #rm -rf %{buildroot}/etc/udev/rules.d/xen*.rules
 #mv %{buildroot}/etc/udev/xen*.rules %{buildroot}/etc/udev/rules.d
+rm -f %{buildroot}/etc/udev/rules.d/xend.rules
 
 # modules
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/modules
@@ -453,9 +454,6 @@ rm -rf %{buildroot}
 %{_sbindir}/xm
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
-%{_mandir}/man1/xm.1*
-%{_mandir}/man5/xend-config.sxp.5*
-%{_mandir}/man5/xmdomain.cfg.5*
 %{_datadir}/%{name}/create.dtd
 
 # Startup script
@@ -489,7 +487,7 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore-*
 
 # Hotplug rules
-%config(noreplace) %{_sysconfdir}/udev/rules.d/*
+%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
 
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
@@ -523,7 +521,7 @@ rm -rf %{buildroot}
 %files runtime
 %defattr(-,root,root)
 # Hotplug rules
-%config(noreplace) %{_sysconfdir}/udev/rules.d/*
+%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
 
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
@@ -638,8 +636,6 @@ rm -rf %{buildroot}
 %files doc
 %defattr(-,root,root)
 %doc docs/misc/
-%doc dist/install/usr/share/doc/xen/html
-%doc dist/install/usr/share/doc/xen/pdf/*.pdf
 
 %files devel
 %defattr(-,root,root)
