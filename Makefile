@@ -14,6 +14,8 @@ SOURCEDIR := $(WORKDIR)
 VERSION := $(shell cat version)
 RELEASE := $(shell cat rel)
 
+DIST_DOM0 ?= fc13
+
 NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
 RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
@@ -139,8 +141,8 @@ clean ::
 	$(RPM_WITH_DIRS) --clean --nodeps $(SPECFILE)
 
 update-repo-current:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).fc13*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
 	for vmrepo in ../yum/current-release/current/vm/* ; do \
 	    	dist=$$(basename $$vmrepo); \
 		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -150,8 +152,8 @@ update-repo-current:
 	done
 
 update-repo-current-testing:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
 	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
 	    	dist=$$(basename $$vmrepo); \
 		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -161,8 +163,8 @@ update-repo-current-testing:
 	done
 
 update-repo-unstable:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
 	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
 	    	dist=$$(basename $$vmrepo); \
 		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -181,14 +183,14 @@ update-repo-template:
 	done
 
 update-repo-installer:
-	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE).fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
 
 help:
 	@echo "Usage: make <target>"
