@@ -1,0 +1,11 @@
+--- xen-4.1.2/tools/Rules.mk.orig	2013-01-20 02:42:49.625035788 +0100
++++ xen-4.1.2/tools/Rules.mk	2013-01-20 02:43:39.381307841 +0100
+@@ -67,7 +67,7 @@
+                         "Xen requires at least gcc-3.4")
+ $(eval $(check-y))
+ 
+-_PYTHON_PATH := $(shell which $(PYTHON))
++_PYTHON_PATH := $(shell readlink -f `which $(PYTHON)`)
+ PYTHON_PATH ?= $(_PYTHON_PATH)
+ INSTALL_PYTHON_PROG = \
+ 	$(XEN_ROOT)/tools/python/install-wrap "$(PYTHON_PATH)" $(INSTALL_PROG)

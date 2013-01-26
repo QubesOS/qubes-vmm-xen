@@ -1,0 +1,13 @@
+diff --git a/docs/Makefile b/docs/Makefile
+index 1b8423d..36ddcdb 100644
+--- a/docs/Makefile
++++ b/docs/Makefile
+@@ -21,7 +21,7 @@ GFX = $(patsubst %.fig, %.eps, $(wildcard figs/*.fig))
+ all: build
+ 
+ .PHONY: build
+-build: ps pdf html man-pages
++build: man-pages
+ 	@if which $(DOT) 1>/dev/null 2>/dev/null ; then              \
+ 	$(MAKE) -C xen-api build ; else                              \
+         echo "Graphviz (dot) not installed; skipping xen-api." ; fi
