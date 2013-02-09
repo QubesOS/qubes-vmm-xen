@@ -58,6 +58,7 @@ Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
 Patch29: xen-4.1.2-compile-fixes.patch
 Patch30: gdbsx-glibc2.17.patch
+Patch31: xen-shared-loop-losetup.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
@@ -76,7 +77,6 @@ Patch112: xen-libxl-add-all-pci-at-once.patch
 Patch113: xen-libxl-pci-detach-fix.patch
 Patch114: xen-libxl-pci-list-segv-fix.patch
 Patch115: xen-libxl-backend-xenstore-perms.patch
-Patch116: xen-shared-loop-fix.patch
 Patch117: xen-libxl-networkattach-empty-vif-dir.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
 Patch121: xen-libxl-daemon-pid-stderr.patch
@@ -257,6 +257,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch28 -p1
 %patch29 -p1
 %patch30 -p1
+%patch31 -p1
 
 %patch100 -p1
 %patch101 -p1
@@ -273,7 +274,6 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch113 -p1
 %patch114 -p1
 %patch115 -p1
-%patch116 -p1
 %patch117 -p1
 %patch120 -p1
 %patch121 -p1
