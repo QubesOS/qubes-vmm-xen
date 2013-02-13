@@ -8,7 +8,7 @@
 # description: Starts and stops the Xen xenstored daemon.
 ### BEGIN INIT INFO
 # Provides:          xenstored
-# Required-Start:    $syslog $remote_fs
+# Required-Start:    $syslog $remote_fs fedora-loadmodules
 # Should-Start:
 # Required-Stop:     $syslog $remote_fs
 # Should-Stop:
