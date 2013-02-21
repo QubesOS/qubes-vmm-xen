@@ -1,0 +1,100 @@
+--- xen-4.1.1/tools/libxc/xc_dom_bzimageloader.c.orig	2013-02-21 07:01:35.108000000 +0100
++++ xen-4.1.1/tools/libxc/xc_dom_bzimageloader.c	2013-02-21 07:10:50.260000000 +0100
+@@ -536,14 +536,14 @@
+ 
+     if ( dom->kernel_blob == NULL )
+     {
+-        xc_dom_panic(dom->xch, XC_INTERNAL_ERROR,
++        xc_dom_printf(dom->xch,
+                      "%s: no kernel image loaded", __FUNCTION__);
+         return -EINVAL;
+     }
+ 
+     if ( dom->kernel_size < sizeof(struct setup_header) )
+     {
+-        xc_dom_panic(dom->xch, XC_INTERNAL_ERROR,
++        xc_dom_printf(dom->xch,
+                      "%s: kernel image too small", __FUNCTION__);
+         return -EINVAL;
+     }
+@@ -552,14 +552,15 @@
+ 
+     if ( memcmp(&hdr->header, HDR_MAGIC, HDR_MAGIC_SZ) != 0 )
+     {
+-        xc_dom_panic(dom->xch, XC_INVALID_KERNEL,
++        xc_dom_printf(dom->xch,
+                      "%s: kernel is not a bzImage", __FUNCTION__);
+         return -EINVAL;
+     }
+ 
+     if ( hdr->version < VERSION(2,8) )
+     {
+-        xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: boot protocol"
++        xc_dom_printf(dom->xch,
++                     "%s: boot protocol"
+                      " too old (%04x)", __FUNCTION__, hdr->version);
+         return -EINVAL;
+     }
+@@ -573,13 +574,14 @@
+ 
+     if ( payload_offset >= dom->kernel_size )
+     {
+-        xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: payload offset overflow",
++        xc_dom_printf(dom->xch, "%s: payload offset overflow",
+                      __FUNCTION__);
+         return -EINVAL;
+     }
+     if ( (payload_offset + payload_length) > dom->kernel_size )
+     {
+-        xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: payload length overflow",
++        xc_dom_printf(dom->xch,
++                     "%s: payload length overflow",
+                      __FUNCTION__);
+         return -EINVAL;
+     }
+@@ -592,7 +594,8 @@
+         ret = xc_dom_try_gunzip(dom, &dom->kernel_blob, &dom->kernel_size);
+         if ( ret == -1 )
+         {
+-            xc_dom_panic(dom->xch, XC_INVALID_KERNEL, "%s: unable to"
++            xc_dom_printf(dom->xch,
++                         "%s: unable to"
+                          " gzip decompress kernel", __FUNCTION__);
+             return -EINVAL;
+         }
+@@ -602,7 +605,7 @@
+         ret = xc_try_bzip2_decode(dom, &dom->kernel_blob, &dom->kernel_size);
+         if ( ret < 0 )
+         {
+-            xc_dom_panic(dom->xch, XC_INVALID_KERNEL,
++            xc_dom_printf(dom->xch,
+                          "%s unable to BZIP2 decompress kernel",
+                          __FUNCTION__);
+             return -EINVAL;
+@@ -613,7 +616,7 @@
+         ret = xc_try_lzma_decode(dom, &dom->kernel_blob, &dom->kernel_size);
+         if ( ret < 0 )
+         {
+-            xc_dom_panic(dom->xch, XC_INVALID_KERNEL,
++            xc_dom_printf(dom->xch,
+                          "%s unable to LZMA decompress kernel",
+                          __FUNCTION__);
+             return -EINVAL;
+@@ -624,7 +627,7 @@
+         ret = xc_try_lzo1x_decode(dom, &dom->kernel_blob, &dom->kernel_size);
+         if ( ret < 0 )
+         {
+-            xc_dom_panic(dom->xch, XC_INVALID_KERNEL,
++            xc_dom_printf(dom->xch,
+                          "%s unable to LZO decompress kernel\n",
+                          __FUNCTION__);
+             return -EINVAL;
+@@ -632,7 +635,7 @@
+     }
+     else
+     {
+-        xc_dom_panic(dom->xch, XC_INVALID_KERNEL,
++        xc_dom_printf(dom->xch,
+                      "%s: unknown compression format", __FUNCTION__);
+         return -EINVAL;
+     }

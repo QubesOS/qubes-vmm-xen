@@ -85,6 +85,8 @@ Patch123: stubdom-vbd-non-dom0-backend.patch
 Patch124: xl-block-parse-cdrom.patch
 Patch125: xen-libxl-error-write-perm.patch
 Patch126: xen-xl-create-quiet.patch
+Patch127: libxl-create-dm-uninitialized-variable.patch
+Patch128: libxc-bzimageloader-lower-loglevel.patch
 
 Patch666: xen-nergal-sysret-attack.patch
 Patch667: xsa11-4.1.patch
@@ -282,6 +284,8 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch124 -p1
 %patch125 -p1
 %patch126 -p1
+%patch127 -p1
+%patch128 -p1
 
 %patch666 -p1
 %patch667 -p1
