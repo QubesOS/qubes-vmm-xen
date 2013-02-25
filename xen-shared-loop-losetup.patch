@@ -6,7 +6,7 @@
  
 -          shared_list=$(losetup -a |
 -                sed -n -e "s@^\([^:]\+\)\(:[[:blank:]]\[${dev}\]:${inode}[[:blank:]](${file})\)@\1@p" )
-+          shared_list=$(losetup -j "$file" | cut -d : -f 1)
++          shared_list=$(losetup -j "$file" | head -n 1 | cut -d : -f 1)
            for dev in "$shared_list"
            do
              if [ -n "$dev" ]
