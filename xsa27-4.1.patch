@@ -120,7 +120,7 @@ diff -r 5639047d6c9f xen/arch/x86/hvm/hvm.c
 diff -r 5639047d6c9f xen/arch/x86/mm/paging.c
 --- a/xen/arch/x86/mm/paging.c	Mon Nov 19 09:43:48 2012 +0100
 +++ b/xen/arch/x86/mm/paging.c	Mon Nov 19 16:00:33 2012 +0000
-@@ -529,13 +529,18 @@ int paging_log_dirty_range(struct domain
+@@ -529,13 +529,19 @@ int paging_log_dirty_range(struct domain
  
      if ( !d->arch.paging.log_dirty.fault_count &&
           !d->arch.paging.log_dirty.dirty_count ) {
@@ -135,7 +135,8 @@ diff -r 5639047d6c9f xen/arch/x86/mm/paging.c
 -        if ( copy_to_guest_offset(dirty_bitmap, 0, (uint8_t *) zeroes,
 -                                  size * BYTES_PER_LONG) != 0 )
 -            rv = -EFAULT;
-+        for ( off = 0; !rv && off < size; off += sizeof zeroes )
++        off = 0;
++        while ( !rv && off < size )
 +        {
 +            int todo = min(size - off, (int) PAGE_SIZE);
 +            if ( copy_to_guest_offset(dirty_bitmap, off, zeroes, todo) )
