@@ -42,7 +42,7 @@ Source32: sysconfig.blktapctrl
 
 # Qubes components for stubdom
 Source33: gui
-Source34: core
+Source34: vchan
 Source35: stubdom-dhcp
 
 Patch1: xen-initscript.patch
@@ -271,7 +271,7 @@ cp -v %{SOURCE18} tools/vtpm/
 mkdir tools/qubes-gui/
 cp -a %{SOURCE33}/* tools/qubes-gui/
 make -C tools/qubes-gui clean
-cp -a %{SOURCE34}/vchan tools/
+cp -a %{SOURCE34} tools/
 make -C tools/vchan -f Makefile.stubdom clean
 patch -p1 < tools/qubes-gui/gui-agent-qemu/qemu-glue.patch
 
