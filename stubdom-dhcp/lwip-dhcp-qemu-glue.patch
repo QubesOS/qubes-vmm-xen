@@ -97,8 +97,8 @@ diff -Nru xen/xen-4.1.2/tools/ioemu-qemu-xen/xen-hooks.mak xen-hvm/xen-4.1.2/too
  CONFIG_AUDIO=
  OBJS += xenfbfront.o
  
--OBJS+= qubes_gui.o txrx-vchan.o double_buffer.o qubes_gui_keymap.o
-+OBJS+= qubes_gui.o txrx-vchan.o double_buffer.o qubes_gui_keymap.o net_lwip.o dhcpserver.o
+-OBJS+= qubes-gui.o txrx-vchan.o double-buffer.o qubes-gui-keymap.o
++OBJS+= qubes-gui.o txrx-vchan.o double-buffer.o qubes-gui-keymap.o net_lwip.o dhcpserver.o
  LIBS+= -lvchan
  CPPFLAGS += -I$(XEN_ROOT)/tools/vchan -I$(XEN_ROOT)/tools/qubes-gui/include
  VPATH+=:$(XEN_ROOT)/tools/qubes-gui/gui-common:$(XEN_ROOT)/tools/qubes-gui/gui-agent-qemu
