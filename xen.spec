@@ -8,6 +8,8 @@
 
 %{!?version_gui: %define version_gui %(cat gui/version)}
 
+%define _sourcedir %(pwd)
+
 Summary: Xen is a virtual machine monitor
 Name:    xen
 Version: %{version}
