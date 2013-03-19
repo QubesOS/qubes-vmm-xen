@@ -106,7 +106,9 @@ RPM := rpmbuild
 
 RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
-rpms-vm: rpms
+rpms-vm:
+	$(RPM_WITH_DIRS) -bb xen-vm.spec
+	rpm --addsign $(RPMDIR)/x86_64/xen-qubes-vm*$(VERSION)-$(RELEASE)*.rpm
 
 rpms-dom0: rpms
 

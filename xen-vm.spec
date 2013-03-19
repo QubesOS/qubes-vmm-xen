@@ -6,10 +6,8 @@
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
-%{!?version_gui: %define version_gui %(cat gui/version)}
-
 Summary: Xen is a virtual machine monitor
-Name:    xen
+Name:    xen-qubes-vm
 Version: %{version}
 Release: %{rel}%{?dist}
 Epoch:   2001
@@ -17,33 +15,6 @@ Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
-Source1: %{name}.modules
-Source2: %{name}.logrotate
-# used by stubdoms
-Source10: lwip-1.3.0.tar.gz
-Source11: newlib-1.16.0.tar.gz
-Source12: zlib-1.2.3.tar.gz
-Source13: pciutils-2.2.9.tar.bz2
-Source14: grub-0.97.tar.gz
-Source15: ipxe-git-v1.0.0.tar.gz
-Source16: ocaml-3.11.0.tar.gz
-Source17: gc.tar.gz
-Source18: tpm_emulator-0.5.1.tar.gz
-Source19: tboot-20090330.tar.gz
-# init.d bits
-Source20: init.xenstored
-Source21: init.xenconsoled
-Source22: init.blktapctrl
-Source23: init.xend
-# sysconfig bits
-Source30: sysconfig.xenstored
-Source31: sysconfig.xenconsoled
-Source32: sysconfig.blktapctrl
-
-# Qubes components for stubdom
-Source33: gui
-Source34: vchan
-Source35: stubdom-dhcp
 
 Patch1: xen-initscript.patch
 Patch4: xen-dumpdir.patch
@@ -66,159 +37,48 @@ Patch102: xen-acpi-override-query.patch
 Patch103: xen-dont-install-outdated-latex-documentation.patch
 Patch104: xen-tools-canonicalize-python-location.patch
 
-# libxl fixes
-# 102-109,112-113,117 are candidates to be included in upstream release
-Patch105: xen-xl-networkattach-memory-allocation.patch
-Patch106: xen-libxl-python-missing-pyincref.patch
-Patch108: xen-libxl-devid-to-nic-domid.patch
-Patch110: xen-libxl-script-block-backend.patch
 Patch111: xen-hotplug-external-store.patch
-Patch112: xen-libxl-add-all-pci-at-once.patch
-Patch113: xen-libxl-pci-detach-fix.patch
-Patch114: xen-libxl-pci-list-segv-fix.patch
-Patch115: xen-libxl-backend-xenstore-perms.patch
-Patch117: xen-libxl-networkattach-empty-vif-dir.patch
-Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
-Patch121: xen-libxl-daemon-pid-stderr.patch
-Patch122: xl-disk-backend-domid.patch
-Patch123: stubdom-vbd-non-dom0-backend.patch
-Patch124: xl-block-parse-cdrom.patch
-Patch125: xen-libxl-error-write-perm.patch
-Patch126: xen-xl-create-quiet.patch
-Patch127: libxl-create-dm-uninitialized-variable.patch
-Patch128: libxc-bzimageloader-lower-loglevel.patch
 
-Patch666: xen-nergal-sysret-attack.patch
-Patch667: xsa11-4.1.patch
-Patch668: xsa12-all.patch
-Patch669: xsa13-xen-4.1.patch
-Patch670: xsa14-xen-3.4-and-4.x.patch
-Patch671: xsa16-xen-4.1.patch
-Patch672: xsa17-qemu-xen-traditional-all.patch
-Patch673: xsa10-4.1.patch
-# XSA 18 do not affect Xen 4.1
-# XSA 19 not applicable to Qubes
-Patch675: xsa20.patch
-Patch676: xsa21.patch
-Patch677: xsa22-4.1.patch
-Patch678: xsa23-4.0-4.1.patch
-Patch679: xsa24.patch
-Patch680: xsa25-4.1.patch
-Patch681: xsa26-4.1.patch
-Patch682: xsa27-4.1.patch
-Patch683: xsa28-4.1.patch
-Patch684: xsa29-4.1.patch
-Patch685: xsa30-4.1.patch
-Patch686: xsa31-4.1.patch
-# XSA 32 do not affect Xen 4.1
-Patch688: xsa33-4.1.patch
-
-# Qubes HVM
-Patch200: xen-stubdom-qubes-gui.patch
-Patch201: xen-libxl-qubes-minimal-stubdom.patch
-Patch202: xen-disable-dom0-qemu.patch
-Patch203: stubdom-lwip-fix-for-dhcp.patch
-Patch204: xen-libxl-stubdom-pci-create.patch
-Patch205: xen-libxl-timeoffset-localtime.patch
+Patch500: xen-tools-qubes-vm.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
-BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
-BuildRequires: libX11-devel python-devel ghostscript tetex-latex
+BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
+BuildRequires: libX11-devel python-devel
 BuildRequires: ncurses-devel gtk2-devel libaio-devel
-# for the docs
-BuildRequires: perl texinfo
 # so that the makefile knows to install udev rules
 BuildRequires: udev
-%ifnarch ia64
-# so that x86_64 builds pick up glibc32 correctly
-BuildRequires: /usr/include/gnu/stubs-32.h
-# for the VMX "bios"
-BuildRequires: dev86
-%endif
 BuildRequires: gettext
 BuildRequires: gnutls-devel
 BuildRequires: openssl-devel
-# For ioemu PCI passthrough
-BuildRequires: pciutils-devel
 # Several tools now use uuid
 BuildRequires: libuuid-devel
-# iasl needed to build hvmloader
-BuildRequires: iasl
-# modern compressed kernels
-BuildRequires: bzip2-devel xz-devel
-# libfsimage
-BuildRequires: e2fsprogs-devel
+BuildRequires: which
 Requires: bridge-utils
 Requires: PyXML
 Requires: udev >= 059
-Requires: xen-runtime = %{version}-%{release}
-# Not strictly a dependency, but kpartx is by far the most useful tool right
-# now for accessing domU data from within a dom0 so bring it in when the user
-# installs xen.
-Requires: kpartx
 Requires: chkconfig
 ExclusiveArch: %{ix86} x86_64 ia64
 #ExclusiveArch: %{ix86} x86_64 ia64 noarch
 
+Provides: xen-qubes-vm-essentials = %{version}-%{release}
+Obsoletes: xen-qubes-vm-essentials < 2001:4.1.2-25
+Obsoletes: xen-libs < 2001:4.1.2-25
+Requires: xen-qubes-vm-libs = %{epoch}:%{version}-%{release}
+
+%define _sourcedir %(pwd)
+
 %description
-This package contains the XenD daemon and xm command line
-tools, needed to manage virtual machines running under the
-Xen hypervisor
+Just a few xenstore-* tools and Xen hotplug scripts needed by Qubes VMs (including netvm)
 
 %package libs
 Summary: Libraries for Xen tools
 Group: Development/Libraries
 Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
-Requires: xen-licenses
-Provides: xen-libs = %{version}-%{release}
+Conflicts: xen-libs
 
 %description libs
-This package contains the libraries needed to run applications
-which manage Xen virtual machines.
-
-%package runtime
-Summary: Core Xen runtime environment
-Group: Development/Libraries
-Requires: xen-libs = %{version}-%{release}
-Requires: python-lxml
-# Ensure we at least have a suitable kernel installed, though we can't
-# force user to actually boot it.
-Requires: xen-hypervisor-abi = %{hv_abi}
-Provides: xen-runtime = %{version}-%{release}
-
-%description runtime
-This package contains the runtime programs and daemons which
-form the core Xen userspace environment.
-
-
-%package hypervisor
-Summary: Libraries for Xen tools
-Group: Development/Libraries
-Provides: xen-hypervisor-abi = %{hv_abi}
-
-%description hypervisor
-This package contains the Xen hypervisor
-
-
-%package doc
-Summary: Xen documentation
-Group: Documentation
-#BuildArch: noarch
-
-%description doc
-This package contains the Xen documentation.
-
-
-%package devel
-Summary: Development libraries for Xen tools
-Group: Development/Libraries
-Requires: xen-libs = %{version}-%{release}
-
-%description devel
-This package contains what's needed to develop applications
-which manage Xen virtual machines.
-
+This package contains the libraries needed to run Xen tools inside of Qubes VM
 
 %package licenses
 Summary: License files from Xen source
@@ -228,18 +88,18 @@ Group: Documentation
 This package contains the license files from the source used
 to build the xen packages.
 
-%package hvm
-Summary: Loader and device-model for HVM
-Requires: xen-libs = %{version}-%{release}
-Requires: xen-runtime = %{version}-%{release}
-Version: %{version}gui%{version_gui}
+%package devel
+Summary: Development libraries for Xen tools
+Group: Development/Libraries
+Requires: xen-qubes-vm-libs = %{version}-%{release}
+Provides: xen-devel = %{version}-%{release}
 
-%description hvm
-This package contains files for HVM domains, especially stubdomain with device model.
-
+%description devel
+This package contains what's needed to develop applications
+which manage Xen virtual machines.
 
 %prep
-%setup -q
+%setup -q -n xen-%{version}
 %patch1 -p1
 %patch4 -p1
 %patch5 -p1
@@ -260,97 +120,23 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch103 -p1
 %patch104 -p1
 
-%patch105 -p1
-%patch106 -p1
-%patch108 -p1
-%patch110 -p1
 %patch111 -p1
-%patch112 -p1
-%patch113 -p1
-%patch114 -p1
-%patch115 -p1
-%patch117 -p1
-%patch120 -p1
-%patch121 -p1
-%patch122 -p1
-%patch123 -p1
-%patch124 -p1
-%patch125 -p1
-%patch126 -p1
-%patch127 -p1
-%patch128 -p1
 
-%patch666 -p1
-%patch667 -p1
-%patch668 -p1
-%patch669 -p1
-%patch670 -p1
-%patch671 -p1
-%patch672 -d tools/ioemu-qemu-xen -p1
-%patch673 -p1
-%patch675 -p1
-%patch676 -p1
-%patch677 -p1
-%patch678 -p1
-%patch679 -p1
-%patch680 -p1
-%patch681 -p1
-%patch682 -p1
-%patch683 -p1
-%patch684 -p1
-%patch685 -p1
-%patch686 -p1
-%patch688 -p1
-
-%patch200 -p0
-%patch201 -p2
-%patch202 -p1
-%patch203 -p2
-%patch204 -p1
-%patch205 -p1
+%patch500 -p1
 
 # Fix for glibc 2.7
 sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
-
-# stubdom sources
-cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE16} stubdom
-cp -v %{PATCH23} stubdom/grub.patches/99grub-ext4-support.patch
-cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
-cp -v %{SOURCE17} tools/vnet/
-cp -v %{SOURCE18} tools/vtpm/
-
-# qubes specific parts of stubdom
-mkdir tools/qubes-gui/
-cp -a %{SOURCE33}/* tools/qubes-gui/
-make -C tools/qubes-gui clean
-cp -a %{SOURCE34} tools/
-make -C tools/vchan -f Makefile.stubdom clean
-patch -p1 < tools/qubes-gui/gui-agent-qemu/qemu-glue.patch
-
-cp -a %{SOURCE35}/* tools/ioemu-qemu-xen/
-patch -d tools/ioemu-qemu-xen -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
-
-mkdir -p tboot
-cp -v %{SOURCE19} tboot/
 
 %build
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
 export OCAML_TOOLS=n
-make %{?_smp_mflags} prefix=/usr dist-xen
 make %{?_smp_mflags} prefix=/usr dist-tools
-make                 prefix=/usr dist-docs
-unset CFLAGS
-make dist-stubdom
-
 
 %install
 rm -rf %{buildroot}
 export OCAML_TOOLS=n
-make DESTDIR=%{buildroot} prefix=/usr install-xen
 make DESTDIR=%{buildroot} prefix=/usr install-tools
-make DESTDIR=%{buildroot} prefix=/usr install-docs
-make DESTDIR=%{buildroot} prefix=/usr install-stubdom
 
 ############ debug packaging: list files ############
 
@@ -374,12 +160,6 @@ rm -f %{buildroot}%{_sbindir}/xen-python-path
 
 # qemu stuff (unused or available from upstream)
 rm -rf %{buildroot}/usr/share/xen/man
-for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
-         pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
-         vgabios.bin vgabios-cirrus.bin video.x openbios-ppc bamboo.dtb
-do
-	rm -f %{buildroot}/%{_datadir}/xen/qemu/$file
-done
 
 # README's not intended for end users
 rm -f %{buildroot}/%{_sysconfdir}/xen/README*
@@ -390,6 +170,33 @@ rm -rf %{buildroot}/usr/info
 # adhere to Static Library Packaging Guidelines
 rm -rf %{buildroot}/%{_libdir}/*.a
 
+# not used in Qubes VM
+rm -f %{buildroot}/usr/sbin/xenstored
+rm -f %{buildroot}/usr/share/xen/create.dtd
+rm -f %{buildroot}%{python_sitearch}/xen/lowlevel/flask.so
+rm -f %{buildroot}%{python_sitearch}/xen/lowlevel/xl.so
+for f in `ls %{buildroot}%{python_sitearch}/xen/util`; do
+    case "$f" in
+        __init__*|\
+        vusb_util.py*|\
+        utils.py)
+            continue
+            ;;
+        *)
+            rm -rf  %{buildroot}%{python_sitearch}/xen/util/$f
+            ;;
+    esac
+done
+rm -rf %{buildroot}%{python_sitearch}/xen/xsview
+rm -rf %{buildroot}%{python_sitearch}/xen/xm
+rm -rf %{buildroot}%{python_sitearch}/xen/xend
+rm -rf %{buildroot}%{python_sitearch}/xen/web
+rm -rf %{buildroot}%{python_sitearch}/xen/sv
+rm -rf %{buildroot}%{python_sitearch}/xen/remus
+rm -rf %{buildroot}%{python_sitearch}/xen*.egg-info
+rm -rf %{buildroot}/etc/sysconfig
+rm -rf %{buildroot}/etc/rc.d/init.d
+
 ############ fixup files in /etc ############
 
 # udev
@@ -397,45 +204,8 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 #mv %{buildroot}/etc/udev/xen*.rules %{buildroot}/etc/udev/rules.d
 rm -f %{buildroot}/etc/udev/rules.d/xend.rules
 
-# modules
-mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/modules
-install -m 644 %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/modules/%{name}.modules
-
-# logrotate
-mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
-install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
-
-# init scripts
-#mkdir -p %{buildroot}%{_sysconfdir}/rc.d/init.d
-#mv %{buildroot}%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
-#rmdir %{buildroot}%{_sysconfdir}/init.d
-install -m 755 %{SOURCE20} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenstored
-install -m 755 %{SOURCE21} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenconsoled
-install -m 755 %{SOURCE22} %{buildroot}%{_sysconfdir}/rc.d/init.d/blktapctrl
-install -m 755 %{SOURCE23} %{buildroot}%{_sysconfdir}/rc.d/init.d/xend
-
-# sysconfig
-mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
-install -m 644 %{SOURCE30} %{buildroot}%{_sysconfdir}/sysconfig/xenstored
-install -m 644 %{SOURCE31} %{buildroot}%{_sysconfdir}/sysconfig/xenconsoled
-install -m 644 %{SOURCE32} %{buildroot}%{_sysconfdir}/sysconfig/blktapctrl
-
 # config file only used for hotplug, Fedora uses udev instead
 rm -f %{buildroot}/%{_sysconfdir}/sysconfig/xend
-
-############ create dirs in /var ############
-
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/domain
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/vnet
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/migrate
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/images
-mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
-
-############ create symlink for x86_64 for compatibility with 3.4 ############
-
-%if "%{_libdir}" != "/usr/lib"
-ln -s /usr/lib/%{name}/bin/qemu-dm %{buildroot}/%{_libdir}/%{name}/bin/qemu-dm
-%endif
 
 ############ debug packaging: list files ############
 
@@ -455,198 +225,44 @@ done
 
 ############ all done now ############
 
-%post
-/sbin/chkconfig --add xend
-/sbin/chkconfig --add xendomains
-
-if [ $1 != 0 ]; then
-  service xend condrestart
-fi
-
-%preun
-if [ $1 = 0 ]; then
-  /sbin/chkconfig --del xend
-  /sbin/chkconfig --del xendomains
-fi
-
-%post runtime
-/sbin/chkconfig --add xenconsoled
-/sbin/chkconfig --add xenstored
-#/sbin/chkconfig --add blktapctrl
-
-if [ $1 != 0 ]; then
-  service xenconsoled condrestart
-fi
-
-%preun runtime
-if [ $1 = 0 ]; then
-  /sbin/chkconfig --del xenconsoled
-  /sbin/chkconfig --del xenstored
-  /sbin/chkconfig --del blktapctrl
-fi
-
-%post libs -p /sbin/ldconfig
-%postun libs -p /sbin/ldconfig
+%post -n xen-qubes-vm-libs -p /sbin/ldconfig
+%postun -n xen-qubes-vm-libs -p /sbin/ldconfig
 
 %clean
 rm -rf %{buildroot}
 
-# Base package only contains XenD/xm python stuff
-#files -f xen-xm.lang
-%files
-%defattr(-,root,root)
-%doc COPYING README
-%{_bindir}/xencons
-%{_sbindir}/xend
-%{_sbindir}/xm
-%{python_sitearch}/%{name}
-%{python_sitearch}/xen-*.egg-info
-%{_datadir}/%{name}/create.dtd
-
-# Startup script
-%{_sysconfdir}/rc.d/init.d/xend
-%{_sysconfdir}/rc.d/init.d/xendomains
-# Guest config files
-%config(noreplace) %{_sysconfdir}/%{name}/xmexample*
-# Daemon config
-%config(noreplace) %{_sysconfdir}/%{name}/xend-*
-# xm config
-%config(noreplace) %{_sysconfdir}/%{name}/xm-*
-# Guest autostart links
-%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
-# Autostart of guests
-%config(noreplace) %{_sysconfdir}/sysconfig/xendomains
-
-# Persistent state for XenD
-%dir %{_localstatedir}/lib/%{name}/xend-db/
-%dir %{_localstatedir}/lib/%{name}/xend-db/domain
-%dir %{_localstatedir}/lib/%{name}/xend-db/migrate
-%dir %{_localstatedir}/lib/%{name}/xend-db/vnet
-
 %files libs
 %defattr(-,root,root)
 %{_libdir}/*.so.*
-%{_libdir}/fs
 
-# All runtime stuff except for XenD/xm python stuff
-%files runtime
-%defattr(-,root,root)
+%files
+
+%{_bindir}/xenstore
+%{_bindir}/xenstore-*
+
 # Hotplug rules
 %config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
 
-%dir %attr(0700,root,root) %{_sysconfdir}/%{name}
-%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
-%config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
-
-%{_sysconfdir}/rc.d/init.d/blktapctrl
-%{_sysconfdir}/rc.d/init.d/xenstored
-%{_sysconfdir}/rc.d/init.d/xenconsoled
-%{_sysconfdir}/rc.d/init.d/xen-watchdog
-%{_sysconfdir}/rc.d/init.d/xencommons
-%{_sysconfdir}/bash_completion.d/xl.sh
-
-%config(noreplace) %{_sysconfdir}/sysconfig/xenstored
-%config(noreplace) %{_sysconfdir}/sysconfig/xenconsoled
-%config(noreplace) %{_sysconfdir}/sysconfig/blktapctrl
-%config(noreplace) %{_sysconfdir}/sysconfig/xencommons
-%config(noreplace) %{_sysconfdir}/xen/xl.conf
-%config(noreplace) %{_sysconfdir}/xen/cpupool
-
-# Auto-load xen backend drivers
-%attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
-
-# Rotate console log files
-%config(noreplace) %{_sysconfdir}/logrotate.d/xen
-
-# Programs run by other programs
-%dir %{_libdir}/%{name}
-%dir %{_libdir}/%{name}/bin
-%attr(0700,root,root) %{_libdir}/%{name}/bin/*
-# QEMU runtime files
-%dir %{_datadir}/%{name}/qemu
-%dir %{_datadir}/%{name}/qemu/keymaps
-%{_datadir}/%{name}/qemu/keymaps/*
-
-# man pages
-%{_mandir}/man1/xentop.1*
-%{_mandir}/man1/xentrace_format.1*
-%{_mandir}/man8/xentrace.8*
-
-%{python_sitearch}/fsimage.so
-%{python_sitearch}/grub
-%{python_sitearch}/pygrub-*.egg-info
+%dir %attr(0700,root,root) %{_sysconfdir}/xen
+%dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
+%config %attr(0700,root,root) %{_sysconfdir}/xen/scripts/*
 
 # General Xen state
-%dir %{_localstatedir}/lib/%{name}
-%dir %{_localstatedir}/lib/%{name}/dump
-%dir %{_localstatedir}/lib/%{name}/images
-# Xenstore persistent state
-%dir %{_localstatedir}/lib/xenstored
-# Xenstore runtime state
-%ghost %{_localstatedir}/run/xenstored
-# XenD runtime state
-%ghost %attr(0700,root,root) %{_localstatedir}/run/xend
-%ghost %attr(0700,root,root) %{_localstatedir}/run/xend/boot
-
-# All xenstore CLI tools
-%{_bindir}/qemu-*-xen
-%{_bindir}/xenstore
-%{_bindir}/xenstore-*
-%{_bindir}/pygrub
-%{_bindir}/xentrace*
-%{_bindir}/remus
-# blktap daemon
-%{_sbindir}/blktapctrl
-%{_sbindir}/tapdisk*
-# XSM
-%{_sbindir}/flask-*
-# Disk utils
-%{_sbindir}/qcow-create
-%{_sbindir}/qcow2raw
-%{_sbindir}/img2qcow
-# Misc stuff
-%{_bindir}/xen-detect
-%{_sbindir}/gdbsx
-%{_sbindir}/gtrace*
-%{_sbindir}/kdd
-%{_sbindir}/lock-util
-%{_sbindir}/tap-ctl
-%{_sbindir}/td-util
-%{_sbindir}/vhd-*
-%{_sbindir}/xen-bugtool
-%{_sbindir}/xen-hptool
-%{_sbindir}/xen-hvmcrash
-%{_sbindir}/xen-hvmctx
-%{_sbindir}/xen-tmem-list-parse
-%{_sbindir}/xenconsoled
-%{_sbindir}/xenlockprof
-%{_sbindir}/xenmon.py*
-%{_sbindir}/xenpaging
-%{_sbindir}/xentop
-%{_sbindir}/xentrace_setmask
-%{_sbindir}/xenbaked
-%{_sbindir}/xenstored
-%{_sbindir}/xenpm
-%{_sbindir}/xenpmd
-%{_sbindir}/xenperf
-%{_sbindir}/xenwatchdogd
-%{_sbindir}/xl
-%{_sbindir}/xsview
+%dir %{_localstatedir}/lib/xen
+%dir %{_localstatedir}/lib/xen/dump
 
 # Xen logfiles
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen
-# Guest/HV console logs
-%dir %attr(0700,root,root) %{_localstatedir}/log/xen/console
 
-%files hypervisor
-%defattr(-,root,root)
-/boot/xen-syms-*
-/boot/xen-*.gz
-/boot/xen.gz
+# Python modules
+%dir %{python_sitearch}/xen
+%{python_sitearch}/xen/__init__.*
+%{python_sitearch}/xen/lowlevel
 
-%files doc
-%defattr(-,root,root)
-%doc docs/misc/
+%dir %{python_sitearch}/xen/util
+%{python_sitearch}/xen/util/__init__.py*
+%{python_sitearch}/xen/util/vusb_util.py*
+%{python_sitearch}/xen/util/utils.py*
 
 %files devel
 %defattr(-,root,root)
@@ -658,24 +274,6 @@ rm -rf %{buildroot}
 %files licenses
 %defattr(-,root,root)
 %doc licensedir/*
-
-%files hvm
-# The firmware
-%ifnarch ia64
-# Avoid owning /usr/lib twice on i386
-%if "%{_libdir}" != "/usr/lib"
-%dir /usr/lib/%{name}
-%dir /usr/lib/%{name}/bin
-/usr/lib/%{name}/bin/stubdom-dm
-/usr/lib/%{name}/bin/qemu-dm
-/usr/lib/%{name}/bin/stubdompath.sh
-%endif
-%dir /usr/lib/%{name}/boot
-# HVM loader is always in /usr/lib regardless of multilib
-/usr/lib/xen/boot/hvmloader
-/usr/lib/xen/boot/ioemu-stubdom.gz
-/usr/lib/xen/boot/pv-grub*.gz
-%endif
 
 %changelog
 * Fri Mar 25 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.0-1
