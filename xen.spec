@@ -6,7 +6,7 @@
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
-%{!?version_gui: %define version_gui %(cat gui/version)}
+%{!?version_gui: %define version_gui %(cat gui/version 2> /dev/null || cat ../gui-agent-xen-hvm-stubdom/version)}
 
 %define _sourcedir %(pwd)
 
