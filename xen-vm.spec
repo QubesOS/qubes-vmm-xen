@@ -173,27 +173,6 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 # not used in Qubes VM
 rm -f %{buildroot}/usr/sbin/xenstored
 rm -f %{buildroot}/usr/share/xen/create.dtd
-rm -f %{buildroot}%{python_sitearch}/xen/lowlevel/flask.so
-rm -f %{buildroot}%{python_sitearch}/xen/lowlevel/xl.so
-for f in `ls %{buildroot}%{python_sitearch}/xen/util`; do
-    case "$f" in
-        __init__*|\
-        vusb_util.py*|\
-        utils.py)
-            continue
-            ;;
-        *)
-            rm -rf  %{buildroot}%{python_sitearch}/xen/util/$f
-            ;;
-    esac
-done
-rm -rf %{buildroot}%{python_sitearch}/xen/xsview
-rm -rf %{buildroot}%{python_sitearch}/xen/xm
-rm -rf %{buildroot}%{python_sitearch}/xen/xend
-rm -rf %{buildroot}%{python_sitearch}/xen/web
-rm -rf %{buildroot}%{python_sitearch}/xen/sv
-rm -rf %{buildroot}%{python_sitearch}/xen/remus
-rm -rf %{buildroot}%{python_sitearch}/xen*.egg-info
 rm -rf %{buildroot}/etc/sysconfig
 rm -rf %{buildroot}/etc/rc.d/init.d
 
@@ -259,10 +238,8 @@ rm -rf %{buildroot}
 %{python_sitearch}/xen/__init__.*
 %{python_sitearch}/xen/lowlevel
 
-%dir %{python_sitearch}/xen/util
-%{python_sitearch}/xen/util/__init__.py*
-%{python_sitearch}/xen/util/vusb_util.py*
-%{python_sitearch}/xen/util/utils.py*
+%{python_sitearch}/xen/util
+%{python_sitearch}/xen-*.egg-info
 
 %files devel
 %defattr(-,root,root)
