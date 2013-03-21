@@ -62,7 +62,6 @@ ExclusiveArch: %{ix86} x86_64 ia64
 
 Provides: xen-qubes-vm-essentials = %{version}-%{release}
 Obsoletes: xen-qubes-vm-essentials < 2001:4.1.2-25
-Obsoletes: xen-libs < 2001:4.1.2-25
 Requires: xen-qubes-vm-libs = %{epoch}:%{version}-%{release}
 
 %define _sourcedir %(pwd)
@@ -75,7 +74,8 @@ Summary: Libraries for Xen tools
 Group: Development/Libraries
 Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
-Conflicts: xen-libs
+Obsoletes: xen-libs < 2001:4.1.2-25
+Provides: xen-libs = %{version}-%{release}
 
 %description libs
 This package contains the libraries needed to run Xen tools inside of Qubes VM
