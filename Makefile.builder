@@ -3,6 +3,7 @@ RPM_SPEC_FILES := xen.spec
 SOURCE_COPY_IN := source-xen-copy-in
 else ifeq ($(PACKAGE_SET),vm)
 RPM_SPEC_FILES := xen-vm.spec
+ARCH_BUILD_DIRS := archlinux
 endif
 
 source-xen-copy-in:

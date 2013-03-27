@@ -1,0 +1,182 @@
+# This is an example PKGBUILD file. Use this as a start to creating your own,
+# and remove these comments. For more information, see 'man PKGBUILD'.
+# NOTE: Please fill out the license field for your package! If it is unknown,
+# then please put 'unknown'.
+
+# Maintainer: Olivier Medoc <o_medoc@yahoo.fr>
+pkgname=qubes-vm-xen
+pkgver=4.1.2
+pkgrel=24
+epoch=
+pkgdesc="Xen is a virtual machine monitor"
+arch=("x86_64")
+url="http://qubes-os.org/"
+license=('GPL')
+groups=()
+depends=(python2)
+makedepends=(wget make gcc patch git bin86 dev86 iasl)
+checkdepends=()
+optdepends=()
+provides=('xen-qubes-vm-essentials')
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+
+Patch1=xen-initscript.patch
+Patch4=xen-dumpdir.patch
+Patch5=xen-net-disable-iptables-on-bridge.patch
+
+Patch10=xen-no-werror.patch
+
+Patch18=localgcc45fix.patch
+Patch20=localgcc451fix.patch
+Patch23=grub-ext4-support.patch
+Patch26=localgcc46fix.patch
+Patch28=pygrubfix.patch
+Patch29=xen-4.1.2-compile-fixes.patch
+Patch30=gdbsx-glibc2.17.patch
+Patch31=xen-shared-loop-losetup.patch
+
+Patch100=xen-configure-xend.patch
+Patch101=xen-no-downloads.patch
+Patch102=xen-acpi-override-query.patch
+Patch103=xen-dont-install-outdated-latex-documentation.patch
+Patch104=xen-tools-canonicalize-python-location.patch
+
+Patch111=xen-hotplug-external-store.patch
+
+Patch500=xen-tools-qubes-vm.patch
+
+source=(xen-$pkgver.tar.gz \
+$Patch1 $Patch4 $Patch5 \
+$Patch10 \
+$Patch18 $Patch20 $Patch23 $Patch26 $Patch28 $Patch29 $Patch30 $Patch31 \
+$Patch100 $Patch101 $Patch102 $Patch103 $Patch104 \
+$Patch111 \
+$Patch500 \
+)
+
+noextract=()
+md5sums=() #generate with 'makepkg -g'
+
+
+build() {
+
+  export PYTHON=/usr/bin/python2
+
+  cd xen-$pkgver
+  patch -p1 < ../$Patch1
+  patch -p1 < ../$Patch4
+  patch -p1 < ../$Patch5
+
+  patch -p1 < ../$Patch10
+
+  patch -p1 < ../$Patch18
+  patch -p1 < ../$Patch20
+  patch -p1 < ../$Patch26
+  patch -p1 < ../$Patch28
+  patch -p1 < ../$Patch29
+  patch -p1 < ../$Patch30
+  patch -p1 < ../$Patch31
+
+  patch -p1 < ../$Patch100
+  patch -p1 < ../$Patch101
+  patch -p1 < ../$Patch102
+  patch -p1 < ../$Patch103
+  patch -p1 < ../$Patch104
+
+  patch -p1 < ../$Patch111
+
+  patch -p1 < ../$Patch500
+
+  # Fix for glibc 2.7
+  sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
+
+  export XEN_VENDORVERSION="-$pkgrel"
+  export OCAML_TOOLS=n
+  export PYTHON=python2
+  unset LDFLAGS
+
+#  make prefix=/usr dist-xen
+  make prefix=/usr dist-tools
+#  make prefix=/usr dist-docs
+
+
+}
+
+package() {
+
+  cd xen-$pkgver
+
+  export OCAML_TOOLS=n
+  export PYTHON=python2
+  make DESTDIR=$pkgdir LIBDIR=/usr/lib/ prefix=/usr install-tools
+
+  # Remove unwated stuff
+
+  # stubdom: newlib
+  rm -rf $pkgdir/usr/*-xen-elf
+
+  # hypervisor symlinks
+  rm -rf $pkgdir/boot/
+
+  # silly doc dir fun
+  rm -rf $pkgdir/usr/share/doc/xen
+  rm -rf $pkgdir/usr/share/doc/qemu
+
+  # Pointless helper
+  rm -f $pkgdir/usr/sbin/xen-python-path
+
+  # qemu stuff (unused or available from upstream)
+  rm -rf $pkgdir/usr/share/xen/man
+
+  # README's not intended for end users
+  rm -rf $pkgdir/etc/xen/README*
+
+  # standard gnu info files (removed by packaging post actions anyway)
+  rm -rf $pkgdir/usr/info
+
+  # adhere to Static Library Packaging Guidelines
+  rm -rf $pkgdir/usr/lib/*.a
+
+  # not used in Qubes VM
+  rm -f $pkgdir/usr/sbin/xenstored
+  rm -f $pkgdir/usr/share/xen/create.dtd
+  rm -rf $pkgdir/etc/sysconfig
+  rm -rf $pkgdir/etc/rc.d/init.d
+
+  ############ fixup files in /etc ############
+
+  # udev
+  #rm -rf %{buildroot}/etc/udev/rules.d/xen*.rules
+  #mv %{buildroot}/etc/udev/xen*.rules %{buildroot}/etc/udev/rules.d
+  rm -f $pkgdir/etc/udev/rules.d/xend.rules
+
+  # config file only used for hotplug, Fedora uses udev instead
+  rm -f $pkgdir/etc/sysconfig/xend
+
+  ############ assemble license files ############
+
+  mkdir licensedir
+  # avoid licensedir to avoid recursion, also stubdom/ioemu and dist
+  # which are copies of files elsewhere
+  find . -path licensedir -prune -o -path stubdom/ioemu -prune -o \
+    -path dist -prune -o -name COPYING -o -name LICENSE | while read file; do
+    mkdir -p licensedir/`dirname $file`
+    install -m 644 $file licensedir/$file
+  done
+
+############ all done now ############
+
+
+  # Remove /var/lock (it is tmpfs in archlinux anyway)
+  rm -rf $pkgdir/var/lock
+
+
+}
+
+# vim:set ts=2 sw=2 et:
+
