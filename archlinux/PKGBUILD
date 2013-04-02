@@ -5,8 +5,8 @@
 
 # Maintainer: Olivier Medoc <o_medoc@yahoo.fr>
 pkgname=qubes-vm-xen
-pkgver=4.1.2
-pkgrel=24
+pkgver=`cat version`
+pkgrel=`cat rel`
 epoch=
 pkgdesc="Xen is a virtual machine monitor"
 arch=("x86_64")
