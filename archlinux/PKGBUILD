@@ -39,6 +39,7 @@ Patch28=pygrubfix.patch
 Patch29=xen-4.1.2-compile-fixes.patch
 Patch30=gdbsx-glibc2.17.patch
 Patch31=xen-shared-loop-losetup.patch
+Patch32=fix-python-compile-warnings.patch
 
 Patch100=xen-configure-xend.patch
 Patch101=xen-no-downloads.patch
@@ -53,7 +54,7 @@ Patch500=xen-tools-qubes-vm.patch
 source=(xen-$pkgver.tar.gz \
 $Patch1 $Patch4 $Patch5 \
 $Patch10 \
-$Patch18 $Patch20 $Patch23 $Patch26 $Patch28 $Patch29 $Patch30 $Patch31 \
+$Patch18 $Patch20 $Patch23 $Patch26 $Patch28 $Patch29 $Patch30 $Patch31 $Patch32 \
 $Patch100 $Patch101 $Patch102 $Patch103 $Patch104 \
 $Patch111 \
 $Patch500 \
@@ -81,6 +82,7 @@ build() {
   patch -p1 < ../$Patch29
   patch -p1 < ../$Patch30
   patch -p1 < ../$Patch31
+  patch -p1 < ../$Patch32
 
   patch -p1 < ../$Patch100
   patch -p1 < ../$Patch101

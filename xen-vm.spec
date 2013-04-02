@@ -30,6 +30,7 @@ Patch28: pygrubfix.patch
 Patch29: xen-4.1.2-compile-fixes.patch
 Patch30: gdbsx-glibc2.17.patch
 Patch31: xen-shared-loop-losetup.patch
+Patch32: fix-python-compile-warnings.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
@@ -113,6 +114,7 @@ which manage Xen virtual machines.
 %patch29 -p1
 %patch30 -p1
 %patch31 -p1
+%patch32 -p1
 
 %patch100 -p1
 %patch101 -p1
