@@ -1,0 +1,137 @@
+From 48d332ba8ef0bd9754b9d16f9e5629b00f85d735 Mon Sep 17 00:00:00 2001
+From: Michael Contreras <michael@inetric.com>
+Date: Sun, 2 Dec 2012 20:11:22 -0800
+Subject: [PATCH] e1000: Discard packets that are too long if !SBP and !LPE
+
+The e1000_receive function for the e1000 needs to discard packets longer than
+1522 bytes if the SBP and LPE flags are disabled. The linux driver assumes
+this behavior and allocates memory based on this assumption.
+
+Signed-off-by: Michael Contreras <michael@inetric.com>
+Signed-off-by: Anthony Liguori <aliguori@us.ibm.com>
+
+[ This is a security vulnerability, CVE-2012-6075 / XSA-41. ]
+(cherry picked from commit 4c2cae2a882db4d2a231b27b3b31a5bbec6dacbf)
+---
+ hw/e1000.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
+
+diff --git xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
+index 97104ed..f0673f0 100644
+--- xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
++++ xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
+@@ -55,6 +55,9 @@ static int debugflags = DBGBIT(TXERR) | DBGBIT(GENERAL);
+ #define REG_IOADDR 0x0
+ #define REG_IODATA 0x4
+ 
++/* this is the size past which hardware will drop packets when setting LPE=0 */
++#define MAXIMUM_ETHERNET_VLAN_SIZE 1522
++
+ /*
+  * HW models:
+  *  E1000_DEV_ID_82540EM works with Windows and Linux
+@@ -628,6 +631,13 @@ e1000_receive(void *opaque, const uint8_t *buf, int size)
+         return;
+     }
+ 
++    /* Discard oversized packets if !LPE and !SBP. */
++    if (size > MAXIMUM_ETHERNET_VLAN_SIZE
++        && !(s->mac_reg[RCTL] & E1000_RCTL_LPE)
++        && !(s->mac_reg[RCTL] & E1000_RCTL_SBP)) {
++        return size;
++    }
++
+     if (!receive_filter(s, buf, size))
+         return;
+ 
+-- 
+1.7.2.5
+
+From abe5aac3cd62018fa15802b07f975aba14fa75f5 Mon Sep 17 00:00:00 2001
+From: Michael Contreras <michael@inetric.com>
+Date: Wed, 5 Dec 2012 13:31:30 -0500
+Subject: [PATCH] e1000: Discard oversized packets based on SBP|LPE
+
+Discard packets longer than 16384 when !SBP to match the hardware behavior.
+
+Signed-off-by: Michael Contreras <michael@inetric.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+(cherry picked from commit 2c0331f4f7d241995452b99afaf0aab00493334a)
+[ This is a security vulnerablity, XSA-41 / CVE-2012-6075 (2nd patch). ]
+(cherry picked from commit e33f918c19e393900b95a2bb6b10668dfe96a8f2)
+---
+ hw/e1000.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
+index f0673f0..67d2651 100644
+--- xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
++++ xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
+@@ -57,6 +57,8 @@ static int debugflags = DBGBIT(TXERR) | DBGBIT(GENERAL);
+ 
+ /* this is the size past which hardware will drop packets when setting LPE=0 */
+ #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
++/* this is the size past which hardware will drop packets when setting LPE=1 */
++#define MAXIMUM_ETHERNET_LPE_SIZE 16384
+ 
+ /*
+  * HW models:
+@@ -632,8 +634,9 @@ e1000_receive(void *opaque, const uint8_t *buf, int size)
+     }
+ 
+     /* Discard oversized packets if !LPE and !SBP. */
+-    if (size > MAXIMUM_ETHERNET_VLAN_SIZE
+-        && !(s->mac_reg[RCTL] & E1000_RCTL_LPE)
++    if ((size > MAXIMUM_ETHERNET_LPE_SIZE ||
++        (size > MAXIMUM_ETHERNET_VLAN_SIZE
++        && !(s->mac_reg[RCTL] & E1000_RCTL_LPE)))
+         && !(s->mac_reg[RCTL] & E1000_RCTL_SBP)) {
+         return size;
+     }
+-- 
+1.7.2.5
+
+From ad6cb8a6550d0f0550252db4e05c305086ea9a65 Mon Sep 17 00:00:00 2001
+From: Ian Jackson <ian.jackson@eu.citrix.com>
+Date: Thu, 17 Jan 2013 15:52:16 +0000
+Subject: [PATCH 1/1] e1000: fix compile warning introduced by security fix, and debugging
+
+e33f918c19e393900b95a2bb6b10668dfe96a8f2, the fix for XSA-41,
+and its cherry picks in 4.2 and 4.1 introduced this compiler warning:
+  hw/e1000.c:641: warning: 'return' with a value, in function returning void
+
+In upstream qemu (where this change came from), e1000_receive returns
+a value used by queueing machinery to decide whether to try
+resubmitting the packet later.  Returning "size" means that the packet
+has been dealt with and should not be retried.
+
+In this old branch (aka qemu-xen-traditional), this machinery is
+absent and e1000_receive returns void.  Fix the return statement.
+
+Also add a debugging statement along the lines of the others in this
+function.
+
+Signed-off-by: Ian Jackson <ian.jackson@eu.citrix.com>
+(cherry picked from commit 2a1354d655d816feaad7dbdb8364f40a208439c1)
+---
+ hw/e1000.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
+index 67d2651..c75bc5e 100644
+--- xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
++++ xen-4.2.1/tools/qemu-xen-traditional/hw/e1000.c
+@@ -638,7 +638,8 @@ e1000_receive(void *opaque, const uint8_t *buf, int size)
+         (size > MAXIMUM_ETHERNET_VLAN_SIZE
+         && !(s->mac_reg[RCTL] & E1000_RCTL_LPE)))
+         && !(s->mac_reg[RCTL] & E1000_RCTL_SBP)) {
+-        return size;
++        DBGOUT(RX, "packet too large for applicable LPE/VLAN size\n");
++        return;
+     }
+ 
+     if (!receive_filter(s, buf, size))
+-- 
+1.7.2.5
+

@@ -8,9 +8,9 @@
 -    handle_iptable
 -fi
 -
+ call_hooks vif post
+ 
  log debug "Successful vif-bridge $command for $dev, bridge $bridge."
- if [ "$type_if" = vif -a "$command" = "online" ]
- then
 --- xen-3.3.0-orig/tools/hotplug/Linux/xen-network-common.sh	2008-08-22 10:49:07.000000000 +0100
 +++ xen-3.3.0-new/tools/hotplug/Linux/xen-network-common.sh	2008-08-29 11:29:38.000000000 +0100
 @@ -99,6 +99,13 @@ create_bridge () {

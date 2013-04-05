@@ -1,0 +1,46 @@
+--- xen-4.2.1/docs/man/xl.cfg.pod.5.orig	2012-12-17 15:00:00.000000000 +0000
++++ xen-4.2.1/docs/man/xl.cfg.pod.5	2013-01-10 21:54:01.685518243 +0000
+@@ -400,12 +400,8 @@
+ for trusted VMs under administrator control.  See the "pci=" section
+ for more information on the "permissive" flag.
+ 
+-=back
+-
+ =item B<ioports=[ "IOPORT_RANGE", "IOPORT_RANGE", ... ]>
+ 
+-=over 4
+-
+ Allow guest to access specific legacy I/O ports. Each B<IOPORT_RANGE>
+ is given in hexadecimal and may either a span e.g. C<2f8-2ff>
+ (inclusive) or a single I/O port C<2f8>.
+@@ -413,12 +409,8 @@
+ It is recommended to use this option only for trusted VMs under
+ administrator control.
+ 
+-=back
+-
+ =item B<irqs=[ NUMBER, NUMBER, ... ]>
+ 
+-=over 4
+-
+ Allow a guest to access specific physical IRQs.
+ 
+ It is recommended to use this option only for trusted VMs under
+@@ -680,8 +672,6 @@
+ 
+ =back
+ 
+-=back
+-
+ Please see F<docs/misc/tscmode.txt> for more information on this option.
+ 
+ =item B<localtime=BOOLEAN>
+@@ -692,6 +682,8 @@
+ 
+ Set the real time clock offset in seconds. 0 by default.
+ 
++=back
++
+ =head3 Support for Paravirtualisation of HVM Guests
+ 
+ The following options allow Paravirtualised features (such as devices)

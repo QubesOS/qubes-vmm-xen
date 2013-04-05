@@ -1,19 +1,12 @@
-libxl: allow domain to report errors through xenstore
-
-Grant access to error/ dir, so backend (mostly) and frontend drivers can report
-problems.
-Index: xen-hvm/tools/libxl/libxl_create.c
-===================================================================
---- xen-hvm.orig/tools/libxl/libxl_create.c
-+++ xen-hvm/tools/libxl/libxl_create.c
-@@ -287,8 +287,8 @@ int libxl__domain_make(libxl_ctx *ctx, l
-     libxl__gc gc = LIBXL_INIT_GC(ctx); /* fixme: should be done by caller */
-     int flags, ret, i, rc;
-     char *uuid_string;
--    char *rw_paths[] = { "control/shutdown", "device", "device/suspend/event-channel" , "data"};
--    char *ro_paths[] = { "cpu", "memory", "device", "error", "drivers",
-+    char *rw_paths[] = { "control/shutdown", "device", "error", "device/suspend/event-channel" , "data"};
-+    char *ro_paths[] = { "cpu", "memory", "device", "drivers",
-                          "control", "attr", "messages" };
-     char *dom_path, *vm_path;
-     struct xs_permissions roperm[2];
+--- xen-4.2.1/tools/libxl/libxl_create.c.orig	2012-12-17 16:01:09.000000000 +0100
++++ xen-4.2.1/tools/libxl/libxl_create.c	2013-03-29 11:14:59.859901690 +0100
+@@ -502,6 +502,9 @@ retry_transaction:
+     libxl__xs_mkdir(gc, t,
+                     libxl__sprintf(gc, "%s/data", dom_path),
+                     rwperm, ARRAY_SIZE(rwperm));
++    libxl__xs_mkdir(gc, t,
++                    libxl__sprintf(gc, "%s/error", dom_path),
++                    rwperm, ARRAY_SIZE(rwperm));
+     if (info->type == LIBXL_DOMAIN_TYPE_HVM)
+         libxl__xs_mkdir(gc, t,
+             libxl__sprintf(gc, "%s/hvmloader/generation-id-address", dom_path),

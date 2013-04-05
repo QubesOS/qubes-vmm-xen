@@ -1,9 +1,9 @@
 --- xen-4.1.0/tools/pygrub/src/pygrub.orig	2010-12-31 15:24:11.000000000 +0000
 +++ xen-4.1.0/tools/pygrub/src/pygrub	2011-01-30 18:58:17.000000000 +0000
-@@ -96,6 +96,7 @@
- 
+@@ -97,6 +97,7 @@
      fd = os.open(file, os.O_RDONLY)
      buf = os.read(fd, 512)
+     os.close(fd)
 +    offzerocount = 0
      for poff in (446, 462, 478, 494): # partition offsets
  

@@ -1,12 +1,12 @@
---- a/tools/libxl/xl_cmdimpl.c
-+++ b/tools/libxl/xl_cmdimpl.c
-@@ -1419,6 +1419,9 @@ static int create_domain(struct domain_create *dom_info)
+--- xen-4.2.1/tools/libxl/xl_cmdimpl.c.orig	2013-03-29 11:16:43.000000000 +0100
++++ xen-4.2.1/tools/libxl/xl_cmdimpl.c	2013-03-29 11:18:15.847852538 +0100
+@@ -1731,6 +1731,9 @@ static int create_domain(struct domain_c
  
-     memset(&d_config, 0x00, sizeof(d_config));
+     libxl_domain_config_init(&d_config);
  
 +    if (dom_info->quiet)
 +	xtl_stdiostream_set_minlevel(logger, XTL_WARN);
 +
-     if (restore_file) {
+     if (restoring) {
          uint8_t *optdata_begin = 0;
          const uint8_t *optdata_here = 0;

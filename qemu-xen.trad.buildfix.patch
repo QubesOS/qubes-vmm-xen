@@ -1,0 +1,14 @@
+--- xen-4.2.1/tools/qemu-xen-traditional/configure.orig	2010-12-05 18:48:29.000000000 +0000
++++ xen-4.2.1/tools/qemu-xen-traditional/configure	2012-11-15 23:59:12.453547657 +0000
+@@ -1097,7 +1097,10 @@
+ cat > $TMPC <<EOF
+ #include <signal.h>
+ #include <time.h>
+-int main(void) { clockid_t id; return clock_gettime(id, NULL); }
++int main(void) {
++  timer_create(CLOCK_REALTIME, NULL, NULL);
++  return clock_gettime(CLOCK_REALTIME, NULL);
++}
+ EOF
+ 
+ rt=no

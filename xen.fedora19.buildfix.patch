@@ -1,0 +1,20 @@
+--- xen-4.2.1/tools/debugger/gdbsx/xg/xg_main.c.orig	2012-11-15 20:08:11.000000000 +0000
++++ xen-4.2.1/tools/debugger/gdbsx/xg/xg_main.c	2012-11-16 23:08:08.716874198 +0000
+@@ -178,7 +178,7 @@
+     hypercall.op = __HYPERVISOR_domctl;
+     hypercall.arg[0] = (unsigned long)&domctl;
+ 
+-    rc = ioctl(_dom0_fd, IOCTL_PRIVCMD_HYPERCALL, (ulong)&hypercall);
++    rc = ioctl(_dom0_fd, IOCTL_PRIVCMD_HYPERCALL, (unsigned long)&hypercall);
+     if (domctlarg && sz)
+         munlock(domctlarg, sz);
+     return rc;
+@@ -218,7 +218,7 @@
+     hypercall.arg[0] = (unsigned long)XENVER_capabilities;
+     hypercall.arg[1] = (unsigned long)&xen_caps;
+ 
+-    rc = ioctl(_dom0_fd, IOCTL_PRIVCMD_HYPERCALL, (ulong)&hypercall);
++    rc = ioctl(_dom0_fd, IOCTL_PRIVCMD_HYPERCALL, (unsigned long)&hypercall);
+     munlock(&xen_caps, sizeof(xen_caps));
+     XGTRC("XENCAPS:%s\n", xen_caps);
+ 

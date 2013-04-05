@@ -1,7 +1,7 @@
 %{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 
 # Hypervisor ABI
-%define hv_abi  4.1
+%define hv_abi  4.2
 
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
@@ -20,32 +20,26 @@ Patch1: xen-initscript.patch
 Patch4: xen-dumpdir.patch
 Patch5: xen-net-disable-iptables-on-bridge.patch
 
-Patch10: xen-no-werror.patch
-
-Patch18: localgcc45fix.patch
-Patch20: localgcc451fix.patch
-Patch23: grub-ext4-support.patch
-Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
-Patch29: xen-4.1.2-compile-fixes.patch
-Patch30: gdbsx-glibc2.17.patch
 Patch31: xen-shared-loop-losetup.patch
 Patch32: fix-python-compile-warnings.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
-Patch102: xen-acpi-override-query.patch
-Patch103: xen-dont-install-outdated-latex-documentation.patch
-Patch104: xen-tools-canonicalize-python-location.patch
 
 Patch111: xen-hotplug-external-store.patch
 
 Patch500: xen-tools-qubes-vm.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
-BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
-BuildRequires: libX11-devel python-devel
+BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
+BuildRequires: libX11-devel python-devel ghostscript texlive-latex
+%if "%dist" >= ".fc18"
+BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
+%endif
 BuildRequires: ncurses-devel gtk2-devel libaio-devel
+# for the docs
+BuildRequires: perl perl(Pod::Man) perl(Pod::Text) texinfo graphviz
 # so that the makefile knows to install udev rules
 BuildRequires: udev
 BuildRequires: gettext
@@ -55,7 +49,7 @@ BuildRequires: openssl-devel
 BuildRequires: libuuid-devel
 BuildRequires: which
 Requires: bridge-utils
-Requires: PyXML
+Requires: python-lxml
 Requires: udev >= 059
 Requires: chkconfig
 ExclusiveArch: %{ix86} x86_64 ia64
@@ -105,34 +99,22 @@ which manage Xen virtual machines.
 %patch4 -p1
 %patch5 -p1
 
-%patch10 -p1
-
-%patch18 -p1
-%patch20 -p1
-%patch26 -p1
 %patch28 -p1
-%patch29 -p1
-%patch30 -p1
 %patch31 -p1
 %patch32 -p1
 
 %patch100 -p1
 %patch101 -p1
-%patch102 -p1
-%patch103 -p1
-%patch104 -p1
 
 %patch111 -p1
 
 %patch500 -p1
 
-# Fix for glibc 2.7
-sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
-
 %build
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
 export OCAML_TOOLS=n
+./configure --libdir=%{_libdir}
 make %{?_smp_mflags} prefix=/usr dist-tools
 
 %install
@@ -150,7 +132,7 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-4.1.gz
+rm -rf %{buildroot}/boot/xen-4.2.gz
 rm -rf %{buildroot}/boot/xen-4.gz
 
 # silly doc dir fun
@@ -248,6 +230,8 @@ rm -rf %{buildroot}
 %{_includedir}/*.h
 %dir %{_includedir}/xen
 %{_includedir}/xen/*
+%dir %{_includedir}/xenstore-compat
+%{_includedir}/xenstore-compat/*
 %{_libdir}/*.so
 
 %files licenses
@@ -255,6 +239,267 @@ rm -rf %{buildroot}
 %doc licensedir/*
 
 %changelog
+* Thu Feb 21 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-9
+- patch for [XSA-36, CVE-2013-0153] can cause boot time crash
+
+* Fri Feb 15 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-8
+- patch for [XSA-38, CVE-2013-0215] was flawed
+
+* Fri Feb 08 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-7
+- BuildRequires for texlive-kpathsea-bin wasn't needed
+- correct gcc 4.8 fixes and follow suggestions upstream
+
+* Tue Feb 05 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-6
+- guest using oxenstored can crash host or exhaust memory [XSA-38,
+  CVE-2013-0215] (#907888)
+- guest using AMD-Vi for PCI passthrough can cause denial of service
+  [XSA-36, CVE-2013-0153] (#910914)
+- add some fixes for code which gcc 4.8 complains about
+- additional BuildRequires are now needed for pod2text and pod2man
+  also texlive-kpathsea-bin for mktexfmt
+
+* Wed Jan 23 2013 Michael Young <m.a.young@durham.ac.uk>
+- correct disabling of xendomains.service on uninstall
+
+* Tue Jan 22 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-5
+- nested virtualization on 32-bit guest can crash host [XSA-34,
+  CVE-2013-0151] also nested HVM on guest can cause host to run out
+  of memory [XSA-35, CVE-2013-0152] (#902792)
+- restore status option to xend which is used by libvirt (#893699)
+
+* Thu Jan 17 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-4
+- Buffer overflow when processing large packets in qemu e1000 device
+  driver [XSA-41, CVE-2012-6075] (#910845)
+
+* Thu Jan 10 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-3
+- fix some format errors in xl.cfg.pod.5 to allow build on F19
+
+* Wed Jan 09 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-2
+- VT-d interrupt remapping source validation flaw [XSA-33,
+    CVE-2012-5634] (#893568)
+- pv guests can crash xen when xen built with debug=y (included for
+    completeness - Fedora builds have debug=n) [XSA-37, CVE-2013-0154]
+
+* Tue Dec 18 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-1
+- update to xen-4.2.1
+- remove patches that are included in 4.2.1
+- rebase xen.fedora.efi.build.patch
+
+* Thu Dec 13 2012 Richard W.M. Jones <rjones@redhat.com> - 4.2.0-7
+- Rebuild for OCaml fix (RHBZ#877128).
+
+* Mon Dec 03 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.0-6
+- 6 security fixes
+  A guest can cause xen to crash [XSA-26, CVE-2012-5510] (#883082)
+  An HVM guest can cause xen to run slowly or crash [XSA-27, CVE-2012-5511]
+    (#883084)
+  A PV guest can cause xen to crash and might be able escalate privileges
+    [XSA-29, CVE-2012-5513] (#883088)
+  An HVM guest can cause xen to hang [XSA-30, CVE-2012-5514] (#883091)
+  A guest can cause xen to hang [XSA-31, CVE-2012-5515] (#883092)
+  A PV guest can cause xen to crash and might be able escalate privileges
+    [XSA-32, CVE-2012-5525] (#883094)
+
+* Sat Nov 17 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.0-5
+- two build fixes for Fedora 19
+- add texlive-ntgclass package to fix build
+
+* Tue Nov 13 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.0-4
+- 4 security fixes
+  A guest can block a cpu by setting a bad VCPU deadline [XSA 20,
+    CVE-2012-4535] (#876198)
+  HVM guest can exhaust p2m table crashing xen [XSA 22, CVE-2012-4537] (#876203)
+  PAE HVM guest can crash hypervisor [XSA-23, CVE-2012-4538] (#876205)
+  32-bit PV guest on 64-bit hypervisor can cause an hypervisor infinite
+    loop [XSA-24, CVE-2012-4539] (#876207)
+- texlive-2012 is now in Fedora 18
+
+* Sun Oct 28 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.0-3
+- texlive-2012 isn't in Fedora 18 yet
+
+* Fri Oct 26 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.0-2
+- limit the size of guest kernels and ramdisks to avoid running out
+  of memeory on dom0 during guest boot [XSA-25, CVE-2012-4544] (#870414)
+
+* Thu Oct 25 2012 Michael Young <m.a.young@durham.ac.uk> - 4.2.0-1
+- update to xen-4.2.0
+- rebase xen-net-disable-iptables-on-bridge.patch pygrubfix.patch
+- remove patches that are now upstream or with alternatives upstream
+- use ipxe and seabios from seabios-bin and ipxe-roms-qemu packages
+- xen tools now need ./configure to be run (x86_64 needs libdir set)
+- don't build upstream qemu version
+- amend list of files in package - relocate xenpaging
+  add /etc/xen/xlexample* oxenstored.conf /usr/include/xenstore-compat/*
+      xenstore-stubdom.gz xen-lowmemd xen-ringwatch xl.1.gz xl.cfg.5.gz
+      xl.conf.5.gz xlcpupool.cfg.5.gz
+- use a tmpfiles.d file to create /run/xen on boot
+- add BuildRequires for yajl-devel and graphviz
+- build an efi boot image where it is supported
+- adjust texlive changes so spec file still works on Fedora 17
+
+* Thu Oct 18 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.3-6
+- add font packages to build requires due to 2012 version of texlive in F19
+- use build requires of texlive-latex instead of tetex-latex which it
+  obsoletes
+
+* Wed Oct 17 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.3-5
+- rebuild for ocaml update
+
+* Thu Sep 06 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.3-4
+- disable qemu monitor by default [XSA-19, CVE-2012-4411] (#855141)
+
+* Wed Sep 05 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.3-3
+- 5 security fixes
+  a malicious 64-bit PV guest can crash the dom0 [XSA-12, CVE-2012-3494]
+    (#854585)
+  a malicious crash might be able to crash the dom0 or escalate privileges
+    [XSA-13, CVE-2012-3495] (#854589)
+  a malicious PV guest can crash the dom0 [XSA-14, CVE-2012-3496] (#854590)
+  a malicious HVM guest can crash the dom0 and might be able to read
+    hypervisor or guest memory [XSA-16, CVE-2012-3498] (#854593)
+  an HVM guest could use VT100 escape sequences to escalate privileges to
+    that of the qemu process [XSA-17, CVE-2012-3515] (#854599)
+
+* Fri Aug 10 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.3-1 4.1.3-2
+- update to 4.1.3
+  includes fix for untrusted HVM guest can cause the dom0 to hang or
+    crash [XSA-11, CVE-2012-3433] (#843582)
+- remove patches that are now upstream
+- remove some unnecessary compile fixes
+- adjust upstream-23936:cdb34816a40a-rework for backported fix for
+    upstream-23940:187d59e32a58
+- replace pygrub.size.limits.patch with upstreamed version
+- fix for (#845444) broke xend under systemd
+
+* Tue Aug 07 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-25
+- remove some unnecessary cache flushing that slow things down
+- change python options on xend to reduce selinux problems (#845444)
+
+* Thu Jul 26 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-24
+- in rare circumstances an unprivileged user can crash an HVM guest
+  [XSA-10,CVE-2012-3432] (#843766)
+
+* Tue Jul 24 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-23
+- add a patch to remove a dependency on PyXML and Require python-lxml
+  instead of PyXML (#842843)
+
+* Sun Jul 22 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-22
+- adjust systemd service files not to report failures when running without
+  a hypervisor or when xendomains.service doesn't find anything to start
+
+* Sun Jul 22 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.1.2-21
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
+
+* Tue Jun 12 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-20
+- Apply three security patches
+  64-bit PV guest privilege escalation vulnerability [CVE-2012-0217]
+  guest denial of service on syscall/sysenter exception generation
+    [CVE-2012-0218]
+  PV guest host Denial of Service [CVE-2012-2934]
+
+* Sat Jun 09 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-19
+- adjust xend.service systemd file to avoid selinux problems
+
+* Fri Jun 08 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-18
+- Enable xenconsoled by default under systemd (#829732)
+
+* Thu May 17 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-16 4.1.2-17
+- make pygrub cope better with big files from guest (#818412 CVE-2012-2625)
+- add patch from 4.1.3-rc2-pre to build on F17/8
+
+* Sun Apr 15 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-15
+- Make the udev tap rule more specific as it breaks openvpn (#812421)
+- don't try setuid in xend if we don't need to so selinux is happier
+
+* Sat Mar 31 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-14
+- /var/lib/xenstored mount has wrong selinux permissions in latest Fedora
+- load xen-acpi-processor module (kernel 3.4 onwards) if present
+
+* Thu Mar 08 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-13
+- fix a packaging error
+
+* Thu Mar 08 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-12
+- fix an error in an rpm script from the sysv configuration removal
+- migrate xendomains script to systemd
+
+* Wed Feb 29 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-11
+- put the systemd files back in the right place
+
+* Wed Feb 29 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-10
+- clean up systemd and sysv configuration including removal of migrated
+  sysv files for fc17+
+
+* Sat Feb 18 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-9
+- move xen-watchdog to systemd
+
+* Wed Feb 08 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-8
+- relocate systemd files for fc17+
+
+* Tue Feb 07 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-7
+- move xend and xenconsoled to systemd
+
+* Thu Feb 02 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-6
+- Fix buffer overflow in e1000 emulation for HVM guests [CVE-2012-0029]
+
+* Sat Jan 28 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-5
+- Start building xen's ocaml libraries if appropriate unless --without ocaml
+  was specified
+- add some backported patches from xen unstable (via Debian) for some
+  ocaml tidying and fixes
+
+* Sun Jan 15 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-4
+- actually apply the xend-pci-loop.patch
+- compile fixes for gcc-4.7
+
+* Wed Jan 11 2012 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-3
+- Add xend-pci-loop.patch to stop xend crashing with weird PCI cards (#767742)
+- avoid a backtrace if xend can't log to the standard file or a 
+  temporary directory (part of #741042)
+
+* Mon Nov 21 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-2
+- Fix lost interrupts on emulated devices
+- stop xend crashing if its state files are empty at start up
+- avoid a python backtrace if xend is run on bare metal
+- update grub2 configuration after the old hypervisor has gone
+- move blktapctrl to systemd
+- Drop obsolete dom0-kernel.repo file
+
+* Fri Oct 21 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.2-1
+- update to 4.1.2
+  remove upstream patches xen-4.1-testing.23104 and xen-4.1-testing.23112
+
+* Fri Oct 14 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-8
+- more pygrub improvements for grub2 on guest
+
+* Thu Oct 13 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-7
+- make pygrub work better with GPT partitions and grub2 on guest
+
+* Thu Sep 29 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-5 4.1.1-6
+- improve systemd functionality
+
+* Wed Sep 28 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-4
+- lsb header fixes - xenconsoled shutdown needs xenstored to be running
+- partial migration to systemd to fix shutdown delays
+- update grub2 configuration after hypervisor updates
+
+* Sun Aug 14 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-3
+- untrusted guest controlling PCI[E] device can lock up host CPU [CVE-2011-3131]
+
+* Wed Jul 20 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-2
+- clean up patch to solve a problem with hvmloader compiled with gcc 4.6
+
+* Wed Jun 15 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.1-1
+- update to 4.1.1
+  includes various bugfixes and fix for [CVE-2011-1898] guest with pci
+  passthrough can gain privileged access to base domain
+- remove upstream cve-2011-1583-4.1.patch 
+
+* Mon May 09 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.0-2
+- Overflows in kernel decompression can allow root on xen PV guest to gain
+  privileged access to base domain, or access to xen configuration info.
+  Lack of error checking could allow DoS attack from guest [CVE-2011-1583]
+- Don't require /usr/bin/qemu-nbd as it isn't used at present.
+
 * Fri Mar 25 2011 Michael Young <m.a.young@durham.ac.uk> - 4.1.0-1
 - update to 4.1.0 final
 

@@ -85,9 +85,9 @@ diff -ru xen-4.1.0.orig/tools/firmware/etherboot/Makefile xen-4.1.0/tools/firmwa
 --- xen-4.1.0.orig/tools/firmware/etherboot/Makefile	2011-03-25 11:42:50.000000000 +0100
 +++ xen-4.1.0/tools/firmware/etherboot/Makefile	2011-05-12 16:46:42.405730483 +0200
 @@ -34,15 +34,6 @@
- 	$(MAKE) NO_WERROR=1 $@.new
- 	mv -f $@.new $@
- 
+ %.rom: $D/src/arch/i386/Makefile
+ 	$(MAKE) -C $D/src bin/$(*F).rom
+
 -$T:
 -	if ! wget -O _$T $(IPXE_TARBALL_URL); then \
 -		$(GIT) clone $(IPXE_GIT_URL) $D.git; \
@@ -100,20 +100,6 @@ diff -ru xen-4.1.0.orig/tools/firmware/etherboot/Makefile xen-4.1.0/tools/firmwa
  $D/src/arch/i386/Makefile: $T Config
  	rm -rf $D
  	gzip -dc $T | tar xf -
-diff -ru xen-4.1.0.orig/tools/vnet/Makefile xen-4.1.0/tools/vnet/Makefile
---- xen-4.1.0.orig/tools/vnet/Makefile	2011-03-25 11:42:52.000000000 +0100
-+++ xen-4.1.0/tools/vnet/Makefile	2011-05-12 16:43:57.998690847 +0200
-@@ -16,10 +16,6 @@
- .PHONY: all
- all: compile
- 
--gc.tar.gz:
--	#wget http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/$@
--	wget $(XEN_EXTFILES_URL)/$@
--
- .PHONY: gc
- gc: gc.tar.gz
- 	tar xfz gc.tar.gz
 diff -ru xen-4.1.0.orig/tools/vtpm/Makefile xen-4.1.0/tools/vtpm/Makefile
 --- xen-4.1.0.orig/tools/vtpm/Makefile	2011-03-25 11:42:53.000000000 +0100
 +++ xen-4.1.0/tools/vtpm/Makefile	2011-05-12 16:43:58.002803897 +0200

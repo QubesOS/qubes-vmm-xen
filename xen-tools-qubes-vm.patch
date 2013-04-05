@@ -1,68 +1,15 @@
---- xen-4.1.1/tools/Makefile.orig2	2013-03-18 23:46:31.132000000 +0100
-+++ xen-4.1.1/tools/Makefile	2013-03-18 23:47:14.936000000 +0100
-@@ -2,50 +2,14 @@
- include $(XEN_ROOT)/tools/Rules.mk
- 
- SUBDIRS-y :=
--SUBDIRS-y += check
- SUBDIRS-y += include
- SUBDIRS-y += libxc
--SUBDIRS-y += flask
- SUBDIRS-y += xenstore
--SUBDIRS-y += misc
--SUBDIRS-y += examples
- SUBDIRS-y += hotplug
--SUBDIRS-y += xentrace
--SUBDIRS-$(CONFIG_XCUTILS) += xcutils
--SUBDIRS-$(CONFIG_X86) += firmware
--SUBDIRS-$(ACM_SECURITY) += security
--SUBDIRS-y += console
--SUBDIRS-y += xenmon
--SUBDIRS-$(VTPM_TOOLS) += vtpm_manager
--SUBDIRS-$(VTPM_TOOLS) += vtpm
--SUBDIRS-y += xenstat
--SUBDIRS-$(CONFIG_Linux) += libaio
--SUBDIRS-$(CONFIG_Linux) += memshr 
--SUBDIRS-$(CONFIG_Linux) += blktap
--SUBDIRS-$(CONFIG_Linux) += blktap2
--SUBDIRS-$(CONFIG_NetBSD) += libaio
--SUBDIRS-$(CONFIG_NetBSD) += blktap2
--SUBDIRS-$(CONFIG_NetBSD) += xenbackendd
--SUBDIRS-y += libfsimage
--SUBDIRS-$(LIBXENAPI_BINDINGS) += libxen
--
--# do not recurse in to a dir we are about to delete
--ifneq "$(MAKECMDGOALS)" "distclean"
--SUBDIRS-$(CONFIG_IOEMU) += ioemu-dir
--endif
--
--SUBDIRS-y += xenpmd
--SUBDIRS-y += libxl
--SUBDIRS-y += remus
--SUBDIRS-$(CONFIG_X86) += xenpaging
--SUBDIRS-$(CONFIG_X86) += debugger/gdbsx
--SUBDIRS-$(CONFIG_X86) += debugger/kdd
- 
- # These don't cross-compile
- ifeq ($(XEN_COMPILE_ARCH),$(XEN_TARGET_ARCH))
- SUBDIRS-$(PYTHON_TOOLS) += python
--SUBDIRS-$(PYTHON_TOOLS) += pygrub
--SUBDIRS-$(OCAML_TOOLS) += ocaml
- endif
- 
- # For the sake of linking, set the sys-root
---- xen-4.1.1/tools/python/setup.py.orig	2013-03-21 00:08:57.672000000 +0100
-+++ xen-4.1.1/tools/python/setup.py	2013-03-21 00:12:31.712000000 +0100
-@@ -119,7 +119,7 @@
-                                     [ XEN_ROOT + "/tools/libxl/libxenlight.so" ],
+--- xen-4.2.1/tools/python/setup.py.orig	2012-12-17 16:01:24.000000000 +0100
++++ xen-4.2.1/tools/python/setup.py	2013-04-05 03:35:24.730781468 +0200
+@@ -88,7 +88,7 @@
                 sources            = [ "xen/lowlevel/xl/xl.c", "xen/lowlevel/xl/_pyxl_types.c" ])
  
--modules = [ xc, xs, ptsname, acm, flask, xl ]
-+modules = [ xc, xs, ptsname, acm ]
+ plat = os.uname()[0]
+-modules = [ xc, xs, ptsname, flask ]
++modules = [ xc, xs, ptsname ]
+ #modules.extend([ xl ])
  if plat == 'SunOS':
      modules.extend([ scf, process ])
- if plat == 'Linux':
-@@ -131,23 +131,6 @@
+@@ -101,22 +101,6 @@
        packages        = ['xen',
                           'xen.lowlevel',
                           'xen.util',
@@ -78,7 +25,6 @@
 -                         'xen.sv',
 -                         'xen.xsview',
 -                         'xen.remus',
--
 -                         'xen.xend.tests',
 -                         'xen.xend.server.tests',
 -                         'xen.xend.xenstore.tests',
@@ -86,3 +32,55 @@
                           ],
        ext_package = "xen.lowlevel",
        ext_modules = modules
+--- xen-4.2.1/tools/Makefile.orig	2013-04-05 03:31:46.000000000 +0200
++++ xen-4.2.1/tools/Makefile	2013-04-05 03:34:20.649691713 +0200
+@@ -8,49 +8,13 @@
+ SUBDIRS-y :=
+ SUBDIRS-y += include
+ SUBDIRS-y += libxc
+-SUBDIRS-y += flask
+ SUBDIRS-y += xenstore
+-SUBDIRS-y += misc
+-SUBDIRS-y += examples
+ SUBDIRS-y += hotplug
+-SUBDIRS-y += xentrace
+-SUBDIRS-$(CONFIG_XCUTILS) += xcutils
+-SUBDIRS-$(CONFIG_X86) += firmware
+-SUBDIRS-y += console
+-SUBDIRS-y += xenmon
+-SUBDIRS-$(VTPM_TOOLS) += vtpm_manager
+-SUBDIRS-$(VTPM_TOOLS) += vtpm
+-SUBDIRS-y += xenstat
+-SUBDIRS-$(CONFIG_Linux) += $(SUBDIRS-libaio)
+-SUBDIRS-$(CONFIG_Linux) += memshr 
+-SUBDIRS-$(CONFIG_Linux) += blktap
+-SUBDIRS-$(CONFIG_Linux) += blktap2
+-SUBDIRS-$(CONFIG_NetBSD) += $(SUBDIRS-libaio)
+-SUBDIRS-$(CONFIG_NetBSD) += blktap2
+-SUBDIRS-$(CONFIG_NetBSD) += xenbackendd
+-SUBDIRS-y += libfsimage
+-SUBDIRS-$(LIBXENAPI_BINDINGS) += libxen
+ SUBDIRS-$(CONFIG_Linux) += libvchan
+ 
+-# do not recurse in to a dir we are about to delete
+-ifneq "$(MAKECMDGOALS)" "distclean"
+-SUBDIRS-$(CONFIG_IOEMU) += qemu-xen-traditional-dir
+-SUBDIRS-$(CONFIG_IOEMU) += qemu-xen-dir
+-endif
+-
+-SUBDIRS-y += xenpmd
+-SUBDIRS-y += libxl
+-SUBDIRS-y += remus
+-SUBDIRS-$(CONFIG_X86) += xenpaging
+-SUBDIRS-$(CONFIG_X86) += debugger/gdbsx
+-SUBDIRS-$(CONFIG_X86) += debugger/kdd
+-SUBDIRS-$(CONFIG_TESTS) += tests
+-
+ # These don't cross-compile
+ ifeq ($(XEN_COMPILE_ARCH),$(XEN_TARGET_ARCH))
+ SUBDIRS-y += python
+-SUBDIRS-y += pygrub
+-SUBDIRS-$(OCAML_TOOLS) += ocaml
+ endif
+ 
+ # For the sake of linking, set the sys-root
