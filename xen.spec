@@ -403,6 +403,10 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 rm -rf %{buildroot}/%{_libdir}/efi
 %endif
 
+# obsolete xend
+rm -f %{buildroot}/%{_sbindir}/xend
+rm -f %{buildroot}/%{_sbindir}/xm
+
 ############ fixup files in /etc ############
 
 # udev
@@ -422,17 +426,11 @@ install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 #mkdir -p %{buildroot}%{_sysconfdir}/rc.d/init.d
 #mv %{buildroot}%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
 #rmdir %{buildroot}%{_sysconfdir}/init.d
-%if %with_sysv
-install -m 755 %{SOURCE20} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenstored
-install -m 755 %{SOURCE21} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenconsoled
-install -m 755 %{SOURCE22} %{buildroot}%{_sysconfdir}/rc.d/init.d/blktapctrl
-install -m 755 %{SOURCE23} %{buildroot}%{_sysconfdir}/rc.d/init.d/xend
-%else
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xen-watchdog
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xend
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
-%endif
+rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
 
 # sysconfig
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
@@ -447,12 +445,8 @@ install -m 644 %{SOURCE40} %{buildroot}%{_unitdir}/proc-xen.mount
 install -m 644 %{SOURCE41} %{buildroot}%{_unitdir}/var-lib-xenstored.mount
 install -m 644 %{SOURCE42} %{buildroot}%{_unitdir}/xenstored.service
 install -m 644 %{SOURCE43} %{buildroot}%{_unitdir}/blktapctrl.service
-install -m 644 %{SOURCE44} %{buildroot}%{_unitdir}/xend.service
 install -m 644 %{SOURCE45} %{buildroot}%{_unitdir}/xenconsoled.service
 install -m 644 %{SOURCE46} %{buildroot}%{_unitdir}/xen-watchdog.service
-install -m 644 %{SOURCE47} %{buildroot}%{_unitdir}/xendomains.service
-mkdir -p %{buildroot}%{_libexecdir}
-install -m 644 %{SOURCE48} %{buildroot}%{_libexecdir}/xendomains
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
 install -m 644 %{SOURCE49} %{buildroot}/usr/lib/tmpfiles.d/xen.conf
 %endif
@@ -491,32 +485,6 @@ find . -path licensedir -prune -o -path stubdom/ioemu -prune -o \
 done
 
 ############ all done now ############
-
-%post
-%if %with_sysv
-/sbin/chkconfig --add xend
-/sbin/chkconfig --add xendomains
-%endif
-%if %with_systemd
-/bin/systemctl enable xendomains.service
-%endif
-
-%if %with_sysv
-if [ $1 != 0 ]; then
-  service xend condrestart
-fi
-%endif
-
-%preun
-if [ $1 = 0 ]; then
-%if %with_sysv
-  /sbin/chkconfig --del xend
-  /sbin/chkconfig --del xendomains
-%endif
-%if %with_systemd
-/bin/systemctl disable xendomains.service
-%endif
-fi
 
 %post runtime
 %if %with_sysv
@@ -570,8 +538,6 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %doc COPYING README
 %{_bindir}/xencons
-%{_sbindir}/xend
-%{_sbindir}/xm
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
 %{_mandir}/man1/xm.1*
@@ -579,11 +545,6 @@ rm -rf %{buildroot}
 %{_mandir}/man5/xmdomain.cfg.5*
 %{_datadir}/%{name}/create.dtd
 
-# Startup script
-%if %with_sysv
-%{_sysconfdir}/rc.d/init.d/xend
-%{_sysconfdir}/rc.d/init.d/xendomains
-%endif
 # Guest config files
 %config(noreplace) %{_sysconfdir}/%{name}/xmexample*
 # Daemon config
@@ -592,14 +553,6 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/%{name}/xm-*
 # Guest autostart links
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
-# Autostart of guests
-%config(noreplace) %{_sysconfdir}/sysconfig/xendomains
-
-%if %with_systemd
-%{_unitdir}/xend.service
-%{_unitdir}/xendomains.service
-%{_libexecdir}/xendomains
-%endif
 
 # Persistent state for XenD
 %dir %{_localstatedir}/lib/%{name}/xend-db/
