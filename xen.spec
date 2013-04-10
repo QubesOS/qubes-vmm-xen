@@ -111,6 +111,11 @@ Patch121: xen-libxl-daemon-pid-stderr.patch
 Patch123: stubdom-vbd-non-dom0-backend.patch
 Patch125: xen-libxl-error-write-perm.patch
 Patch126: xen-xl-create-quiet.patch
+Patch127: libxl-ignore-run_hotplug_scripts-setting-when-backen.patch
+# 128..130 are already in stable-4.2, will be in 4.2.2 release
+Patch128: 0001-libxl-rename-abs-variables-to-absolute.patch
+Patch129: 0002-libxl-fix-stale-fd-event-callback-race.patch
+Patch130: 0003-libxl-fix-stale-timeout-event-callback-race.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -288,6 +293,10 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch123 -p1
 %patch125 -p1
 %patch126 -p1
+%patch127 -p1
+%patch128 -p1
+%patch129 -p1
+%patch130 -p1
 
 %patch200 -p0
 #%patch201 -p2

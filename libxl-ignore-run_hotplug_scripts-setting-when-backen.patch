@@ -1,0 +1,120 @@
+From 8398b88d4d3d71e1c5ca4b465c4525c7943af642 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Sat, 6 Apr 2013 10:49:52 +0200
+Subject: [PATCH 1/2] libxl: ignore run_hotplug_scripts setting when
+ backend_domid!=0
+
+Instead of forcing the user to change run_hotplug_scripts setting
+globally, just ignore it for backends outside of dom0.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ docs/man/xl.conf.pod.5                      |  2 ++
+ docs/misc/xl-network-configuration.markdown |  4 +---
+ tools/libxl/libxl.c                         | 14 --------------
+ tools/libxl/libxl_device.c                  | 10 ++++++++++
+ tools/libxl/xl_cmdimpl.c                    |  7 -------
+ 5 files changed, 13 insertions(+), 24 deletions(-)
+
+diff --git a/docs/man/xl.conf.pod.5 b/docs/man/xl.conf.pod.5
+index 7b9fcac..c51ab39 100644
+--- a/docs/man/xl.conf.pod.5
++++ b/docs/man/xl.conf.pod.5
+@@ -60,6 +60,8 @@ Default: C<1>
+ If disabled hotplug scripts will be called from udev, as it used to
+ be in the previous releases. With the default option, hotplug scripts
+ will be launched by xl directly.
++This option applies only to backends in dom0. For backends in other domains
++scripts are always called from udev.
+ 
+ Default: C<1>
+ 
+diff --git a/docs/misc/xl-network-configuration.markdown b/docs/misc/xl-network-configuration.markdown
+index e0d3d2a..9c13532 100644
+--- a/docs/misc/xl-network-configuration.markdown
++++ b/docs/misc/xl-network-configuration.markdown
+@@ -131,9 +131,7 @@ specified IP address to be used by the guest (blocking all others).
+ ### backend
+ 
+ Specifies the backend domain which this device should attach to. This
+-defaults to domain 0. This option does not work if `run_hotplug_scripts`
+-is not disabled in xl.conf (see xl.conf(5) man page for more information
+-on this option). Specifying another domain requires setting up a driver
++defaults to domain 0. Specifying another domain requires setting up a driver
+ domain which is outside the scope of this document.
+ 
+ ### rate
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 572c2c6..a813a88 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -2738,8 +2738,6 @@ out:
+ int libxl__device_nic_setdefault(libxl__gc *gc, libxl_device_nic *nic,
+                                  uint32_t domid)
+ {
+-    int run_hotplug_scripts;
+-
+     if (!nic->mtu)
+         nic->mtu = 1492;
+     if (!nic->model) {
+@@ -2769,18 +2767,6 @@ int libxl__device_nic_setdefault(libxl__gc *gc, libxl_device_nic *nic,
+                                   libxl__xen_script_dir_path()) < 0 )
+         return ERROR_FAIL;
+ 
+-    run_hotplug_scripts = libxl__hotplug_settings(gc, XBT_NULL);
+-    if (run_hotplug_scripts < 0) {
+-        LOG(ERROR, "unable to get current hotplug scripts execution setting");
+-        return run_hotplug_scripts;
+-    }
+-    if (nic->backend_domid != LIBXL_TOOLSTACK_DOMID && run_hotplug_scripts) {
+-        LOG(ERROR, "cannot use a backend domain different than %d if"
+-                   "hotplug scripts are executed from libxl",
+-                   LIBXL_TOOLSTACK_DOMID);
+-        return ERROR_FAIL;
+-    }
+-
+     switch (libxl__domain_type(gc, domid)) {
+     case LIBXL_DOMAIN_TYPE_HVM:
+         if (!nic->nictype)
+diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
+index eeea9d9..d622826 100644
+--- a/tools/libxl/libxl_device.c
++++ b/tools/libxl/libxl_device.c
+@@ -888,6 +888,16 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+     int hotplug;
+     pid_t pid;
+ 
++
++    /* Do not try to execute hotplug scripts for backends in driver domain,
++     * leave this task to udev - regardless of run_hotplug_scripts setting */
++    if (aodev->dev->backend_domid != LIBXL_TOOLSTACK_DOMID) {
++        LOG(INFO, "Not calling hotplug script for backend outside "
++                "of dom0 (domid=%d backend_domid=%d)", aodev->dev->domid, 
++                aodev->dev->backend_domid);
++        goto out;
++    }
++
+     /* Check if we have to execute hotplug scripts for this device
+      * and return the necessary args/env vars for execution */
+     hotplug = libxl__get_hotplug_script_info(gc, aodev->dev, &args, &env,
+diff --git a/tools/libxl/xl_cmdimpl.c b/tools/libxl/xl_cmdimpl.c
+index 2d40f8f..8364dba 100644
+--- a/tools/libxl/xl_cmdimpl.c
++++ b/tools/libxl/xl_cmdimpl.c
+@@ -1204,13 +1204,6 @@ static void parse_config_data(const char *config_source,
+                         fprintf(stderr, "Specified backend domain does not exist, defaulting to Dom0\n");
+                         nic->backend_domid = 0;
+                     }
+-                    if (nic->backend_domid != 0 && run_hotplug_scripts) {
+-                        fprintf(stderr, "ERROR: the vif 'backend=' option "
+-                                "cannot be used in conjunction with "
+-                                "run_hotplug_scripts, please set "
+-                                "run_hotplug_scripts to 0 in xl.conf\n");
+-                        exit(EXIT_FAILURE);
+-                    }
+                 } else if (!strcmp(p, "rate")) {
+                     parse_vif_rate(&config, (p2 + 1), nic);
+                 } else if (!strcmp(p, "accel")) {
+-- 
+1.8.1.4
+
