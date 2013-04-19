@@ -1,0 +1,264 @@
+commit dd24e4b88ad1dfbdb2ab680b34c49e0246991c3d
+Author: Wei Liu <wei.liu2@citrix.com>
+Date:   Wed Mar 7 08:39:21 2012 +0000
+
+    Grant table: fix a bug when grant copying a previous grant mapped page.
+    
+    In grant table version 2, when we create a non-transitive mapping from
+    DomU to Dom0, we need to set active entry's trans_domain and
+    trans_ref.  Otherwise when we grant copy from this previous mapped
+    ref, preemption count will get messed up.
+    
+    See changeset 22994:299ed79acecf for more information.
+    
+    Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+    Committed-by: Keir Fraser <keir@xen.org>
+    xen-unstable changeset:   24950:9ef985f5e6a5
+    xen-unstable date:        Thu Mar 01 16:37:18 2012 +0000
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index 2b23072..785f9e4 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -574,6 +574,8 @@ __gnttab_map_grant_ref(
+             act->start = 0;
+             act->length = PAGE_SIZE;
+             act->is_sub_page = 0;
++            act->trans_dom = rd->domain_id;
++            act->trans_gref = op->ref;
+         }
+     }
+ 
+commit 83d0b0ae823f63ef148bde78d18ce1f2c1f69d3a
+Author: Jan Beulich <jbeulich@suse.com>
+Date:   Thu Feb 23 10:34:14 2012 +0000
+
+    gnttab: miscellaneous fixes
+    
+    - _GTF_* constants name bit positions, so binary arithmetic on them is
+      wrong
+    - gnttab_clear_flag() cannot (on x86 and ia64 at least) simply use
+      clear_bit(), as that may access more than the two bytes that are
+      intended to be accessed
+    
+    Signed-off-by: Jan Beulich <jbeulich@suse.com>
+    Acked-by: Keir Fraser <keir@xen.org>
+    xen-unstable changeset:   24742:9fc810bb8145
+    xen-unstable date:        Thu Feb 09 16:39:16 2012 +0100
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index f97ad43..7ddc45d 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -389,7 +389,8 @@ static int _set_status_v2(domid_t  domid,
+              (id != domid) ||
+              (!readonly && (flags & GTF_readonly)) )
+         {
+-            gnttab_clear_flag(_GTF_reading | _GTF_writing, status);
++            gnttab_clear_flag(_GTF_writing, status);
++            gnttab_clear_flag(_GTF_reading, status);
+             PIN_FAIL(done, GNTST_general_error,
+                      "Unstable flags (%x) or dom (%d). (expected dom %d) "
+                      "(r/w: %d)\n",
+@@ -1703,14 +1704,14 @@ __release_grant_for_copy(
+    under the domain's grant table lock. */
+ /* Only safe on transitive grants.  Even then, note that we don't
+    attempt to drop any pin on the referent grant. */
+-static void __fixup_status_for_pin(struct active_grant_entry *act,
++static void __fixup_status_for_pin(const struct active_grant_entry *act,
+                                    uint16_t *status)
+ {
+     if ( !(act->pin & GNTPIN_hstw_mask) )
+-        *status &= ~_GTF_writing;
++        *status &= ~GTF_writing;
+ 
+     if ( !(act->pin & GNTPIN_hstr_mask) )
+-        *status &= ~_GTF_reading;
++        *status &= ~GTF_reading;
+ }
+ 
+ /* Grab a frame number from a grant entry and update the flags and pin
+diff --git a/xen/include/asm-ia64/grant_table.h b/xen/include/asm-ia64/grant_table.h
+index c540be3..27ee71b 100644
+--- a/xen/include/asm-ia64/grant_table.h
++++ b/xen/include/asm-ia64/grant_table.h
+@@ -5,6 +5,8 @@
+ #ifndef __ASM_GRANT_TABLE_H__
+ #define __ASM_GRANT_TABLE_H__
+ 
++#include <asm/intrinsics.h>
++
+ #define INITIAL_NR_GRANT_FRAMES 1
+ 
+ // for grant map/unmap
+@@ -82,9 +84,19 @@ int guest_physmap_add_page(struct domain *d, unsigned long gpfn, unsigned long m
+ 
+ #define gnttab_mark_dirty(d, f) ((void)f)
+ 
+-static inline void gnttab_clear_flag(unsigned long nr, uint16_t *addr)
++static inline void gnttab_clear_flag(unsigned int nr, volatile uint16_t *st)
+ {
+-	clear_bit(nr, addr);
++	/*
++	 * Note that this cannot be clear_bit(), as the access must be
++	 * confined to the specified 2 bytes.
++	 */
++	uint16_t mask = ~(1 << nr), old;
++	CMPXCHG_BUGCHECK_DECL
++
++	do {
++		CMPXCHG_BUGCHECK(st);
++		old = *st;
++	} while (cmpxchg_rel(st, old, old & mask) != old);
+ }
+ 
+ #define gnttab_host_mapping_get_page_type(op, ld, rd)   \
+diff --git a/xen/include/asm-x86/grant_table.h b/xen/include/asm-x86/grant_table.h
+index ff02999..db8bfb4 100644
+--- a/xen/include/asm-x86/grant_table.h
++++ b/xen/include/asm-x86/grant_table.h
+@@ -48,9 +48,13 @@ int replace_grant_host_mapping(
+ 
+ #define gnttab_mark_dirty(d, f) paging_mark_dirty((d), (f))
+ 
+-static inline void gnttab_clear_flag(unsigned long nr, uint16_t *addr)
++static inline void gnttab_clear_flag(unsigned int nr, uint16_t *st)
+ {
+-    clear_bit(nr, (unsigned long *)addr);
++    /*
++     * Note that this cannot be clear_bit(), as the access must be
++     * confined to the specified 2 bytes.
++     */
++    asm volatile ("lock btrw %1,%0" : "=m" (*st) : "Ir" (nr), "m" (*st));
+ }
+ 
+ /* Foreign mappings of HHVM-guest pages do not modify the type count. */
+commit b0a17100ae1865a55de8b34c7206d682d44a65d0
+Author: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+Date:   Thu Sep 20 10:55:19 2012 +0200
+
+    Fix shared entry status for grant copy operation on paged-out gfn
+    
+    The unwind path was not clearing the shared entry status bits. This
+    was BSOD-ing guests on network activity under certain configurations.
+    
+    Also:
+     * sed the fixup method name to signal it's related to grant copy.
+     * use atomic clear flag ops during fixup.
+    
+    Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+    xen-unstable changeset: 25771:1636cc4886f6
+    xen-unstable date: Wed Aug 22 21:27:50 UTC 2012
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index 785f9e4..46a8dda 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -1707,14 +1707,14 @@ __release_grant_for_copy(
+    under the domain's grant table lock. */
+ /* Only safe on transitive grants.  Even then, note that we don't
+    attempt to drop any pin on the referent grant. */
+-static void __fixup_status_for_pin(const struct active_grant_entry *act,
++static void __fixup_status_for_copy_pin(const struct active_grant_entry *act,
+                                    uint16_t *status)
+ {
+     if ( !(act->pin & GNTPIN_hstw_mask) )
+-        *status &= ~GTF_writing;
++        gnttab_clear_flag(_GTF_writing, status);
+ 
+     if ( !(act->pin & GNTPIN_hstr_mask) )
+-        *status &= ~GTF_reading;
++        gnttab_clear_flag(_GTF_reading, status);
+ }
+ 
+ /* Grab a frame number from a grant entry and update the flags and pin
+@@ -1794,7 +1794,7 @@ __acquire_grant_for_copy(
+         if ( sha2 && (shah->flags & GTF_type_mask) == GTF_transitive )
+         {
+             if ( !allow_transitive )
+-                PIN_FAIL(unlock_out, GNTST_general_error,
++                PIN_FAIL(unlock_out_clear, GNTST_general_error,
+                          "transitive grant when transitivity not allowed\n");
+ 
+             trans_domid = sha2->transitive.trans_domid;
+@@ -1802,7 +1802,7 @@ __acquire_grant_for_copy(
+             barrier(); /* Stop the compiler from re-loading
+                           trans_domid from shared memory */
+             if ( trans_domid == rd->domain_id )
+-                PIN_FAIL(unlock_out, GNTST_general_error,
++                PIN_FAIL(unlock_out_clear, GNTST_general_error,
+                          "transitive grants cannot be self-referential\n");
+ 
+             /* We allow the trans_domid == ld->domain_id case, which
+@@ -1814,7 +1814,7 @@ __acquire_grant_for_copy(
+ 
+             rrd = rcu_lock_domain_by_id(trans_domid);
+             if ( rrd == NULL )
+-                PIN_FAIL(unlock_out, GNTST_general_error,
++                PIN_FAIL(unlock_out_clear, GNTST_general_error,
+                          "transitive grant referenced bad domain %d\n",
+                          trans_domid);
+             spin_unlock(&rd->grant_table->lock);
+@@ -1826,7 +1826,7 @@ __acquire_grant_for_copy(
+ 
+             spin_lock(&rd->grant_table->lock);
+             if ( rc != GNTST_okay ) {
+-                __fixup_status_for_pin(act, status);
++                __fixup_status_for_copy_pin(act, status);
+                 spin_unlock(&rd->grant_table->lock);
+                 return rc;
+             }
+@@ -1837,7 +1837,7 @@ __acquire_grant_for_copy(
+                and try again. */
+             if ( act->pin != old_pin )
+             {
+-                __fixup_status_for_pin(act, status);
++                __fixup_status_for_copy_pin(act, status);
+                 spin_unlock(&rd->grant_table->lock);
+                 return __acquire_grant_for_copy(rd, gref, ld, readonly,
+                                                 frame, page_off, length,
+@@ -1857,7 +1857,7 @@ __acquire_grant_for_copy(
+             gfn = sha1->frame;
+             rc = __get_paged_frame(gfn, &grant_frame, readonly, rd);
+             if ( rc != GNTST_okay )
+-                goto unlock_out;
++                goto unlock_out_clear;
+             act->gfn = gfn;
+             is_sub_page = 0;
+             trans_page_off = 0;
+@@ -1869,7 +1869,7 @@ __acquire_grant_for_copy(
+             gfn = sha2->full_page.frame;
+             rc = __get_paged_frame(gfn, &grant_frame, readonly, rd);
+             if ( rc != GNTST_okay )
+-                goto unlock_out;
++                goto unlock_out_clear;
+             act->gfn = gfn;
+             is_sub_page = 0;
+             trans_page_off = 0;
+@@ -1881,7 +1881,7 @@ __acquire_grant_for_copy(
+             gfn = sha2->sub_page.frame;
+             rc = __get_paged_frame(gfn, &grant_frame, readonly, rd);
+             if ( rc != GNTST_okay )
+-                goto unlock_out;
++                goto unlock_out_clear;
+             act->gfn = gfn;
+             is_sub_page = 1;
+             trans_page_off = sha2->sub_page.page_off;
+@@ -1911,6 +1911,17 @@ __acquire_grant_for_copy(
+     *length = act->length;
+     *frame = act->frame;
+ 
++    spin_unlock(&rd->grant_table->lock);
++    return rc;
++
++ unlock_out_clear:
++    if ( !(readonly) &&
++         !(act->pin & GNTPIN_hstw_mask) )
++        gnttab_clear_flag(_GTF_writing, status);
++
++    if ( !act->pin )
++        gnttab_clear_flag(_GTF_reading, status);
++
+  unlock_out:
+     spin_unlock(&rd->grant_table->lock);
+     return rc;

@@ -61,6 +61,7 @@ Patch28: pygrubfix.patch
 Patch29: xen-4.1.2-compile-fixes.patch
 Patch30: gdbsx-glibc2.17.patch
 Patch31: xen-shared-loop-losetup.patch
+Patch32: xsa50-4.1.2-prereq.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
@@ -114,6 +115,13 @@ Patch685: xsa30-4.1.patch
 Patch686: xsa31-4.1.patch
 # XSA 32 do not affect Xen 4.1
 Patch688: xsa33-4.1.patch
+# XSA 34,35 do not affect Xen 4.1 we use
+# XSA 36 isn't trivial to backport to 4.1.2, but it's DoS only so ignore it for now
+# XSA 37,38 do not affect Xen 4.1 we use
+# XSA 39,40,41,42,43 are for Xen itself
+Patch690: xsa44-4.1.patch
+Patch691: xsa46-4.1.patch
+Patch692: xsa50-4.1.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -255,6 +263,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch29 -p1
 %patch30 -p1
 %patch31 -p1
+%patch32 -p1
 
 %patch100 -p1
 %patch101 -p1
@@ -303,6 +312,9 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch685 -p1
 %patch686 -p1
 %patch688 -p1
+%patch690 -p1
+%patch691 -p1
+%patch692 -p1
 
 %patch200 -p0
 %patch201 -p2
