@@ -85,6 +85,13 @@ Patch125: xen-libxl-error-write-perm.patch
 Patch126: xen-xl-create-quiet.patch
 
 # XSA patches
+# XSA 34,35 do not affect Xen 4.1 we use
+Patch689: xsa36-4.1.patch
+# XSA 37,38 do not affect Xen 4.1 we use
+# XSA 39,40,41,42,43 are for Xen itself
+Patch690: xsa44-4.1.patch
+Patch691: xsa46-4.1.patch
+Patch692: xsa50-4.1.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -255,6 +262,10 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch126 -p1
 
 # XSA patches
+%patch689 -p1
+%patch690 -p1
+%patch691 -p1
+%patch692 -p1
 
 %patch200 -p0
 %patch201 -p2
