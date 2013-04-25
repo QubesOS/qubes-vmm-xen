@@ -82,6 +82,7 @@ Patch123: stubdom-vbd-non-dom0-backend.patch
 Patch124: xl-block-parse-cdrom.patch
 Patch125: xen-libxl-error-write-perm.patch
 Patch126: xen-xl-create-quiet.patch
+Patch129: xen-x86-S3-Fix-cpu-pool-scheduling-after-suspend-resume.patch
 
 # XSA patches
 
@@ -251,6 +252,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch124 -p1
 %patch125 -p1
 %patch126 -p1
+%patch129 -p1
 
 # XSA patches
 
