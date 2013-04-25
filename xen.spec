@@ -60,10 +60,8 @@ Patch20: localgcc451fix.patch
 Patch23: grub-ext4-support.patch
 Patch26: localgcc46fix.patch
 Patch28: pygrubfix.patch
-Patch29: xen-4.1.2-compile-fixes.patch
 Patch30: gdbsx-glibc2.17.patch
 Patch31: xen-shared-loop-losetup.patch
-Patch32: xsa50-4.1.2-prereq.patch
 
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
@@ -101,7 +99,6 @@ Patch201: xen-libxl-qubes-minimal-stubdom.patch
 Patch202: xen-disable-dom0-qemu.patch
 Patch203: stubdom-lwip-fix-for-dhcp.patch
 Patch204: xen-libxl-stubdom-pci-create.patch
-Patch205: xen-libxl-timeoffset-localtime.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -232,10 +229,8 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch20 -p1
 %patch26 -p1
 %patch28 -p1
-%patch29 -p1
 %patch30 -p1
 %patch31 -p1
-%patch32 -p1
 
 %patch100 -p1
 %patch101 -p1
@@ -268,7 +263,6 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch202 -p1
 %patch203 -p2
 %patch204 -p1
-%patch205 -p1
 
 # Fix for glibc 2.7
 sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
