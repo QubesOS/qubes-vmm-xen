@@ -10,6 +10,8 @@
 
 %define _sourcedir %(pwd)
 
+%define _sourcedir %(pwd)
+
 Summary: Xen is a virtual machine monitor
 Name:    xen
 Version: %{version}
@@ -80,7 +82,6 @@ Patch112: xen-libxl-add-all-pci-at-once.patch
 Patch113: xen-libxl-pci-detach-fix.patch
 Patch114: xen-libxl-pci-list-segv-fix.patch
 Patch115: xen-libxl-backend-xenstore-perms.patch
-Patch117: xen-libxl-networkattach-empty-vif-dir.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
 Patch121: xen-libxl-daemon-pid-stderr.patch
 Patch122: xl-disk-backend-domid.patch
@@ -90,38 +91,9 @@ Patch125: xen-libxl-error-write-perm.patch
 Patch126: xen-xl-create-quiet.patch
 Patch127: libxl-create-dm-uninitialized-variable.patch
 Patch128: libxc-bzimageloader-lower-loglevel.patch
+Patch129: xen-x86-S3-Fix-cpu-pool-scheduling-after-suspend-resume.patch
 
-Patch666: xen-nergal-sysret-attack.patch
-Patch667: xsa11-4.1.patch
-Patch668: xsa12-all.patch
-Patch669: xsa13-xen-4.1.patch
-Patch670: xsa14-xen-3.4-and-4.x.patch
-Patch671: xsa16-xen-4.1.patch
-Patch672: xsa17-qemu-xen-traditional-all.patch
-Patch673: xsa10-4.1.patch
-# XSA 18 do not affect Xen 4.1
-# XSA 19 not applicable to Qubes
-Patch675: xsa20.patch
-Patch676: xsa21.patch
-Patch677: xsa22-4.1.patch
-Patch678: xsa23-4.0-4.1.patch
-Patch679: xsa24.patch
-Patch680: xsa25-4.1.patch
-Patch681: xsa26-4.1.patch
-Patch682: xsa27-4.1.patch
-Patch683: xsa28-4.1.patch
-Patch684: xsa29-4.1.patch
-Patch685: xsa30-4.1.patch
-Patch686: xsa31-4.1.patch
-# XSA 32 do not affect Xen 4.1
-Patch688: xsa33-4.1.patch
-# XSA 34,35 do not affect Xen 4.1 we use
-# XSA 36 isn't trivial to backport to 4.1.2, but it's DoS only so ignore it for now
-# XSA 37,38 do not affect Xen 4.1 we use
-# XSA 39,40,41,42,43 are for Xen itself
-Patch690: xsa44-4.1.patch
-Patch691: xsa46-4.1.patch
-Patch692: xsa50-4.1.patch
+# XSA patches
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -280,7 +252,6 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch113 -p1
 %patch114 -p1
 %patch115 -p1
-%patch117 -p1
 %patch120 -p1
 %patch121 -p1
 %patch122 -p1
@@ -288,33 +259,9 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch124 -p1
 %patch125 -p1
 %patch126 -p1
-%patch127 -p1
-%patch128 -p1
+%patch129 -p1
 
-%patch666 -p1
-%patch667 -p1
-%patch668 -p1
-%patch669 -p1
-%patch670 -p1
-%patch671 -p1
-%patch672 -d tools/ioemu-qemu-xen -p1
-%patch673 -p1
-%patch675 -p1
-%patch676 -p1
-%patch677 -p1
-%patch678 -p1
-%patch679 -p1
-%patch680 -p1
-%patch681 -p1
-%patch682 -p1
-%patch683 -p1
-%patch684 -p1
-%patch685 -p1
-%patch686 -p1
-%patch688 -p1
-%patch690 -p1
-%patch691 -p1
-%patch692 -p1
+# XSA patches
 
 %patch200 -p0
 %patch201 -p2
