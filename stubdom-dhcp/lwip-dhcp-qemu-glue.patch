@@ -99,6 +99,6 @@ diff -Nru xen/xen-4.1.2/tools/ioemu-qemu-xen/xen-hooks.mak xen-hvm/xen-4.1.2/too
  
 -OBJS+= qubes-gui.o txrx-vchan.o double-buffer.o qubes-gui-keymap.o
 +OBJS+= qubes-gui.o txrx-vchan.o double-buffer.o qubes-gui-keymap.o net_lwip.o dhcpserver.o
- LIBS+= -lvchan
- CPPFLAGS += -I$(XEN_ROOT)/tools/vchan -I$(XEN_ROOT)/tools/qubes-gui/include
+ LIBS+= -lvchan -lxenvchan
+ CPPFLAGS += -I$(XEN_ROOT)/tools/vchan -I$(XEN_ROOT)/tools/libvchan -I$(XEN_ROOT)/tools/qubes-gui/include
  VPATH+=:$(XEN_ROOT)/tools/qubes-gui/gui-common:$(XEN_ROOT)/tools/qubes-gui/gui-agent-qemu

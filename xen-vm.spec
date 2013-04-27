@@ -6,6 +6,8 @@
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
+%define _sourcedir %(pwd)
+
 Summary: Xen is a virtual machine monitor
 Name:    xen-qubes-vm
 Version: %{version}
@@ -16,20 +18,11 @@ License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
 
-Patch1: xen-initscript.patch
-Patch4: xen-dumpdir.patch
-Patch5: xen-net-disable-iptables-on-bridge.patch
-
-Patch28: pygrubfix.patch
-Patch31: xen-shared-loop-losetup.patch
-Patch32: fix-python-compile-warnings.patch
-
-Patch100: xen-configure-xend.patch
-Patch101: xen-no-downloads.patch
-
-Patch111: xen-hotplug-external-store.patch
-
-Patch500: xen-tools-qubes-vm.patch
+Source98: apply-patches
+Source99: series-vm.conf
+Source100: patches.fedora
+Source102: patches.misc
+Source103: patches.qubes
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -95,20 +88,9 @@ which manage Xen virtual machines.
 
 %prep
 %setup -q -n xen-%{version}
-%patch1 -p1
-%patch4 -p1
-%patch5 -p1
 
-%patch28 -p1
-%patch31 -p1
-%patch32 -p1
-
-%patch100 -p1
-%patch101 -p1
-
-%patch111 -p1
-
-%patch500 -p1
+# Apply patches
+%{SOURCE98} %{SOURCE99} %{_sourcedir}
 
 %build
 export XEN_VENDORVERSION="-%{release}"

@@ -74,55 +74,12 @@ Source47: xendomains.service
 Source48: libexec.xendomains
 Source49: tmpfiles.d.xen.conf
 
-Patch1: xen-initscript.patch
-Patch4: xen-dumpdir.patch
-Patch5: xen-net-disable-iptables-on-bridge.patch
-
-Patch28: pygrubfix.patch
-Patch31: xen-shared-loop-losetup.patch
-Patch34: xend.catchbt.patch
-Patch35: xend-pci-loop.patch
-Patch39: xend.selinux.fixes.patch
-Patch46: xen.use.fedora.seabios.patch
-Patch47: xen.use.fedora.ipxe.patch
-Patch48: qemu-xen.tradonly.patch
-Patch49: xen.fedora.efi.build.patch
-Patch55: qemu-xen.trad.buildfix.patch
-Patch56: xen.fedora19.buildfix.patch
-Patch57: xsa33-4.2-unstable.patch
-Patch58: xsa34-4.2.patch
-Patch59: xsa35-4.2-with-xsa34.patch
-Patch60: xsa36-4.2.patch
-Patch61: xsa37-4.2.patch
-Patch62: man.formatting.patch
-Patch63: xsa41.patch
-Patch64: xsa38.patch
-Patch65: gcc48.build.patch
-
-Patch100: xen-configure-xend.patch
-Patch101: xen-no-downloads.patch
-
-# libxl fixes
-# 102-109,112-113,117 are candidates to be included in upstream release
-#FIXME Patch108: xen-libxl-devid-to-nic-domid.patch
-#FIXME? Patch110: xen-libxl-script-block-backend.patch
-Patch111: xen-hotplug-external-store.patch
-Patch121: xen-libxl-daemon-pid-stderr.patch
-Patch123: stubdom-vbd-non-dom0-backend.patch
-Patch125: xen-libxl-error-write-perm.patch
-Patch126: xen-xl-create-quiet.patch
-Patch127: libxl-ignore-run_hotplug_scripts-setting-when-backen.patch
-# 128..130 are already in stable-4.2, will be in 4.2.2 release
-Patch128: 0001-libxl-rename-abs-variables-to-absolute.patch
-Patch129: 0002-libxl-fix-stale-fd-event-callback-race.patch
-Patch130: 0003-libxl-fix-stale-timeout-event-callback-race.patch
-
-# Qubes HVM
-Patch200: xen-stubdom-qubes-gui.patch
-# BIG FAT TODO FIXME Patch201: xen-libxl-qubes-minimal-stubdom.patch
-# BIG FAT TODO FIXME Patch202: xen-disable-dom0-qemu.patch
-Patch203: stubdom-lwip-fix-for-dhcp.patch
-# TODO Patch204: xen-libxl-stubdom-pci-create.patch
+Source98: apply-patches
+Source99: series.conf
+Source100: patches.fedora
+Source101: patches.libxl
+Source102: patches.misc
+Source103: patches.qubes
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -258,51 +215,9 @@ This package contains files for HVM domains, especially stubdomain with device m
 
 %prep
 %setup -q
-%patch1 -p1
-%patch4 -p1
-%patch5 -p1
 
-%patch28 -p1
-%patch31 -p1
-%patch34 -p1
-%patch35 -p1
-%patch39 -p1
-%patch46 -p1
-%patch47 -p1
-%patch48 -p1
-%patch49 -p1
-%patch55 -p1
-%patch56 -p1
-%patch57 -p1
-%patch58 -p1
-%patch59 -p1
-%patch60 -p1
-%patch61 -p1
-%patch62 -p1
-%patch63 -p1
-%patch64 -p1
-%patch65 -p1
-
-%patch100 -p1
-%patch101 -p1
-
-#FIXME %patch108 -p1
-#FIXME? %patch110 -p1
-%patch111 -p1
-%patch121 -p1
-%patch123 -p1
-%patch125 -p1
-%patch126 -p1
-%patch127 -p1
-%patch128 -p1
-%patch129 -p1
-%patch130 -p1
-
-%patch200 -p0
-#%patch201 -p2
-#%patch202 -p1
-%patch203 -p2
-#%patch204 -p1
+# Apply patches
+%{SOURCE98} %{SOURCE99} %{_sourcedir}
 
 # Fix for glibc 2.7
 #FIXME sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
