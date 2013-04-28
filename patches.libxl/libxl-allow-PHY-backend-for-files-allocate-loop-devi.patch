@@ -1,0 +1,263 @@
+From cbd5831fd5a6a00429957acb6b1d58d7c645f219 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Tue, 16 Apr 2013 22:20:25 +0200
+Subject: [PATCH] libxl: allow PHY backend for files - allocate loop device
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+This is implementation of /etc/xen/scripts/block behaviour, but without
+calling the script, which should be much faster.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c          |  13 ++++-
+ tools/libxl/libxl_device.c   |   8 +++
+ tools/libxl/libxl_internal.h |   9 +++
+ tools/libxl/libxl_linux.c    | 129 ++++++++++++++++++++++++++++++++++++++++++-
+ tools/libxl/libxl_netbsd.c   |  11 ++++
+ 5 files changed, 168 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index a813a88..4af5591 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -2086,7 +2086,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
+                  */
+                 if (!disk->script) {
+                     int major, minor;
+-                    libxl__device_physdisk_major_minor(dev, &major, &minor);
++                    char *node;
++
++                    node = libxl__loopdev_setup(gc, dev);
++                    if (!node) {
++                        /* error already reported by libxl__setup_loopdev */
++                        goto out;
++                    }
++                    if (node != dev) {
++                        flexarray_append_pair(back, "node", node);
++                    }
++
++                    libxl__device_physdisk_major_minor(node, &major, &minor);
+                     flexarray_append_pair(back, "physical-device",
+                             libxl__sprintf(gc, "%x:%x", major, minor));
+                 }
+diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
+index d622826..936961e 100644
+--- a/tools/libxl/libxl_device.c
++++ b/tools/libxl/libxl_device.c
+@@ -883,6 +883,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+ {
+     STATE_AO_GC(aodev->ao);
+     char *be_path = libxl__device_backend_path(gc, aodev->dev);
++    char *node;
+     char **args = NULL, **env = NULL;
+     int rc = 0;
+     int hotplug;
+@@ -906,6 +907,13 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+     switch (hotplug) {
+     case 0:
+         /* no hotplug script to execute */
++        /* check if we have loop device allocated - if so, try to release it */
++        node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
++        if (node) {
++            /* ignore errors: if device is already released - no problem, if
++             * EBUSY - can be shared */
++            libxl__loopdev_cleanup(gc, node);
++        }
+         goto out;
+     case 1:
+         /* execute hotplug script */
+diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
+index 3ba3a21..573e3d1 100644
+--- a/tools/libxl/libxl_internal.h
++++ b/tools/libxl/libxl_internal.h
+@@ -1050,6 +1050,15 @@ static inline void libxl__domaindeathcheck_stop(libxl__gc *gc,
+  */
+ _hidden int libxl__try_phy_backend(mode_t st_mode);
+ 
++/*
++ * libxl__setup_loopdev - Setup loop device if needed.
++ *
++ * Return its path on success or NULL in case of failure. If no loop device is
++ * needed, return original filename.
++ */
++_hidden char *libxl__loopdev_setup(libxl__gc *gc, char *filename);
++
++_hidden void libxl__loopdev_cleanup(libxl__gc *gc, char *devname);
+ 
+ _hidden char *libxl__devid_to_localdev(libxl__gc *gc, int devid);
+ 
+diff --git a/tools/libxl/libxl_linux.c b/tools/libxl/libxl_linux.c
+index 37815eb..115332a 100644
+--- a/tools/libxl/libxl_linux.c
++++ b/tools/libxl/libxl_linux.c
+@@ -16,16 +16,143 @@
+ #include "libxl_osdeps.h" /* must come before any other headers */
+ 
+ #include "libxl_internal.h"
++#include <linux/loop.h>
+  
+ int libxl__try_phy_backend(mode_t st_mode)
+ {
+-    if (!S_ISBLK(st_mode)) {
++    if (!S_ISBLK(st_mode) && !S_ISREG(st_mode)) {
+         return 0;
+     }
+ 
+     return 1;
+ }
+ 
++char *libxl__loopdev_setup(libxl__gc *gc, char *filename) {
++    struct stat st;
++    DIR *sysblock;
++    int dir_fd;
++    int control_fd = -1;
++    int loop_fd = -1;
++    int file_fd = -1;
++    int devnr;
++    struct dirent *d;
++    struct loop_info64  info;
++    char *loop_name = NULL;
++    char *ret = NULL;
++
++    if (stat(filename, &st) < 0) {
++        LOG(ERROR, "unable to stat %s", filename);
++        return NULL;
++    }
++
++    /* do not do anything if filename already is block device */
++    if (S_ISBLK(st.st_mode))
++        return filename;
++
++    /* first check if file has already loop device assigned according to
++     *
++     * losetup implementation readdir on /sys/block + stat on
++     * loop/backing_file is faster than open each loop dev
++     */
++    sysblock = opendir("/sys/block");
++    if (!sysblock) {
++        LOG(ERROR, "unable to open /sys/block");
++        return NULL;
++    }
++
++    dir_fd = dirfd(sysblock);
++
++    while ((d = readdir(sysblock))) {
++        char name[256];
++        struct stat buf;
++
++        if (strcmp(d->d_name, ".") == 0
++                || strcmp(d->d_name, "..") == 0
++                || strncmp(d->d_name, "loop", 4) != 0)
++            continue;
++        snprintf(name, sizeof(name), "%s/loop/backing_file", d->d_name);
++        if (fstatat(dir_fd, name, &buf, 0) == 0) {
++            snprintf(name, sizeof(name), "/dev/%s", d->d_name);
++            loop_fd = open(name, O_RDWR);
++            if (loop_fd < 0) {
++                LOG(ERROR, "unable to open %s", name);
++                goto out;
++            }
++            if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) < 0) {
++                LOG(ERROR, "unable to get %s info: %s", name, strerror(errno));
++                goto out;
++            }
++            if (info.lo_inode == st.st_ino && info.lo_device == st.st_dev) {
++                /* found */
++                ret = libxl__strdup(gc, name);
++                goto out;
++            }
++        }
++    }
++
++    /* not found, so allocate new one */
++    file_fd = open(filename, O_RDWR);
++    if (file_fd < 0) {
++        LOG(ERROR, "unable to open %s: %s", filename, strerror(errno));
++        goto out;
++    }
++
++    control_fd = open("/dev/loop-control", O_RDWR);
++    if (control_fd < 0) {
++        LOG(ERROR, "unable to open /dev/loop-control: %s", strerror(errno));
++        goto out;
++    }
++    devnr = ioctl(control_fd, LOOP_CTL_GET_FREE);
++    if (devnr < 0) {
++        LOG(ERROR, "unable to get free loop device: %s", strerror(errno));
++        goto out;
++    }
++    loop_name = libxl__sprintf(gc, "/dev/loop%d", devnr);
++    loop_fd = open(loop_name, O_RDWR);
++    if (loop_fd < 0) {
++        LOG(ERROR, "unable to open %s: %s", loop_name, strerror(errno));
++        goto out;
++    }
++    if (ioctl(loop_fd, LOOP_SET_FD, file_fd) < 0) {
++        LOG(ERROR, "unable to set loop backing store: %s", strerror(errno));
++        goto out;
++    }
++    ret = loop_name;
++
++out:
++    if (file_fd >= 0)
++        close(file_fd);
++    if (control_fd >= 0)
++        close(control_fd);
++    if (loop_fd >= 0)
++        close(loop_fd);
++    if (sysblock)
++        closedir(sysblock);
++
++    return ret;
++}
++
++void libxl__loopdev_cleanup(libxl__gc *gc, char *devname)
++{
++    int loop_fd;
++
++    loop_fd = open(devname, O_RDWR);
++    if (loop_fd < 0) {
++        LOG(ERROR, "unable to open device %s: %s", devname, strerror(errno));
++        goto out;
++    }
++
++    if (ioctl(loop_fd, LOOP_CLR_FD) < 0) {
++        LOG(ERROR, "unable to release device %s: %s", devname, strerror(errno));
++        goto out;
++    }
++
++out:
++    if (loop_fd >= 0)
++        close(loop_fd);
++}
++
++
+ #define EXT_SHIFT 28
+ #define EXTENDED (1<<EXT_SHIFT)
+ #define VDEV_IS_EXTENDED(dev) ((dev)&(EXTENDED))
+diff --git a/tools/libxl/libxl_netbsd.c b/tools/libxl/libxl_netbsd.c
+index 898e160..1e71572 100644
+--- a/tools/libxl/libxl_netbsd.c
++++ b/tools/libxl/libxl_netbsd.c
+@@ -25,6 +25,17 @@ int libxl__try_phy_backend(mode_t st_mode)
+     return 0;
+ }
+ 
++char *libxl__loopdev_setup(libxl__gc *gc, char *filename)
++{
++    /* files supported natively */
++    return filename;
++}
++
++void libxl__loopdev_cleanup(libxl__gc *gc, char *devname)
++{
++    /* nothing to do */
++}
++
+ char *libxl__devid_to_localdev(libxl__gc *gc, int devid)
+ {
+     /* TODO */
+-- 
+1.8.1.4
+

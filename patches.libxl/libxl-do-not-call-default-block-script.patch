@@ -1,0 +1,75 @@
+From 30ebd69f50b62af042985749efb51ba46882e7e7 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Tue, 16 Apr 2013 23:27:41 +0200
+Subject: [PATCH] libxl: do not call default block script
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c        |  8 +++++---
+ tools/libxl/libxl_device.c | 12 +++++++-----
+ tools/libxl/libxl_linux.c  |  5 ++---
+ 3 files changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 4af5591..fdd9125 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -2073,9 +2073,11 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
+                 flexarray_append(back, "params");
+                 flexarray_append(back, dev);
+ 
+-                script = libxl__abs_path(gc, disk->script?: "block",
+-                                         libxl__xen_script_dir_path());
+-                flexarray_append_pair(back, "script", script);
++                if (disk->script) {
++                    script = libxl__abs_path(gc, disk->script?: "block",
++                            libxl__xen_script_dir_path());
++                    flexarray_append_pair(back, "script", script);
++                }
+ 
+                 /* If the user did not supply a block script then we
+                  * write the physical-device node ourselves.
+diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
+index 936961e..fff3543 100644
+--- a/tools/libxl/libxl_device.c
++++ b/tools/libxl/libxl_device.c
+@@ -908,11 +908,13 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+     case 0:
+         /* no hotplug script to execute */
+         /* check if we have loop device allocated - if so, try to release it */
+-        node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
+-        if (node) {
+-            /* ignore errors: if device is already released - no problem, if
+-             * EBUSY - can be shared */
+-            libxl__loopdev_cleanup(gc, node);
++        if (aodev->action == DEVICE_DISCONNECT) {
++            node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
++            if (node) {
++                /* ignore errors: if device is already released - no problem, if
++                 * EBUSY - can be shared */
++                libxl__loopdev_cleanup(gc, node);
++            }
+         }
+         goto out;
+     case 1:
+diff --git a/tools/libxl/libxl_linux.c b/tools/libxl/libxl_linux.c
+index 115332a..923a1d0 100644
+--- a/tools/libxl/libxl_linux.c
++++ b/tools/libxl/libxl_linux.c
+@@ -334,9 +334,8 @@ static int libxl__hotplug_disk(libxl__gc *gc, libxl__device *dev,
+     script = libxl__xs_read(gc, XBT_NULL,
+                             GCSPRINTF("%s/%s", be_path, "script"));
+     if (!script) {
+-        LOGEV(ERROR, errno, "unable to read script from %s", be_path);
+-        rc = ERROR_FAIL;
+-        goto error;
++        LOG(INFO, "no script for %s", be_path);
++        return 0;
+     }
+ 
+     *env = get_hotplug_env(gc, script, dev);
+-- 
+1.8.1.4
+

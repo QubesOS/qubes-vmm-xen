@@ -1,0 +1,57 @@
+From 34908dc69a061d989c4cb2eb53c2349da5bad65e Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Mon, 22 Apr 2013 03:50:45 +0200
+Subject: [PATCH 102/106] libvchan: remove unnecessary includes
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+Those headers aren't used in libvchan, so remove the includes. This
+makes possible to compile libvchan in stubdom (mini-os doesn't provide
+them).
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libvchan/init.c        | 1 -
+ tools/libvchan/io.c          | 1 -
+ tools/libvchan/libxenvchan.h | 1 -
+ 3 files changed, 3 deletions(-)
+
+diff --git a/tools/libvchan/init.c b/tools/libvchan/init.c
+index dbdcc6c..8a66cef 100644
+--- a/tools/libvchan/init.c
++++ b/tools/libvchan/init.c
+@@ -32,7 +32,6 @@
+ #include <sys/types.h>
+ #include <sys/mman.h>
+ #include <sys/ioctl.h>
+-#include <sys/user.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <stdint.h>
+diff --git a/tools/libvchan/io.c b/tools/libvchan/io.c
+index 3040099..fea9687 100644
+--- a/tools/libvchan/io.c
++++ b/tools/libvchan/io.c
+@@ -32,7 +32,6 @@
+ #include <sys/types.h>
+ #include <sys/mman.h>
+ #include <sys/ioctl.h>
+-#include <sys/uio.h>
+ #include <stdlib.h>
+ #include <stdint.h>
+ #include <string.h>
+diff --git a/tools/libvchan/libxenvchan.h b/tools/libvchan/libxenvchan.h
+index 6365d36..07d1b59 100644
+--- a/tools/libvchan/libxenvchan.h
++++ b/tools/libvchan/libxenvchan.h
+@@ -44,7 +44,6 @@
+  */
+ 
+ #include <xen/io/libxenvchan.h>
+-#include <xen/sys/evtchn.h>
+ #include <xenctrl.h>
+ 
+ struct libxenvchan_ring {
+-- 
+1.8.1.4
+

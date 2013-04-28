@@ -1,6 +1,6 @@
 --- a/stubdom/Makefile.orig	2012-02-21 15:42:20.364000956 +0100
 +++ b/stubdom/Makefile	2012-02-21 15:43:40.916001086 +0100
-@@ -245,6 +245,16 @@
+@@ -245,6 +245,11 @@
  	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.c . && \
  	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.h . && \
  	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/Makefile . )
@@ -9,15 +9,10 @@
 +	  ln -sf $(XEN_ROOT)/tools/vchan/*.c . && \
 +	  ln -sf $(XEN_ROOT)/tools/vchan/*.h . && \
 +	  ln -sf $(XEN_ROOT)/tools/vchan/Makefile.stubdom ./Makefile )
-+	mkdir -p libvchan-$(XEN_TARGET_ARCH)
-+	[ -h libvchan-$(XEN_TARGET_ARCH) ] || ( cd libvchan-$(XEN_TARGET_ARCH) && \
-+	  ln -sf $(XEN_ROOT)/tools/libvchan/*.c . && \
-+	  ln -sf $(XEN_ROOT)/tools/libvchan/*.h . && \
-+	  ln -sf $(XEN_ROOT)/tools/libvchan/Makefile ./Makefile )
- 	mkdir -p xenstore
- 	[ -h xenstore/Makefile ] || ( cd xenstore && \
- 	  ln -sf $(XEN_ROOT)/tools/xenstore/*.c . && \
-@@ -267,6 +272,24 @@
+ 	mkdir -p libvchan-$(XEN_TARGET_ARCH)
+ 	[ -h libvchan-$(XEN_TARGET_ARCH) ] || ( cd libvchan-$(XEN_TARGET_ARCH) && \
+ 	  ln -sf $(XEN_ROOT)/tools/libvchan/*.c . && \
+@@ -267,6 +272,15 @@
   libxc-$(XEN_TARGET_ARCH)/libxenguest.a: libxc-$(XEN_TARGET_ARCH)/libxenctrl.a
  
  #######
@@ -30,16 +25,7 @@
 +	CPPFLAGS="$(TARGET_CPPFLAGS)" CFLAGS="$(TARGET_CFLAGS)" $(MAKE) -C vchan-$(XEN_TARGET_ARCH)
 +
 +#######
-+# libvchan
-+#######
-+
-+.PHONY: libvchan
-+libvchan: libvchan-$(XEN_TARGET_ARCH)/libxenvchan.a
-+libvchan-$(XEN_TARGET_ARCH)/libxenvchan.a:
-+	CPPFLAGS="$(TARGET_CPPFLAGS)" CFLAGS="$(TARGET_CFLAGS)" $(MAKE) -C libvchan-$(XEN_TARGET_ARCH) libxenvchan.a
-+
-+#######
- # ioemu
+ # libvchan
  #######
  
 @@ -321,8 +335,8 @@

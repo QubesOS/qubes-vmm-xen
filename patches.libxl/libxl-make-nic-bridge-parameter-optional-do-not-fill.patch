@@ -1,0 +1,48 @@
+From 15da34fa297be36cd46a2e13cc1fd7fa44c53e59 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Wed, 17 Apr 2013 01:12:32 +0200
+Subject: [PATCH] libxl: make nic 'bridge' parameter optional - do not fill
+ default
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+Do not set 'bridge' parameter - let vif-bridge script to do
+autodetection. Actually 'network-bridge' never creates xenbr0 interface
+by default, so defaulting bridge to xenbr0 is senseless.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index fdd9125..c2c8c8b 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -2772,10 +2772,6 @@ int libxl__device_nic_setdefault(libxl__gc *gc, libxl_device_nic *nic,
+         nic->mac[4] = r[1];
+         nic->mac[5] = r[2];
+     }
+-    if (!nic->bridge) {
+-        nic->bridge = strdup("xenbr0");
+-        if (!nic->bridge) return ERROR_NOMEM;
+-    }
+     if ( !nic->script && asprintf(&nic->script, "%s/vif-bridge",
+                                   libxl__xen_script_dir_path()) < 0 )
+         return ERROR_FAIL;
+@@ -2876,8 +2872,10 @@ void libxl__device_nic_add(libxl__egc *egc, uint32_t domid,
+                             nic->rate_interval_usecs));
+     }
+ 
+-    flexarray_append(back, "bridge");
+-    flexarray_append(back, libxl__strdup(gc, nic->bridge));
++    if (nic->bridge) {
++        flexarray_append(back, "bridge");
++        flexarray_append(back, libxl__strdup(gc, nic->bridge));
++    }
+     flexarray_append(back, "handle");
+     flexarray_append(back, libxl__sprintf(gc, "%d", nic->devid));
+     flexarray_append(back, "type");
+-- 
+1.8.1.4
+

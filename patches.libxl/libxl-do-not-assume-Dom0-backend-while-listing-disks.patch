@@ -1,0 +1,160 @@
+From a217aae81c58963fa7a8816771a05ea05241c5ee Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Sun, 28 Apr 2013 01:12:49 +0200
+Subject: [PATCH] libxl: do not assume Dom0 backend while listing disks and
+ nics
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+One more place where code assumed that all backends are in dom0. List
+devices in domain device/ tree, instead of backend/ of dom0.
+Additionally fix libxl_devid_to_device_{nic,disk} to fill backend_domid
+properly.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c | 71 ++++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 51 insertions(+), 20 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index c386004..e2c678a 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -2308,7 +2308,7 @@ int libxl_vdev_to_device_disk(libxl_ctx *ctx, uint32_t domid,
+                               const char *vdev, libxl_device_disk *disk)
+ {
+     GC_INIT(ctx);
+-    char *dompath, *path;
++    char *dompath, *path, *backend_domid;
+     int devid = libxl__device_disk_dev_number(vdev, NULL, NULL);
+     int rc = ERROR_FAIL;
+ 
+@@ -2328,6 +2328,12 @@ int libxl_vdev_to_device_disk(libxl_ctx *ctx, uint32_t domid,
+ 
+     libxl__device_disk_from_xs_be(gc, path, disk);
+
++    backend_domid = libxl__xs_read(gc, XBT_NULL,
++            libxl__sprintf(gc, "%s/device/vbd/%d/backend-id",
++                dompath, devid));
++    if (backend_domid)
++        disk->backend_domid = atoi(backend_domid);
++
+     rc = 0;
+ out:
+     GC_FREE;
+@@ -2340,14 +2347,14 @@ static int libxl__append_disk_list_of_type(libxl__gc *gc,
+                                            libxl_device_disk **disks,
+                                            int *ndisks)
+ {
+-    char *be_path = NULL;
++    char *fe_path = NULL;
+     char **dir = NULL;
+     unsigned int n = 0;
+     libxl_device_disk *pdisk = NULL, *pdisk_end = NULL;
+ 
+-    be_path = libxl__sprintf(gc, "%s/backend/%s/%d",
+-                             libxl__xs_get_dompath(gc, 0), type, domid);
+-    dir = libxl__xs_directory(gc, XBT_NULL, be_path, &n);
++    fe_path = libxl__sprintf(gc, "%s/device/%s",
++                             libxl__xs_get_dompath(gc, domid), type);
++    dir = libxl__xs_directory(gc, XBT_NULL, fe_path, &n);
+     if (dir) {
+         libxl_device_disk *tmp;
+         tmp = realloc(*disks, sizeof (libxl_device_disk) * (*ndisks + n));
+@@ -2359,10 +2366,19 @@ static int libxl__append_disk_list_of_type(libxl__gc *gc,
+         *ndisks += n;
+         pdisk_end = *disks + *ndisks;
+         for (; pdisk < pdisk_end; pdisk++, dir++) {
+-            const char *p;
+-            p = libxl__sprintf(gc, "%s/%s", be_path, *dir);
+-            libxl__device_disk_from_xs_be(gc, p, pdisk);
+-            pdisk->backend_domid = 0;
++            const char *be_domid;
++            const char *be_path;
++            be_path = libxl__xs_read(gc, XBT_NULL,
++                    libxl__sprintf(gc, "%s/%s/backend", fe_path, *dir));
++            if (!be_path)
++                return ERROR_FAIL;
++            libxl__device_disk_from_xs_be(gc, be_path, pdisk);
++            be_domid = libxl__xs_read(gc, XBT_NULL,
++                    libxl__sprintf(gc, "%s/%s/backend-id", fe_path, *dir));
++            if (be_domid)
++                pdisk->backend_domid = atoi(be_domid);
++            else
++                pdisk->backend_domid = LIBXL_TOOLSTACK_DOMID;
+         }
+     }
+     return 0;
+@@ -2991,7 +3007,7 @@ int libxl_devid_to_device_nic(libxl_ctx *ctx, uint32_t domid,
+                               int devid, libxl_device_nic *nic)
+ {
+     GC_INIT(ctx);
+-    char *dompath, *path;
++    char *dompath, *path, *backend_domid;
+     int rc = ERROR_FAIL;
+ 
+     memset(nic, 0, sizeof (libxl_device_nic));
+@@ -3007,6 +3023,12 @@ int libxl_devid_to_device_nic(libxl_ctx *ctx, uint32_t domid,
+ 
+     libxl__device_nic_from_xs_be(gc, path, nic);
+ 
++    backend_domid = libxl__xs_read(gc, XBT_NULL,
++            libxl__sprintf(gc, "%s/device/vif/%d/backend-id",
++                dompath, devid));
++    if (backend_domid)
++        nic->backend_domid = atoi(backend_domid);
++
+     rc = 0;
+ out:
+     GC_FREE;
+@@ -3019,14 +3041,14 @@ static int libxl__append_nic_list_of_type(libxl__gc *gc,
+                                            libxl_device_nic **nics,
+                                            int *nnics)
+ {
+-    char *be_path = NULL;
++    char *fe_path = NULL;
+     char **dir = NULL;
+     unsigned int n = 0;
+     libxl_device_nic *pnic = NULL, *pnic_end = NULL;
+ 
+-    be_path = libxl__sprintf(gc, "%s/backend/%s/%d",
+-                             libxl__xs_get_dompath(gc, 0), type, domid);
+-    dir = libxl__xs_directory(gc, XBT_NULL, be_path, &n);
++    fe_path = libxl__sprintf(gc, "%s/device/%s",
++                             libxl__xs_get_dompath(gc, domid), type);
++    dir = libxl__xs_directory(gc, XBT_NULL, fe_path, &n);
+     if (dir) {
+         libxl_device_nic *tmp;
+         tmp = realloc(*nics, sizeof (libxl_device_nic) * (*nnics + n));
+@@ -3034,13 +3056,22 @@ static int libxl__append_nic_list_of_type(libxl__gc *gc,
+             return ERROR_NOMEM;
+         *nics = tmp;
+         pnic = *nics + *nnics;
+-        *nnics += n;
+-        pnic_end = *nics + *nnics;
++        pnic_end = *nics + *nnics + n;
+         for (; pnic < pnic_end; pnic++, dir++) {
+-            const char *p;
+-            p = libxl__sprintf(gc, "%s/%s", be_path, *dir);
+-            libxl__device_nic_from_xs_be(gc, p, pnic);
+-            pnic->backend_domid = 0;
++            const char *be_domid;
++            const char *be_path;
++            be_path = libxl__xs_read(gc, XBT_NULL,
++                    libxl__sprintf(gc, "%s/%s/backend", fe_path, *dir));
++            if (!be_path)
++                return ERROR_FAIL;
++            libxl__device_nic_from_xs_be(gc, be_path, pnic);
++            be_domid = libxl__xs_read(gc, XBT_NULL,
++                    libxl__sprintf(gc, "%s/%s/backend-id", fe_path, *dir));
++            if (be_domid)
++                pnic->backend_domid = atoi(be_domid);
++            else
++                pnic->backend_domid = LIBXL_TOOLSTACK_DOMID;
++            *nnics += 1;
+         }
+     }
+     return 0;
+-- 
+1.8.1.4
+
