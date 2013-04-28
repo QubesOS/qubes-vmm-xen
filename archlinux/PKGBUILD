@@ -14,7 +14,7 @@ url="http://qubes-os.org/"
 license=('GPL')
 groups=()
 depends=(python2)
-makedepends=(wget make gcc patch git bin86 dev86 iasl)
+makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config)
 checkdepends=()
 optdepends=()
 provides=('xen-qubes-vm-essentials')
@@ -25,46 +25,40 @@ options=()
 install=
 changelog=
 
-Patch1=xen-initscript.patch
-Patch4=xen-dumpdir.patch
-Patch5=xen-net-disable-iptables-on-bridge.patch
+Patch1=patches.fedora/xen-initscript.patch
+Patch4=patches.fedora/xen-dumpdir.patch
+Patch5=patches.fedora/xen-net-disable-iptables-on-bridge.patch
 
-Patch10=xen-no-werror.patch
+Patch10=patches.misc/xen-no-werror.patch
 
-Patch18=localgcc45fix.patch
-Patch20=localgcc451fix.patch
-Patch23=grub-ext4-support.patch
-Patch26=localgcc46fix.patch
-Patch28=pygrubfix.patch
-Patch29=xen-4.1.2-compile-fixes.patch
-Patch30=gdbsx-glibc2.17.patch
-Patch31=xen-shared-loop-losetup.patch
-Patch32=fix-python-compile-warnings.patch
+Patch28=patches.fedora/pygrubfix.patch
+Patch31=patches.qubes/xen-shared-loop-losetup.patch
+Patch32=patches.misc/fix-python-compile-warnings.patch
 
-Patch100=xen-configure-xend.patch
-Patch101=xen-no-downloads.patch
-Patch102=xen-acpi-override-query.patch
-Patch103=xen-dont-install-outdated-latex-documentation.patch
-Patch104=xen-tools-canonicalize-python-location.patch
+Patch101=patches.qubes/xen-no-downloads.patch
 
-Patch111=xen-hotplug-external-store.patch
+Patch111=patches.qubes/xen-hotplug-external-store.patch
 
-Patch500=xen-tools-qubes-vm.patch
+Patch500=patches.qubes/xen-tools-qubes-vm.patch
 
-source=(xen-$pkgver.tar.gz \
-$Patch1 $Patch4 $Patch5 \
-$Patch10 \
-$Patch18 $Patch20 $Patch23 $Patch26 $Patch28 $Patch29 $Patch30 $Patch31 $Patch32 \
-$Patch100 $Patch101 $Patch102 $Patch103 $Patch104 \
-$Patch111 \
-$Patch500 \
-)
+source=(xen-$pkgver.tar.gz )
 
 noextract=()
 md5sums=() #generate with 'makepkg -g'
 
 
 build() {
+
+  for patch in $Patch1 $Patch4 $Patch5 \
+  $Patch10 \
+  $Patch28 $Patch31 $Patch32 \
+  $Patch101 \
+  $Patch111 \
+  $Patch500; do
+    mkdir -p `dirname $patch`
+    ln -s $srcdir/../$patch $srcdir/$patch
+  done
+  
 
   export PYTHON=/usr/bin/python2
 
@@ -75,33 +69,22 @@ build() {
 
   patch -p1 < ../$Patch10
 
-  patch -p1 < ../$Patch18
-  patch -p1 < ../$Patch20
-  patch -p1 < ../$Patch26
   patch -p1 < ../$Patch28
-  patch -p1 < ../$Patch29
-  patch -p1 < ../$Patch30
   patch -p1 < ../$Patch31
   patch -p1 < ../$Patch32
 
-  patch -p1 < ../$Patch100
   patch -p1 < ../$Patch101
-  patch -p1 < ../$Patch102
-  patch -p1 < ../$Patch103
-  patch -p1 < ../$Patch104
 
   patch -p1 < ../$Patch111
 
   patch -p1 < ../$Patch500
 
-  # Fix for glibc 2.7
-  sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
-
   export XEN_VENDORVERSION="-$pkgrel"
   export OCAML_TOOLS=n
-  export PYTHON=python2
+  export PYTHON=/usr/bin/python2
   unset LDFLAGS
 
+  ./configure --prefix=/usr
 #  make prefix=/usr dist-xen
   make prefix=/usr dist-tools
 #  make prefix=/usr dist-docs
