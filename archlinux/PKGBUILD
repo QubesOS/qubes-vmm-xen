@@ -33,7 +33,6 @@ Patch10=patches.misc/xen-no-werror.patch
 
 Patch28=patches.fedora/pygrubfix.patch
 Patch31=patches.qubes/xen-shared-loop-losetup.patch
-Patch32=patches.misc/fix-python-compile-warnings.patch
 
 Patch101=patches.qubes/xen-no-downloads.patch
 
@@ -51,7 +50,7 @@ build() {
 
   for patch in $Patch1 $Patch4 $Patch5 \
   $Patch10 \
-  $Patch28 $Patch31 $Patch32 \
+  $Patch28 $Patch31 \
   $Patch101 \
   $Patch111 \
   $Patch500; do
@@ -71,7 +70,6 @@ build() {
 
   patch -p1 < ../$Patch28
   patch -p1 < ../$Patch31
-  patch -p1 < ../$Patch32
 
   patch -p1 < ../$Patch101
 
