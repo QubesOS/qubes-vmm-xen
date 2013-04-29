@@ -1,4 +1,4 @@
-From cbd5831fd5a6a00429957acb6b1d58d7c645f219 Mon Sep 17 00:00:00 2001
+From 9f0b1b825a9f4b5b1001ac2791894b880d23f8e0 Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Tue, 16 Apr 2013 22:20:25 +0200
 Subject: [PATCH] libxl: allow PHY backend for files - allocate loop device
@@ -8,20 +8,24 @@ Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 This is implementation of /etc/xen/scripts/block behaviour, but without
 calling the script, which should be much faster.
 
+Changes in v2:
+ - call libxl__loopdev_cleanup only when when on device remove and only
+   if no scripts already was called
+
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 ---
  tools/libxl/libxl.c          |  13 ++++-
- tools/libxl/libxl_device.c   |   8 +++
+ tools/libxl/libxl_device.c   |  10 ++++
  tools/libxl/libxl_internal.h |   9 +++
  tools/libxl/libxl_linux.c    | 129 ++++++++++++++++++++++++++++++++++++++++++-
  tools/libxl/libxl_netbsd.c   |  11 ++++
- 5 files changed, 168 insertions(+), 2 deletions(-)
+ 5 files changed, 170 insertions(+), 2 deletions(-)
 
 diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
-index a813a88..4af5591 100644
+index 237f135..11d94ff 100644
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -2086,7 +2086,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
+@@ -2106,7 +2106,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
                   */
                  if (!disk->script) {
                      int major, minor;
@@ -42,10 +46,10 @@ index a813a88..4af5591 100644
                              libxl__sprintf(gc, "%x:%x", major, minor));
                  }
 diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
-index d622826..936961e 100644
+index 9ab057d..9a65809 100644
 --- a/tools/libxl/libxl_device.c
 +++ b/tools/libxl/libxl_device.c
-@@ -883,6 +883,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+@@ -886,6 +886,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
  {
      STATE_AO_GC(aodev->ao);
      char *be_path = libxl__device_backend_path(gc, aodev->dev);
@@ -53,16 +57,18 @@ index d622826..936961e 100644
      char **args = NULL, **env = NULL;
      int rc = 0;
      int hotplug;
-@@ -906,6 +907,13 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+@@ -909,6 +910,15 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
      switch (hotplug) {
      case 0:
          /* no hotplug script to execute */
-+        /* check if we have loop device allocated - if so, try to release it */
-+        node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
-+        if (node) {
-+            /* ignore errors: if device is already released - no problem, if
-+             * EBUSY - can be shared */
-+            libxl__loopdev_cleanup(gc, node);
++        if (!aodev->num_exec && aodev->action == DEVICE_DISCONNECT) {
++            /* check if we have loop device allocated - if so, try to release it */
++            node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
++            if (node) {
++                /* ignore errors: if device is already released - no problem, if
++                 * EBUSY - can be shared */
++                libxl__loopdev_cleanup(gc, node);
++            }
 +        }
          goto out;
      case 1:
