@@ -1,0 +1,148 @@
+commit 9aa356bc9f7533c3cb7f02c823f532532876d444
+Author: Ben Guthro <benjamin.guthro@citrix.com>
+Date:   Fri Apr 19 12:29:01 2013 +0200
+
+    x86/S3: Fix cpu pool scheduling after suspend/resume
+    
+    This review is another S3 scheduler problem with the system_state
+    variable introduced with the following changeset:
+    http://xenbits.xen.org/gitweb/?p=xen.git;a=commit;h=269f543ea750ed567d18f2e819e5d5ce58eda5c5
+    
+    Specifically, the cpu_callback function that takes the CPU down during
+    suspend, and back up during resume. We were seeing situations where,
+    after S3, only CPU0 was in cpupool0. Guest performance suffered
+    greatly, since all vcpus were only on a single pcpu. Guests under high
+    CPU load showed the problem much more quickly than an idle guest.
+    
+    Removing this if condition forces the CPUs to go through the expected
+    online/offline state, and be properly scheduled after S3.
+    
+    This also includes a necessary partial change proposed earlier by
+    Tomasz Wroblewski here:
+    http://lists.xen.org/archives/html/xen-devel/2013-01/msg02206.html
+    
+    It should also resolve the issues discussed in this thread:
+    http://lists.xen.org/archives/html/xen-devel/2012-11/msg01801.html
+    
+    Signed-off-by: Ben Guthro <benjamin.guthro@citrix.com>
+    Acked-by: Juergen Gross <juergen.gross@ts.fujitsu.com>
+
+diff --git a/xen/common/cpupool.c b/xen/common/cpupool.c
+index b3d8f2b..2aaa486 100644
+--- a/xen/common/cpupool.c
++++ b/xen/common/cpupool.c
+@@ -41,16 +41,28 @@ static struct cpupool *alloc_cpupool_struct(void)
+ {
+     struct cpupool *c = xzalloc(struct cpupool);
+ 
+-    if ( c && zalloc_cpumask_var(&c->cpu_valid) )
+-        return c;
+-    xfree(c);
+-    return NULL;
++    if ( !c || !zalloc_cpumask_var(&c->cpu_valid) )
++    {
++        xfree(c);
++        c = NULL;
++    }
++    else if ( !zalloc_cpumask_var(&c->cpu_suspended) )
++    {
++        free_cpumask_var(c->cpu_valid);
++        xfree(c);
++        c = NULL;
++    }
++
++    return c;
+ }
+ 
+ static void free_cpupool_struct(struct cpupool *c)
+ {
+     if ( c )
++    {
++        free_cpumask_var(c->cpu_suspended);
+         free_cpumask_var(c->cpu_valid);
++    }
+     xfree(c);
+ }
+ 
+@@ -417,14 +429,32 @@ void cpupool_rm_domain(struct domain *d)
+ 
+ /*
+  * called to add a new cpu to pool admin
+- * we add a hotplugged cpu to the cpupool0 to be able to add it to dom0
++ * we add a hotplugged cpu to the cpupool0 to be able to add it to dom0,
++ * unless we are resuming from S3, in which case we put the cpu back
++ * in the cpupool it was in prior to suspend.
+  */
+ static void cpupool_cpu_add(unsigned int cpu)
+ {
+     spin_lock(&cpupool_lock);
+     cpumask_clear_cpu(cpu, &cpupool_locked_cpus);
+     cpumask_set_cpu(cpu, &cpupool_free_cpus);
+-    cpupool_assign_cpu_locked(cpupool0, cpu);
++
++    if ( system_state == SYS_STATE_resume )
++    {
++        struct cpupool **c;
++
++        for_each_cpupool(c)
++        {
++            if ( cpumask_test_cpu(cpu, (*c)->cpu_suspended ) )
++            {
++                cpupool_assign_cpu_locked(*c, cpu);
++                cpumask_clear_cpu(cpu, (*c)->cpu_suspended);
++            }
++        }
++    }
++
++    if ( cpumask_test_cpu(cpu, &cpupool_free_cpus) )
++        cpupool_assign_cpu_locked(cpupool0, cpu);
+     spin_unlock(&cpupool_lock);
+ }
+ 
+@@ -436,7 +466,7 @@ static void cpupool_cpu_add(unsigned int cpu)
+ static int cpupool_cpu_remove(unsigned int cpu)
+ {
+     int ret = 0;
+-	
++
+     spin_lock(&cpupool_lock);
+     if ( !cpumask_test_cpu(cpu, cpupool0->cpu_valid))
+         ret = -EBUSY;
+@@ -633,9 +663,14 @@ static int cpu_callback(
+     unsigned int cpu = (unsigned long)hcpu;
+     int rc = 0;
+ 
+-    if ( (system_state == SYS_STATE_suspend) ||
+-         (system_state == SYS_STATE_resume) )
+-        goto out;
++    if ( system_state == SYS_STATE_suspend )
++    {
++        struct cpupool **c;
++
++        for_each_cpupool(c)
++            if ( cpumask_test_cpu(cpu, (*c)->cpu_valid ) )
++                cpumask_set_cpu(cpu, (*c)->cpu_suspended);
++    }
+ 
+     switch ( action )
+     {
+@@ -650,7 +685,6 @@ static int cpu_callback(
+         break;
+     }
+ 
+-out:
+     return !rc ? NOTIFY_DONE : notifier_from_errno(rc);
+ }
+ 
+diff --git a/xen/include/xen/sched-if.h b/xen/include/xen/sched-if.h
+index 2023ea3..ad4d80c 100644
+--- a/xen/include/xen/sched-if.h
++++ b/xen/include/xen/sched-if.h
+@@ -203,6 +203,7 @@ struct cpupool
+ {
+     int              cpupool_id;
+     cpumask_var_t    cpu_valid;      /* all cpus assigned to pool */
++    cpumask_var_t    cpu_suspended;  /* cpus in S3 that should be in this pool */
+     struct cpupool   *next;
+     unsigned int     n_dom;
+     struct scheduler *sched;
