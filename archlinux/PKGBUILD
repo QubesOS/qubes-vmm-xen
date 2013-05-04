@@ -37,6 +37,7 @@ Patch31=patches.qubes/xen-shared-loop-losetup.patch
 Patch101=patches.qubes/xen-no-downloads.patch
 
 Patch111=patches.qubes/xen-hotplug-external-store.patch
+Patch112=patches.misc/0101-libvchan-create-xenstore-entries-in-one-transaction.patch
 
 Patch500=patches.qubes/xen-tools-qubes-vm.patch
 
@@ -53,6 +54,7 @@ build() {
   $Patch28 $Patch31 \
   $Patch101 \
   $Patch111 \
+  $Patch112 \
   $Patch500; do
     mkdir -p `dirname $patch`
     ln -s $srcdir/../$patch $srcdir/$patch
@@ -74,6 +76,7 @@ build() {
   patch -p1 < ../$Patch101
 
   patch -p1 < ../$Patch111
+  patch -p1 < ../$Patch112
 
   patch -p1 < ../$Patch500
 
