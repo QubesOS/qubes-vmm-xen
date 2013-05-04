@@ -1,0 +1,78 @@
+From ce52a76fb3e3f000455d36c782f47ea7c5ca8208 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Fri, 26 Apr 2013 14:40:05 +0200
+Subject: [PATCH] libxc: fix xc_gntshr_munmap semantic
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+"count" parameter should be pages count (as stated in comment in
+xenctrl.h), not bytes count.
+This patch fixes also the only user of this function (in xen sources) -
+libvchan.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libvchan/init.c        |  4 ++--
+ tools/libvchan/io.c          | 10 ++++++----
+ tools/libxc/xc_linux_osdep.c |  2 +-
+ 3 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/tools/libvchan/init.c b/tools/libvchan/init.c
+index 0c7cff6..f0d2505 100644
+--- a/tools/libvchan/init.c
++++ b/tools/libvchan/init.c
+@@ -129,9 +129,9 @@ out:
+ 	return ring_ref;
+ out_unmap_left:
+ 	if (pages_left)
+-		xc_gntshr_munmap(ctrl->gntshr, ctrl->read.buffer, pages_left * PAGE_SIZE);
++		xc_gntshr_munmap(ctrl->gntshr, ctrl->read.buffer, pages_left);
+ out_ring:
+-	xc_gntshr_munmap(ctrl->gntshr, ring, PAGE_SIZE);
++	xc_gntshr_munmap(ctrl->gntshr, ring, 1);
+ 	ring_ref = -1;
+ 	ctrl->ring = NULL;
+ 	ctrl->write.order = ctrl->read.order = 0;
+diff --git a/tools/libvchan/io.c b/tools/libvchan/io.c
+index 3c8d236..3040099 100644
+--- a/tools/libvchan/io.c
++++ b/tools/libvchan/io.c
+@@ -324,16 +324,18 @@ void libxenvchan_close(struct libxenvchan *ctrl)
+ 	if (!ctrl)
+ 		return;
+ 	if (ctrl->read.order >= PAGE_SHIFT)
+-		munmap(ctrl->read.buffer, 1 << ctrl->read.order);
++		xc_gntshr_munmap(ctrl->gntshr, ctrl->read.buffer,
++				1 << (ctrl->read.order - PAGE_SHIFT));
+ 	if (ctrl->write.order >= PAGE_SHIFT)
+-		munmap(ctrl->write.buffer, 1 << ctrl->write.order);
++		xc_gntshr_munmap(ctrl->gntshr, ctrl->write.buffer,
++				1 << (ctrl->write.order - PAGE_SHIFT));
+ 	if (ctrl->ring) {
+ 		if (ctrl->is_server) {
+ 			ctrl->ring->srv_live = 0;
+-			xc_gntshr_munmap(ctrl->gntshr, ctrl->ring, PAGE_SIZE);
++			xc_gntshr_munmap(ctrl->gntshr, ctrl->ring, 1);
+ 		} else {
+ 			ctrl->ring->cli_live = 0;
+-			xc_gnttab_munmap(ctrl->gnttab, ctrl->ring, PAGE_SIZE);
++			xc_gnttab_munmap(ctrl->gnttab, ctrl->ring, 1);
+ 		}
+ 	}
+ 	if (ctrl->event) {
+diff --git a/tools/libxc/xc_linux_osdep.c b/tools/libxc/xc_linux_osdep.c
+index 36832b6..3c43fca 100644
+--- a/tools/libxc/xc_linux_osdep.c
++++ b/tools/libxc/xc_linux_osdep.c
+@@ -825,7 +825,7 @@ static void *linux_gntshr_share_pages(xc_gntshr *xch, xc_osdep_handle h,
+ static int linux_gntshr_munmap(xc_gntshr *xcg, xc_osdep_handle h,
+                                void *start_address, uint32_t count)
+ {
+-    return munmap(start_address, count);
++    return munmap(start_address, count * XC_PAGE_SIZE);
+ }
+ 
+ static struct xc_osdep_ops linux_gntshr_ops = {
+-- 
+1.8.1.4
+
