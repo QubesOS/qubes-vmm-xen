@@ -1,7 +1,7 @@
-From 1ae3bc4e14ccad434b82512b0ca891bbb504bc42 Mon Sep 17 00:00:00 2001
+From be1642a6de837e4d8d9a075dca8e15ad5b8694e8 Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Sun, 21 Apr 2013 03:46:30 +0200
-Subject: [PATCH 101/106] libvchan: create xenstore entries in one transaction
+Subject: [PATCH 101/105] libvchan: create xenstore entries in one transaction
 Organization: Invisible Things Lab
 Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 

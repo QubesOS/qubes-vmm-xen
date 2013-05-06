@@ -1,21 +1,92 @@
---- xen-4.1.1/tools/libxl/libxl_dm.c	2012-02-22 18:18:09.128004600 +0100
-+++ xen-4.1.1/tools/libxl/libxl_dm.c.new	2012-02-28 02:11:35.632006179 +0100
-@@ -574,6 +574,7 @@
+diff -urp xen-4.2.2.orig/tools/libxl/libxl_dm.c xen-4.2.2/tools/libxl/libxl_dm.c
+--- xen-4.2.2.orig/tools/libxl/libxl_dm.c	2013-04-23 18:42:55.000000000 +0200
++++ xen-4.2.2/tools/libxl/libxl_dm.c	2013-05-06 01:18:51.895923575 +0200
+@@ -641,6 +641,8 @@ static void libxl__dm_vifs_from_hvm_gues
+     dm_config->num_nics = nr;
+ }
+ 
++#if 0
++/* Disabled in Qubes */
+ static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
+                                         const libxl_domain_config *guest_config,
+                                         libxl_device_vfb *vfb,
+@@ -664,6 +666,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
+     vkb->devid = 0;
+     return 0;
+ }
++#endif
+ 
+ static int libxl__write_stub_dmargs(libxl__gc *gc,
+                                     int dm_domid, int guest_domid,
+@@ -740,8 +743,11 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+     STATE_AO_GC(sdss->dm.spawn.ao);
+     libxl_ctx *ctx = libxl__gc_owner(gc);
+     int ret;
++#if 0
++    /* Disabled in Qubes */
+     libxl_device_vfb *vfb;
+     libxl_device_vkb *vkb;
++#endif
+     char **args;
+     struct xs_permissions perm[2];
+     xs_transaction_t t;
+@@ -799,6 +805,8 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+     ret = libxl__domain_build_info_setdefault(gc, &dm_config->b_info);
+     if (ret) goto out;
+ 
++#if 0
++    /* Disabled in Qubes */
+     GCNEW(vfb);
+     GCNEW(vkb);
+     libxl__vfb_and_vkb_from_hvm_guest_config(gc, guest_config, vfb, vkb);
+@@ -806,6 +814,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+     dm_config->num_vfbs = 1;
+     dm_config->vkbs = vkb;
+     dm_config->num_vkbs = 1;
++#endif
+ 
+     stubdom_state->pv_kernel.path
+         = libxl__abs_path(gc, "ioemu-stubdom.gz", libxl__xenfirmwaredir_path());
+@@ -908,16 +917,22 @@ static void spawn_stub_launch_dm(libxl__
+         if (ret)
+             goto out;
+     }
++#if 0
++    /* Disabled in Qubes */
+     ret = libxl__device_vfb_add(gc, dm_domid, &dm_config->vfbs[0]);
+     if (ret)
+         goto out;
+     ret = libxl__device_vkb_add(gc, dm_domid, &dm_config->vkbs[0]);
+     if (ret)
+         goto out;
++#endif
+ 
+     if (guest_config->b_info.u.hvm.serial)
+         num_console++;
+ 
++    /* Qubes hack */
++    num_console = 1;
++
+     console = libxl__calloc(gc, num_console, sizeof(libxl__device_console));
+     if (!console) {
+         ret = ERROR_NOMEM;
+@@ -940,6 +955,8 @@ static void spawn_stub_launch_dm(libxl__
                  libxl_create_logfile(ctx, name, &filename);
-                 console[i].output = libxl__sprintf(&gc, "file:%s", filename);
-                 console[i].build_state = &state;
-+                console[i].consback = LIBXL_CONSBACK_XENCONSOLED;
+                 console[i].output = libxl__sprintf(gc, "file:%s", filename);
                  free(filename);
++                /* Qubes hack */
++                console[i].consback = LIBXL__CONSOLE_BACKEND_XENCONSOLED;
                  break;
              case STUBDOM_CONSOLE_SAVE:
-@@ -591,7 +592,9 @@
-         if (ret)
-             goto out_free;
+                 console[i].output = libxl__sprintf(gc, "file:%s",
+@@ -960,6 +977,10 @@ static void spawn_stub_launch_dm(libxl__
+             goto out;
      }
--    if (libxl__need_xenpv_qemu(ctx, num_console, console, vfb ? 1 : 0, vfb, num_disks, disks)) {
-+	// dirty hack: ignore STUBDOM_CONSOLE_SAVE and STUBDOM_CONSOLE_RESTORE when deciding for qemu
-+	// will be enabled if serial console passed to VM (then num_console=4)
-+    if (libxl__need_xenpv_qemu(ctx, num_console - 2, console, vfb ? 1 : 0, vfb, num_disks, disks)) {
-         if (libxl__create_xenpv_qemu(ctx, domid, vfb, &dm_starting) < 0) {
-             ret = ERROR_FAIL;
-             goto out_free;
+ 
++    /* Qubes hack */
++    stubdom_pvqemu_cb(egc, &sdss->multidev, 0);
++    return;
++
+     sdss->pvqemu.spawn.ao = ao;
+     sdss->pvqemu.guest_domid = dm_domid;
+     sdss->pvqemu.guest_config = &sdss->dm_config;

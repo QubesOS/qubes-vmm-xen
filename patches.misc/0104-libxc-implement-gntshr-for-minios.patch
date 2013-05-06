@@ -1,39 +1,112 @@
-From 70c2eedd133e2d72ee7e9c32dcf12d304006ca73 Mon Sep 17 00:00:00 2001
+From fccff07449e45fb427fab4f341f885e6752fc848 Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Tue, 23 Apr 2013 05:17:59 +0200
-Subject: [PATCH 104/106] libxc: implement gntshr for minios
+Subject: [PATCH 104/105] libxc: implement gntshr for minios
 Organization: Invisible Things Lab
 Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 
+Based on gntalloc interface introduced in previous patch.
+
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 ---
- tools/libxc/xc_minios.c | 71 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 71 insertions(+)
+ extras/mini-os/include/lib.h |  3 +++
+ extras/mini-os/lib/sys.c     |  4 ++++
+ tools/libxc/xc_minios.c      | 55 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 62 insertions(+)
 
+diff --git a/extras/mini-os/include/lib.h b/extras/mini-os/include/lib.h
+index 935bede..d664ded 100644
+--- a/extras/mini-os/include/lib.h
++++ b/extras/mini-os/include/lib.h
+@@ -54,6 +54,7 @@
+ #include <xen/event_channel.h>
+ #include <sys/queue.h>
+ #include "gntmap.h"
++#include "gntalloc.h"
+ 
+ #ifdef HAVE_LIBC
+ #include <stdio.h>
+@@ -135,6 +136,7 @@ enum fd_type {
+     FTYPE_XC,
+     FTYPE_EVTCHN,
+     FTYPE_GNTMAP,
++    FTYPE_GNTALLOC,
+     FTYPE_SOCKET,
+     FTYPE_TAP,
+     FTYPE_BLK,
+@@ -171,6 +173,7 @@ extern struct file {
+ 	    struct evtchn_port_list ports;
+ 	} evtchn;
+ 	struct gntmap gntmap;
++	struct gntalloc gntalloc;
+ 	struct {
+ 	    struct netfront_dev *dev;
+ 	} tap;
+diff --git a/extras/mini-os/lib/sys.c b/extras/mini-os/lib/sys.c
+index cfbdc90..a62e039 100644
+--- a/extras/mini-os/lib/sys.c
++++ b/extras/mini-os/lib/sys.c
+@@ -88,6 +88,7 @@
+ extern void minios_interface_close_fd(int fd);
+ extern void minios_evtchn_close_fd(int fd);
+ extern void minios_gnttab_close_fd(int fd);
++extern void minios_gntalloc_close_fd(int fd);
+ 
+ pthread_mutex_t fd_lock = PTHREAD_MUTEX_INITIALIZER;
+ struct file files[NOFILE] = {
+@@ -445,6 +446,9 @@ int close(int fd)
+ 	case FTYPE_GNTMAP:
+ 	    minios_gnttab_close_fd(fd);
+ 	    return 0;
++	case FTYPE_GNTALLOC:
++	    minios_gntalloc_close_fd(fd);
++	    return 0;
+ #ifdef CONFIG_NETFRONT
+ 	case FTYPE_TAP:
+ 	    shutdown_netfront(files[fd].tap.dev);
 diff --git a/tools/libxc/xc_minios.c b/tools/libxc/xc_minios.c
-index dec4d73..eeaf966 100644
+index dec4d73..01a1266 100644
 --- a/tools/libxc/xc_minios.c
 +++ b/tools/libxc/xc_minios.c
 @@ -26,6 +26,7 @@
  #include <mini-os/mm.h>
  #include <mini-os/lib.h>
  #include <mini-os/gntmap.h>
-+#include <mini-os/gnttab.h>
++#include <mini-os/gntalloc.h>
  #include <mini-os/events.h>
  #include <mini-os/wait.h>
  #include <sys/mman.h>
-@@ -519,6 +520,74 @@ static struct xc_osdep_ops minios_gnttab_ops = {
+@@ -45,6 +46,7 @@
+ void minios_interface_close_fd(int fd);
+ void minios_evtchn_close_fd(int fd);
+ void minios_gnttab_close_fd(int fd);
++void minios_gntalloc_close_fd(int fd);
+ 
+ extern void minios_interface_close_fd(int fd);
+ extern void minios_evtchn_close_fd(int fd);
+@@ -519,6 +521,57 @@ static struct xc_osdep_ops minios_gnttab_ops = {
      },
  };
  
 +static xc_osdep_handle minios_gntshr_open(xc_gntshr *xcg)
 +{
-+    return (xc_osdep_handle)0;
++    int fd = alloc_fd(FTYPE_GNTALLOC);
++    if ( fd == -1 )
++        return XC_OSDEP_OPEN_ERROR;
++    gntalloc_init(&files[fd].gntalloc);
++    return (xc_osdep_handle)fd;
 +}
 +
 +static int minios_gntshr_close(xc_gntshr *xcg, xc_osdep_handle h)
 +{
-+    return 0;
++    int fd = (int)h;
++    return close(fd);
++}
++
++void minios_gntalloc_close_fd(int fd)
++{
++    gntalloc_fini(&files[fd].gntalloc);
++    files[fd].type = FTYPE_NONE;
 +}
 +
 +static void *minios_gntshr_share_pages(xc_gntshr *xch, xc_osdep_handle h,
@@ -42,46 +115,18 @@ index dec4d73..eeaf966 100644
 +                                      uint32_t notify_offset,
 +                                      evtchn_port_t notify_port)
 +{
-+    int i, mfn;
-+    void *area = NULL;
++    int fd = (int)h;
 +
-+    if (notify_offset != -1 || notify_port != -1) {
-+        printf("minios_gntshr_share_pages: notify not implemented\n");
-+        errno = ENOSYS;
-+        return NULL;
-+    }
-+
-+    area = memalign(XC_PAGE_SIZE, count * XC_PAGE_SIZE);
-+
-+    if (!area) {
-+        PERROR("minios_gntshr_share_pages: alloc failed");
-+        return NULL;
-+    }
-+
-+    for (i = 0; i < count; i++) {
-+        mfn = virtual_to_mfn(area + i*XC_PAGE_SIZE);
-+        refs[i] = gnttab_grant_access(domid, mfn, !writable);
-+    }
-+
-+    return area;
++    return gntalloc_share_pages(&files[fd].gntalloc, domid, count, refs,
++            writable, notify_offset, notify_port);
 +}
 +
 +static int minios_gntshr_munmap(xc_gntshr *xcg, xc_osdep_handle h,
 +                               void *start_address, uint32_t count)
 +{
-+    int i;
-+    uint32_t gref;
++    int fd = (int)h;
 +
-+    for (i = 0; i < count; i++) {
-+        gref = gnttab_find_grant_of_page(start_address + i * PAGE_SIZE);
-+        if (!gref) {
-+            errno = EINVAL;
-+            return -1;
-+        }
-+        gnttab_end_access(gref);
-+    }
-+
-+    return 0;
++    return gntalloc_munmap(&files[fd].gntalloc, start_address, count);
 +}
 +
 +static struct xc_osdep_ops minios_gntshr_ops = {
@@ -97,7 +142,7 @@ index dec4d73..eeaf966 100644
  static struct xc_osdep_ops *minios_osdep_init(xc_interface *xch, enum xc_osdep_type type)
  {
      switch ( type )
-@@ -529,6 +598,8 @@ static struct xc_osdep_ops *minios_osdep_init(xc_interface *xch, enum xc_osdep_t
+@@ -529,6 +582,8 @@ static struct xc_osdep_ops *minios_osdep_init(xc_interface *xch, enum xc_osdep_t
          return &minios_evtchn_ops;
      case XC_OSDEP_GNTTAB:
          return &minios_gnttab_ops;

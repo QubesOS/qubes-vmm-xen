@@ -1,7 +1,7 @@
-From 34908dc69a061d989c4cb2eb53c2349da5bad65e Mon Sep 17 00:00:00 2001
+From dc43c7793829417d2948493b90213f6fd7e2422b Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Mon, 22 Apr 2013 03:50:45 +0200
-Subject: [PATCH 102/106] libvchan: remove unnecessary includes
+Subject: [PATCH 102/105] libvchan: remove unnecessary includes
 Organization: Invisible Things Lab
 Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 

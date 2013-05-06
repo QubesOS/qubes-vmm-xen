@@ -1,7 +1,7 @@
-From 12f75ff224e6050f3cc7a6c5fae9a104d7bdf73f Mon Sep 17 00:00:00 2001
+From 424f0e7d690418067e13e01496a75cfd1442e41f Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Mon, 22 Apr 2013 04:10:10 +0200
-Subject: [PATCH 105/106] stubdom: make libvchan available in stubdom
+Subject: [PATCH 105/105] stubdom: make libvchan available in stubdom
 Organization: Invisible Things Lab
 Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 
@@ -32,7 +32,7 @@ index 6753368..d7787ff 100644
  stubdom/ioemu/
  stubdom/stubdompath.sh
 diff --git a/extras/mini-os/Makefile b/extras/mini-os/Makefile
-index 50d038b..fc85f34 100644
+index 658c159..e4f7a61 100644
 --- a/extras/mini-os/Makefile
 +++ b/extras/mini-os/Makefile
 @@ -32,6 +32,7 @@ CONFIG_CONSFRONT ?= y
@@ -43,7 +43,7 @@ index 50d038b..fc85f34 100644
  
  # Export config items as compiler directives
  flags-$(CONFIG_START_NETWORK) += -DCONFIG_START_NETWORK
-@@ -163,6 +164,10 @@ APP_LDLIBS += -lm
+@@ -164,6 +165,10 @@ APP_LDLIBS += -lm
  LDLIBS += -lc
  endif
  

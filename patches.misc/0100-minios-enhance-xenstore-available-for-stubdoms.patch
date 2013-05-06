@@ -1,7 +1,7 @@
-From 0a23b0463a5601d6c0845180a22d7864d61716dd Mon Sep 17 00:00:00 2001
+From 44e99152c5767c64542e94ce5070b3882e9d36fa Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Mon, 22 Apr 2013 03:44:30 +0200
-Subject: [PATCH 100/106] minios: enhance xenstore available for stubdoms
+Subject: [PATCH] minios: enhance xenstore available for stubdoms
 Organization: Invisible Things Lab
 Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 
@@ -10,13 +10,16 @@ xs_close).
 Add xs_transaction_{start,end} and xs_{get,set}_permissions - mostly
 based on tools/xenstore/xs.c.
 
+Changes in v2:
+ - xs_bool: reply=="OK" is also true
+
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 ---
- extras/mini-os/lib/xs.c | 195 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 192 insertions(+), 3 deletions(-)
+ extras/mini-os/lib/xs.c | 200 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 196 insertions(+), 4 deletions(-)
 
 diff --git a/extras/mini-os/lib/xs.c b/extras/mini-os/lib/xs.c
-index a2a1220..ff524c3 100644
+index a2a1220..6812a19 100644
 --- a/extras/mini-os/lib/xs.c
 +++ b/extras/mini-os/lib/xs.c
 @@ -18,14 +18,25 @@ static inline int _xs_fileno(struct xs_handle *h) {
@@ -61,7 +64,22 @@ index a2a1220..ff524c3 100644
  int xs_fileno(struct xs_handle *h)
  {
      return _xs_fileno(h);
-@@ -186,4 +203,176 @@ bool xs_unwatch(struct xs_handle *h, const char *path, const char *token)
+@@ -78,10 +95,13 @@ bool xs_write(struct xs_handle *h, xs_transaction_t t,
+ 
+ static bool xs_bool(char *reply)
+ {
++    bool ret = false;
+     if (!reply)
+ 	return true;
++    if (!strcmp(reply, "OK"))
++        ret = true;
+     free(reply);
+-    return false;
++    return ret;
+ }
+ 
+ bool xs_rm(struct xs_handle *h, xs_transaction_t t, const char *path)
+@@ -186,4 +206,176 @@ bool xs_unwatch(struct xs_handle *h, const char *path, const char *token)
      printk("xs_unwatch(%s, %s)\n", path, token);
      return xs_bool(xenbus_unwatch_path_token(XBT_NULL, path, token));
  }
