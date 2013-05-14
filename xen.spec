@@ -189,6 +189,8 @@ Summary: Development libraries for Xen tools
 Group: Development/Libraries
 Requires: xen-libs = %{version}-%{release}
 Requires: libuuid-devel
+Provides: xen-devel = %{version}-%{release}
+Obsoletes: xen-qubes-vm-devel
 
 %description devel
 This package contains what's needed to develop applications
