@@ -252,6 +252,8 @@ mkdir -p dist/install/boot/efi/efi/fedora
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
 export OCAML_TOOLS=n
+export PYTHON=/usr/bin/python
+export PYTHON_PATH=/usr/bin/python
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
 ./configure --libdir=%{_libdir}
 make %{?_smp_mflags} prefix=/usr dist-tools
