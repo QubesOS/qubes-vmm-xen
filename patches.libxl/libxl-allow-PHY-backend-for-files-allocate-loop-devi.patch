@@ -1,4 +1,4 @@
-From 9f0b1b825a9f4b5b1001ac2791894b880d23f8e0 Mon Sep 17 00:00:00 2001
+From 0665f2b6cdfee871f1ece89c92b131358ad157cd Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Tue, 16 Apr 2013 22:20:25 +0200
 Subject: [PATCH] libxl: allow PHY backend for files - allocate loop device
@@ -11,23 +11,24 @@ calling the script, which should be much faster.
 Changes in v2:
  - call libxl__loopdev_cleanup only when when on device remove and only
    if no scripts already was called
+ - fix FD leak
 
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 ---
  tools/libxl/libxl.c          |  13 ++++-
  tools/libxl/libxl_device.c   |  10 ++++
  tools/libxl/libxl_internal.h |   9 +++
- tools/libxl/libxl_linux.c    | 129 ++++++++++++++++++++++++++++++++++++++++++-
+ tools/libxl/libxl_linux.c    | 131 ++++++++++++++++++++++++++++++++++++++++++-
  tools/libxl/libxl_netbsd.c   |  11 ++++
- 5 files changed, 170 insertions(+), 2 deletions(-)
+ 5 files changed, 172 insertions(+), 2 deletions(-)
 
 diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
-index 237f135..11d94ff 100644
+index 08ff257..ad93992 100644
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -2106,7 +2106,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
-                  */
-                 if (!disk->script) {
+@@ -2107,7 +2107,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
+                 if (!disk->script &&
+                     disk->backend_domid == LIBXL_TOOLSTACK_DOMID) {
                      int major, minor;
 -                    libxl__device_physdisk_major_minor(dev, &major, &minor);
 +                    char *node;
@@ -46,10 +47,10 @@ index 237f135..11d94ff 100644
                              libxl__sprintf(gc, "%x:%x", major, minor));
                  }
 diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
-index 9ab057d..9a65809 100644
+index bc86648..eadee54 100644
 --- a/tools/libxl/libxl_device.c
 +++ b/tools/libxl/libxl_device.c
-@@ -886,6 +886,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+@@ -898,6 +898,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
  {
      STATE_AO_GC(aodev->ao);
      char *be_path = libxl__device_backend_path(gc, aodev->dev);
@@ -57,7 +58,7 @@ index 9ab057d..9a65809 100644
      char **args = NULL, **env = NULL;
      int rc = 0;
      int hotplug;
-@@ -909,6 +910,15 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+@@ -918,6 +919,15 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
      switch (hotplug) {
      case 0:
          /* no hotplug script to execute */
@@ -94,10 +95,10 @@ index 3ba3a21..573e3d1 100644
  _hidden char *libxl__devid_to_localdev(libxl__gc *gc, int devid);
  
 diff --git a/tools/libxl/libxl_linux.c b/tools/libxl/libxl_linux.c
-index 37815eb..115332a 100644
+index 37815eb..e9b453f 100644
 --- a/tools/libxl/libxl_linux.c
 +++ b/tools/libxl/libxl_linux.c
-@@ -16,16 +16,143 @@
+@@ -16,16 +16,145 @@
  #include "libxl_osdeps.h" /* must come before any other headers */
  
  #include "libxl_internal.h"
@@ -173,6 +174,8 @@ index 37815eb..115332a 100644
 +                ret = libxl__strdup(gc, name);
 +                goto out;
 +            }
++            close(loop_fd);
++            loop_fd = -1;
 +        }
 +    }
 +
