@@ -1,0 +1,36 @@
+From 6c2fc286618c67f112ce0226604814e48890a8e7 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Sun, 9 Jun 2013 21:51:41 +0200
+Subject: [PATCH] libvchan: Fix cleanup when xc_gntshr_open failed
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+If xc_gntshr_open failed the only thing to cleanup is free allocated
+memory. So instead of calling libxenvchan_close (which assume
+valid ctrl->gntshr) free memory and return.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libvchan/init.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libvchan/init.c b/tools/libvchan/init.c
+index 8a66cef..3dd6263 100644
+--- a/tools/libvchan/init.c
++++ b/tools/libvchan/init.c
+@@ -321,8 +321,10 @@ struct libxenvchan *libxenvchan_server_init(xentoollog_logger *logger, int domai
+ 	}
+ 
+ 	ctrl->gntshr = xc_gntshr_open(logger, 0);
+-	if (!ctrl->gntshr)
+-		goto out;
++	if (!ctrl->gntshr) {
++		free(ctrl);
++		return 0;
++	}
+ 
+ 	if (init_evt_srv(ctrl, domain, logger))
+ 		goto out;
+-- 
+1.8.1.4
+
