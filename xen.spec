@@ -158,6 +158,9 @@ Requires: python-lxml
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
 Provides: xen-runtime = %{version}-%{release}
+%if %with_systemd
+Requires(post): /bin/systemctl
+%endif
 
 %description runtime
 This package contains the runtime programs and daemons which
