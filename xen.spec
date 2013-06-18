@@ -95,6 +95,7 @@ Patch129: xen-x86-S3-Fix-cpu-pool-scheduling-after-suspend-resume.patch
 Patch701: xsa52-4.1.patch
 Patch702: xsa53-4.1.patch
 Patch703: xsa54.patch
+Patch704: xsa57-4.1.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -263,6 +264,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch701 -p1
 %patch702 -p1
 %patch703 -p1
+%patch704 -p1
 
 %patch200 -p0
 %patch201 -p2
