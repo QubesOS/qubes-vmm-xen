@@ -111,7 +111,8 @@ package() {
 
   export OCAML_TOOLS=n
   export PYTHON=python2
-  make DESTDIR=$pkgdir LIBDIR=/usr/lib/ prefix=/usr install-tools
+  # Note: Archlinux removed use of directory such as /sbin /bin /usr/sbin (https://mailman.archlinux.org/pipermail/arch-dev-public/2012-March/022625.html)
+  make DESTDIR=$pkgdir LIBDIR=/usr/lib/ SBINDIR=/usr/bin prefix=/usr install-tools
 
   # Remove unwated stuff
 
@@ -126,7 +127,7 @@ package() {
   rm -rf $pkgdir/usr/share/doc/qemu
 
   # Pointless helper
-  rm -f $pkgdir/usr/sbin/xen-python-path
+  rm -f $pkgdir/usr/bin/xen-python-path
 
   # qemu stuff (unused or available from upstream)
   rm -rf $pkgdir/usr/share/xen/man
@@ -141,7 +142,7 @@ package() {
   rm -rf $pkgdir/usr/lib/*.a
 
   # not used in Qubes VM
-  rm -f $pkgdir/usr/sbin/xenstored
+  rm -f $pkgdir/usr/bin/xenstored
   rm -f $pkgdir/usr/share/xen/create.dtd
   rm -rf $pkgdir/etc/sysconfig
   rm -rf $pkgdir/etc/rc.d/init.d
