@@ -291,6 +291,7 @@ rm -rf %{buildroot}/usr/*-xen-elf
 # hypervisor symlinks
 rm -rf %{buildroot}/boot/xen-4.2.gz
 rm -rf %{buildroot}/boot/xen-4.gz
+rm -rf %{buildroot}/boot/xen.gz
 
 # silly doc dir fun
 rm -fr %{buildroot}%{_datadir}/doc/xen
@@ -619,7 +620,6 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 /boot/xen-syms-*
 /boot/xen-*.gz
-/boot/xen.gz
 %if %build_efi
 /boot/efi/EFI/fedora/*.efi
 %endif
