@@ -1,0 +1,11 @@
+diff -r 9f7e5ef02139 tools/libxl/xl_cmdimpl.c
+--- a/tools/libxl/xl_cmdimpl.c	Sun Feb 24 02:08:18 2013 +0100
++++ b/tools/libxl/xl_cmdimpl.c	Sun Sep 01 00:51:30 2013 +0200
+@@ -2185,6 +2185,7 @@ static void pciattach(const char *dom, c
+         fprintf(stderr, "pci-attach: malformed BDF specification \"%s\"\n", bdf);
+         exit(2);
+     }
++    pcidev.msitranslate = 1;
+     libxl_device_pci_add(&ctx, domid, &pcidev);
+     libxl_device_pci_destroy(&pcidev);
+ }
