@@ -91,6 +91,7 @@ Patch127: libxl-create-dm-uninitialized-variable.patch
 Patch128: libxc-bzimageloader-lower-loglevel.patch
 Patch129: xen-x86-S3-Fix-cpu-pool-scheduling-after-suspend-resume.patch
 Patch130: xl-default-msitranslate.patch
+Patch131: xen-init-xenconsoled-log-default.patch
 
 # XSA patches
 Patch701: xsa52-4.1.patch
@@ -261,6 +262,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch126 -p1
 %patch129 -p1
 %patch130 -p1
+%patch131 -p1
 
 # XSA patches
 %patch701 -p1

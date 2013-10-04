@@ -1,0 +1,14 @@
+diff --git a/tools/hotplug/Linux/init.d/xencommons b/tools/hotplug/Linux/init.d/xencommons
+index 6ca4ce5..f657daf 100644
+--- a/tools/hotplug/Linux/init.d/xencommons
++++ b/tools/hotplug/Linux/init.d/xencommons
+@@ -18,6 +18,9 @@
+ # Description:       Starts and stops the daemons neeeded for xl/xend
+ ### END INIT INFO
+ 
++# Defaults
++XENCONSOLED_TRACE=all
++
+ if [ -d /etc/sysconfig ]; then
+ 	xencommons_config=/etc/sysconfig
+ else
