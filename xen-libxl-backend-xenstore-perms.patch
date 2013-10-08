@@ -1,7 +1,7 @@
 --- xen-4.1.0.ori/tools/libxl/libxl_device.c	2011-06-25 23:57:47.784568053 +0200
 +++ xen-4.1.0/tools/libxl/libxl_device.c	2011-07-24 19:03:35.001130918 +0200
 @@ -65,7 +65,8 @@
-                              char **bents, char **fents)
+                               char **bents, char **fents, char **ro_fents)
  {
      libxl__gc gc = LIBXL_INIT_GC(ctx);
 -    char *frontend_path, *backend_path;
@@ -9,7 +9,7 @@
 +    char *tmp;
      xs_transaction_t t;
      struct xs_permissions frontend_perms[2];
-     struct xs_permissions backend_perms[2];
+     struct xs_permissions ro_frontend_perms[2];
 @@ -78,6 +79,10 @@
  
      frontend_path = libxl__device_frontend_path(&gc, device);
