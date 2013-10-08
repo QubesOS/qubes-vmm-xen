@@ -1,0 +1,20 @@
+--- xen-4.1.1/tools/ioemu-qemu-xen/hw/ide.c.orig	2013-10-06 23:29:17.156000000 +0200
++++ xen-4.1.1/tools/ioemu-qemu-xen/hw/ide.c	2013-10-06 23:33:15.188000000 +0200
+@@ -1371,7 +1371,7 @@
+             return;
+     }
+ 
+-    if (!s->bs) return; /* ouch! (see ide_flush_cb) */
++    if (!s || !s->bs) return; /* ouch! (see ide_flush_cb) */
+ 
+     n = s->io_buffer_size >> 9;
+     sector_num = ide_get_sector(s);
+@@ -1429,7 +1429,7 @@
+ {
+     IDEState *s = opaque;
+ 
+-    if (!s->bs) return; /* ouch! (see below) */
++    if (!s || !s->bs) return; /* ouch! (see below) */
+ 
+     if (ret) {
+         /* We are completely doomed.  The IDE spec does not permit us
