@@ -1,6 +1,24 @@
 --- xen-4.1.1/tools/ioemu-qemu-xen/hw/ide.c.orig	2013-10-06 23:29:17.156000000 +0200
-+++ xen-4.1.1/tools/ioemu-qemu-xen/hw/ide.c	2013-10-06 23:33:15.188000000 +0200
-@@ -1371,7 +1371,7 @@
++++ xen-4.1.1/tools/ioemu-qemu-xen/hw/ide.c	2013-10-23 16:41:34.648000000 +0200
+@@ -936,7 +936,7 @@ static inline void ide_dma_submit_check(
+ static inline void ide_set_irq(IDEState *s)
+ {
+     BMDMAState *bm = s->bmdma;
+-    if (!s->bs) return; /* ouch! (see ide_flush_cb) */
++    if (!s || !s->bs) return; /* ouch! (see ide_flush_cb) */
+     if (!(s->cmd & IDE_CMD_DISABLE_IRQ)) {
+         if (bm) {
+             bm->status |= BM_STATUS_INT;
+@@ -1230,7 +1230,7 @@ static void ide_read_dma_cb(void *opaque
+ 	return;
+     }
+ 
+-    if (!s->bs) return; /* ouch! (see ide_flush_cb) */
++    if (!s || !s->bs) return; /* ouch! (see ide_flush_cb) */
+ 
+     n = s->io_buffer_size >> 9;
+     sector_num = ide_get_sector(s);
+@@ -1371,7 +1371,7 @@ static void ide_write_dma_cb(void *opaqu
              return;
      }
  
@@ -9,7 +27,7 @@
  
      n = s->io_buffer_size >> 9;
      sector_num = ide_get_sector(s);
-@@ -1429,7 +1429,7 @@
+@@ -1429,7 +1429,7 @@ static void ide_flush_cb(void *opaque, i
  {
      IDEState *s = opaque;
  
@@ -18,3 +36,21 @@
  
      if (ret) {
          /* We are completely doomed.  The IDE spec does not permit us
+@@ -1686,7 +1686,7 @@ static void ide_atapi_cmd_read_dma_cb(vo
+     IDEState *s = bm->ide_if;
+     int data_offset, n;
+ 
+-    if (!s->bs) return; /* ouch! (see ide_flush_cb) */
++    if (!s || !s->bs) return; /* ouch! (see ide_flush_cb) */
+ 
+     if (ret < 0) {
+         ide_atapi_io_error(s, ret);
+@@ -2365,7 +2365,7 @@ static void cdrom_change_cb(void *opaque
+     IDEState *s = opaque;
+     uint64_t nb_sectors;
+ 
+-    if (!s->bs) return; /* ouch! (see ide_flush_cb) */
++    if (!s || !s->bs) return; /* ouch! (see ide_flush_cb) */
+ 
+     bdrv_get_geometry(s->bs, &nb_sectors);
+     s->nb_sectors = nb_sectors;
