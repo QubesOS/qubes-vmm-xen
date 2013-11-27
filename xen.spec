@@ -95,6 +95,14 @@ Patch131: xen-init-xenconsoled-log-default.patch
 Patch132: xen-qemu-fix-ide-crash.patch
 
 # XSA patches
+Patch666: xsa62-4.1.patch
+Patch667: xsa63.patch
+Patch668: xsa66.patch
+Patch669: xsa67.patch
+Patch670: xsa72-4.1.patch
+Patch671: xsa73-4.1.patch
+Patch672: xsa74-4.1-4.2.patch
+Patch673: xsa76.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -263,6 +271,14 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch132 -p1
 
 # XSA patches
+%patch666 -p1
+%patch667 -p1
+%patch668 -p1
+%patch669 -p1
+%patch670 -p1
+%patch671 -p1
+%patch672 -p1
+%patch673 -p1
 
 %patch200 -p0
 %patch201 -p2
