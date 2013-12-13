@@ -53,7 +53,6 @@ BuildRequires: openssl-devel
 BuildRequires: libuuid-devel
 BuildRequires: which
 Requires: bridge-utils
-Requires: PyXML
 Requires: udev >= 059
 Requires: chkconfig
 ExclusiveArch: %{ix86} x86_64 ia64
@@ -74,7 +73,7 @@ Group: Development/Libraries
 Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
 Obsoletes: xen-libs < 2001:4.1.2-25
-Provides: xen-libs = %{version}-%{release}
+Provides: xen-libs = %{epoch}:%{version}-%{release}
 
 %description libs
 This package contains the libraries needed to run Xen tools inside of Qubes VM
@@ -90,8 +89,8 @@ to build the xen packages.
 %package devel
 Summary: Development libraries for Xen tools
 Group: Development/Libraries
-Requires: xen-qubes-vm-libs = %{version}-%{release}
-Provides: xen-devel = %{version}-%{release}
+Requires: xen-qubes-vm-libs = %{epoch}:%{version}-%{release}
+Provides: xen-devel = %{epoch}:%{version}-%{release}
 
 %description devel
 This package contains what's needed to develop applications
