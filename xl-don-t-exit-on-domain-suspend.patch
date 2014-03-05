@@ -1,0 +1,37 @@
+From 1f71652ba9e351097af34ba23c54dfba35a03e5a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 5 Mar 2014 02:23:23 +0100
+Subject: [PATCH 2/2] xl: don't exit on domain suspend
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+The domain can be revived, so the daemon still will be needed for
+handling real death event.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/xl_cmdimpl.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/tools/libxl/xl_cmdimpl.c b/tools/libxl/xl_cmdimpl.c
+index 6bace41..9b7fa8c 100644
+--- a/tools/libxl/xl_cmdimpl.c
++++ b/tools/libxl/xl_cmdimpl.c
+@@ -1650,6 +1650,10 @@ start:
+                 LOG("Domain %d is dead", domid);
+ 
+                 if (ret) {
++                    if (info.shutdown_reason == SHUTDOWN_suspend) {
++                        LOG("Suspend detected, waiting for the real death event");
++                        break;
++                    }
+                     switch (handle_domain_death(&ctx, domid, &event, &d_config, &info)) {
+                     case 2:
+                         if (!preserve_domain(&ctx, domid, &event, &d_config, &info)) {
+-- 
+1.8.1.4
+

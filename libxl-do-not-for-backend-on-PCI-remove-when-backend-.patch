@@ -1,0 +1,57 @@
+From 6cbd5f03cb1a537d67f948215524cb468f36ad18 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 5 Mar 2014 02:18:52 +0100
+Subject: [PATCH 1/2] libxl: do not for backend on PCI remove when backend
+ already closed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+Especially this is the case during domain destroy - backend and frontend
+are already closed so just remove the devices, without waiting for
+(timeout on) backend state.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_pci.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libxl/libxl_pci.c b/tools/libxl/libxl_pci.c
+index 61bef12..395ed6b 100644
+--- a/tools/libxl/libxl_pci.c
++++ b/tools/libxl/libxl_pci.c
+@@ -330,7 +330,7 @@ retry_transaction:
+ static int libxl_device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libxl_device_pci *pcidev)
+ {
+     libxl_ctx *ctx = libxl__gc_owner(gc);
+-    char *be_path, *num_devs_path, *num_devs, *xsdev, *tmp, *tmppath;
++    char *be_path, *num_devs_path, *num_devs, *xsdev, *tmp, *tmppath, *state_before;
+     int num, i, j;
+     xs_transaction_t t;
+     unsigned int domain = 0, bus = 0, dev = 0, func = 0;
+@@ -341,8 +341,9 @@ static int libxl_device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libxl
+     if (!num_devs)
+         return ERROR_INVAL;
+     num = atoi(num_devs);
++    state_before = libxl__xs_read(gc, XBT_NULL, libxl__sprintf(gc, "%s/state", be_path));
+ 
+-    if (!libxl__domain_is_hvm(ctx, domid)) {
++    if (!libxl__domain_is_hvm(ctx, domid) && state_before && atoi(state_before) != 6) {
+         if (libxl__wait_for_backend(ctx, be_path, "4") < 0) {
+             LIBXL__LOG(ctx, LIBXL__LOG_DEBUG, "pci backend at %s is not ready", be_path);
+             return ERROR_FAIL;
+@@ -363,6 +364,8 @@ static int libxl_device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libxl
+     }
+ 
+ retry_transaction:
++    if (state_before && atoi(state_before) == 6)
++        goto retry_transaction2;
+     t = xs_transaction_start(ctx->xsh);
+     xs_write(ctx->xsh, t, libxl__sprintf(gc, "%s/state-%d", be_path, i), "5", strlen("5"));
+     xs_write(ctx->xsh, t, libxl__sprintf(gc, "%s/state", be_path), "7", strlen("7"));
+-- 
+1.8.1.4
+

@@ -93,6 +93,9 @@ Patch129: xen-x86-S3-Fix-cpu-pool-scheduling-after-suspend-resume.patch
 Patch130: xl-default-msitranslate.patch
 Patch131: xen-init-xenconsoled-log-default.patch
 Patch132: xen-qemu-fix-ide-crash.patch
+Patch133: libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
+Patch134: xl-don-t-exit-on-domain-suspend.patch
+
 
 # XSA patches
 Patch666: xsa62-4.1.patch
@@ -270,6 +273,8 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch130 -p1
 %patch131 -p1
 %patch132 -p1
+%patch133 -p1
+%patch134 -p1
 
 # XSA patches
 %patch666 -p1
