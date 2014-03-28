@@ -1,0 +1,11 @@
+--- xen-4.1.6.1/tools/ioemu-qemu-xen/texi2pod.pl.orig	2014-03-27 00:49:34.664000000 +0000
++++ xen-4.1.6.1/tools/ioemu-qemu-xen/texi2pod.pl	2014-03-27 00:56:11.940000000 +0000
+@@ -337,6 +337,8 @@
+ 
+ die "No filename or title\n" unless defined $fn && defined $tl;
+ 
++print "=encoding UTF-8\n";
++
+ $sects{NAME} = "$fn \- $tl\n";
+ $sects{FOOTNOTES} .= "=back\n" if exists $sects{FOOTNOTES};
+ 

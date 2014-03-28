@@ -63,6 +63,7 @@ Patch28: pygrubfix.patch
 Patch30: gdbsx-glibc2.17.patch
 Patch31: xen-shared-loop-losetup.patch
 
+Patch99: xen-qemu-texi-utf8-default.patch
 Patch100: xen-configure-xend.patch
 Patch101: xen-no-downloads.patch
 Patch102: xen-acpi-override-query.patch
@@ -246,6 +247,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch30 -p1
 %patch31 -p1
 
+%patch99 -p1
 %patch100 -p1
 %patch101 -p1
 %patch102 -p1
