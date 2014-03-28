@@ -143,7 +143,6 @@ BuildRequires: bzip2-devel xz-devel
 # libfsimage
 BuildRequires: e2fsprogs-devel
 Requires: bridge-utils
-Requires: PyXML
 Requires: udev >= 059
 Requires: xen-runtime = %{version}-%{release}
 # Not strictly a dependency, but kpartx is by far the most useful tool right
@@ -399,7 +398,6 @@ install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 install -m 755 %{SOURCE20} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenstored
 install -m 755 %{SOURCE21} %{buildroot}%{_sysconfdir}/rc.d/init.d/xenconsoled
 install -m 755 %{SOURCE22} %{buildroot}%{_sysconfdir}/rc.d/init.d/blktapctrl
-install -m 755 %{SOURCE23} %{buildroot}%{_sysconfdir}/rc.d/init.d/xend
 
 # sysconfig
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
@@ -410,11 +408,18 @@ install -m 644 %{SOURCE32} %{buildroot}%{_sysconfdir}/sysconfig/blktapctrl
 # config file only used for hotplug, Fedora uses udev instead
 rm -f %{buildroot}/%{_sysconfdir}/sysconfig/xend
 
+rm -f %{buildroot}%{_sysconfdir}/rc.d/init.d/xend
+rm -f %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
+rm -f %{buildroot}%{_sysconfdir}/sysconfig/xendomains
+
+# Remove obsolete xend
+rm -f %{buildroot}%{_sbindir}/xend
+rm -f %{buildroot}%{_sbindir}/xm
+rm -rf %{python_sitearch}/%{name}/xend
+rm -rf %{python_sitearch}/%{name}/xm
+
 ############ create dirs in /var ############
 
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/domain
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/vnet
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/migrate
 mkdir -p %{buildroot}%{_localstatedir}/lib/xen/images
 mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
 
@@ -441,20 +446,6 @@ find . -path licensedir -prune -o -path stubdom/ioemu -prune -o \
 done
 
 ############ all done now ############
-
-%post
-/sbin/chkconfig --add xend
-/sbin/chkconfig --add xendomains
-
-if [ $1 != 0 ]; then
-  service xend condrestart
-fi
-
-%preun
-if [ $1 = 0 ]; then
-  /sbin/chkconfig --del xend
-  /sbin/chkconfig --del xendomains
-fi
 
 %post runtime
 /sbin/chkconfig --add xenconsoled
@@ -484,15 +475,10 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %doc COPYING README
 %{_bindir}/xencons
-%{_sbindir}/xend
-%{_sbindir}/xm
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
 %{_datadir}/%{name}/create.dtd
 
-# Startup script
-%{_sysconfdir}/rc.d/init.d/xend
-%{_sysconfdir}/rc.d/init.d/xendomains
 # Guest config files
 %config(noreplace) %{_sysconfdir}/%{name}/xmexample*
 # Daemon config
@@ -501,14 +487,6 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/%{name}/xm-*
 # Guest autostart links
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
-# Autostart of guests
-%config(noreplace) %{_sysconfdir}/sysconfig/xendomains
-
-# Persistent state for XenD
-%dir %{_localstatedir}/lib/%{name}/xend-db/
-%dir %{_localstatedir}/lib/%{name}/xend-db/domain
-%dir %{_localstatedir}/lib/%{name}/xend-db/migrate
-%dir %{_localstatedir}/lib/%{name}/xend-db/vnet
 
 %files libs
 %defattr(-,root,root)
