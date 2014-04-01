@@ -107,6 +107,7 @@ Patch671: xsa73-4.1.patch
 Patch672: xsa74-4.1-4.2.patch
 Patch673: xsa76.patch
 Patch674: xsa87-4.1.patch
+Patch675: xsa89-4.1.patch
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -287,6 +288,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch672 -p1
 %patch673 -p1
 %patch674 -p1
+%patch675 -p1
 
 %patch200 -p0
 %patch201 -p2
