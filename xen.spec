@@ -417,8 +417,8 @@ rm -f %{buildroot}%{_sysconfdir}/sysconfig/xendomains
 # Remove obsolete xend
 rm -f %{buildroot}%{_sbindir}/xend
 rm -f %{buildroot}%{_sbindir}/xm
-rm -rf %{python_sitearch}/%{name}/xend
-rm -rf %{python_sitearch}/%{name}/xm
+rm -rf %{buildroot}%{python_sitearch}/%{name}/xend
+rm -rf %{buildroot}%{python_sitearch}/%{name}/xm
 
 ############ create dirs in /var ############
 
