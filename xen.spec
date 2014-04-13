@@ -120,6 +120,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript tetex-latex
 BuildRequires: ncurses-devel gtk2-devel libaio-devel
+BuildRequires: which
 # for the docs
 BuildRequires: perl texinfo
 # so that the makefile knows to install udev rules
