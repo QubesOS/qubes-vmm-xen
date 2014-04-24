@@ -1,0 +1,43 @@
+From 2dbc7581bf94eddbd0ab2b29c797a9eb5f3e03a5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 24 Apr 2014 15:21:24 +0200
+Subject: [PATCH] minios: remove net device instead of preparing for reconnect
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+The only cases where device is disabled are:
+ - stubdom shutdown
+ - unplug triggered by VM (during PV drivers initialization)
+
+In both cases we don't want the device anymore. This will also force
+backend to remove its end and use correct route entry.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ extras/mini-os/netfront.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/extras/mini-os/netfront.c b/extras/mini-os/netfront.c
+index 6fa68a2..9576558 100644
+--- a/extras/mini-os/netfront.c
++++ b/extras/mini-os/netfront.c
+@@ -536,6 +536,12 @@ void shutdown_netfront(struct netfront_dev *dev)
+         if (err) free(err);
+     }
+ 
++    /* device closed, lets remove it completely so backend also will be
++     * removed; this way we force that only one vif remains (for this
++     * particular VM) in firewallvm and right route entry is used */
++    xenbus_rm(XBT_NIL, dev->nodename);
++    goto close;
++
+     if ((err = xenbus_switch_state(XBT_NIL, nodename, XenbusStateInitialising)) != NULL) {
+         printk("shutdown_netfront: error changing state to %d: %s\n",
+                 XenbusStateInitialising, err);
+-- 
+1.8.1.4
+

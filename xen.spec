@@ -115,6 +115,7 @@ Patch201: xen-libxl-qubes-minimal-stubdom.patch
 Patch202: xen-disable-dom0-qemu.patch
 Patch203: stubdom-lwip-fix-for-dhcp.patch
 Patch204: xen-libxl-stubdom-pci-create.patch
+Patch205: minios-remove-net-device-instead-of-preparing-for-re.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
@@ -296,6 +297,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch202 -p1
 %patch203 -p2
 %patch204 -p1
+%patch205 -p1
 
 # Fix for glibc 2.7
 sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
