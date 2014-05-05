@@ -1,0 +1,31 @@
+diff --git a/tools/console/daemon/io.c b/tools/console/daemon/io.c
+index b6d41de..8a76c27 100644
+--- a/tools/console/daemon/io.c
++++ b/tools/console/daemon/io.c
+@@ -98,10 +98,25 @@ struct domain {
+ 
+ static struct domain *dom_head;
+ 
++static void replace_esc(const char *buf, char *dest, int len) {
++	int i;
++
++	memcpy(dest, buf, len);
++	for (i = 0; i < len; i++) {
++		if (dest[i] == '\033')
++			dest[i] = '.';
++	}
++}
++
++
+ static int write_all(int fd, const char* buf, size_t len)
+ {
++	char buf_sanitized[len];
++
++	replace_esc(buf, buf_sanitized, len);
++
+ 	while (len) {
+-		ssize_t ret = write(fd, buf, len);
++		ssize_t ret = write(fd, buf_sanitized, len);
+ 		if (ret == -1 && errno == EINTR)
+ 			continue;
+ 		if (ret <= 0)
