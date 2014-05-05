@@ -95,6 +95,7 @@ Patch131: xen-init-xenconsoled-log-default.patch
 Patch132: xen-qemu-fix-ide-crash.patch
 Patch133: libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
 Patch134: xl-don-t-exit-on-domain-suspend.patch
+Patch135: xenconsole-sanitize-ESC-in-log.patch
 
 
 # XSA patches
@@ -280,6 +281,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch132 -p1
 %patch133 -p1
 %patch134 -p1
+%patch135 -p1
 
 # XSA patches
 %patch666 -p1
