@@ -1,0 +1,13 @@
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index d43a1fc..74bbb23 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -608,6 +608,8 @@ retry_transaction:
+     ret = 0;
+ 
+ out_free:
++    if (ret)
++        libxl_domain_destroy(ctx, domid, 0);
+     free(args);
+ out:
+     libxl__free_all(&gc);
