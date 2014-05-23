@@ -441,6 +441,8 @@ mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
 ln -s /usr/lib/%{name}/bin/qemu-dm %{buildroot}/%{_libdir}/%{name}/bin/qemu-dm
 %endif
 
+ln -s ../sbin/xl %{buildroot}/%{_bindir}/xl
+
 ############ debug packaging: list files ############
 
 find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f2.list
@@ -609,6 +611,7 @@ rm -rf %{buildroot}
 %{_sbindir}/xenwatchdogd
 %{_sbindir}/xl
 %{_sbindir}/xsview
+%{_bindir}/xl
 
 # Xen logfiles
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen
