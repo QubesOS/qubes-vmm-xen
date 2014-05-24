@@ -740,7 +740,7 @@ rm -rf %{buildroot}
 - add patch to remove some old device creation code that doesn't
   work with the latest pvops kernels
 
-* Tue Jun 7 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.0-1
+* Mon Jun 7 2010 Michael Young <m.a.young@durham.ac.uk> - 4.0.0-1
 - update to 4.0.0 release
 - rebase xen-initscript.patch and xen-dumpdir.patch patches
 - adjust spec file for files added to or removed from the packages
@@ -760,14 +760,14 @@ rm -rf %{buildroot}
 - update to 3.4.2 release.
 - drop backport patches.
 
-* Fri Oct 8 2009 Justin M. Forbes <jforbes@redhat.com> - 3.4.1-5
+* Thu Oct 8 2009 Justin M. Forbes <jforbes@redhat.com> - 3.4.1-5
 - add PyXML to dependencies. (#496135)
 - Take ownership of {_libdir}/fs (#521806)
 
 * Mon Sep 14 2009 Gerd Hoffmann <kraxel@redhat.com> - 3.4.1-4
 - add e2fsprogs-devel to build dependencies.
 
-* Tue Sep 2 2009 Gerd Hoffmann <kraxel@redhat.com> - 3.4.1-3
+* Wed Sep 2 2009 Gerd Hoffmann <kraxel@redhat.com> - 3.4.1-3
 - swap bzip2+xz linux kernel compression support patches.
 - backport one more bugfix (videoram option).
 
@@ -1365,7 +1365,7 @@ rm -rf %{buildroot}
 - upgrade to today's Xen snapshot
 - change the version to 3.0-0.<date> (real 3.0 release will be 3.0-1)
 
-* Mon Aug 23 2005 Rik van Riel <riel@redhat.com> 2-20050823
+* Tue Aug 23 2005 Rik van Riel <riel@redhat.com> 2-20050823
 - upgrade to today's Xen snapshot
 
 * Mon Aug 15 2005 Rik van Riel <riel@redhat.com> 2-20050726
