@@ -98,6 +98,7 @@ Patch134: xl-don-t-exit-on-domain-suspend.patch
 # This one (xenconsole-sanitize-ESC-in-log.patch) is Qubes-specific
 Patch135: xenconsole-sanitize-ESC-in-log.patch
 Patch136: libxl-destroy-failed-stubdom.patch
+Patch137: xen-hotplug-state-race-condition.patch
 
 
 # XSA patches
@@ -286,6 +287,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch134 -p1
 %patch135 -p1
 %patch136 -p1
+%patch137 -p1
 
 # XSA patches
 %patch666 -p1
