@@ -66,7 +66,7 @@ GC_FILE = gc.tar.gz
 GC_URL := http://xenbits.xensource.com/xen-extfiles/$(GC_FILE)
 
 VTPM_FILE := tpm_emulator-0.5.1.tar.gz
-VTPM_URL := http://download.berlios.de/tpm-emulator/$(VTPM_FILE)
+VTPM_URL := http://sourceforge.net/projects/tpm-emulator.berlios/files/$(VTPM_FILE)
 
 TBOOT_FILE := tboot-20090330.tar.gz
 TBOOT_URL := http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
