@@ -7,5 +7,5 @@
 -            printf("Daemon running with PID %d\n", child1);
 +            fprintf(stderr, "Daemon running with PID %d\n", child1);
  
-             for (;;) {
-                 got_child = xl_waitpid(child_waitdaemon, &status, 0);
+             got_child = xl_waitpid(child_waitdaemon, &status, 0);
+             if (got_child != child1) {

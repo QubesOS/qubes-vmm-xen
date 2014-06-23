@@ -1,0 +1,11 @@
+--- xen-4.2.4/docs/man/xl.pod.1.orig	2014-06-16 04:42:57.288598368 +0200
++++ xen-4.2.4/docs/man/xl.pod.1	2014-06-16 04:43:02.220190753 +0200
+@@ -851,8 +851,6 @@
+ 
+ =item B<-p [pool] -d>...       : Illegal
+ 
+-=item
+-
+ =back
+ 
+ =item B<sched-credit2> [I<OPTIONS>]

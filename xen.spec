@@ -302,9 +302,6 @@ rm -f %{buildroot}%{_sbindir}/xen-python-path
 
 # qemu stuff (unused or available from upstream)
 rm -rf %{buildroot}/usr/share/xen/man
-rm -rf %{buildroot}/usr/bin/qemu-*-xen
-ln -s qemu-img %{buildroot}/%{_bindir}/qemu-img-xen
-ln -s qemu-img %{buildroot}/%{_bindir}/qemu-nbd-xen
 for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
          pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
          vgabios.bin vgabios-cirrus.bin video.x openbios-ppc bamboo.dtb

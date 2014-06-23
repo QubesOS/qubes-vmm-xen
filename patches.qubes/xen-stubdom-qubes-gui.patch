@@ -1,9 +1,9 @@
 --- a/stubdom/Makefile.orig	2012-02-21 15:42:20.364000956 +0100
 +++ b/stubdom/Makefile	2012-02-21 15:43:40.916001086 +0100
 @@ -245,6 +245,11 @@
- 	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.c . && \
- 	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/*.h . && \
- 	  ln -sf $(XEN_ROOT)/tools/libxc/$(XEN_TARGET_ARCH)/Makefile . )
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/*.h . && \
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/*.c . && \
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/Makefile . )
 +	mkdir -p vchan-$(XEN_TARGET_ARCH)
 +	[ -h vchan-$(XEN_TARGET_ARCH) ] || ( cd vchan-$(XEN_TARGET_ARCH) && \
 +	  ln -sf $(XEN_ROOT)/tools/vchan/*.c . && \
