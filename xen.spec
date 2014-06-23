@@ -329,6 +329,9 @@ rm -rf %{buildroot}/%{_libdir}/efi
 # obsolete xend
 rm -f %{buildroot}/%{_sbindir}/xend
 rm -f %{buildroot}/%{_sbindir}/xm
+rm -f %{buildroot}%{_mandir}/man1/xm.1
+rm -f %{buildroot}%{_mandir}/man5/xend-config.sxp.5
+rm -f %{buildroot}%{_mandir}/man5/xmdomain.cfg.5
 
 ############ fixup files in /etc ############
 
@@ -463,9 +466,6 @@ rm -rf %{buildroot}
 %{_bindir}/xencons
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
-%{_mandir}/man1/xm.1*
-%{_mandir}/man5/xend-config.sxp.5*
-%{_mandir}/man5/xmdomain.cfg.5*
 %{_datadir}/%{name}/create.dtd
 
 # Guest config files
@@ -492,7 +492,7 @@ rm -rf %{buildroot}
 %files runtime
 %defattr(-,root,root)
 # Hotplug rules
-%config(noreplace) %{_sysconfdir}/udev/rules.d/*
+%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
 
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
@@ -563,7 +563,6 @@ rm -rf %{buildroot}
 %ghost %{_localstatedir}/run/xenstored
 # XenD runtime state
 %ghost %attr(0700,root,root) %{_localstatedir}/run/xend
-%ghost %attr(0700,root,root) %{_localstatedir}/run/xend/boot
 
 # All xenstore CLI tools
 %{_bindir}/qemu-*-xen
@@ -627,8 +626,6 @@ rm -rf %{buildroot}
 %files doc
 %defattr(-,root,root)
 %doc docs/misc/
-%doc dist/install/usr/share/doc/xen/html
-%doc dist/install/usr/share/doc/xen/pdf/*.pdf
 
 %files devel
 %defattr(-,root,root)
