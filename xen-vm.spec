@@ -68,14 +68,6 @@ Provides: xen-libs = %{version}-%{release}
 %description libs
 This package contains the libraries needed to run Xen tools inside of Qubes VM
 
-%package licenses
-Summary: License files from Xen source
-Group: Documentation
-
-%description licenses
-This package contains the license files from the source used
-to build the xen packages.
-
 %package devel
 Summary: Development libraries for Xen tools
 Group: Development/Libraries
@@ -85,6 +77,15 @@ Provides: xen-devel = %{version}-%{release}
 %description devel
 This package contains what's needed to develop applications
 which manage Xen virtual machines.
+
+
+%package licenses
+Summary: License files from Xen source
+Group: Documentation
+
+%description licenses
+This package contains the license files from the source used
+to build the xen packages.
 
 %prep
 %setup -q -n xen-%{version}
@@ -96,6 +97,9 @@ which manage Xen virtual machines.
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
 export OCAML_TOOLS=n
+export PYTHON=/usr/bin/python
+export PYTHON_PATH=/usr/bin/python
+autoreconf
 ./configure --libdir=%{_libdir}
 make %{?_smp_mflags} prefix=/usr dist-tools
 

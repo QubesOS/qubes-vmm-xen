@@ -62,7 +62,7 @@ index bc86648..eadee54 100644
      switch (hotplug) {
      case 0:
          /* no hotplug script to execute */
-+        if (!aodev->num_exec && aodev->action == DEVICE_DISCONNECT) {
++        if (!aodev->num_exec && aodev->action == LIBXL__DEVICE_ACTION_REMOVE) {
 +            /* check if we have loop device allocated - if so, try to release it */
 +            node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
 +            if (node) {

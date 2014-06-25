@@ -44,8 +44,10 @@ Source11: newlib-1.16.0.tar.gz
 Source12: zlib-1.2.3.tar.gz
 Source13: pciutils-2.2.9.tar.bz2
 Source14: grub-0.97.tar.gz
+Source15: gmp-4.3.2.tar.bz2
+Source16: polarssl-1.1.4-gpl.tgz
 #Source17: gc.tar.gz
-#Source18: tpm_emulator-0.5.1.tar.gz
+Source18: tpm_emulator-0.7.4.tar.gz
 #Source19: tboot-20090330.tar.gz
 # init.d bits
 Source20: init.xenstored
@@ -229,6 +231,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
+cp -v %{SOURCE15} %{SOURCE16} %{SOURCE18} stubdom
 #FIXME cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
 #FIXME cp -v %{SOURCE17} tools/vnet/
 #FIXME cp -v %{SOURCE18} tools/vtpm/
@@ -257,8 +260,9 @@ export CFLAGS="$RPM_OPT_FLAGS"
 export OCAML_TOOLS=n
 export PYTHON=/usr/bin/python
 export PYTHON_PATH=/usr/bin/python
+autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
-./configure --libdir=%{_libdir}
+./configure --libdir=%{_libdir} --with-system-seabios=/usr/share/seabios/bios.bin
 make %{?_smp_mflags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
@@ -308,6 +312,7 @@ for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
 do
 	rm -f %{buildroot}/%{_datadir}/xen/qemu/$file
 done
+rm -f %{buildroot}/usr/etc/qemu/target-x86_64.conf
 
 # README's not intended for end users
 rm -f %{buildroot}/%{_sysconfdir}/xen/README*
@@ -351,7 +356,6 @@ install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 #rmdir %{buildroot}%{_sysconfdir}/init.d
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xen-watchdog
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
-rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xend
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
 rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
 
@@ -463,22 +467,6 @@ rm -rf %{buildroot}
 %{_bindir}/xencons
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
-%{_datadir}/%{name}/create.dtd
-
-# Guest config files
-%config(noreplace) %{_sysconfdir}/%{name}/xmexample*
-# Daemon config
-%config(noreplace) %{_sysconfdir}/%{name}/xend-*
-# xm config
-%config(noreplace) %{_sysconfdir}/%{name}/xm-*
-# Guest autostart links
-%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
-
-# Persistent state for XenD
-%dir %{_localstatedir}/lib/%{name}/xend-db/
-%dir %{_localstatedir}/lib/%{name}/xend-db/domain
-%dir %{_localstatedir}/lib/%{name}/xend-db/migrate
-%dir %{_localstatedir}/lib/%{name}/xend-db/vnet
 
 %files libs
 %defattr(-,root,root)
@@ -536,10 +524,16 @@ rm -rf %{buildroot}
 %dir %{_datadir}/%{name}/qemu
 %dir %{_datadir}/%{name}/qemu/keymaps
 %{_datadir}/%{name}/qemu/keymaps/*
+%dir %{_datadir}/qemu-xen
+%dir %{_datadir}/qemu-xen/qemu
+%{_datadir}/qemu-xen/qemu/*
 
 # man pages
 %{_mandir}/man1/xentop.1*
 %{_mandir}/man1/xentrace_format.1*
+%{_mandir}/man1/xenstore-chmod.1*
+%{_mandir}/man1/xenstore-ls.1*
+%{_mandir}/man1/xenstore.1*
 %{_mandir}/man8/xentrace.8*
 %{_mandir}/man1/xl.1*
 %{_mandir}/man5/xl.cfg.5*
@@ -568,11 +562,9 @@ rm -rf %{buildroot}
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
 %{_bindir}/remus
+%{_bindir}/xencov_split
 # blktap daemon
-%{_sbindir}/blktapctrl
 %{_sbindir}/tapdisk*
-# XSM
-%{_sbindir}/flask-*
 # Disk utils
 %{_sbindir}/qcow-create
 %{_sbindir}/qcow2raw
@@ -603,9 +595,12 @@ rm -rf %{buildroot}
 %{_sbindir}/xenperf
 %{_sbindir}/xenwatchdogd
 %{_sbindir}/xl
-%{_sbindir}/xsview
 %{_sbindir}/xen-lowmemd
 %{_sbindir}/xen-ringwatch
+%{_sbindir}/xen-mfndump
+%{_sbindir}/xencov
+/usr/libexec/qemu-bridge-helper
+
 
 # Xen logfiles
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen
@@ -646,6 +641,10 @@ rm -rf %{buildroot}
 %dir /usr/lib/%{name}/bin
 /usr/lib/%{name}/bin/stubdom-dm
 /usr/lib/%{name}/bin/qemu-dm
+/usr/lib/%{name}/bin/qemu-img
+/usr/lib/%{name}/bin/qemu-io
+/usr/lib/%{name}/bin/qemu-nbd
+/usr/lib/%{name}/bin/qemu-system-i386
 /usr/lib/%{name}/bin/stubdompath.sh
 /usr/lib/%{name}/bin/xenpaging
 %endif
@@ -655,6 +654,8 @@ rm -rf %{buildroot}
 /usr/lib/xen/boot/ioemu-stubdom.gz
 /usr/lib/xen/boot/xenstore-stubdom.gz
 /usr/lib/xen/boot/pv-grub*.gz
+/usr/lib/xen/boot/vtpm-stubdom.gz
+/usr/lib/xen/boot/vtpmmgr-stubdom.gz
 %endif
 
 %changelog

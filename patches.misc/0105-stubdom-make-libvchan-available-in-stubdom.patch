@@ -23,10 +23,10 @@ diff --git a/.gitignore b/.gitignore
 index 6753368..d7787ff 100644
 --- a/.gitignore
 +++ b/.gitignore
-@@ -127,6 +127,7 @@ stubdom/ocaml-*
- stubdom/zlib-*
- stubdom/grub-*
- stubdom/ocaml-*
+@@ -128,6 +128,7 @@
+ stubdom/polarssl-*
+ stubdom/gmp-*
+ stubdom/tpm_emulator-*
 +stubdom/libvchan-*
  stubdom/lwip/
  stubdom/ioemu/
@@ -36,8 +36,8 @@ index 658c159..e4f7a61 100644
 --- a/extras/mini-os/Makefile
 +++ b/extras/mini-os/Makefile
 @@ -32,6 +32,7 @@ CONFIG_CONSFRONT ?= y
- CONFIG_CONSFRONT ?= y
  CONFIG_XENBUS ?= y
+ CONFIG_XC ?=y
  CONFIG_LWIP ?= $(lwip)
 +CONFIG_VCHAN ?= n
  

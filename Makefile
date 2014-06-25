@@ -65,8 +65,15 @@ OCAML_URL := http://caml.inria.fr/pub/distrib/ocaml-3.11/$(OCAML_FILE)
 GC_FILE = gc.tar.gz
 GC_URL := http://xenbits.xensource.com/xen-extfiles/$(GC_FILE)
 
-VTPM_FILE := tpm_emulator-0.5.1.tar.gz
+VTPM_FILE := tpm_emulator-0.7.4.tar.gz
 VTPM_URL := http://sourceforge.net/projects/tpm-emulator.berlios/files/$(VTPM_FILE)
+
+GMP_FILE := gmp-4.3.2.tar.bz2
+GMP_URL := ftp://ftp.gmplib.org/pub/gmp-4.3.2/$(GMP_FILE)
+GMP_SIGN_SUFF := .sig
+
+POLARSSL_FILE := polarssl-1.1.4-gpl.tgz
+POLARSSL_URL := http://polarssl.org/code/releases/$(POLARSSL_FILE)
 
 TBOOT_FILE := tboot-20090330.tar.gz
 TBOOT_URL := http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
@@ -74,23 +81,22 @@ TBOOT_URL := http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
 URL := $(SRC_BASEURL)/$(SRC_FILE)
 URL_SIGN := $(SRC_BASEURL)/$(SIGN_FILE)
 
-ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE)
+ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(GMP_FILE) $(POLARSSL_FILE) $(TBOOT_FILE)
 
 get-sources: $(ALL_FILES)
 
 $(ALL_FILES):
-	@wget -qN  $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
+	@wget -qN  $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(GMP_URL) $(GMP_URL)$(GMP_SIGN_SUFF) $(POLARSSL_URL) $(TBOOT_URL)
 
 import-keys:
 	@gpg -q --import *-key.asc
 
 verify-sources: import-keys verify-sources-sig verify-sources-sum
 
-verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE)
+verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE)
 	@for f in $^; do gpg --verify $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
 
-verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE)
-	@for f in $^; do md5sum --quiet -c $$f.md5sum || exit 1; done
+verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE)
 	@for f in $^; do sha1sum --quiet -c $$f.sha1sum || exit 1; done
 
 

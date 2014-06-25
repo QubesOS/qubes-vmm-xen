@@ -7,6 +7,6 @@
 +    libxl__xs_mkdir(gc, t,
 +                    libxl__sprintf(gc, "%s/error", dom_path),
 +                    rwperm, ARRAY_SIZE(rwperm));
-     if (info->type == LIBXL_DOMAIN_TYPE_HVM)
-         libxl__xs_mkdir(gc, t,
-             libxl__sprintf(gc, "%s/hvmloader/generation-id-address", dom_path),
+ 
+     if (libxl_defbool_val(info->driver_domain)) {
+         /*

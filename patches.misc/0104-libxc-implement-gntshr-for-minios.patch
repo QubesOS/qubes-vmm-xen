@@ -61,9 +61,9 @@ index cfbdc90..a62e039 100644
 +	case FTYPE_GNTALLOC:
 +	    minios_gntalloc_close_fd(fd);
 +	    return 0;
+ #endif
  #ifdef CONFIG_NETFRONT
  	case FTYPE_TAP:
- 	    shutdown_netfront(files[fd].tap.dev);
 diff --git a/tools/libxc/xc_minios.c b/tools/libxc/xc_minios.c
 index dec4d73..01a1266 100644
 --- a/tools/libxc/xc_minios.c
