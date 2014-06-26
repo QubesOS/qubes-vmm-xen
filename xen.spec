@@ -1,4 +1,23 @@
 %{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
+%define with_ocaml 0
+%define build_ocaml 0
+%define with_xsm 0
+%define build_xsm 0
+# cross compile 64-bit hypervisor on ix86 unless rpmbuild was run
+#	with --without crosshyp
+%define build_crosshyp %{?_without_crosshyp: 0} %{?!_without_crosshyp: 1}
+%ifnarch %{ix86}
+%define build_crosshyp 0
+%define build_hyp 1
+%else
+%if %build_crosshyp
+%define build_hyp 1
+%else
+%define build_hyp 0
+# no point in trying to build xsm on ix86 without a hypervisor
+%define build_xsm 0
+%endif
+%endif
 # build an efi boot image (where supported) unless rpmbuild was run with
 # --without efi
 %define build_efi %{?_without_efi: 0} %{?!_without_efi: 1}
@@ -16,9 +35,14 @@
 %else
 %define with_systemd 0
 %endif
+%if "%dist" >= ".fc20"
+%define with_systemd_presets 1
+%else
+%define with_systemd_presets 0
+%endif
 
 # Hypervisor ABI
-%define hv_abi  4.2
+%define hv_abi  4.4
 
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
@@ -94,7 +118,7 @@ BuildRequires: ncurses-devel gtk2-devel libaio-devel
 BuildRequires: perl perl(Pod::Man) perl(Pod::Text) texinfo graphviz
 # so that the makefile knows to install udev rules
 BuildRequires: udev
-%ifnarch ia64
+%ifarch %{ix86} x86_64
 # so that x86_64 builds pick up glibc32 correctly
 BuildRequires: /usr/include/gnu/stubs-32.h
 # for the VMX "bios"
@@ -117,6 +141,14 @@ BuildRequires: bzip2-devel xz-devel
 BuildRequires: e2fsprogs-devel
 # tools now require yajl
 BuildRequires: yajl-devel
+%if %with_xsm
+# xsm policy file needs needs checkpolicy and m4
+BuildRequires: checkpolicy m4
+%endif
+%if %build_crosshyp
+# cross compiler for building 64-bit hypervisor on ix86
+BuildRequires: gcc-x86_64-linux-gnu
+%endif
 Requires: bridge-utils
 Requires: python-lxml
 Requires: udev >= 059
@@ -126,11 +158,20 @@ Requires: xen-runtime = %{version}-%{release}
 # installs xen.
 Requires: kpartx
 Requires: chkconfig
-ExclusiveArch: %{ix86} x86_64 ia64
+ExclusiveArch: %{ix86} x86_64
 #ExclusiveArch: %{ix86} x86_64 ia64 noarch
+%if %with_ocaml
+BuildRequires: ocaml, ocaml-findlib
+%endif
 # efi image needs an ld that has -mi386pep option
 %if %build_efi
 BuildRequires: mingw64-binutils
+%endif
+%if %with_systemd_presets
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+BuildRequires: systemd
 %endif
 
 %description
@@ -210,6 +251,28 @@ Group: Documentation
 This package contains the license files from the source used
 to build the xen packages.
 
+
+%if %build_ocaml
+%package ocaml
+Summary: Ocaml libraries for Xen tools
+Group: Development/Libraries
+Requires: ocaml-runtime, xen-libs = %{version}-%{release}
+
+%description ocaml
+This package contains libraries for ocaml tools to manage Xen
+virtual machines.
+
+
+%package ocaml-devel
+Summary: Ocaml development libraries for Xen tools
+Group: Development/Libraries
+Requires: xen-ocaml = %{version}-%{release}
+
+%description ocaml-devel
+This package contains libraries for developing ocaml tools to
+manage Xen virtual machines.
+%endif
+
 %package hvm
 Summary: Loader and device-model for HVM
 Requires: xen-libs = %{version}-%{release}
@@ -251,36 +314,47 @@ patch -d tools/qemu-xen-traditional -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
 #FIXME cp -v %{SOURCE19} tboot/
 
 %build
+%if !%build_ocaml
+%define ocaml_flags OCAML_TOOLS=n
+%endif
 %if %build_efi
 %define efi_flags LD_EFI=/usr/x86_64-w64-mingw32/bin/ld
 mkdir -p dist/install/boot/efi/efi/fedora
 %endif
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
-export OCAML_TOOLS=n
 export PYTHON=/usr/bin/python
 export PYTHON_PATH=/usr/bin/python
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
 ./configure --libdir=%{_libdir} --with-system-seabios=/usr/share/seabios/bios.bin
-make %{?_smp_mflags} prefix=/usr dist-tools
+make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
-make dist-stubdom
+make %{?ocaml_flags} dist-stubdom
 
 
 %install
 rm -rf %{buildroot}
-export OCAML_TOOLS=n
+%if %build_ocaml
+mkdir -p %{buildroot}%{_libdir}/ocaml/stublibs
+%endif
 %if %build_efi
 mkdir -p %{buildroot}/boot/efi/efi/fedora
 %endif
-make DESTDIR=%{buildroot} %{?efi_flags} prefix=/usr install-xen
-make DESTDIR=%{buildroot} prefix=/usr install-tools
+make DESTDIR=%{buildroot} %{?efi_flags}  prefix=/usr install-xen
+make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-tools
 make DESTDIR=%{buildroot} prefix=/usr install-docs
-make DESTDIR=%{buildroot} prefix=/usr install-stubdom
+make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-stubdom
 %if %build_efi
 mv %{buildroot}/boot/efi/efi %{buildroot}/boot/efi/EFI
+%endif
+%if %build_xsm
+# policy file should be in /boot/flask
+mkdir %{buildroot}/boot/flask
+mv %{buildroot}/boot/xenpolicy.* %{buildroot}/boot/flask
+%else
+rm -f %{buildroot}/boot/xenpolicy.*
 %endif
 
 ############ debug packaging: list files ############
@@ -293,9 +367,12 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-4.2.gz
+rm -rf %{buildroot}/boot/xen-4.4.gz
 rm -rf %{buildroot}/boot/xen-4.gz
 rm -rf %{buildroot}/boot/xen.gz
+%if !%build_hyp
+rm -rf %{buildroot}/boot
+%endif
 
 # silly doc dir fun
 rm -fr %{buildroot}%{_datadir}/doc/xen
@@ -377,6 +454,9 @@ install -m 644 %{SOURCE46} %{buildroot}%{_unitdir}/xen-watchdog.service
 mkdir -p %{buildroot}/usr/lib/tmpfiles.d
 install -m 644 %{SOURCE49} %{buildroot}/usr/lib/tmpfiles.d/xen.conf
 %endif
+%if %build_ocaml
+install -m 644 %{SOURCE50} %{buildroot}%{_unitdir}/oxenstored.service
+%endif
 
 # config file only used for hotplug, Fedora uses udev instead
 rm -f %{buildroot}/%{_sysconfdir}/sysconfig/xend
@@ -420,8 +500,14 @@ done
 #/sbin/chkconfig --add blktapctrl
 %endif
 %if %with_systemd
-/bin/systemctl enable xenstored.service
-/bin/systemctl enable xenconsoled.service
+%if %with_systemd_presets
+%systemd_post xenstored.service xenconsoled.service
+%else
+if [ $1 == 1 ]; then
+  /bin/systemctl enable xenstored.service
+  /bin/systemctl enable xenconsoled.service
+fi
+%endif
 %endif
 
 %if %with_sysv
@@ -431,7 +517,10 @@ fi
 %endif
 
 %preun runtime
-if [ $1 = 0 ]; then
+%if %with_systemd_presets
+%systemd_preun xenstored.service xenconsoled.service
+%else
+if [ $1 == 0 ]; then
 %if %with_sysv
   /sbin/chkconfig --del xenconsoled
   /sbin/chkconfig --del xenstored
@@ -442,12 +531,19 @@ if [ $1 = 0 ]; then
   /bin/systemctl disable xenconsoled.service
 %endif
 fi
+%endif
+
+%if %with_systemd_presets
+%postun runtime
+%systemd_postun
+%endif
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
 
+%if %build_hyp
 %post hypervisor
-if [ $1 = 1 -a -f /sbin/grub2-mkconfig -a -f /boot/grub2/grub.cfg ]; then
+if [ $1 == 1 -a -f /sbin/grub2-mkconfig -a -f /boot/grub2/grub.cfg ]; then
   /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
 fi
 
@@ -455,6 +551,36 @@ fi
 if [ -f /sbin/grub2-mkconfig -a -f /boot/grub2/grub.cfg ]; then
   /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
 fi
+%endif
+
+%if %build_ocaml
+%post ocaml
+%if %with_systemd
+%if %with_systemd_presets
+%systemd_post oxenstored.service
+%else
+if [ $1 == 1 ]; then
+  /bin/systemctl enable oxenstored.service
+fi
+%endif
+%endif
+
+%preun ocaml
+%if %with_systemd
+%if %with_systemd_presets
+%systemd_post oxenstored.service
+%else
+if [ $1 == 0 ]; then
+  /bin/systemctl disable oxenstored.service
+fi
+%endif
+%endif
+
+%if %with_systemd_presets
+%postun ocaml
+%systemd_postun
+%endif
+%endif
 
 %clean
 rm -rf %{buildroot}
@@ -562,7 +688,6 @@ rm -rf %{buildroot}
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
 %{_bindir}/remus
-%{_bindir}/xencov_split
 # blktap daemon
 %{_sbindir}/tapdisk*
 # Disk utils
@@ -571,6 +696,7 @@ rm -rf %{buildroot}
 %{_sbindir}/img2qcow
 # Misc stuff
 %{_bindir}/xen-detect
+%{_bindir}/xencov_split
 %{_sbindir}/gdbsx
 %{_sbindir}/gtrace*
 %{_sbindir}/kdd
@@ -611,6 +737,10 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 /boot/xen-syms-*
 /boot/xen-*.gz
+%if %build_xsm
+%dir %attr(0755,root,root) /boot/flask
+/boot/flask/xenpolicy.*
+%endif
 %if %build_efi
 /boot/efi/EFI/fedora/*.efi
 %endif
@@ -618,6 +748,7 @@ rm -rf %{buildroot}
 %files doc
 %defattr(-,root,root)
 %doc docs/misc/
+%doc dist/install/usr/share/doc/xen/html
 
 %files devel
 %defattr(-,root,root)
@@ -631,6 +762,26 @@ rm -rf %{buildroot}
 %files licenses
 %defattr(-,root,root)
 %doc licensedir/*
+
+%if %build_ocaml
+%files ocaml
+%defattr(-,root,root)
+%{_libdir}/ocaml/xen*
+%exclude %{_libdir}/ocaml/xen*/*.a
+%exclude %{_libdir}/ocaml/xen*/*.cmxa
+%exclude %{_libdir}/ocaml/xen*/*.cmx
+%{_libdir}/ocaml/stublibs/*.so
+%{_libdir}/ocaml/stublibs/*.so.owner
+%{_sbindir}/oxenstored
+%config(noreplace) %{_sysconfdir}/xen/oxenstored.conf
+%{_unitdir}/oxenstored.service
+
+%files ocaml-devel
+%defattr(-,root,root)
+%{_libdir}/ocaml/xen*/*.a
+%{_libdir}/ocaml/xen*/*.cmxa
+%{_libdir}/ocaml/xen*/*.cmx
+%endif
 
 %files hvm
 # The firmware
@@ -659,6 +810,192 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Sun May 11 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-4
+- add systemd preset support (#1094938)
+
+* Thu May 01 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-3
+- HVMOP_set_mem_type allows invalid P2M entries to be created
+	[XSA-92, CVE-2014-3124] (#1093315)
+
+* Wed Mar 26 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-2
+- HVMOP_set_mem_access is not preemptible [XSA-89, CVE-2014-2599] (#1080425)
+
+* Tue Feb 18 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-1
+- update to xen-4.3.2
+  includes fix for "Excessive time to disable caching with HVM guests with
+    PCI passthrough" [XSA-60, CVE-2013-2212] (#987914)
+- remove patches that are now included
+
+* Wed Feb 12 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-10
+- use-after-free in xc_cpupool_getinfo() under memory pressure [XSA-88,
+    CVE-2014-1950] (#1064491)
+
+* Thu Feb 06 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-9
+- integer overflow in several XSM/Flask hypercalls [XSA-84, CVE-2014-1891,
+    CVE-2014-1892, CVE-2014-1893, CVE-2014-1894]
+  Off-by-one error in FLASK_AVC_CACHESTAT hypercall [XSA-85, CVE-2014-1895]
+  libvchan failure handling malicious ring indexes [XSA-86, CVE-2014-1896]
+    (#1062335)
+
+* Fri Jan 24 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-8
+- PHYSDEVOP_{prepare,release}_msix exposed to unprivileged pv guests
+    [XSA-87, CVE-2014-1666] (#1058398)
+
+* Thu Jan 23 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-7
+- Out-of-memory condition yielding memory corruption during IRQ setup
+    [XSA-83, CVE-2014-1642] (#1057142)
+
+* Wed Dec 11 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-6
+- Disaggregated domain management security status update [XSA-77]
+- IOMMU TLB flushing may be inadvertently suppressed [XSA-80, CVE-2013-6400]
+    (#1040024)
+
+* Mon Dec 02 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-5
+- HVM guest triggerable AMD CPU erratum may cause host hang
+    [XSA-82, CVE-2013-6885]
+
+* Tue Nov 26 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-4
+- Lock order reversal between page_alloc_lock and mm_rwlock
+    [XSA-74, CVE-2013-4553] (#1034925)
+- Hypercalls exposed to privilege rings 1 and 2 of HVM guests
+    [XSA-76, CVE-2013-4554] (#1034923)
+
+* Thu Nov 21 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-3
+- Insufficient TLB flushing in VT-d (iommu) code
+    [XSA-78, CVE-2013-6375] (#1033149)
+
+* Sat Nov 09 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-2
+- Host crash due to HVM guest VMX instruction execution
+    [XSA-75, CVE-2013-4551] (#1029055)
+
+* Fri Nov 01 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.1-1
+- update to xen-4.3.1
+- Lock order reversal between page allocation and grant table locks
+    [XSA-73, CVE-2013-4494] (#1026248)
+
+* Tue Oct 29 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-10
+- ocaml xenstored mishandles oversized message replies
+    [XSA-72, CVE-2013-4416] (#1024450)
+
+* Thu Oct 24 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-9
+- systemd changes to allow oxenstored to be used instead of xenstored (#1022640)
+
+* Thu Oct 10 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-8
+- security fixes (#1017843)
+  Information leak through outs instruction emulation in 64-bit PV guests
+    [XSA-67, CVE-2013-4368]
+  possible null dereference when parsing vif ratelimiting info
+    [XSA-68, CVE-2013-4369]
+  misplaced free in ocaml xc_vcpu_getaffinity stub
+    [XSA-69, CVE-2013-4370]
+  use-after-free in libxl_list_cpupool under memory pressure
+    [XSA-70, CVE-2013-4371]
+  qemu disk backend (qdisk) resource leak (Fedora doesn't build this qemu)
+    [XSA-71, CVE-2013-4375]
+
+* Wed Oct 02 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-7
+- Set "Domain-0" label in xenstored.service systemd file to match
+  xencommons init.d script.
+- security fixes (#1013748)
+  Information leaks to HVM guests through I/O instruction emulation
+    [XSA-63, CVE-2013-4355]
+  Memory accessible by 64-bit PV guests under live migration
+    [XSA-64, CVE-2013-4356]
+  Information leak to HVM guests through fbld instruction emulation
+    [XSA-66, CVE-2013-4361]
+
+* Wed Sep 25 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-6
+- Information leak on AVX and/or LWP capable CPUs [XSA-62, CVE-2013-1442]
+  (#1012056)
+
+* Sat Sep 14 2013 Richard W.M. Jones <rjones@redhat.com> - 4.3.0-5
+- Rebuild for OCaml 4.01.0.
+
+* Sun Aug 04 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.3.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
+
+* Sat Jul 20 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-2 4.3.0-3
+- build a 64-bit hypervisor on ix86
+
+* Tue Jul 16 2013 Michael Young <m.a.young@durham.ac.uk> - 4.3.0-1
+- update to xen-4.3.0
+- rebase xen.use.fedora.ipxe.patch
+- remove patches that are now included or no longer needed
+- add polarssl source needed for stubdom build
+- remove references to ia64 in spec file (dropped upstream)
+- don't build hypervisor on ix86 (dropped upstream)
+- tools want wget (or ftp) to build
+- build XSM FLASK support into hypervisor with policy file
+- add xencov_split and xencov to files packaged, remove pdf docs
+- tidy up rpm scripts and stop enabling systemctl services on upgrade
+  now sysv is gone from Fedora
+- re-number patches
+
+* Wed Jun 26 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-10
+- XSA-45/CVE-2013-1918 breaks page reference counting [XSA-58,
+  CVE-2013-1432] (#978383)
+- let pygrub handle set default="${next_entry}" line in F19 (#978036)
+- libxl: Set vfb and vkb devid if not done so by the caller (#977987)
+
+* Mon Jun 24 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-9
+- add upstream patch for PCI passthrough problems after XSA-46 (#977310)
+
+* Fri Jun 21 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-8
+- xenstore permissions not set correctly by libxl [XSA-57,
+  CVE-2013-2211] (#976779)
+
+* Fri Jun 14 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-7
+- Revised fixes for [XSA-55, CVE-2013-2194 CVE-2013-2195
+  CVE-2013-2196] (#970640)
+
+* Tue Jun 04 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-6
+- Information leak on XSAVE/XRSTOR capable AMD CPUs
+  [XSA-52, CVE-2013-2076] (#970206)
+- Hypervisor crash due to missing exception recovery on XRSTOR
+  [XSA-53, CVE-2013-2077] (#970204)
+- Hypervisor crash due to missing exception recovery on XSETBV
+  [XSA-54, CVE-2013-2078] (#970202)
+- Multiple vulnerabilities in libelf PV kernel handling
+  [XSA-55] (#970640)
+
+* Fri May 17 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-5
+- xend toolstack doesn't check bounds for VCPU affinity
+  [XSA-56, CVE-2013-2072] (#964241)
+
+* Tue May 14 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-4
+- xen-devel should require libuuid-devel (#962833)
+- pygrub menu items can include too much text (#958524)
+
+* Thu May 02 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-3
+- PV guests can use non-preemptible long latency operations to
+  mount a denial of service attack on the whole system
+  [XSA-45, CVE-2013-1918] (#958918)
+- malicious guests can inject interrupts through bridge devices to
+  mount a denial of service attack on the whole system
+  [XSA-49, CVE-2013-1952] (#958919)
+
+* Fri Apr 26 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-2
+- fix further man page issues to allow building on F19 and F20
+
+* Thu Apr 25 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.2-1
+- update to xen-4.2.2
+  includes fixes for
+  [XSA-48, CVE-2013-1922] (Fedora doesn't use the affected code)
+  passed through IRQs or PCI devices might allow denial of service attack
+    [XSA-46, CVE-2013-1919] (#953568)
+  SYSENTER in 32-bit PV guests on 64-bit xen can crash hypervisor
+    [XSA-44, CVE-2013-1917] (#953569)
+- remove patches that are included in 4.2.2
+- look for libxl-save-helper in the right place
+- fix xl list -l output when built with yajl2
+- allow xendomains to work with xl saved images
+
+* Thu Apr 04 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-10
+- make xendomains systemd script executable and update it from
+  init.d version (#919705)
+- Potential use of freed memory in event channel operations [XSA-47,
+  CVE-2013-1920]
+
 * Thu Feb 21 2013 Michael Young <m.a.young@durham.ac.uk> - 4.2.1-9
 - patch for [XSA-36, CVE-2013-0153] can cause boot time crash
 
