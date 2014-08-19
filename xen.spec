@@ -328,7 +328,7 @@ export PYTHON=/usr/bin/python
 export PYTHON_PATH=/usr/bin/python
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
-./configure --libdir=%{_libdir} --with-system-seabios=/usr/share/seabios/bios.bin
+./configure --libdir=%{_libdir} --with-system-seabios=/usr/share/seabios/bios.bin --enable-vtpm-stubdom --enable-vtpmmgr-stubdom
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
