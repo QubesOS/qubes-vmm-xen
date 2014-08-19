@@ -41,6 +41,7 @@ BuildRequires: openssl-devel
 # Several tools now use uuid
 BuildRequires: libuuid-devel
 BuildRequires: which
+BuildRequires: autoconf automake
 Requires: bridge-utils
 Requires: python-lxml
 Requires: udev >= 059
