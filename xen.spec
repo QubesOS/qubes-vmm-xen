@@ -308,6 +308,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch677 -p1
 %patch678 -p1
 %patch679 -p1
+%patch680 -p1
 
 %patch200 -p0
 %patch201 -p2
