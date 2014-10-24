@@ -82,7 +82,7 @@ Patch113: xen-libxl-pci-detach-fix.patch
 Patch114: xen-libxl-pci-list-segv-fix.patch
 Patch115: xen-libxl-backend-xenstore-perms.patch
 Patch120: xen-libxl-block-attach-fix-non-dom0-backend.patch
-Patch121: xen-libxl-daemon-pid-stderr.patch
+Patch121: xen-libxl-silent-daemon-pid.patch
 Patch122: xl-disk-backend-domid.patch
 Patch123: stubdom-vbd-non-dom0-backend.patch
 Patch124: xl-block-parse-cdrom.patch
