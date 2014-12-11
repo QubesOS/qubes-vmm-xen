@@ -1,0 +1,51 @@
+From ae3971db67aeebda3dcb80654cfdca7a87da9feb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 11 Dec 2014 06:00:36 +0100
+Subject: [PATCH] libxl: fix libxl_device_*_remove with driver domain specified
+ by name
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Remove function needs XID, so call libxl__device_*_setdefault, which
+will resolve domain name to domain id. It will also set some other
+parameters when not initially defined, but it shouldn't harm - if some
+parameter wasn't defined, detach would fail, so it will not be worse. It
+can be even improvement (some documentation needed).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 2d29ad2..f8024f5 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -3466,6 +3466,8 @@ out:
+         int rc;                                                         \
+                                                                         \
+         GCNEW(device);                                                  \
++        rc = libxl__device_##type##_setdefault(gc, type);               \
++        if (rc) goto out;                                               \
+         rc = libxl__device_from_##type(gc, domid, type, device);        \
+         if (rc != 0) goto out;                                          \
+                                                                         \
+@@ -3489,8 +3491,11 @@ DEFINE_DEVICE_REMOVE(disk, remove, 0)
+ DEFINE_DEVICE_REMOVE(disk, destroy, 1)
+ 
+ /* nic */
++#define libxl__device_nic_setdefault(gc, type) \
++    libxl__device_nic_setdefault(gc, type, domid)
+ DEFINE_DEVICE_REMOVE(nic, remove, 0)
+ DEFINE_DEVICE_REMOVE(nic, destroy, 1)
++#undef libxl__device_nic_setdefault
+ 
+ /* vkb */
+ DEFINE_DEVICE_REMOVE(vkb, remove, 0)
+-- 
+1.8.3.1
+
