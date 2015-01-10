@@ -99,6 +99,7 @@ Patch134: xl-don-t-exit-on-domain-suspend.patch
 Patch135: xenconsole-sanitize-ESC-in-log.patch
 Patch136: libxl-destroy-failed-stubdom.patch
 Patch137: xen-hotplug-state-race-condition.patch
+Patch138: rtl8139.patch
 
 
 # XSA patches
@@ -293,6 +294,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch135 -p1
 %patch136 -p1
 %patch137 -p1
+%patch138 -p1
 
 # XSA patches
 %patch666 -p1
