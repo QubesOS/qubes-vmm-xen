@@ -79,14 +79,14 @@ diff -urp xen-4.2.2.orig/tools/libxl/libxl_dm.c xen-4.2.2/tools/libxl/libxl_dm.c
                  break;
              case STUBDOM_CONSOLE_SAVE:
                  console[i].output = libxl__sprintf(gc, "file:%s",
-@@ -960,6 +977,10 @@ static void spawn_stub_launch_dm(libxl__
-             goto out;
-     }
+@@ -954,6 +983,10 @@ static void spawn_stub_launch_dm(libxl__
+     sdss->pvqemu.build_state = &sdss->dm_state;
+     sdss->pvqemu.callback = spawn_stubdom_pvqemu_cb;
  
 +    /* Qubes hack */
-+    stubdom_pvqemu_cb(egc, &sdss->multidev, 0);
++    spawn_stubdom_pvqemu_cb(egc, &sdss->pvqemu, 0);
 +    return;
 +
-     sdss->pvqemu.spawn.ao = ao;
-     sdss->pvqemu.guest_domid = dm_domid;
-     sdss->pvqemu.guest_config = &sdss->dm_config;
+     libxl__spawn_local_dm(egc, &sdss->pvqemu);
+ 
+     return;
