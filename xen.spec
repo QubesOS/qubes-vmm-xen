@@ -118,6 +118,11 @@ Patch678: xsa104.patch
 Patch679: xsa105.patch
 Patch680: xsa106.patch
 Patch681: xsa108.patch
+Patch682: xsa109-4.1.patch
+Patch683: xsa111-4.1.patch
+Patch684: xsa112-4.2.patch
+Patch685: xsa113-4.1.patch
+
 
 # Qubes HVM
 Patch200: xen-stubdom-qubes-gui.patch
@@ -311,6 +316,10 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch679 -p1
 %patch680 -p1
 %patch681 -p1
+%patch682 -p1
+%patch683 -p1
+%patch684 -p1
+%patch685 -p1
 
 %patch200 -p0
 %patch201 -p2
