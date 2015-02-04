@@ -16,6 +16,7 @@ RELEASE := $(shell cat rel)
 
 DIST_DOM0 ?= fc13
 
+DISTFILES_MIRROR := http://sourceforge.net/projects/qubesos/files/distfiles/
 NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
 RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
@@ -76,10 +77,16 @@ URL_SIGN := $(SRC_BASEURL)/$(SIGN_FILE)
 
 ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE)
 
+ALL_URLS := $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
+
+ifneq ($(DISTFILES_MIRROR),)
+ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
+endif
+
 get-sources: $(ALL_FILES)
 
 $(ALL_FILES):
-	@wget -qN  $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(TBOOT_URL)
+	@wget -qN $(ALL_URLS)
 
 import-keys:
 	@gpg -q --import *-key.asc
