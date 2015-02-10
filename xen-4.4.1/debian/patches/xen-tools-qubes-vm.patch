@@ -1,0 +1,69 @@
+--- xen-4.2.1/tools/python/setup.py.orig	2012-12-17 16:01:24.000000000 +0100
++++ xen-4.2.1/tools/python/setup.py	2013-04-05 03:35:24.730781468 +0200
+@@ -88,7 +88,7 @@
+                sources            = [ "xen/lowlevel/xl/xl.c", "xen/lowlevel/xl/_pyxl_types.c" ])
+ 
+ plat = os.uname()[0]
+-modules = [ xc, xs, ptsname, flask ]
++modules = [ xc, xs, ptsname ]
+ #modules.extend([ xl ])
+ if plat == 'SunOS':
+     modules.extend([ scf, process ])
+@@ -132,6 +132,7 @@
+       description     = 'Xen',
+       packages        = ['xen',
+                          'xen.lowlevel',
++                         'xen.util',
+                          ] + xend_packages,
+       ext_package = "xen.lowlevel",
+       ext_modules = modules
+--- xen-4.4.0/tools/Makefile.orig	2014-06-25 03:41:25.719847445 +0200
++++ xen-4.4.0/tools/Makefile	2014-06-25 03:42:59.854386037 +0200
+@@ -4,47 +4,13 @@
+ SUBDIRS-y :=
+ SUBDIRS-y += include
+ SUBDIRS-y += libxc
+-SUBDIRS-$(FLASK_ENABLE) += flask
+ SUBDIRS-y += xenstore
+-SUBDIRS-y += misc
+-SUBDIRS-y += examples
+ SUBDIRS-y += hotplug
+-SUBDIRS-y += xentrace
+-SUBDIRS-$(CONFIG_XCUTILS) += xcutils
+-SUBDIRS-$(CONFIG_X86) += firmware
+-SUBDIRS-y += console
+-SUBDIRS-y += xenmon
+-SUBDIRS-y += xenstat
+-SUBDIRS-$(CONFIG_Linux) += memshr 
+-ifeq ($(CONFIG_X86)$(CONFIG_Linux),yy)
+-SUBDIRS-$(CONFIG_BLKTAP1) += blktap
+-endif
+-SUBDIRS-$(CONFIG_Linux) += blktap2
+-SUBDIRS-$(CONFIG_NetBSD) += blktap2
+-SUBDIRS-$(CONFIG_NetBSD) += xenbackendd
+-SUBDIRS-y += libfsimage
+-SUBDIRS-$(LIBXENAPI_BINDINGS) += libxen
+ SUBDIRS-$(CONFIG_Linux) += libvchan
+ 
+-# do not recurse in to a dir we are about to delete
+-ifneq "$(MAKECMDGOALS)" "distclean"
+-SUBDIRS-$(CONFIG_QEMU_TRAD) += qemu-xen-traditional-dir
+-SUBDIRS-$(CONFIG_QEMU_XEN) += qemu-xen-dir
+-endif
+-
+-SUBDIRS-y += xenpmd
+-SUBDIRS-y += libxl
+-SUBDIRS-y += remus
+-SUBDIRS-$(CONFIG_X86) += xenpaging
+-SUBDIRS-$(CONFIG_X86) += debugger/gdbsx
+-SUBDIRS-$(CONFIG_X86) += debugger/kdd
+-SUBDIRS-$(CONFIG_TESTS) += tests
+-
+ # These don't cross-compile
+ ifeq ($(XEN_COMPILE_ARCH),$(XEN_TARGET_ARCH))
+ SUBDIRS-y += python
+-SUBDIRS-y += pygrub
+-SUBDIRS-$(OCAML_TOOLS) += ocaml
+ endif
+ 
+ # For the sake of linking, set the sys-root

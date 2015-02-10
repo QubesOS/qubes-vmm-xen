@@ -145,6 +145,12 @@ prep: get-sources $(SPECFILE)
 srpm: get-sources $(SPECFILE)
 	$(RPM_WITH_DIRS) -bs $(SPECFILE)
 
+# Create a quilt orig package so we can build xen in Debian
+dist: 	
+	tar xvfz "$(SRC_FILE)"
+	#tar cvfz "../xen_$(VERSION).orig.tar.gz" --exclude=debian .
+	mv "$(SRC_FILE)" "xen_$(VERSION).orig.tar.gz"
+
 verrel:
 	@echo $(NAME)-$(VERSION)-$(RELEASE)
 

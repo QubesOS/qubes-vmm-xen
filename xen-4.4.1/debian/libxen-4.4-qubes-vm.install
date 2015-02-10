@@ -1,0 +1,3 @@
+usr/lib/*/libxenctrl*
+usr/lib/*/libxenguest*
+usr/lib/*/libxenvchan*

@@ -1,0 +1,80 @@
+Source: xen
+Section: kernel
+Priority: optional
+Maintainer: Jason Mehring <nrgaway@gmail.com>
+Build-Depends: debhelper (>= 9), 
+	bcc,
+	iasl,
+	libyajl-dev,
+	seabios,
+	libaio-dev, 
+	libfdt-dev,
+	libssl-dev, 
+	zlib1g-dev,
+	autotools-dev,
+	liblzma-dev:amd64,
+  	file,
+  	libaio1:amd64,
+  	libssl1.0.0:amd64,
+  	libfakeroot:amd64,
+  	libyajl2:amd64,
+  	mawk,
+  	libyajl-dev:amd64,
+  	perl,
+  	libc6-x32,
+  	libpython2.7-stdlib:amd64,
+  	uuid-dev:amd64,
+  	pkg-config,
+  	mime-support,
+  	libncurses5-dev:amd64,
+  	libmagic1:amd64,
+  	libglib2.0-dev,
+  	libc6-i386,
+  	comerr-dev,
+  	libpython2.7:amd64,
+  	libpython2.7-minimal:amd64,
+  	libpython2.7-dev:amd64,
+  	e2fslibs-dev,
+  	python2.7-minimal
+Standards-Version: 3.9.5
+Homepage: http://www.qubes-os.org
+Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
+
+Package: libxen-4.4-qubes-vm
+Section: libs
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Provides: libxen-4.4
+Replaces: libxen-4.4
+Conflicts: libxen-4.4
+Description: Libraries for Xen tools
+ This package contains the libraries needed to run Xen tools inside of Qubes VM
+
+Package: libxenstore3.0
+Section: libs
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Xenstore communications library for Xen
+ This package contains the client library interface to XenStore.
+
+Package: libxen-qubes-vm-dev
+Section: libdevel
+Architecture: amd64
+Depends: libxen-4.4-qubes-vm (= ${binary:Version}), libxenstore3.0 (= ${binary:Version}), ${misc:Depends}
+Provides: libxen-dev
+Replaces: libxen-dev
+Conflicts: libxen-dev
+Description: Development libraries for Xen tools
+ This package contains what's needed to develop applications
+ which manage Xen virtual machines.
+
+#Package: xen-qubes-vm
+#Architecture: amd64
+#Depends: ${shlibs:Depends}, ${misc:Depends}
+#Description: <insert up to 60 chars description>
+# <insert long description, indented with spaces>
+
+#Package: xen-doc
+#Architecture: all
+#Description: documentation for xen
+# <insert long description, indented with spaces>

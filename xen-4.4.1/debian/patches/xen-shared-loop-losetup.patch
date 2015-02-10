@@ -1,0 +1,50 @@
+--- a/tools/hotplug/Linux/block
++++ b/tools/hotplug/Linux/block
+@@ -284,31 +284,33 @@
+             fatal "Unable to lookup $file: dev: $dev inode: $inode"
+           fi
+ 
+-          shared_list=$(losetup -a |
+-                sed -n -e "s@^\([^:]\+\)\(:[[:blank:]]\[0*${dev}\]:${inode}[[:blank:]](.*)\)@\1@p" )
++          shared_list=$(losetup -j "$file" | head -n 1 | cut -d : -f 1)
+           for dev in $shared_list
+           do
+             if [ -n "$dev" ]
+             then
+               check_file_sharing "$file" "$dev" "$mode"
++              loopdev="$dev"
+             fi
+           done
+         fi
+ 
+-        loopdev=$(losetup -f 2>/dev/null || find_free_loopback_dev)
+-        if [ "$loopdev" = '' ]
+-        then
+-          release_lock "block"
+-          fatal 'Failed to find an unused loop device'
+-        fi
++        if [ -z "$loopdev" ]; then
++          loopdev=$(losetup -f 2>/dev/null || find_free_loopback_dev)
++          if [ "$loopdev" = '' ]
++          then
++            release_lock "block"
++            fatal 'Failed to find an unused loop device'
++          fi
+ 
+-        if LANG=C losetup -h 2>&1 | grep read-only >/dev/null
+-        then
+-          roflag="-$mode"; roflag="${roflag#-w}"; roflag="${roflag#-!}"
+-        else
+-          roflag=''
++          if LANG=C losetup -h 2>&1 | grep read-only >/dev/null
++          then
++            roflag="-$mode"; roflag="${roflag#-w}"; roflag="${roflag#-!}"
++          else
++            roflag=''
++          fi
++          do_or_die losetup $roflag "$loopdev" "$file"
+         fi
+-        do_or_die losetup $roflag "$loopdev" "$file"
+         xenstore_write "$XENBUS_PATH/node" "$loopdev"
+         echo $loopdev > "$HOTPLUG_STORE-node"
+         write_dev "$loopdev"

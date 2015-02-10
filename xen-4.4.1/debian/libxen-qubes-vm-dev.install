@@ -1,0 +1,3 @@
+usr/include/*.h
+usr/include/xen/*
+usr/include/xenstore-compat/*

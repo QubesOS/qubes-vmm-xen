@@ -4,6 +4,7 @@ SOURCE_COPY_IN := source-xen-copy-in
 else ifeq ($(PACKAGE_SET),vm)
 RPM_SPEC_FILES := xen-vm.spec
 ARCH_BUILD_DIRS := archlinux
+DEBIAN_BUILD_DIRS := xen-4.4.1/debian
 endif
 
 source-xen-copy-in:

@@ -1,0 +1,64 @@
+From be1642a6de837e4d8d9a075dca8e15ad5b8694e8 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Sun, 21 Apr 2013 03:46:30 +0200
+Subject: [PATCH 101/105] libvchan: create xenstore entries in one transaction
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+This will prevent race when client waits for server with xs_watch - all
+entries should appear at once.
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libvchan/init.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/tools/libvchan/init.c b/tools/libvchan/init.c
+index f0d2505..dbdcc6c 100644
+--- a/tools/libvchan/init.c
++++ b/tools/libvchan/init.c
+@@ -234,6 +234,7 @@ static int init_xs_srv(struct libxenvchan *ctrl, int domain, const char* xs_base
+ 	char buf[64];
+ 	char ref[16];
+ 	char* domid_str = NULL;
++	xs_transaction_t xs_trans = NULL;
+ 	xs = xs_domain_open();
+ 	if (!xs)
+ 		goto fail;
+@@ -249,20 +250,29 @@ static int init_xs_srv(struct libxenvchan *ctrl, int domain, const char* xs_base
+ 	perms[1].id = domain;
+ 	perms[1].perms = XS_PERM_READ;
+ 
++retry_transaction:
++	xs_trans = xs_transaction_start(xs);
++	if (!xs_trans)
++		goto fail_xs_open;
++
+ 	snprintf(ref, sizeof ref, "%d", ring_ref);
+ 	snprintf(buf, sizeof buf, "%s/ring-ref", xs_base);
+-	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
++	if (!xs_write(xs, xs_trans, buf, ref, strlen(ref)))
+ 		goto fail_xs_open;
+-	if (!xs_set_permissions(xs, 0, buf, perms, 2))
++	if (!xs_set_permissions(xs, xs_trans, buf, perms, 2))
+ 		goto fail_xs_open;
+ 
+ 	snprintf(ref, sizeof ref, "%d", ctrl->event_port);
+ 	snprintf(buf, sizeof buf, "%s/event-channel", xs_base);
+-	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
++	if (!xs_write(xs, xs_trans, buf, ref, strlen(ref)))
+ 		goto fail_xs_open;
+-	if (!xs_set_permissions(xs, 0, buf, perms, 2))
++	if (!xs_set_permissions(xs, xs_trans, buf, perms, 2))
+ 		goto fail_xs_open;
+ 
++	if (!xs_transaction_end(xs, xs_trans, 0))
++		if (errno == EAGAIN)
++			goto retry_transaction;
++
+ 	ret = 0;
+  fail_xs_open:
+ 	free(domid_str);
+-- 
+1.8.1.4
+
