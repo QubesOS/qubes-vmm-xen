@@ -1,4 +1,4 @@
-Source: xen
+Source: qubes-xen
 Section: kernel
 Priority: optional
 Maintainer: Jason Mehring <nrgaway@gmail.com>

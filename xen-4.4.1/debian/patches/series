@@ -1,8 +1,0 @@
-0001-libvchan-Make-raw_get_-data_ready-buffer_space-match.patch
-0101-libvchan-create-xenstore-entries-in-one-transaction.patch
-libvchan-Fix-cleanup-when-xc_gntshr_open-failed.patch
-vm-0001-hotplug-do-not-attempt-to-remove-containing-xenstore.patch
-xen-tools-qubes-vm.patch
-xen-hotplug-external-store.patch
-xen-no-downloads.patch
-xen-shared-loop-losetup.patch
