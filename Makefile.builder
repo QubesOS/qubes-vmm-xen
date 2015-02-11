@@ -5,12 +5,10 @@ ifeq ($(PACKAGE_SET),dom0)
 else ifeq ($(PACKAGE_SET),vm)
   RPM_SPEC_FILES := xen-vm.spec
   ARCH_BUILD_DIRS := archlinux
-  DEBIAN_BUILD_DIRS := debian-xen/debian
 
-  ifeq ($(DISTRIBUTION),debian)
+  ifneq ($(filter $(DISTRIBUTION), debian qubuntu),)
+  DEBIAN_BUILD_DIRS := debian-xen/debian
     SOURCE_COPY_IN := source-debian-xen-copy-in
-  else ifeq ($(DISTRIBUTION),qubuntu)
-    SOURCE_COPY_IN := source-xen-copy-in
   endif
 endif
 
