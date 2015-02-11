@@ -1,32 +1,39 @@
-From 0665f2b6cdfee871f1ece89c92b131358ad157cd Mon Sep 17 00:00:00 2001
+From 33e6990e85a399b0c4dd51bdc9cd17e66d313c6e Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Tue, 16 Apr 2013 22:20:25 +0200
 Subject: [PATCH] libxl: allow PHY backend for files - allocate loop device
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Organization: Invisible Things Lab
-Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 This is implementation of /etc/xen/scripts/block behaviour, but without
 calling the script, which should be much faster.
 
 Changes in v2:
- - call libxl__loopdev_cleanup only when when on device remove and only
+ - call libxl__loopdev_cleanup only on device remove and only
    if no scripts already was called
  - fix FD leak
 
+Change in v3:
+ - set loopdev info
+
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- tools/libxl/libxl.c          |  13 ++++-
+ tools/libxl/libxl.c          |  13 +++-
  tools/libxl/libxl_device.c   |  10 ++++
  tools/libxl/libxl_internal.h |   9 +++
- tools/libxl/libxl_linux.c    | 131 ++++++++++++++++++++++++++++++++++++++++++-
+ tools/libxl/libxl_linux.c    | 138 ++++++++++++++++++++++++++++++++++++++++++-
  tools/libxl/libxl_netbsd.c   |  11 ++++
- 5 files changed, 172 insertions(+), 2 deletions(-)
+ 5 files changed, 179 insertions(+), 2 deletions(-)
 
 diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
-index 08ff257..ad93992 100644
+index 2d29ad2..e5672e5 100644
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -2107,7 +2107,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
+@@ -2132,7 +2132,18 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
                  if (!disk->script &&
                      disk->backend_domid == LIBXL_TOOLSTACK_DOMID) {
                      int major, minor;
@@ -47,10 +54,10 @@ index 08ff257..ad93992 100644
                              libxl__sprintf(gc, "%x:%x", major, minor));
                  }
 diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
-index bc86648..eadee54 100644
+index ba7d100..6b2517b 100644
 --- a/tools/libxl/libxl_device.c
 +++ b/tools/libxl/libxl_device.c
-@@ -898,6 +898,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+@@ -954,6 +954,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
  {
      STATE_AO_GC(aodev->ao);
      char *be_path = libxl__device_backend_path(gc, aodev->dev);
@@ -58,7 +65,7 @@ index bc86648..eadee54 100644
      char **args = NULL, **env = NULL;
      int rc = 0;
      int hotplug;
-@@ -918,6 +919,15 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
+@@ -997,6 +998,15 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
      switch (hotplug) {
      case 0:
          /* no hotplug script to execute */
@@ -75,10 +82,10 @@ index bc86648..eadee54 100644
      case 1:
          /* execute hotplug script */
 diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
-index 3ba3a21..573e3d1 100644
+index 9d17586..8634f71 100644
 --- a/tools/libxl/libxl_internal.h
 +++ b/tools/libxl/libxl_internal.h
-@@ -1050,6 +1050,15 @@ static inline void libxl__domaindeathcheck_stop(libxl__gc *gc,
+@@ -1070,6 +1070,15 @@ static inline void libxl__domaindeathcheck_stop(libxl__gc *gc,
   */
  _hidden int libxl__try_phy_backend(mode_t st_mode);
  
@@ -95,10 +102,10 @@ index 3ba3a21..573e3d1 100644
  _hidden char *libxl__devid_to_localdev(libxl__gc *gc, int devid);
  
 diff --git a/tools/libxl/libxl_linux.c b/tools/libxl/libxl_linux.c
-index 37815eb..e9b453f 100644
+index ea5d8c1..a0bf8d8 100644
 --- a/tools/libxl/libxl_linux.c
 +++ b/tools/libxl/libxl_linux.c
-@@ -16,16 +16,145 @@
+@@ -16,16 +16,152 @@
  #include "libxl_osdeps.h" /* must come before any other headers */
  
  #include "libxl_internal.h"
@@ -206,6 +213,13 @@ index 37815eb..e9b453f 100644
 +        LOG(ERROR, "unable to set loop backing store: %s", strerror(errno));
 +        goto out;
 +    }
++    memset(&info, 0, sizeof(info));
++    strncpy((char*)info.lo_file_name, filename, LO_NAME_SIZE);
++    info.lo_file_name[LO_NAME_SIZE-1] = 0;
++    if (ioctl(loop_fd, LOOP_SET_STATUS64, &info) < 0) {
++        LOG(ERROR, "unable to set loop info: %s", strerror(errno));
++        goto out;
++    }
 +    ret = loop_name;
 +
 +out:
@@ -268,5 +282,5 @@ index 898e160..1e71572 100644
  {
      /* TODO */
 -- 
-1.8.1.4
+1.8.3.1
 

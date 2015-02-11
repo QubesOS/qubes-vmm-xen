@@ -1,0 +1,150 @@
+From 08f83545098915a9f124bef44439b67fdbc7ba82 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 10 Feb 2015 02:20:06 +0100
+Subject: [PATCH] libxl: allow libxl_domain_suspend to simply suspend a domain,
+ without a savefile
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+When fd=-1, no savefile will be written, but the domain will still be
+suspended (but not destroyed). This works pretty well on PV domains, but
+is totally untested on HVM (most likely it will crash device model).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dom.c   | 12 +++++++++---
+ tools/libxl/xl.h          |  2 ++
+ tools/libxl/xl_cmdimpl.c  | 47 +++++++++++++++++++++++++++++++++++++++++++++++
+ tools/libxl/xl_cmdtable.c | 10 ++++++++++
+ 4 files changed, 68 insertions(+), 3 deletions(-)
+
+diff --git a/tools/libxl/libxl_dom.c b/tools/libxl/libxl_dom.c
+index 69e6088..2321663 100644
+--- a/tools/libxl/libxl_dom.c
++++ b/tools/libxl/libxl_dom.c
+@@ -1378,10 +1378,16 @@ void libxl__domain_suspend(libxl__egc *egc, libxl__domain_suspend_state *dss)
+         callbacks->suspend = libxl__domain_suspend_common_callback;
+ 
+     callbacks->switch_qemu_logdirty = libxl__domain_suspend_common_switch_qemu_logdirty;
+-    dss->shs.callbacks.save.toolstack_save = libxl__toolstack_save;
++    if (dss->fd >= 0) {
++        dss->shs.callbacks.save.toolstack_save = libxl__toolstack_save;
+ 
+-    libxl__xc_domain_save(egc, dss, vm_generationid_addr);
+-    return;
++        libxl__xc_domain_save(egc, dss, vm_generationid_addr);
++        return;
++    } else {
++        /* TODO: make that call async */
++        if (libxl__domain_suspend_common_callback(&dss->shs))
++            rc = 0;
++    }
+ 
+  out:
+     domain_suspend_done(egc, dss, rc);
+diff --git a/tools/libxl/xl.h b/tools/libxl/xl.h
+index f188708..9e316d1 100644
+--- a/tools/libxl/xl.h
++++ b/tools/libxl/xl.h
+@@ -48,6 +48,8 @@ int main_restore(int argc, char **argv);
+ int main_migrate_receive(int argc, char **argv);
+ int main_save(int argc, char **argv);
+ int main_migrate(int argc, char **argv);
++int main_suspend(int argc, char **argv);
++int main_resume(int argc, char **argv);
+ #endif
+ int main_dump_core(int argc, char **argv);
+ int main_pause(int argc, char **argv);
+diff --git a/tools/libxl/xl_cmdimpl.c b/tools/libxl/xl_cmdimpl.c
+index 4fc46eb..5b4c80c 100644
+--- a/tools/libxl/xl_cmdimpl.c
++++ b/tools/libxl/xl_cmdimpl.c
+@@ -3499,6 +3499,27 @@ static int save_domain(uint32_t domid, const char *filename, int checkpoint,
+     exit(rc < 0 ? 1 : 0);
+ }
+ 
++static int suspend_domain(uint32_t domid)
++{
++    int rc = libxl_domain_suspend(ctx, domid, -1, 0, NULL);
++
++    if (rc < 0) {
++        fprintf(stderr, "Failed to suspend domain, resuming domain\n");
++        libxl_domain_resume(ctx, domid, 1, 0);
++    }
++    exit(rc < 0 ? 1 : 0);
++}
++
++static int resume_domain(uint32_t domid)
++{
++    int rc = libxl_domain_resume(ctx, domid, 1, 0);
++
++    if (rc < 0) {
++        fprintf(stderr, "Failed to resume domain\n");
++    }
++    exit(rc < 0 ? 1 : 0);
++}
++
+ static pid_t create_migration_child(const char *rune, int *send_fd,
+                                         int *recv_fd)
+ {
+@@ -4234,6 +4255,32 @@ int main_reboot(int argc, char **argv)
+     return main_shutdown_or_reboot(1, argc, argv);
+ }
+ 
++int main_suspend(int argc, char **argv)
++{
++    int opt;
++
++    SWITCH_FOREACH_OPT(opt, "", NULL, "suspend", 1) {
++        /* No options */
++    }
++
++    suspend_domain(find_domain(argv[optind]));
++
++    return 0;
++}
++
++int main_resume(int argc, char **argv)
++{
++    int opt;
++
++    SWITCH_FOREACH_OPT(opt, "", NULL, "resume", 1) {
++        /* No options */
++    }
++
++    resume_domain(find_domain(argv[optind]));
++
++    return 0;
++}
++
+ int main_list(int argc, char **argv)
+ {
+     int opt, verbose = 0;
+diff --git a/tools/libxl/xl_cmdtable.c b/tools/libxl/xl_cmdtable.c
+index e8ab93a..458641e 100644
+--- a/tools/libxl/xl_cmdtable.c
++++ b/tools/libxl/xl_cmdtable.c
+@@ -68,6 +68,16 @@ struct cmd_spec cmd_table[] = {
+       "                        no PV drivers.\n"
+       "-w, --wait              Wait for guest(s) to shutdown.\n"
+     },
++    { "suspend",
++      &main_suspend, 0, 1,
++      "Suspend a domain",
++      "[options] <Domain>",
++    },
++    { "resume",
++      &main_resume, 0, 1,
++      "Resume suspended domain",
++      "[options] <Domain>",
++    },
+     { "reboot",
+       &main_reboot, 0, 1,
+       "Issue a reboot signal to a domain",
+-- 
+1.8.3.1
+
