@@ -30,6 +30,7 @@ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
 
 The Debian packaging is:
 
+    Copyright (C) 2008-2010 Bastian Blank <waldi@debian.org>
     Copyright (C) 2014 Jason Mehring <negaway@gmail.com>
 
 you can redistribute it and/or modify

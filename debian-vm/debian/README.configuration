@@ -63,6 +63,24 @@ $ dquilt header -e
 ... describe patch
 
 
+===============================================================================
+                           Creating New Patches
+===============================================================================
+mkdir debian/patches
+dquilt new new-patch-name.patch
+dquilt add file_to_patch
+
+# Edit and make required changes to the file_to_patch...
+
+# Ask dquilt to generate the patch to create debian/patches/new-patch-name.patch
+# and add its description following DEP-3: Patch Tagging Guidelines
+dquilt refresh
+dquilt header -e
+... describe patch
+
+# Revert patch (restore original file back to original state)
+dquilt pop
+
 
 ===============================================================================
                                    Other

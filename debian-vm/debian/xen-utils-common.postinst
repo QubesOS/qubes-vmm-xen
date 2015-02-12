@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+configure)
+	install -d -m 2750 -g adm /var/log/xen
+	;;
+
+abort-upgrade|abort-remove|abort-deconfigure)
+	;;
+
+*)
+	echo "postinst called with unknown argument \`$1'" >&2
+	exit 1
+	;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -12,7 +12,7 @@ export DESTDIR=$(shell pwd)/debian/tmp
 BUILD_DIR = debian/build
 
 %:
-	dh $@ --with autotools-dev
+	dh $@ --with autotools-dev,python2
 
 override_dh_auto_configure:
 	dh_auto_configure -- --prefix=/usr \
@@ -42,7 +42,7 @@ override_dh_auto_install:
 	#dh_compress
 	dh_fixperms
 	dh_installdeb
-	#dh_gencontrol -- $(GENCONTROL_ARGS)
-	dh_gencontrol
+	dh_gencontrol -- $(GENCONTROL_ARGS)
+	#dh_gencontrol
 	dh_md5sums
 	dh_builddeb

@@ -1,4 +1,4 @@
-Source: qubes-xen
+Source: xen
 Section: kernel
 Priority: optional
 Maintainer: Jason Mehring <nrgaway@gmail.com>
@@ -40,13 +40,10 @@ Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
 
-Package: libxen-4.4-qubes-vm
+Package: libxen-4.4
 Section: libs
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Provides: libxen-4.4
-Replaces: libxen-4.4
-Conflicts: libxen-4.4
 Description: Libraries for Xen tools
  This package contains the libraries needed to run Xen tools inside of Qubes VM
 
@@ -57,22 +54,42 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Xenstore communications library for Xen
  This package contains the client library interface to XenStore.
 
-Package: libxen-qubes-vm-dev
+Package: libxen-dev
 Section: libdevel
 Architecture: amd64
-Depends: libxen-4.4-qubes-vm (= ${binary:Version}), libxenstore3.0 (= ${binary:Version}), ${misc:Depends}
-Provides: libxen-dev
-Replaces: libxen-dev
-Conflicts: libxen-dev
+Depends: libxen-4.4 (= ${binary:Version}), libxenstore3.0 (= ${binary:Version}), ${misc:Depends}
 Description: Development libraries for Xen tools
  This package contains what's needed to develop applications
  which manage Xen virtual machines.
 
-#Package: xen-qubes-vm
-#Architecture: amd64
-#Depends: ${shlibs:Depends}, ${misc:Depends}
-#Description: <insert up to 60 chars description>
-# <insert long description, indented with spaces>
+Package: xenstore-utils
+Architecture: amd64
+Section: admin
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Replaces: xen-utils-common (<= 3.1.0-1)
+Conflicts: xen-utils-common (<= 3.1.0-1)
+Description: Xenstore command line utilities for Xen
+ This package contains command line utilities for interacting with
+ XenStore.
+ .
+ XenStore is a shared database used for interdomain communication of
+ configuration and status information.  It is accessible to all domains
+ running on the same Xen host.  See http://wiki.xen.org/wiki/XenStore for
+ more information.
+ .
+ In the common case these tools are used by the Xen toolstack running in
+ domain0 (or a driver domain) however they may also be used in a guest
+ domain to support local scripting which wants to communicate via XenStore.
+
+Package: xen-utils-common
+Architecture: all
+Depends: lsb-base, python, udev, xenstore-utils, ${misc:Depends}
+Description: Xen administrative tools - common files
+ The userspace tools to manage a system virtualized through the Xen virtual
+ machine monitor.
+ .
+ This package is only required on the host system (Domain 0) and not on the
+ virtual guest systems (Domain U).
 
 #Package: xen-doc
 #Architecture: all
