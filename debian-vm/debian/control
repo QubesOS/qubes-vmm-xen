@@ -16,13 +16,10 @@ Build-Depends: debhelper (>= 9),
   	file,
   	libaio1:amd64,
   	libssl1.0.0:amd64,
-  	libfakeroot:amd64,
   	libyajl2:amd64,
   	mawk,
   	libyajl-dev:amd64,
   	perl,
-  	libc6-x32,
-  	libpython2.7-stdlib:amd64,
   	uuid-dev:amd64,
   	pkg-config,
   	mime-support,
@@ -32,10 +29,11 @@ Build-Depends: debhelper (>= 9),
   	libc6-i386,
   	comerr-dev,
   	libpython2.7:amd64,
-  	libpython2.7-minimal:amd64,
-  	libpython2.7-dev:amd64,
   	e2fslibs-dev,
-  	python2.7-minimal
+  	python2.7-minimal,
+X-Python-Version: 2.7
+X-Qubes-Build-Depends-wheezy: python-dev
+X-Qubes-Build-Depends-jessie: libpython2.7, libfakeroot:amd64 libc6-x32, libpython2.7-stdlib:amd64, libpython2.7-minimal:amd64, libpython2.7-dev:amd64
 Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
@@ -90,8 +88,3 @@ Description: Xen administrative tools - common files
  .
  This package is only required on the host system (Domain 0) and not on the
  virtual guest systems (Domain U).
-
-#Package: xen-doc
-#Architecture: all
-#Description: documentation for xen
-# <insert long description, indented with spaces>
