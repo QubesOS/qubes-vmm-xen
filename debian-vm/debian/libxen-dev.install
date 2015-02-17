@@ -1,0 +1,7 @@
+usr/lib/*/libxenctrl.a
+usr/lib/*/libxenguest.a
+usr/lib/*/libxenstore.a
+usr/lib/*/libxenvchan.a
+usr/include/*.h
+usr/include/xen
+usr/include/xenstore-compat

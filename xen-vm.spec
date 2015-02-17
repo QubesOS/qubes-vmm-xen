@@ -48,6 +48,14 @@ Requires: udev >= 059
 Requires: chkconfig
 ExclusiveArch: %{ix86} x86_64 ia64
 #ExclusiveArch: %{ix86} x86_64 ia64 noarch
+%ifarch %{ix86} x86_64
+# for the VMX "bios"
+BuildRequires: dev86
+%endif
+# iasl needed to build hvmloader
+BuildRequires: iasl
+# tools now require yajl
+BuildRequires: yajl-devel
 
 Provides: xen-qubes-vm-essentials = %{version}-%{release}
 Obsoletes: xen-qubes-vm-essentials < 2001:4.1.2-25
@@ -72,7 +80,7 @@ This package contains the libraries needed to run Xen tools inside of Qubes VM
 %package devel
 Summary: Development libraries for Xen tools
 Group: Development/Libraries
-Requires: xen-qubes-vm-libs = %{version}-%{release}
+Requires: xen-qubes-vm-libs = %{epoch}:%{version}-%{release}
 Provides: xen-devel = %{version}-%{release}
 
 %description devel

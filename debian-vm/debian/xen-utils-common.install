@@ -1,0 +1,4 @@
+etc/xen/scripts
+etc/udev/rules.d/*.rules
+usr/lib/python2.7
+usr/sbin

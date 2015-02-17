@@ -1,0 +1,6 @@
+usr/lib/*/libxenctrl*.so
+usr/lib/*/libxenctrl.so.*
+usr/lib/*/libxenguest*.so
+usr/lib/*/libxenguest.so.*
+usr/lib/*/libxenvchan*.so
+usr/lib/*/libxenvchan.so.*

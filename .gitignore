@@ -4,4 +4,4 @@
 *.tar.*.sig*
 *.sign
 xen-?.?.?/
-
+deb/
