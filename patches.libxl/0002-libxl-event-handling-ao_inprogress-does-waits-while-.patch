@@ -1,0 +1,54 @@
+From f1335f0d7b2402e94e0c6e8a905dc309edaafcfb Mon Sep 17 00:00:00 2001
+From: Ian Jackson <ian.jackson@eu.citrix.com>
+Date: Mon, 9 Feb 2015 15:20:32 +0000
+Subject: [PATCH 2/2] libxl: event handling: ao_inprogress does waits while
+ reports outstanding
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+libxl__ao_inprogress needs to check (like
+libxl__ao_complete_check_progress_reports) that there are no
+oustanding progress callbacks.
+
+Otherwise it might happen that we would destroy the ao while another
+thread has an outstanding callback its egc report queue.  The other
+thread would then, in its egc_run_callbacks, touch the destroyed ao.
+
+Instead, when this happens in libxl__ao_inprogress, simply run round
+the event loop again.  The thread which eventually makes the callback
+will spot our poller in the ao, and notify the poller, waking us up.
+
+This fixes an assertion failure race seen with libvirt:
+  libvirtd: libxl_event.c:1792: libxl__ao_complete_check_progress_reports: Assertion `ao->in_initiator' failed.
+or (after "Add an assert to egc_run_callbacks")
+  libvirtd: libxl_event.c:1338: egc_run_callbacks: Assertion `aop->ao->magic == 0xA0FACE00ul' failed.
+
+Signed-off-by: Ian Jackson <Ian.Jackson@eu.citrix.com>
+CC: Ian Campbell <ian.campbell@citrix.com>
+CC: Wei Liu <wei.liu2@citrix.com>
+CC: Jim Fehlig <jfehlig@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_event.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/libxl/libxl_event.c b/tools/libxl/libxl_event.c
+index 89ca6d2..595da2b 100644
+--- a/tools/libxl/libxl_event.c
++++ b/tools/libxl/libxl_event.c
+@@ -1878,7 +1878,7 @@ int libxl__ao_inprogress(libxl__ao *ao,
+         for (;;) {
+             assert(ao->magic == LIBXL__AO_MAGIC);
+ 
+-            if (ao->complete) {
++            if (!ao_work_outstanding(ao)) {
+                 rc = ao->rc;
+                 ao->notified = 1;
+                 break;
+-- 
+1.8.3.1
+
