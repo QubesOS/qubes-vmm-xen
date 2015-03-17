@@ -81,6 +81,7 @@ This package contains the libraries needed to run Xen tools inside of Qubes VM
 Summary: Development libraries for Xen tools
 Group: Development/Libraries
 Requires: xen-qubes-vm-libs = %{epoch}:%{version}-%{release}
+Obsoletes: xen-devel < 2001:4.1.2-25
 Provides: xen-devel = %{version}-%{release}
 
 %description devel
