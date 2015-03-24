@@ -320,8 +320,8 @@ patch -d tools/qemu-xen-traditional -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
 %define ocaml_flags OCAML_TOOLS=n
 %endif
 %if %build_efi
-%define efi_flags LD_EFI=/usr/x86_64-w64-mingw32/bin/ld
-mkdir -p dist/install/boot/efi/efi/fedora
+%define efi_flags LD_EFI=/usr/x86_64-w64-mingw32/bin/ld EFI_VENDOR=qubes
+mkdir -p dist/install/boot/efi/efi/qubes
 %endif
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
@@ -342,7 +342,7 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_libdir}/ocaml/stublibs
 %endif
 %if %build_efi
-mkdir -p %{buildroot}/boot/efi/efi/fedora
+mkdir -p %{buildroot}/boot/efi/efi/qubes
 %endif
 make DESTDIR=%{buildroot} %{?efi_flags}  prefix=/usr install-xen
 make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-tools
@@ -747,7 +747,7 @@ rm -rf %{buildroot}
 /boot/flask/xenpolicy.*
 %endif
 %if %build_efi
-/boot/efi/EFI/fedora/*.efi
+/boot/efi/EFI/qubes/*.efi
 %endif
 
 %files doc
