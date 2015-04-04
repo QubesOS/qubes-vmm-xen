@@ -41,6 +41,7 @@ Patch113=patches.misc/libvchan-Fix-cleanup-when-xc_gntshr_open-failed.patch
 Patch114=patches.misc/0001-libvchan-Make-raw_get_-data_ready-buffer_space-match.patch
 Patch115=patches.misc/0001-linux_gntshr_munmap-munmap-takes-a-length-not-a-page.patch
 Patch116=patches.misc/xenstore-do-not-use-broken-kernel-interface.patch
+Patch117=patches.qubes/xen-hotplug-universal-vbd-script.patch
 
 
 Patch500=patches.qubes/xen-tools-qubes-vm.patch
@@ -90,6 +91,7 @@ build() {
   patch -p1 < ../$Patch114
   patch -p1 < ../$Patch115
   patch -p1 < ../$Patch116
+  patch -p1 < ../$Patch117
 
   patch -p1 < ../$Patch500
 
