@@ -96,12 +96,13 @@ $(ALL_FILES):
 	@wget -qN $(ALL_URLS)
 
 import-keys:
-	@gpg -q --import *-key.asc
+	@if [ -n "$$GNUPGHOME" ]; then rm -f "$$GNUPGHOME/vmm-xen-trustedkeys.gpg"; fi
+	@gpg --no-auto-check-trustdb --no-default-keyring --keyring vmm-xen-trustedkeys.gpg -q --import *-key.asc
 
 verify-sources: import-keys verify-sources-sig verify-sources-sum
 
 verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE)
-	@for f in $^; do gpg --verify $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
+	@for f in $^; do gpgv --keyring vmm-xen-trustedkeys.gpg $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
 
 verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE)
 	@for f in $^; do sha1sum --quiet -c $$f.sha1sum || exit 1; done
