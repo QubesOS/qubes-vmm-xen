@@ -1,109 +1,139 @@
-diff -ru xen/xen-4.1.1/tools/libxl/libxl.c xen-hvm/xen-4.1.1/tools/libxl/libxl.c
---- xen/xen-4.1.1/tools/libxl/libxl.c	2011-10-12 15:53:38.780000594 +0200
-+++ xen-hvm/xen-4.1.1/tools/libxl/libxl.c	2012-02-22 02:06:57.188002819 +0100
-@@ -673,10 +673,12 @@
-     sscanf(backend,
-             "/local/domain/%d/backend/%" TOSTRING(BACKEND_STRING_SIZE) "[a-z]/%*d/%*d",
-             &disk->backend_domid, backend_type);
--	if (!strcmp(backend_type, "tap") || !strcmp(backend_type, "vbd")) {
-+	if (!strcmp(backend_type, "tap")) {
- 		disk->backend = DISK_BACKEND_TAP;
- 	} else if (!strcmp(backend_type, "qdisk")) {
- 		disk->backend = DISK_BACKEND_QDISK;
-+	} else if (!strcmp(backend_type, "vbd")) {
-+		disk->backend = DISK_BACKEND_PHY;
- 	} else {
- 		disk->backend = DISK_BACKEND_UNKNOWN;
- 	} 
-@@ -1788,7 +1790,7 @@
-             else
-                 pdisk->readwrite = 0;
-             type = libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/device-type", libxl__xs_read(&gc, XBT_NULL, libxl__sprintf(&gc, "%s/%s/frontend", be_path, *dir))));
--            pdisk->is_cdrom = !strcmp(type, "cdrom");
-+            pdisk->is_cdrom = type && !strcmp(type, "cdrom");
-         }
+From 2c3c884dcc2e4e895fa96a3a66930d54f11646e1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 21 Apr 2015 03:50:04 +0200
+Subject: [PATCH 1/2] libxl: do not start dom0 qemu when not needed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Use xen-blkback for 'vbd' disk types by default and do not setup vfb+vkb
+when no access method was configured. Then check if qemu is really
+needed.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c    |  4 +++-
+ tools/libxl/libxl_dm.c | 51 ++++++++++++++++++++++++++++++++++++--------------
+ 2 files changed, 40 insertions(+), 15 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 34bcbf2..66a3ded 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -1161,10 +1161,12 @@ static void disk_eject_xswatch_callback(libxl__egc *egc, libxl__ev_xswatch *w,
+             "/local/domain/%d/backend/%" TOSTRING(BACKEND_STRING_SIZE)
+            "[a-z]/%*d/%*d",
+            &disk->backend_domid, backend_type);
+-    if (!strcmp(backend_type, "tap") || !strcmp(backend_type, "vbd")) {
++    if (!strcmp(backend_type, "tap")) {
+         disk->backend = LIBXL_DISK_BACKEND_TAP;
+     } else if (!strcmp(backend_type, "qdisk")) {
+         disk->backend = LIBXL_DISK_BACKEND_QDISK;
++    } else if (!strcmp(backend_type, "vbd")) {
++        disk->backend = LIBXL_DISK_BACKEND_PHY;
+     } else {
+         disk->backend = LIBXL_DISK_BACKEND_UNKNOWN;
      }
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index 4dbfddc..52e7592 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -960,13 +960,16 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+     ret = libxl__domain_build_info_setdefault(gc, &dm_config->b_info);
+     if (ret) goto out;
  
-diff -ru xen/xen-4.1.1/tools/libxl/libxl_dm.c xen-hvm/xen-4.1.1/tools/libxl/libxl_dm.c
---- xen/xen-4.1.1/tools/libxl/libxl_dm.c	2012-02-22 00:13:13.932004341 +0100
-+++ xen-hvm/xen-4.1.1/tools/libxl/libxl_dm.c	2012-02-22 18:18:09.128004600 +0100
-@@ -520,6 +520,8 @@
-     xs_set_permissions(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/0/device-model/%d", info->domid), perm, ARRAY_SIZE(perm));
-     xs_mkdir(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vfs", domid));
-     xs_set_permissions(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vfs",domid), perm, ARRAY_SIZE(perm));
-+    xs_mkdir(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vchan", domid));
-+    xs_set_permissions(ctx->xsh, t, libxl__sprintf(&gc, "/local/domain/%d/device/vchan",domid), perm, ARRAY_SIZE(perm));
-     if (!xs_transaction_end(ctx->xsh, t, 0))
-         if (errno == EAGAIN)
-             goto retry_transaction;
-@@ -536,14 +538,16 @@
-         if (ret)
-             goto out_free;
-     }
--    vfb->domid = domid;
--    ret = libxl_device_vfb_add(ctx, domid, vfb);
--    if (ret)
--        goto out_free;
--    vkb->domid = domid;
--    ret = libxl_device_vkb_add(ctx, domid, vkb);
--    if (ret)
--        goto out_free;
-+    if (vfb && vkb) {
-+        vfb->domid = domid;
-+        ret = libxl_device_vfb_add(ctx, domid, vfb);
-+        if (ret)
-+            goto out_free;
-+        vkb->domid = domid;
-+        ret = libxl_device_vkb_add(ctx, domid, vkb);
-+        if (ret)
-+            goto out_free;
+-    GCNEW(vfb);
+-    GCNEW(vkb);
+-    libxl__vfb_and_vkb_from_hvm_guest_config(gc, guest_config, vfb, vkb);
+-    dm_config->vfbs = vfb;
+-    dm_config->num_vfbs = 1;
+-    dm_config->vkbs = vkb;
+-    dm_config->num_vkbs = 1;
++    if (libxl_defbool_val(guest_config->b_info.u.hvm.vnc.enable) ||
++            libxl_defbool_val(guest_config->b_info.u.hvm.sdl.enable)) {
++        GCNEW(vfb);
++        GCNEW(vkb);
++        libxl__vfb_and_vkb_from_hvm_guest_config(gc, guest_config, vfb, vkb);
++        dm_config->vfbs = vfb;
++        dm_config->num_vfbs = 1;
++        dm_config->vkbs = vkb;
++        dm_config->num_vkbs = 1;
 +    }
  
-     if (info->serial)
-         num_console++;
-@@ -587,13 +591,15 @@
+     stubdom_state->pv_kernel.path
+         = libxl__abs_path(gc, "ioemu-stubdom.gz", libxl__xenfirmwaredir_path());
+@@ -1051,6 +1054,7 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+     libxl__domain_build_state *const d_state = sdss->dm.build_state;
+     libxl__domain_build_state *const stubdom_state = &sdss->dm_state;
+     uint32_t dm_domid = sdss->pvqemu.guest_domid;
++    int need_qemu;
+ 
+     if (ret) {
+         LOG(ERROR, "error connecting disk devices");
+@@ -1066,12 +1070,16 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
          if (ret)
-             goto out_free;
+             goto out;
      }
--    if (libxl__create_xenpv_qemu(ctx, domid, vfb, &dm_starting) < 0) {
--        ret = ERROR_FAIL;
--        goto out_free;
--    }
--    if (libxl__confirm_device_model_startup(ctx, dm_starting) < 0) {
--        ret = ERROR_FAIL;
--        goto out_free;
-+    if (libxl__need_xenpv_qemu(ctx, num_console, console, vfb ? 1 : 0, vfb, num_disks, disks)) {
-+        if (libxl__create_xenpv_qemu(ctx, domid, vfb, &dm_starting) < 0) {
-+            ret = ERROR_FAIL;
-+            goto out_free;
-+        }
-+        if (libxl__confirm_device_model_startup(ctx, dm_starting) < 0) {
-+            ret = ERROR_FAIL;
-+            goto out_free;
-+        }
-     }
+-    ret = libxl__device_vfb_add(gc, dm_domid, &dm_config->vfbs[0]);
+-    if (ret)
+-        goto out;
+-    ret = libxl__device_vkb_add(gc, dm_domid, &dm_config->vkbs[0]);
+-    if (ret)
+-        goto out;
++    if (dm_config->num_vfbs) {
++        ret = libxl__device_vfb_add(gc, dm_domid, &dm_config->vfbs[0]);
++        if (ret)
++            goto out;
++    }
++    if (dm_config->num_vkbs) {
++        ret = libxl__device_vkb_add(gc, dm_domid, &dm_config->vkbs[0]);
++        if (ret)
++            goto out;
++    }
  
-     libxl_domain_unpause(ctx, domid);
-@@ -631,11 +637,18 @@
-     char **pass_stuff;
+     if (guest_config->b_info.u.hvm.serial)
+         num_console++;
+@@ -1098,6 +1106,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+                 libxl_create_logfile(ctx, name, &filename);
+                 console[i].output = libxl__sprintf(gc, "file:%s", filename);
+                 free(filename);
++                /* will be changed back to LIBXL__CONSOLE_BACKEND_IOEMU if qemu
++                 * will be in use */
++                console[i].consback = LIBXL__CONSOLE_BACKEND_XENCONSOLED;
+                 break;
+             case STUBDOM_CONSOLE_SAVE:
+                 console[i].output = libxl__sprintf(gc, "file:%s",
+@@ -1112,6 +1123,13 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+                 console[i].output = "pty";
+                 break;
+         }
++    }
++
++    need_qemu = libxl__need_xenpv_qemu(gc, num_console, console,
++            dm_config->num_vfbs, dm_config->vfbs,
++            dm_config->num_disks, dm_config->disks);
++
++    for (i = 0; i < num_console; i++) {
+         ret = libxl__device_console_add(gc, dm_domid, &console[i],
+                         i == STUBDOM_CONSOLE_LOGGING ? stubdom_state : NULL);
+         if (ret)
+@@ -1124,7 +1142,12 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+     sdss->pvqemu.build_state = &sdss->dm_state;
+     sdss->pvqemu.callback = spawn_stubdom_pvqemu_cb;
  
-     if (strstr(info->device_model, "stubdom-dm")) {
--        libxl_device_vfb vfb;
--        libxl_device_vkb vkb;
-+        libxl_device_vfb vfb, *vfb_p;
-+        libxl_device_vkb vkb, *vkb_p;
+-    libxl__spawn_local_dm(egc, &sdss->pvqemu);
++    if (!need_qemu) {
++        /* If dom0 qemu not needed, do not launch it */
++        spawn_stubdom_pvqemu_cb(egc, &sdss->pvqemu, 0);
++    } else {
++        libxl__spawn_local_dm(egc, &sdss->pvqemu);
++    }
  
--        libxl_vfb_and_vkb_from_device_model_info(ctx, info, &vfb, &vkb);
--        rc = libxl_create_stubdom(ctx, info, disks, num_disks, vifs, num_vifs, &vfb, &vkb, starting_r);
-+        if (info->vnc || info->sdl) {
-+            libxl_vfb_and_vkb_from_device_model_info(ctx, info, &vfb, &vkb);
-+            vfb_p = &vfb;
-+            vkb_p = &vkb;
-+        } else {
-+            vfb_p = NULL;
-+            vkb_p = NULL;
-+        }
-+        rc = libxl_create_stubdom(ctx, info, disks, num_disks, vifs, num_vifs, vfb_p, vkb_p, starting_r);
-         goto out;
-     }
+     return;
  
+-- 
+2.1.0
+

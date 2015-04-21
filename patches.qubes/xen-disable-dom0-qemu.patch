@@ -1,92 +1,37 @@
-diff -urp xen-4.2.2.orig/tools/libxl/libxl_dm.c xen-4.2.2/tools/libxl/libxl_dm.c
---- xen-4.2.2.orig/tools/libxl/libxl_dm.c	2013-04-23 18:42:55.000000000 +0200
-+++ xen-4.2.2/tools/libxl/libxl_dm.c	2013-05-06 01:18:51.895923575 +0200
-@@ -641,6 +641,8 @@ static void libxl__dm_vifs_from_hvm_gues
-     dm_config->num_nics = nr;
- }
- 
-+#if 0
-+/* Disabled in Qubes */
- static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
-                                         const libxl_domain_config *guest_config,
-                                         libxl_device_vfb *vfb,
-@@ -664,6 +666,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
-     vkb->devid = 0;
-     return 0;
- }
-+#endif
- 
- static int libxl__write_stub_dmargs(libxl__gc *gc,
-                                     int dm_domid, int guest_domid,
-@@ -740,8 +743,11 @@ void libxl__spawn_stub_dm(libxl__egc *eg
-     STATE_AO_GC(sdss->dm.spawn.ao);
-     libxl_ctx *ctx = libxl__gc_owner(gc);
-     int ret;
-+#if 0
-+    /* Disabled in Qubes */
-     libxl_device_vfb *vfb;
-     libxl_device_vkb *vkb;
-+#endif
-     char **args;
-     struct xs_permissions perm[2];
-     xs_transaction_t t;
-@@ -799,6 +805,8 @@ void libxl__spawn_stub_dm(libxl__egc *eg
-     ret = libxl__domain_build_info_setdefault(gc, &dm_config->b_info);
-     if (ret) goto out;
- 
-+#if 0
-+    /* Disabled in Qubes */
-     GCNEW(vfb);
-     GCNEW(vkb);
-     libxl__vfb_and_vkb_from_hvm_guest_config(gc, guest_config, vfb, vkb);
-@@ -806,6 +814,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
-     dm_config->num_vfbs = 1;
-     dm_config->vkbs = vkb;
-     dm_config->num_vkbs = 1;
-+#endif
- 
-     stubdom_state->pv_kernel.path
-         = libxl__abs_path(gc, "ioemu-stubdom.gz", libxl__xenfirmwaredir_path());
-@@ -908,16 +917,22 @@ static void spawn_stub_launch_dm(libxl__
-         if (ret)
-             goto out;
-     }
-+#if 0
-+    /* Disabled in Qubes */
-     ret = libxl__device_vfb_add(gc, dm_domid, &dm_config->vfbs[0]);
-     if (ret)
-         goto out;
-     ret = libxl__device_vkb_add(gc, dm_domid, &dm_config->vkbs[0]);
-     if (ret)
-         goto out;
-+#endif
+From 14478dbf57ce8a8f06d299a7a4ad45fc05a60203 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 21 Apr 2015 03:56:36 +0200
+Subject: [PATCH 2/2] libxl: do not start qemu in dom0 if possible
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+After previous patch, the only trigger for dom0 qemu is number of
+consoles. So if no additional serial console is defined, drop
+save/restore stubdom channels as a price for no qemu in dom0.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dm.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index 52e7592..86f16bc 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1083,6 +1083,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
  
      if (guest_config->b_info.u.hvm.serial)
          num_console++;
++    else
++        /* Qubes hack */
++        num_console = 1;
  
-+    /* Qubes hack */
-+    num_console = 1;
-+
      console = libxl__calloc(gc, num_console, sizeof(libxl__device_console));
      if (!console) {
-         ret = ERROR_NOMEM;
-@@ -940,6 +955,8 @@ static void spawn_stub_launch_dm(libxl__
-                 libxl_create_logfile(ctx, name, &filename);
-                 console[i].output = libxl__sprintf(gc, "file:%s", filename);
-                 free(filename);
-+                /* Qubes hack */
-+                console[i].consback = LIBXL__CONSOLE_BACKEND_XENCONSOLED;
-                 break;
-             case STUBDOM_CONSOLE_SAVE:
-                 console[i].output = libxl__sprintf(gc, "file:%s",
-@@ -954,6 +983,10 @@ static void spawn_stub_launch_dm(libxl__
-     sdss->pvqemu.build_state = &sdss->dm_state;
-     sdss->pvqemu.callback = spawn_stubdom_pvqemu_cb;
- 
-+    /* Qubes hack */
-+    spawn_stubdom_pvqemu_cb(egc, &sdss->pvqemu, 0);
-+    return;
-+
-     libxl__spawn_local_dm(egc, &sdss->pvqemu);
- 
-     return;
+-- 
+2.1.0
+
