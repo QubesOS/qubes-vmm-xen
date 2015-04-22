@@ -1,3 +1,53 @@
+xen (2001:4.4.2-3) wheezy; urgency=medium
+
+  * version 4.4.2-3
+  * Fix handling block backend for file-backed disks
+
+ -- Jason Mehring <nrgaway@gmail.com>  Sat, 04 Apr 2015 00:00:00 -0400
+
+xen (2001:4.4.2-2) wheezy; urgency=medium
+  * version 4.4.2-2
+  * archlinux: update patch list
+
+ -- Jason Mehring <nrgaway@gmail.com>  Wed, 01 Apr 2015 00:00:00 -0400
+
+xen (2001:4.4.2-1) wheezy; urgency=medium
+  * version 4.4.2-1
+  * Change EFI vendor name to 'qubes'
+  * Do not use broken xenstore kernel interface
+  * Added Obsoletes: xen-devel < 2001:4.1.2-25 to
+    xen-dev package details to prevent newer versions conflicts (4.5.0-2.fc22)
+  * debian: Removed verbose flag from tar when creating and extracting quilt
+    packages
+  * Remove already applied part of libxc patch
+  * Backport a memleak fix in libxenvchan code
+  * libxl: fix crash (use after free) in HVM domain start path
+  * debian: Add missing build depend: dh-python
+  * debian: Modify Makefile.builder to tar and .orig file
+    for debian quilt so recently added version link will be included in
+    build
+  * debian: Linked to version in root directory to enable
+    debchange to determine real vesion within the nested debian-vm
+    folder
+  * debian: qubuntu: Updated depends for qubuntu
+  * debian: wheezy: Needed to seperate some of the depends due to package
+    naming differences
+  * debian: Refactored Debian packaging again to use xen namespace with
+    high epoc
+  * debian: Modified copy-in for patches
+    not to fail if no patch script exists to allow removing patches in
+    future
+  * debian:  Added deb to .gitignore list
+  * debian:  Combined ifeq check in Makefile.builder to logical 'OR' test
+    for debian/qubuntu
+  * libxl: update loop dev info
+  * libxl: implement VM suspend to mem (not only to disk)
+  * Refactor Debian quilt packaging for xen
+  * debian:  Added a quilt Debain package to build some required xen packages
+  * Add some missing depends so vmm-xen-vm can compile
+
+ -- Jason Mehring <nrgaway@gmail.com>  Thu, 26 Mar 2015 00:00:00 -0400
+
 xen (2001:4.4.1-6) unstable; urgency=low
 
   * Initial version.
