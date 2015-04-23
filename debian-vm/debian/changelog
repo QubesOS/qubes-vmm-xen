@@ -1,3 +1,15 @@
+xen (2001:4.4.2-4) wheezy; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Use "gpgv" to verify source archive signatures
+  * Remove old, compromised kernel.org key
+  * Update patches disabling qemu in dom0
+
+  [ Jason Mehring ]
+  * debian: Update changelog
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 23 Apr 2015 05:13:59 +0200
+
 xen (2001:4.4.2-3) wheezy; urgency=medium
 
   * version 4.4.2-3
