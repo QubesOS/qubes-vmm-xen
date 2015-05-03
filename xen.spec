@@ -60,7 +60,7 @@ Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
-Source1: %{name}.modules
+Source1: %{name}.modules-load.conf
 Source2: %{name}.logrotate
 # used by stubdoms
 Source10: lwip-1.3.0.tar.gz
@@ -422,8 +422,8 @@ rm -f %{buildroot}%{_mandir}/man5/xmdomain.cfg.5
 rm -f %{buildroot}/etc/udev/rules.d/xend.rules
 
 # modules
-mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/modules
-install -m 644 %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/modules/%{name}.modules
+mkdir -p %{buildroot}/usr/lib/modules-load.d
+install -m 644 %{SOURCE1} %{buildroot}/usr/lib/modules-load.d/%{name}.conf
 
 # logrotate
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
@@ -641,7 +641,7 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/xen/xlexample*
 
 # Auto-load xen backend drivers
-%attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
+%attr(0755,root,root) /usr/lib/modules-load.d/%{name}.conf
 
 # Rotate console log files
 %config(noreplace) %{_sysconfdir}/logrotate.d/xen
