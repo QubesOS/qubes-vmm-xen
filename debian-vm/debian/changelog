@@ -1,3 +1,11 @@
+xen (2001:4.4.2-5) wheezy; urgency=medium
+
+  * debian: symlink 'rel' for debian-changelog.sh
+  * Use modules-load.d instead of sysconfig/modules, do not mount
+    /proc/xen manually
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 04 May 2015 02:43:02 +0200
+
 xen (2001:4.4.2-4) wheezy; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
