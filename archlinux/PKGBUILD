@@ -125,6 +125,9 @@ package() {
   # Remove /var/lock (it is tmpfs in archlinux anyway)
   rm -rf $pkgdir/var/lock
 
+  # Archlinux specific
+  # Change /var/run to /run as it is handled as a symlink by archlinux filesystem package
+  mv $pkgdir/var/run $pkgdir/
 
 }
 
