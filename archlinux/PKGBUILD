@@ -25,29 +25,7 @@ options=()
 install=
 changelog=
 
-Patch4=patches.fedora/xen-dumpdir.patch
-Patch5=patches.fedora/xen-net-disable-iptables-on-bridge.patch
-
-Patch10=patches.misc/xen-no-werror.patch
-
-Patch28=patches.fedora/pygrubfix.patch
-Patch31=patches.qubes/xen-shared-loop-losetup.patch
-
-Patch101=patches.qubes/xen-no-downloads.patch
-
-Patch111=patches.qubes/xen-hotplug-external-store.patch
-Patch112=patches.misc/0101-libvchan-create-xenstore-entries-in-one-transaction.patch
-Patch113=patches.misc/libvchan-Fix-cleanup-when-xc_gntshr_open-failed.patch
-Patch114=patches.misc/0001-libvchan-Make-raw_get_-data_ready-buffer_space-match.patch
-Patch115=patches.misc/0001-linux_gntshr_munmap-munmap-takes-a-length-not-a-page.patch
-Patch116=patches.misc/xenstore-do-not-use-broken-kernel-interface.patch
-Patch117=patches.qubes/xen-hotplug-universal-vbd-script.patch
-
-
-Patch500=patches.qubes/xen-tools-qubes-vm.patch
-
-
-source=(xen-$pkgver.tar.gz )
+source=(xen-$pkgver.tar.gz series-vm.conf apply-patches)
 
 noextract=()
 md5sums=() #generate with 'makepkg -g'
@@ -55,45 +33,15 @@ md5sums=() #generate with 'makepkg -g'
 
 build() {
 
-  for patch in $Patch1 $Patch4 $Patch5 \
-  $Patch10 \
-  $Patch28 $Patch31 \
-  $Patch101 \
-  $Patch111 \
-  $Patch112 \
-  $Patch113 \
-  $Patch114 \
-  $Patch115 \
-  $Patch116 \
-  $Patch500; do
-    mkdir -p `dirname $patch`
-    ln -s $srcdir/../$patch $srcdir/$patch
-  done
-  
-
   export PYTHON=/usr/bin/python2
 
   cd xen-$pkgver
-  patch -p1 < ../$Patch1
-  patch -p1 < ../$Patch4
-  patch -p1 < ../$Patch5
 
-  patch -p1 < ../$Patch10
+  ln -s $srcdir/../patches.fedora patches.fedora
+  ln -s $srcdir/../patches.misc patches.misc
+  ln -s $srcdir/../patches.qubes patches.qubes
 
-  patch -p1 < ../$Patch28
-  patch -p1 < ../$Patch31
-
-  patch -p1 < ../$Patch101
-
-  patch -p1 < ../$Patch111
-  patch -p1 < ../$Patch112
-  patch -p1 < ../$Patch113
-  patch -p1 < ../$Patch114
-  patch -p1 < ../$Patch115
-  patch -p1 < ../$Patch116
-  patch -p1 < ../$Patch117
-
-  patch -p1 < ../$Patch500
+  $srcdir/apply-patches $srcdir/series-vm.conf .  
 
   export XEN_VENDORVERSION="-$pkgrel"
   export OCAML_TOOLS=n
