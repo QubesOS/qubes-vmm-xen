@@ -284,6 +284,15 @@ Version: %{version}gui%{version_gui}
 %description hvm
 This package contains files for HVM domains, especially stubdomain with device model.
 
+%package qemu-tools
+Summary: Qemu disk tools bundled with Xen
+Requires: xen-hvm = %{version}-%{release}
+Provides: qemu-img
+Conflicts: qemu-img
+
+%description qemu-tools
+This package contains symlinks to qemu tools (qemu-img, qemu-nbd, qemu-io)
+budled with Xen, making them available for general use.
 
 %prep
 %setup -q
@@ -358,6 +367,11 @@ mv %{buildroot}/boot/xenpolicy.* %{buildroot}/boot/flask
 %else
 rm -f %{buildroot}/boot/xenpolicy.*
 %endif
+
+# qemu symlinks
+ln -s ../lib/%{name}/bin/qemu-img %{buildroot}/usr/bin/
+ln -s ../lib/%{name}/bin/qemu-io  %{buildroot}/usr/bin/
+ln -s ../lib/%{name}/bin/qemu-nbd %{buildroot}/usr/bin/
 
 ############ debug packaging: list files ############
 
@@ -813,6 +827,11 @@ rm -rf %{buildroot}
 /usr/lib/xen/boot/vtpm-stubdom.gz
 /usr/lib/xen/boot/vtpmmgr-stubdom.gz
 %endif
+
+%files qemu-tools
+/usr/bin/qemu-img
+/usr/bin/qemu-io
+/usr/bin/qemu-nbd
 
 %changelog
 * Sun May 11 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-4
