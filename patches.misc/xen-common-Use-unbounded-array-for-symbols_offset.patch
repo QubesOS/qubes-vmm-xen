@@ -1,0 +1,27 @@
+commit 3f82ea62826d4eb06002d8dba475bafcc454b845
+Author: Ian Campbell <ian.campbell@citrix.com>
+Date:   Fri Mar 13 12:22:25 2015 +0000
+
+    xen: common: Use unbounded array for symbols_offset.
+    
+    Using a singleton array causes gcc5 to report:
+    symbols.c: In function 'symbols_lookup':
+    symbols.c:128:359: error: array subscript is above array bounds [-Werror=array-bounds]
+    symbols.c:136:176: error: array subscript is above array bounds [-Werror=array-bounds]
+    
+    Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+    Acked-by: Jan Beulich <jbeulich@suse.com>
+
+diff --git a/xen/common/symbols.c b/xen/common/symbols.c
+index bc2fde6..fc7c9e7 100644
+--- a/xen/common/symbols.c
++++ b/xen/common/symbols.c
+@@ -19,7 +19,7 @@
+ #include <xen/spinlock.h>
+ 
+ #ifdef SYMBOLS_ORIGIN
+-extern const unsigned int symbols_offsets[1];
++extern const unsigned int symbols_offsets[];
+ #define symbols_address(n) (SYMBOLS_ORIGIN + symbols_offsets[n])
+ #else
+ extern const unsigned long symbols_addresses[];
