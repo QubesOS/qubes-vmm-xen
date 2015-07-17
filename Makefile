@@ -16,7 +16,7 @@ RELEASE := $(shell cat rel)
 
 DIST_DOM0 ?= fc13
 
-DISTFILES_MIRROR := http://sourceforge.net/projects/qubesos/files/distfiles/
+DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
 NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
 RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
