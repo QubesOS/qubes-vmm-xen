@@ -1,3 +1,19 @@
+xen (2001:4.4.2-6) wheezy; urgency=medium
+
+  [ Olivier MEDOC ]
+  * Use fedora patching script instead of specifiying each patch one by
+    one
+  * archlinux: Change /var/run to /run as it is handled as a symlink by
+    archlinux filesystem package
+
+  [ Marek Marczykowski-Górecki ]
+  * Add xen-qemu-tools package, which provide qemu-* tools in /usr/bin
+  * Fix compile warning
+  * Migrate out of sf.net with distfiles mirror
+  * Increase stubdom memory allocation based on video ram size
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 23 Jul 2015 21:56:12 +0200
+
 xen (2001:4.4.2-5) wheezy; urgency=medium
 
   * debian: symlink 'rel' for debian-changelog.sh
