@@ -1,0 +1,11 @@
+--- a/tools/libxl/libxl_dm.c	2015-07-09 21:36:20.195000000 -0400
++++ b/tools/libxl/libxl_dm.c	2015-07-10 10:04:51.126000000 -0400
+@@ -935,6 +935,8 @@
+ 
+     dm_config->b_info.max_vcpus = 1;
+     dm_config->b_info.max_memkb = 32 * 1024;
++    if (guest_config->b_info.video_memkb > 4096)
++        dm_config->b_info.max_memkb += guest_config->b_info.video_memkb - 4096;
+     dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
+ 
+     dm_config->b_info.u.pv.features = "";
