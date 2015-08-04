@@ -36,6 +36,7 @@ Build-Depends:
 X-Python-Version: 2.7
 X-Qubes-Build-Depends-wheezy: python-dev
 X-Qubes-Build-Depends-jessie: libpython2.7-dev
+X-Qubes-Build-Depends-stretch: libpython2.7-dev
 X-Qubes-Build-Depends-qubuntu: libpython2.7-dev
 Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
