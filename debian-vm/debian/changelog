@@ -1,3 +1,16 @@
+xen (2001:4.4.2-7) wheezy; urgency=medium
+
+  [ Olivier MEDOC ]
+  * archlinux: update PKGBUILD dependencies to match fedora ones
+
+  [ Jason Mehring ]
+  * Initial implementation of Debian stretch
+
+  [ Marek Marczykowski-Górecki ]
+  * hotplug: Fix handling block backend paths with spaces
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 05 Sep 2015 01:10:33 +0200
+
 xen (2001:4.4.2-6) wheezy; urgency=medium
 
   [ Olivier MEDOC ]
