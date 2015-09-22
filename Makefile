@@ -91,6 +91,7 @@ ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
 endif
 
 get-sources: $(ALL_FILES)
+	git submodule update --init --recursive
 
 $(ALL_FILES):
 	@wget -qN $(ALL_URLS)

@@ -1,0 +1,9 @@
+[submodule "gui"]
+	path = gui-agent-xen-hvm-stubdom
+	url = git://github.com/QubesOS/qubes-gui-agent-xen-hvm-stubdom
+[submodule "gui-common"]
+	path = gui-common
+	url = git://github.com/QubesOS/qubes-gui-common
+[submodule "core-vchan-xen"]
+	path = core-vchan-xen
+	url = git://github.com/QubesOS/qubes-core-vchan-xen

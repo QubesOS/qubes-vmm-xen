@@ -47,8 +47,6 @@
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
-%{!?version_gui: %define version_gui %(cat gui/version 2> /dev/null || cat ../gui-agent-xen-hvm-stubdom/version)}
-
 %define _sourcedir %(pwd)
 
 Summary: Xen is a virtual machine monitor
@@ -84,9 +82,10 @@ Source31: sysconfig.xenconsoled
 Source32: sysconfig.blktapctrl
 
 # Qubes components for stubdom
-Source33: gui
-Source34: vchan
+Source33: gui-agent-xen-hvm-stubdom
+Source34: core-vchan-xen
 Source35: stubdom-dhcp
+Source36: gui-common
 
 # systemd bits
 Source40: proc-xen.mount
@@ -279,7 +278,6 @@ manage Xen virtual machines.
 Summary: Loader and device-model for HVM
 Requires: xen-libs = %{version}-%{release}
 Requires: xen-runtime = %{version}-%{release}
-Version: %{version}gui%{version_gui}
 
 %description hvm
 This package contains files for HVM domains, especially stubdomain with device model.
@@ -313,8 +311,9 @@ cp -v %{SOURCE15} %{SOURCE16} %{SOURCE18} stubdom
 # qubes specific parts of stubdom
 mkdir tools/qubes-gui/
 cp -a %{SOURCE33}/* tools/qubes-gui/
+cp -a %{SOURCE36}/include/qubes-gui*.h tools/qubes-gui/include/
 make -C tools/qubes-gui clean
-cp -a %{SOURCE34} tools/
+cp -a %{SOURCE34}/vchan tools/
 make -C tools/vchan -f Makefile.stubdom clean
 sed -e 's/ioemu-qemu-xen/qemu-xen-traditional/g' tools/qubes-gui/gui-agent-qemu/qemu-glue.patch | patch -p1
 
