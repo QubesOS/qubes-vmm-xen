@@ -187,6 +187,7 @@ Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
 Requires: xen-licenses
 Provides: xen-libs = %{version}-%{release}
+Obsoletes: xen-qubes-vm-libs < %{epoch}:%{version}-%{release}
 
 %description libs
 This package contains the libraries needed to run applications
@@ -291,6 +292,15 @@ Conflicts: qemu-img
 %description qemu-tools
 This package contains symlinks to qemu tools (qemu-img, qemu-nbd, qemu-io)
 budled with Xen, making them available for general use.
+
+%package qubes-vm
+Summary: Xen files required in Qubes VM
+Requires: xen-libs = %{epoch}:%{version}-%{release}
+Conflicts: xen
+Provides: xen-qubes-vm-essentials = %{epoch}:%{version}-%{release}
+
+%description qubes-vm
+Just a few xenstore-* tools and Xen hotplug scripts needed by Qubes VMs
 
 %prep
 %setup -q
@@ -831,6 +841,33 @@ rm -rf %{buildroot}
 /usr/bin/qemu-img
 /usr/bin/qemu-io
 /usr/bin/qemu-nbd
+
+%files qubes-vm
+%{_bindir}/xenstore
+%{_bindir}/xenstore-*
+
+# Hotplug rules
+%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
+
+%dir %attr(0700,root,root) %{_sysconfdir}/xen
+%dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
+%config %attr(0700,root,root) %{_sysconfdir}/xen/scripts/*
+
+# General Xen state
+%dir %{_localstatedir}/lib/xen
+%dir %{_localstatedir}/lib/xen/dump
+
+# Xen logfiles
+%dir %attr(0700,root,root) %{_localstatedir}/log/xen
+
+# Python modules
+%dir %{python_sitearch}/xen
+%{python_sitearch}/xen/__init__.*
+%{python_sitearch}/xen/lowlevel
+
+%{python_sitearch}/xen/util
+%{python_sitearch}/xen-*.egg-info
+
 
 %changelog
 * Sun May 11 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-4
