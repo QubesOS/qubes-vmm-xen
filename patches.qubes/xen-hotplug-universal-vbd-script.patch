@@ -51,7 +51,7 @@ module and supported by libxl at the same time.
          claim_lock "block"
 -        node=$(cat "$HOTPLUG_STORE-node")
 -        losetup -d "$node"
-+        node=$(cat "$HOTPLUG_STORE-node" 2>/dev/null)
++        node=$(cat "$HOTPLUG_STORE-node" 2>/dev/null || :)
 +        if [ -n "$node" ]; then
 +          losetup -d "$node"
 +        fi
