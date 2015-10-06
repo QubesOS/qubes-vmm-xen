@@ -47,8 +47,6 @@
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
-%{!?version_gui: %define version_gui %(cat gui/version 2> /dev/null || cat ../gui-agent-xen-hvm-stubdom/version)}
-
 %define _sourcedir %(pwd)
 
 Summary: Xen is a virtual machine monitor
@@ -84,9 +82,10 @@ Source31: sysconfig.xenconsoled
 Source32: sysconfig.blktapctrl
 
 # Qubes components for stubdom
-Source33: gui
-Source34: vchan
+Source33: gui-agent-xen-hvm-stubdom
+Source34: core-vchan-xen
 Source35: stubdom-dhcp
+Source36: gui-common
 
 # systemd bits
 Source40: proc-xen.mount
@@ -188,6 +187,7 @@ Requires(pre): /sbin/ldconfig
 Requires(post): /sbin/ldconfig
 Requires: xen-licenses
 Provides: xen-libs = %{version}-%{release}
+Obsoletes: xen-qubes-vm-libs < %{epoch}:%{version}-%{release}
 
 %description libs
 This package contains the libraries needed to run applications
@@ -279,7 +279,6 @@ manage Xen virtual machines.
 Summary: Loader and device-model for HVM
 Requires: xen-libs = %{version}-%{release}
 Requires: xen-runtime = %{version}-%{release}
-Version: %{version}gui%{version_gui}
 
 %description hvm
 This package contains files for HVM domains, especially stubdomain with device model.
@@ -293,6 +292,15 @@ Conflicts: qemu-img
 %description qemu-tools
 This package contains symlinks to qemu tools (qemu-img, qemu-nbd, qemu-io)
 budled with Xen, making them available for general use.
+
+%package qubes-vm
+Summary: Xen files required in Qubes VM
+Requires: xen-libs = %{epoch}:%{version}-%{release}
+Conflicts: xen
+Provides: xen-qubes-vm-essentials = %{epoch}:%{version}-%{release}
+
+%description qubes-vm
+Just a few xenstore-* tools and Xen hotplug scripts needed by Qubes VMs
 
 %prep
 %setup -q
@@ -313,8 +321,9 @@ cp -v %{SOURCE15} %{SOURCE16} %{SOURCE18} stubdom
 # qubes specific parts of stubdom
 mkdir tools/qubes-gui/
 cp -a %{SOURCE33}/* tools/qubes-gui/
+cp -a %{SOURCE36}/include/qubes-gui*.h tools/qubes-gui/include/
 make -C tools/qubes-gui clean
-cp -a %{SOURCE34} tools/
+cp -a %{SOURCE34}/vchan tools/
 make -C tools/vchan -f Makefile.stubdom clean
 sed -e 's/ioemu-qemu-xen/qemu-xen-traditional/g' tools/qubes-gui/gui-agent-qemu/qemu-glue.patch | patch -p1
 
@@ -832,6 +841,33 @@ rm -rf %{buildroot}
 /usr/bin/qemu-img
 /usr/bin/qemu-io
 /usr/bin/qemu-nbd
+
+%files qubes-vm
+%{_bindir}/xenstore
+%{_bindir}/xenstore-*
+
+# Hotplug rules
+%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
+
+%dir %attr(0700,root,root) %{_sysconfdir}/xen
+%dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
+%config %attr(0700,root,root) %{_sysconfdir}/xen/scripts/*
+
+# General Xen state
+%dir %{_localstatedir}/lib/xen
+%dir %{_localstatedir}/lib/xen/dump
+
+# Xen logfiles
+%dir %attr(0700,root,root) %{_localstatedir}/log/xen
+
+# Python modules
+%dir %{python_sitearch}/xen
+%{python_sitearch}/xen/__init__.*
+%{python_sitearch}/xen/lowlevel
+
+%{python_sitearch}/xen/util
+%{python_sitearch}/xen-*.egg-info
+
 
 %changelog
 * Sun May 11 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-4
