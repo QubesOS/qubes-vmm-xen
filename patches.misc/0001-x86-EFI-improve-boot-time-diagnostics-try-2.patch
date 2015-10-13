@@ -1,0 +1,51 @@
+From ebbb51dc8c1790e5187442a808003298b6796762 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 16 Jun 2014 11:52:34 +0200
+Subject: [PATCH] x86/EFI: improve boot time diagnostics (try 2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+To aid analysis of eventual errors, print EFI status codes with error
+messages where available. Also remove a case where the status gets
+stored into a local variable without being used examined (which mis-
+guided me to add an error check there in try 1 of this patch).
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/efi/boot.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/xen/arch/x86/efi/boot.c b/xen/arch/x86/efi/boot.c
+index a772509..2b515f2 100644
+--- a/xen/arch/x86/efi/boot.c
++++ b/xen/arch/x86/efi/boot.c
+@@ -344,11 +344,12 @@ static EFI_FILE_HANDLE __init get_parent_handle(EFI_LOADED_IMAGE *loaded_image,
+         ret = efi_bs->HandleProtocol(loaded_image->DeviceHandle,
+                                      &fs_protocol, (void **)&fio);
+         if ( EFI_ERROR(ret) )
+-            blexit(L"Couldn't obtain the File System Protocol Interface");
++            PrintErrMesg(L"Couldn't obtain the File System Protocol Interface",
++                         ret);
+         ret = fio->OpenVolume(fio, &dir_handle);
+     } while ( ret == EFI_MEDIA_CHANGED );
+     if ( ret != EFI_SUCCESS )
+-        blexit(L"OpenVolume failure");
++        PrintErrMesg(L"OpenVolume failure", ret);
+ 
+ #define buffer ((CHAR16 *)keyhandler_scratch)
+ #define BUFFERSIZE sizeof(keyhandler_scratch)
+@@ -967,8 +968,8 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+ 
+     if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL,
+                     (void **)&shim_lock)) &&
+-         shim_lock->Verify(kernel.ptr, kernel.size) != EFI_SUCCESS )
+-        blexit(L"Dom0 kernel image could not be verified.");
++         (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
++        PrintErrMesg(L"Dom0 kernel image could not be verified", status);
+ 
+     name.s = get_value(&cfg, section.s, "ramdisk");
+     if ( name.s )
+-- 
+2.1.0
+
