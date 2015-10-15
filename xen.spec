@@ -126,6 +126,7 @@ Patch686: xsa113-4.1.patch
 Patch689: xsa121.patch
 Patch690: xsa122.patch
 Patch691: xsa123-4.3-4.2.patch
+Patch716: xsa148-4.1.patch
 
 
 # Qubes HVM
@@ -328,6 +329,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %patch689 -p1
 %patch690 -p1
 %patch691 -p1
+%patch716 -p1
 
 %patch200 -p0
 %patch201 -p2
