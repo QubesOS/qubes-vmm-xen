@@ -1,3 +1,15 @@
+xen (2001:4.4.3-8) wheezy; urgency=medium
+
+  * Convert hacky copy-in stage into git submodules
+  * merge back xen-vm.spec into xen.spec
+  * Fix hotplug block remove script - do not error on physical device
+  * Improve EFI diagnostics and add optional workarounds for buggy
+    firmware
+  * version 4.4.3-7
+  * Apply XSA-148 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 15 Oct 2015 03:42:48 +0200
+
 xen (2001:4.4.2-7) wheezy; urgency=medium
 
   [ Olivier MEDOC ]
