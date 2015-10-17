@@ -42,7 +42,7 @@
 %endif
 
 # Hypervisor ABI
-%define hv_abi  4.4
+%define hv_abi  4.6
 
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
@@ -58,7 +58,7 @@ Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
-Source1: %{name}.modules-load.conf
+Source1: %{name}.modules
 Source2: %{name}.logrotate
 # used by stubdoms
 Source10: lwip-1.3.0.tar.gz
@@ -68,36 +68,19 @@ Source13: pciutils-2.2.9.tar.bz2
 Source14: grub-0.97.tar.gz
 Source15: gmp-4.3.2.tar.bz2
 Source16: polarssl-1.1.4-gpl.tgz
-#Source17: gc.tar.gz
 Source18: tpm_emulator-0.7.4.tar.gz
-#Source19: tboot-20090330.tar.gz
 # init.d bits
 Source20: init.xenstored
 Source21: init.xenconsoled
-Source22: init.blktapctrl
-Source23: init.xend
 # sysconfig bits
 Source30: sysconfig.xenstored
 Source31: sysconfig.xenconsoled
-Source32: sysconfig.blktapctrl
 
 # Qubes components for stubdom
 Source33: gui-agent-xen-hvm-stubdom
 Source34: core-vchan-xen
 Source35: stubdom-dhcp
 Source36: gui-common
-
-# systemd bits
-Source40: proc-xen.mount
-Source41: var-lib-xenstored.mount
-Source42: xenstored.service
-Source43: blktapctrl.service
-Source44: xend.service
-Source45: xenconsoled.service
-Source46: xen-watchdog.service
-Source47: xendomains.service
-Source48: libexec.xendomains
-Source49: tmpfiles.d.xen.conf
 
 Source98: apply-patches
 Source99: series.conf
@@ -109,8 +92,6 @@ Source103: patches.qubes
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript texlive-latex
-BuildRequires: autoconf automake
-BuildRequires: cmake
 %if "%dist" >= ".fc18"
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
 %endif
@@ -174,6 +155,9 @@ Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
 %endif
+%if %with_systemd
+BuildRequires: systemd-devel
+%endif
 
 %description
 This package contains the XenD daemon and xm command line
@@ -198,7 +182,6 @@ which manage Xen virtual machines.
 Summary: Core Xen runtime environment
 Group: Development/Libraries
 Requires: xen-libs = %{version}-%{release}
-Requires: python-lxml
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
@@ -314,9 +297,6 @@ Just a few xenstore-* tools and Xen hotplug scripts needed by Qubes VMs
 # stubdom sources
 cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
 cp -v %{SOURCE15} %{SOURCE16} %{SOURCE18} stubdom
-#FIXME cp -v %{SOURCE15} tools/firmware/etherboot/ipxe.tar.gz
-#FIXME cp -v %{SOURCE17} tools/vnet/
-#FIXME cp -v %{SOURCE18} tools/vtpm/
 
 # qubes specific parts of stubdom
 mkdir tools/qubes-gui/
@@ -330,8 +310,6 @@ sed -e 's/ioemu-qemu-xen/qemu-xen-traditional/g' tools/qubes-gui/gui-agent-qemu/
 cp -a %{SOURCE35}/* tools/qemu-xen-traditional/
 patch -d tools/qemu-xen-traditional -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
 
-#FIXME mkdir -p tboot
-#FIXME cp -v %{SOURCE19} tboot/
 
 %build
 %if !%build_ocaml
@@ -341,13 +319,24 @@ patch -d tools/qemu-xen-traditional -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
 %define efi_flags LD_EFI=/usr/x86_64-w64-mingw32/bin/ld EFI_VENDOR=qubes
 mkdir -p dist/install/boot/efi/efi/qubes
 %endif
+%if %(test -f /usr/share/seabios/bios-256k.bin && echo 1|| echo 0)
+%define seabiosloc /usr/share/seabios/bios-256k.bin
+%else
+%define seabiosloc /usr/share/seabios/bios.bin
+%endif
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
-export PYTHON=/usr/bin/python
-export PYTHON_PATH=/usr/bin/python
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
-./configure --libdir=%{_libdir} --with-system-seabios=/usr/share/seabios/bios.bin --enable-vtpm-stubdom --enable-vtpmmgr-stubdom
+# setting libexecdir to real libexec is broken in the configure script (it is
+# overrided by /usr/lib)
+./configure \
+    --prefix=%{_prefix} \
+    --libdir=%{_libdir} \
+    --libexecdir=/usr/lib \
+    --with-system-seabios=%{seabiosloc} \
+    --enable-vtpm-stubdom \
+    --enable-vtpmmgr-stubdom
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
@@ -372,12 +361,13 @@ mv %{buildroot}/boot/efi/efi %{buildroot}/boot/efi/EFI
 %if %build_xsm
 # policy file should be in /boot/flask
 mkdir %{buildroot}/boot/flask
-mv %{buildroot}/boot/xenpolicy.* %{buildroot}/boot/flask
+mv %{buildroot}/boot/xenpolicy* %{buildroot}/boot/flask
 %else
-rm -f %{buildroot}/boot/xenpolicy.*
+rm -f %{buildroot}/boot/xenpolicy*
 %endif
 
 # qemu symlinks
+mkdir -p %{buildroot}/usr/bin
 ln -s ../lib/%{name}/bin/qemu-img %{buildroot}/usr/bin/
 ln -s ../lib/%{name}/bin/qemu-io  %{buildroot}/usr/bin/
 ln -s ../lib/%{name}/bin/qemu-nbd %{buildroot}/usr/bin/
@@ -392,7 +382,7 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-4.4.gz
+rm -rf %{buildroot}/boot/xen-4.6.gz
 rm -rf %{buildroot}/boot/xen-4.gz
 rm -rf %{buildroot}/boot/xen.gz
 %if !%build_hyp
@@ -400,7 +390,7 @@ rm -rf %{buildroot}/boot
 %endif
 
 # silly doc dir fun
-rm -fr %{buildroot}%{_datadir}/doc/xen
+rm -rf %{buildroot}%{_datadir}/doc/xen
 rm -rf %{buildroot}%{_datadir}/doc/qemu
 
 # Pointless helper
@@ -414,7 +404,7 @@ for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
 do
 	rm -f %{buildroot}/%{_datadir}/xen/qemu/$file
 done
-rm -f %{buildroot}/usr/etc/qemu/target-x86_64.conf
+rm -f %{buildroot}/usr/libexec/qemu-bridge-helper
 
 # README's not intended for end users
 rm -f %{buildroot}/%{_sysconfdir}/xen/README*
@@ -430,23 +420,13 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 rm -rf %{buildroot}/%{_libdir}/efi
 %endif
 
-# obsolete xend
-rm -f %{buildroot}/%{_sbindir}/xend
-rm -f %{buildroot}/%{_sbindir}/xm
-rm -f %{buildroot}%{_mandir}/man1/xm.1
-rm -f %{buildroot}%{_mandir}/man5/xend-config.sxp.5
-rm -f %{buildroot}%{_mandir}/man5/xmdomain.cfg.5
-
 ############ fixup files in /etc ############
 
-# udev
-#rm -rf %{buildroot}/etc/udev/rules.d/xen*.rules
-#mv %{buildroot}/etc/udev/xen*.rules %{buildroot}/etc/udev/rules.d
-rm -f %{buildroot}/etc/udev/rules.d/xend.rules
-
 # modules
-mkdir -p %{buildroot}/usr/lib/modules-load.d
-install -m 644 %{SOURCE1} %{buildroot}/usr/lib/modules-load.d/%{name}.conf
+%if %with_sysv
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/modules
+install -m 644 %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/modules/%{name}.modules
+%endif
 
 # logrotate
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
@@ -461,44 +441,21 @@ rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
 rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
 
+# Qubes specific - get rid of standard domain starting scripts
+rm %{buildroot}%{_unitdir}/xen-qemu-dom0-disk-backend.service
+rm %{buildroot}%{_unitdir}/xendomains.service
+
 # sysconfig
+%if %with_sysv
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 install -m 644 %{SOURCE30} %{buildroot}%{_sysconfdir}/sysconfig/xenstored
 install -m 644 %{SOURCE31} %{buildroot}%{_sysconfdir}/sysconfig/xenconsoled
-install -m 644 %{SOURCE32} %{buildroot}%{_sysconfdir}/sysconfig/blktapctrl
-
-# systemd
-%if %with_systemd
-mkdir -p %{buildroot}%{_unitdir}
-install -m 644 %{SOURCE40} %{buildroot}%{_unitdir}/proc-xen.mount
-install -m 644 %{SOURCE41} %{buildroot}%{_unitdir}/var-lib-xenstored.mount
-install -m 644 %{SOURCE42} %{buildroot}%{_unitdir}/xenstored.service
-install -m 644 %{SOURCE43} %{buildroot}%{_unitdir}/blktapctrl.service
-install -m 644 %{SOURCE45} %{buildroot}%{_unitdir}/xenconsoled.service
-install -m 644 %{SOURCE46} %{buildroot}%{_unitdir}/xen-watchdog.service
-mkdir -p %{buildroot}/usr/lib/tmpfiles.d
-install -m 644 %{SOURCE49} %{buildroot}/usr/lib/tmpfiles.d/xen.conf
 %endif
-%if %build_ocaml
-install -m 644 %{SOURCE50} %{buildroot}%{_unitdir}/oxenstored.service
-%endif
-
-# config file only used for hotplug, Fedora uses udev instead
-rm -f %{buildroot}/%{_sysconfdir}/sysconfig/xend
 
 ############ create dirs in /var ############
 
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/domain
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/vnet
-mkdir -p %{buildroot}%{_localstatedir}/lib/xen/xend-db/migrate
 mkdir -p %{buildroot}%{_localstatedir}/lib/xen/images
 mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
-
-############ create symlink for x86_64 for compatibility with 3.4 ############
-
-%if "%{_libdir}" != "/usr/lib"
-ln -s /usr/lib/%{name}/bin/qemu-dm %{buildroot}/%{_libdir}/%{name}/bin/qemu-dm
-%endif
 
 ln -s ../sbin/xl %{buildroot}/%{_bindir}/xl
 
@@ -524,7 +481,6 @@ done
 %if %with_sysv
 /sbin/chkconfig --add xenconsoled
 /sbin/chkconfig --add xenstored
-#/sbin/chkconfig --add blktapctrl
 %endif
 %if %with_systemd
 %if %with_systemd_presets
@@ -551,7 +507,6 @@ if [ $1 == 0 ]; then
 %if %with_sysv
   /sbin/chkconfig --del xenconsoled
   /sbin/chkconfig --del xenstored
-  /sbin/chkconfig --del blktapctrl
 %endif
 %if %with_systemd
   /bin/systemctl disable xenstored.service
@@ -570,13 +525,23 @@ fi
 
 %if %build_hyp
 %post hypervisor
-if [ $1 == 1 -a -f /sbin/grub2-mkconfig -a -f /boot/grub2/grub.cfg ]; then
-  /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+if [ $1 == 1 -a -f /sbin/grub2-mkconfig ]; then
+  if [ -f /boot/grub2/grub.cfg ]; then
+    /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+  fi
+  if [ -f /boot/efi/EFI/qubes/grub.cfg ]; then
+    /sbin/grub2-mkconfig -o /boot/efi/EFI/qubes/grub.cfg
+  fi
 fi
 
 %postun hypervisor
-if [ -f /sbin/grub2-mkconfig -a -f /boot/grub2/grub.cfg ]; then
-  /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+if [ -f /sbin/grub2-mkconfig ]; then
+  if [ -f /boot/grub2/grub.cfg ]; then
+    /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+  fi
+  if [ -f /boot/efi/EFI/qubes/grub.cfg ]; then
+    /sbin/grub2-mkconfig -o /boot/efi/EFI/qubes/grub.cfg
+  fi
 fi
 %endif
 
@@ -595,7 +560,7 @@ fi
 %preun ocaml
 %if %with_systemd
 %if %with_systemd_presets
-%systemd_post oxenstored.service
+%systemd_preun oxenstored.service
 %else
 if [ $1 == 0 ]; then
   /bin/systemctl disable oxenstored.service
@@ -629,50 +594,64 @@ rm -rf %{buildroot}
 # All runtime stuff except for XenD/xm python stuff
 %files runtime
 %defattr(-,root,root)
-# Hotplug rules
-%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
 
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
 %config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
 
 %if %with_sysv
-%{_sysconfdir}/rc.d/init.d/blktapctrl
 %{_sysconfdir}/rc.d/init.d/xenstored
 %{_sysconfdir}/rc.d/init.d/xenconsoled
 %{_sysconfdir}/rc.d/init.d/xen-watchdog
 %{_sysconfdir}/rc.d/init.d/xencommons
 %endif
 %{_sysconfdir}/bash_completion.d/xl.sh
+%{_sysconfdir}/rc.d/init.d/xendriverdomain
 
 %if %with_systemd
 %{_unitdir}/proc-xen.mount
 %{_unitdir}/var-lib-xenstored.mount
+%{_unitdir}/xen-init-dom0.service
 %{_unitdir}/xenstored.service
-%{_unitdir}/blktapctrl.service
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
-/usr/lib/tmpfiles.d/xen.conf
+%{_unitdir}/xenstored.socket
+%{_unitdir}/xenstored_ro.socket
+/usr/lib/modules-load.d/xen.conf
 %endif
 
+%if %with_sysv
 %config(noreplace) %{_sysconfdir}/sysconfig/xenstored
 %config(noreplace) %{_sysconfdir}/sysconfig/xenconsoled
-%config(noreplace) %{_sysconfdir}/sysconfig/blktapctrl
+%endif
 %config(noreplace) %{_sysconfdir}/sysconfig/xencommons
 %config(noreplace) %{_sysconfdir}/xen/xl.conf
 %config(noreplace) %{_sysconfdir}/xen/cpupool
 %config(noreplace) %{_sysconfdir}/xen/xlexample*
 
 # Auto-load xen backend drivers
-%attr(0755,root,root) /usr/lib/modules-load.d/%{name}.conf
+%if %with_sysv
+%attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
+%endif
 
 # Rotate console log files
 %config(noreplace) %{_sysconfdir}/logrotate.d/xen
 
 # Programs run by other programs
-%dir %{_libdir}/%{name}
-%dir %{_libdir}/%{name}/bin
-%attr(0700,root,root) %{_libdir}/%{name}/bin/*
+%dir /usr/lib/%{name}
+%dir /usr/lib/%{name}/bin
+# List them explicitly to exclude files owned by xen-hvm package
+%attr(0700,root,root) /usr/lib/%{name}/bin/convert-legacy-stream
+%attr(0700,root,root) /usr/lib/%{name}/bin/libxl-save-helper
+%attr(0700,root,root) /usr/lib/%{name}/bin/lsevtchn
+%attr(0700,root,root) /usr/lib/%{name}/bin/pygrub
+%attr(0700,root,root) /usr/lib/%{name}/bin/readnotes
+%attr(0700,root,root) /usr/lib/%{name}/bin/verify-stream-v2
+%attr(0700,root,root) /usr/lib/%{name}/bin/xen-init-dom0
+%attr(0700,root,root) /usr/lib/%{name}/bin/xenconsole
+%attr(0700,root,root) /usr/lib/%{name}/bin/xenctx
+%attr(0700,root,root) /usr/lib/%{name}/bin/xendomains
+%attr(0700,root,root) /usr/lib/%{name}/bin/xenpvnetboot
 # QEMU runtime files
 %dir %{_datadir}/%{name}/qemu
 %dir %{_datadir}/%{name}/qemu/keymaps
@@ -684,19 +663,25 @@ rm -rf %{buildroot}
 # man pages
 %{_mandir}/man1/xentop.1*
 %{_mandir}/man1/xentrace_format.1*
-%{_mandir}/man1/xenstore-chmod.1*
-%{_mandir}/man1/xenstore-ls.1*
-%{_mandir}/man1/xenstore.1*
 %{_mandir}/man8/xentrace.8*
 %{_mandir}/man1/xl.1*
 %{_mandir}/man5/xl.cfg.5*
 %{_mandir}/man5/xl.conf.5*
 %{_mandir}/man5/xlcpupool.cfg.5*
+%{_mandir}/man1/xenstore*
 
 %{python_sitearch}/fsimage.so
 %{python_sitearch}/grub
 %{python_sitearch}/pygrub-*.egg-info
 
+# The firmware
+%ifarch %{ix86} x86_64
+%dir /usr/lib/%{name}/boot
+/usr/lib/xen/boot/xenstore-stubdom.gz
+/usr/lib/xen/boot/pv-grub*.gz
+/usr/lib/xen/boot/vtpm-stubdom.gz
+/usr/lib/xen/boot/vtpmmgr-stubdom.gz
+%endif
 # General Xen state
 %dir %{_localstatedir}/lib/%{name}
 %dir %{_localstatedir}/lib/%{name}/dump
@@ -705,8 +690,6 @@ rm -rf %{buildroot}
 %dir %{_localstatedir}/lib/xenstored
 # Xenstore runtime state
 %ghost %{_localstatedir}/run/xenstored
-# XenD runtime state
-%ghost %attr(0700,root,root) %{_localstatedir}/run/xend
 
 # All xenstore CLI tools
 %{_bindir}/qemu-*-xen
@@ -714,9 +697,13 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore-*
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
-%{_bindir}/remus
+#%{_bindir}/remus
 # blktap daemon
 %{_sbindir}/tapdisk*
+# XSM
+%if %build_xsm
+%{_sbindir}/flask-*
+%endif
 # Disk utils
 %{_sbindir}/qcow-create
 %{_sbindir}/qcow2raw
@@ -750,11 +737,13 @@ rm -rf %{buildroot}
 %{_sbindir}/xl
 %{_sbindir}/xen-lowmemd
 %{_sbindir}/xen-ringwatch
-%{_sbindir}/xen-mfndump
 %{_sbindir}/xencov
-/usr/libexec/qemu-bridge-helper
+%{_sbindir}/xen-mfndump
+/usr/share/pkgconfig/*
+%{_bindir}/xenalyze
+%{_sbindir}/xentrace
+%{_sbindir}/xentrace_setsize
 %{_bindir}/xl
-
 
 # Xen logfiles
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen
@@ -762,15 +751,16 @@ rm -rf %{buildroot}
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen/console
 
 %files hypervisor
+%if %build_hyp
 %defattr(-,root,root)
-/boot/xen-syms-*
 /boot/xen-*.gz
 %if %build_xsm
 %dir %attr(0755,root,root) /boot/flask
-/boot/flask/xenpolicy.*
+/boot/flask/xenpolicy*
 %endif
 %if %build_efi
 /boot/efi/EFI/qubes/*.efi
+%endif
 %endif
 
 %files doc
@@ -814,10 +804,6 @@ rm -rf %{buildroot}
 %files hvm
 # The firmware
 %ifnarch ia64
-# Avoid owning /usr/lib twice on i386
-%if "%{_libdir}" != "/usr/lib"
-%dir /usr/lib/%{name}
-%dir /usr/lib/%{name}/bin
 /usr/lib/%{name}/bin/stubdom-dm
 /usr/lib/%{name}/bin/qemu-dm
 /usr/lib/%{name}/bin/qemu-img
@@ -826,28 +812,25 @@ rm -rf %{buildroot}
 /usr/lib/%{name}/bin/qemu-system-i386
 /usr/lib/%{name}/bin/stubdompath.sh
 /usr/lib/%{name}/bin/xenpaging
-%endif
-%dir /usr/lib/%{name}/boot
 # HVM loader is always in /usr/lib regardless of multilib
 /usr/lib/xen/boot/hvmloader
 /usr/lib/xen/boot/ioemu-stubdom.gz
-/usr/lib/xen/boot/xenstore-stubdom.gz
-/usr/lib/xen/boot/pv-grub*.gz
-/usr/lib/xen/boot/vtpm-stubdom.gz
-/usr/lib/xen/boot/vtpmmgr-stubdom.gz
 %endif
 
 %files qemu-tools
 /usr/bin/qemu-img
 /usr/bin/qemu-io
 /usr/bin/qemu-nbd
+/usr/share/locale/*/LC_MESSAGES/qemu.mo
+/usr/etc/qemu/target-x86_64.conf
 
 %files qubes-vm
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
+%{_sbindir}/xl
 
 # Hotplug rules
-%config(noreplace) %{_sysconfdir}/udev/rules.d/xen-backend.rules
+%{_sysconfdir}/rc.d/init.d/xendriverdomain
 
 %dir %attr(0700,root,root) %{_sysconfdir}/xen
 %dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
@@ -865,20 +848,290 @@ rm -rf %{buildroot}
 %{python_sitearch}/xen/__init__.*
 %{python_sitearch}/xen/lowlevel
 
-%{python_sitearch}/xen/util
 %{python_sitearch}/xen-*.egg-info
 
 
 %changelog
-* Sun May 11 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-4
+* Sun Oct 11 2015 Michael Young <m.a.young@durham.ac.uk> - 4.6.0-1
+- update to xen-4.6.0
+  xen-dumpdir.patch no longer needed
+  adjust xen.use.fedora.ipxe.patch and xen.fedora.systemd.patch
+  remove upstream patches
+  add build fix for blktap2 to gcc5 fixes
+  udev rules have now gone as have xen-syms in /boot
+  package extra files 
+    /etc/rc.d/init.d/xendriverdomain
+    /usr/bin/xenalyze
+    /usr/sbin/xentrace
+    /usr/sbin/xentrace_setsize
+    /usr/share/pkgconfig/*.pc
+- renumber patches
+- add build-requires for pandoc and discount to improve docs
+
+* Sat Oct 10 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-13
+- patch CVE-2015-7295 for qemu-xen-traditional as well
+
+* Thu Oct 08 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-12
+- Qemu: net: virtio-net possible remote DoS [CVE-2015-7295] (#1264392)
+
+* Tue Oct 06 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-11
+- create a symbolic link so libvirt VMs from xen 4.0 to 4.4 can still
+	find qemu-dm (#1268176), (#1248843) 
+
+* Sun Sep 27 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-10
+- ide: fix ATAPI command permissions [CVE-2015-6855] (#1261792)
+
+* Sat Sep 26 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-9
+- ui/vnc: limit client_cut_text msg payload size [CVE-2015-5239] (#1259504)
+- e1000: Avoid infinite loop in processing transmit descriptor
+	[CVE-2015-6815] (#1260224)
+- net: add checks to validate ring buffer pointers [CVE-2015-5279] (#1263278)
+- net: avoid infinite loop when receiving packets [CVE-2015-5278] (#1263281)
+- qemu buffer overflow in virtio-serial [CVE-2015-5745] (#1251354)
+
+* Tue Sep 15 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-8
+- libxl fails to honour readonly flag on disks with qemu-xen
+	[XSA-142, CVE-2015-7311] (#1257893) (final patch version)
+
+* Tue Sep 01 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-7
+- printk is not rate-limited in xenmem_add_to_physmap_one (ARM)
+	[XSA-141, CVE-2015-6654]
+
+* Mon Aug 03 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-6
+- Use after free in QEMU/Xen block unplug protocol [XSA-139, CVE-2015-5166]
+	(#1249757)
+- QEMU leak of uninitialized heap memory in rtl8139 device model
+	[XSA-140, CVE-2015-5165] (#1249756)
+
+* Sun Aug 02 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-5
+- QEMU heap overflow flaw while processing certain ATAPI commands.
+	[XSA-138, CVE-2015-5154] (#1247142)
+- try again to fix xen-qemu-dom0-disk-backend.service (#1242246)
+
+* Thu Jul 30 2015 Richard W.M. Jones <rjones@redhat.com> - 4.5.1-4
+- OCaml 4.02.3 rebuild.
+
+* Thu Jul 23 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-3
+- correct qemu location in xen-qemu-dom0-disk-backend.service (#1242246)
+- rebuild efi grub.cfg if it is present (#1239309)
+- re-enable remus by building with libnl3
+- modify gnutls use in line with Fedora's crypto policies (#1179352)
+
+* Tue Jul 07 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-2
+- xl command line config handling stack overflow [XSA-137, CVE-2015-3259]
+
+* Mon Jun 22 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.1-1
+- update to 4.5.1
+  adjust xen.use.fedora.ipxe.patch and xen.fedora.systemd.patch
+  remove patches for issues now fixed upstream
+  renumber patches
+
+* Fri Jun 19 2015 Richard W.M. Jones <rjones@redhat.com> - 4.5.0-13
+- Rebuild for ocaml-4.02.2.
+
+* Fri Jun 19 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.5.0-12
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
+
+* Tue Jun 16 2015 Michael Young <m.a.young@durham.ac.uk>
+- gcc 5 bug is fixed so remove workaround
+
+* Wed Jun 10 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-11
+- stubs-32.h is back, so revert to previous behaviour
+- Heap overflow in QEMU PCNET controller, allowing guest->host escape
+	[XSA-135, CVE-2015-3209] (#1230537)
+- GNTTABOP_swap_grant_ref operation misbehavior [XSA-134, CVE-2015-4163]
+- vulnerability in the iret hypercall handler [XSA-136, CVE-2015-4164]
+
+* Wed Jun 03 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-10.1
+- stubs-32.h has gone from rawhide, put it back manually
+
+* Tue Jun 02 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-10
+- replace deprecated gnutls use in qemu-xen-traditional based on
+	qemu-xen patches
+- work around a gcc 5 bug
+- Potential unintended writes to host MSI message data field via qemu
+	[XSA-128, CVE-2015-4103] (#1227627)
+- PCI MSI mask bits inadvertently exposed to guests [XSA-129, CVE-2015-4104]
+	(#1227628)
+- Guest triggerable qemu MSI-X pass-through error messages [XSA-130,
+	CVE-2015-4105] (#1227629)
+- Unmediated PCI register access in qemu [XSA-131, CVE-2015-4106] (#1227631)
+
+* Wed May 13 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-9
+- Privilege escalation via emulated floppy disk drive [XSA-133,
+	CVE-2015-3456] (#1221153)
+
+* Mon Apr 20 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-8
+- Information leak through XEN_DOMCTL_gettscinfo [XSA-132,
+	CVE-2015-3340] (#1214037)
+
+* Tue Mar 31 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-7
+- Long latency MMIO mapping operations are not preemptible [XSA-125,
+	CVE-2015-2752] (#1207741)
+- Unmediated PCI command register access in qemu [XSA-126,
+	CVE-2015-2756] (#1307738)
+- Certain domctl operations may be abused to lock up the host [XSA-127,
+	CVE-2015-2751] (#1207739)
+
+* Fri Mar 13 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-6
+- Additional patch for XSA-98 on arm64
+
+* Thu Mar 12 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-5
+- HVM qemu unexpectedly enabling emulated VGA graphics backends [XSA-119,
+	CVE-2015-2152] (#1201365)
+
+* Tue Mar 10 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-4
+- Hypervisor memory corruption due to x86 emulator flaw [XSA-123,
+	CVE-2015-2151] (#1200398)
+
+* Thu Mar 05 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-3
+- Information leak via internal x86 system device emulation [XSA-121,
+	CVE-2015-2044]
+- Information leak through version information hypercall [XSA-122,
+	CVE-2015-2045]
+- fix a typo in xen.fedora.systemd.patch
+
+* Sat Feb 14 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-2
+- arm: vgic-v2: GICD_SGIR is not properly emulated [XSA-117, CVE-2015-0268]
+- allow certain warnings with gcc5 that would otherwise be treated as errors
+
+* Thu Jan 29 2015 Michael Young <m.a.young@durham.ac.uk> - 4.5.0-1
+- update to 4.5.0
+  xend has gone, so remove references to xend in spec file, sources and patches
+  remove patches for issues now fixed upstream
+  adjust some patches due to other code changes
+  adjust spec file for renamed xenpolicy files
+  set prefix back to /usr (default is now /usr/local)
+  use upstream systemd files with patches for Fedora and selinux
+	sysconfig for systemd is now in xencommons file
+  for x86_64, files in /usr/lib64/xen/bin have moved to /usr/lib/xen/bin
+  remus isn't built
+  upstream systemd support needs systemd-devel to build
+  replace new uint32 with uint32_t in ocaml file for ocaml-4.02.0
+  stop oxenstored failing when selinux is enforcing
+  re-number patches
+- enable building pngs from fig files which is working again
+- fix oxenstored.service preset preuninstall script
+- arm: vgic: incorrect rate limiting of guest triggered logging [XSA-118,
+	CVE-2015-1563] (#1187153)
+
+* Tue Jan 06 2015 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-12
+- xen crash due to use after free on hvm guest teardown [XSA-116,
+	 CVE-2015-0361] (#1179221)
+
+* Tue Dec 16 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-11
+- fix xendomains issue introduced by xl migrate --debug patch
+
+* Mon Dec 08 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-10
+- p2m lock starvation [XSA-114, CVE-2014-9065]
+- fix build with --without xsm
+
+* Thu Nov 27 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-9
+- Excessive checking in compatibility mode hypercall argument translation
+	[XSA-111, CVE-2014-8866]
+- Insufficient bounding of "REP MOVS" to MMIO emulated inside the hypervisor
+	[XSA-112, CVE-2014-8867]
+- fix segfaults and failures in xl migrate --debug (#1166461)
+
+* Thu Nov 20 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-8
+- Guest effectable page reference leak in MMU_MACHPHYS_UPDATE handling
+	[XSA-113, CVE-2014-9030] (#1166914)
+
+* Tue Nov 18 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-7
+- Insufficient restrictions on certain MMU update hypercalls [XSA-109,
+	CVE-2014-8594] (#1165205)
+- Missing privilege level checks in x86 emulation of far branches [XSA-110,
+	CVE-2014-8595] (#1165204)
+- Add fix for CVE-2014-0150 to qemu-dm, though it probably isn't
+	exploitable from xen (#1086776)
+
+* Wed Oct 01 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-6
+- Improper MSR range used for x2APIC emulation [XSA-108, CVE-2014-7188]
+	(#1148465)
+
+* Tue Sep 30 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-5
+- xen support is in 256k seabios binary when it exists (#1146260)
+
+* Tue Sep 23 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-4
+- Race condition in HVMOP_track_dirty_vram [XSA-104, CVE-2014-7154] (#1145736)
+- Missing privilege level checks in x86 HLT, LGDT, LIDT, and LMSW emulation
+	[XSA-105, CVE-2014-7155] (#1145737)
+- Missing privilege level checks in x86 emulation of software interrupts
+	[XSA-106, CVE-2014-7156] (#1145738)
+
+* Sun Sep 14 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-3
+- disable building pngs from fig files which is currently broken in rawhide
+
+* Tue Sep 09 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-2
+- Mishandling of uninitialised FIFO-based event channel control blocks
+	[XSA-107, CVE-2014-6268] (#1140287)
+- delete a patch file that was dropped in the last update
+
+* Tue Sep 02 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.1-1
+- update to xen-4.4.1
+  remove patches for fixes that are now included
+- replace uint32 with uint32_t in ocaml file for ocaml-4.02.0
+
+* Sun Aug 31 2014 Richard W.M. Jones <rjones@redhat.com> - 4.4.0-14
+- Bump release and rebuild.
+
+* Sun Aug 31 2014 Richard W.M. Jones <rjones@redhat.com> - 4.4.0-13
+- ocaml-4.02.0 final rebuild.
+
+* Sun Aug 24 2014 Richard W.M. Jones <rjones@redhat.com> - 4.4.0-12
+- ocaml-4.02.0+rc1 rebuild.
+
+* Mon Aug 18 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.4.0-11
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
+
+* Tue Aug 12 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-10
+- Long latency virtual-mmu operations are not preemptible
+	[XSA-97, CVE-2014-5146]
+
+* Thu Aug 07 2014 Richard W.M. Jones <rjones@redhat.com> - 4.4.0-9
+- ocaml-4.02.0-0.8.git10e45753.fc22 rebuild.
+
+* Mon Jul 14 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-8
+- rebuild for ocaml update
+
+* Tue Jun 17 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-7
+- Hypervisor heap contents leaked to guest [XSA-100, CVE-2014-4021]
+	(#1110316) with extra patch to avoid regression
+
+* Sun Jun 15 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-6
+- Fix two %if line typos in the spec file
+- Vulnerabilities in HVM MSI injection [XSA-96, CVE-2014-3967,CVE-2014-3968]
+	(#1104583)
+
+* Sun Jun 08 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.4.0-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
+* Mon May 12 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-4
 - add systemd preset support (#1094938)
 
-* Thu May 01 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-3
+* Wed Apr 30 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-3
 - HVMOP_set_mem_type allows invalid P2M entries to be created
 	[XSA-92, CVE-2014-3124] (#1093315)
+- change -Wmaybe-uninitialized errors into warnings for gcc 4.9.0
+- fix a couple of -Wmaybe-uninitialized cases
 
-* Wed Mar 26 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-2
+* Wed Mar 26 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-2
 - HVMOP_set_mem_access is not preemptible [XSA-89, CVE-2014-2599] (#1080425)
+
+* Sun Mar 23 2014 Michael Young <m.a.young@durham.ac.uk> - 4.4.0-1
+- update to xen-4.4.0
+- adjust xend.selinux.fixes.patch and xen-initscript.patch as xend has moved
+- don't build xend unless --with xend is specified
+- use --with-system-seabios option instead of xen.use.fedora.seabios.patch
+- update xen.use.fedora.ipxe.patch patch
+- replace qemu-xen.tradonly.patch with --with-system-qemu= option pointing
+  to Fedora's qemu-system-i386
+- adjust xen.xsm.enable.patch and remove bits that are are no longer needed
+- blktapctrl is no longer built, remove related files
+- adjust files to be packaged; xsview has gone, add xen-mfndump and
+  xenstore man pages
+- add another xenstore-write to xenstored.service and oxenstored.service
+- Add xen.console.fix.patch to fix issues running pygrub
 
 * Tue Feb 18 2014 Michael Young <m.a.young@durham.ac.uk> - 4.3.2-1
 - update to xen-4.3.2

@@ -2,9 +2,9 @@ diff -Nru xen-4.1.2/stubdom/Makefile xen-4.1.2/stubdom/Makefile
 --- xen-4.1.2/stubdom/Makefile	2012-03-04 17:28:24.834834685 +0100
 +++ xen-4.1.2/stubdom/Makefile	2012-03-06 02:14:12.934652038 +0100
 @@ -161,6 +161,7 @@
- 	tar xzf $<
  	mv lwip $@
  	patch -d $@ -p0 < lwip.patch-cvs
+ 	patch -d $@ -p0 < lwip.dhcp_create_request-hwaddr_len.patch
 +	patch -d $@ -p1 < lwip-fix-for-dhcp-server.patch
  	touch $@
  

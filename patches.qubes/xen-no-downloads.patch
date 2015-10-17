@@ -9,26 +9,6 @@ diff -ru xen-4.1.0.orig/Makefile xen-4.1.0/Makefile
 -tboot/$(TBOOT_TARFILE):
 -	mkdir -p tboot
 -	wget -O tboot/$(TBOOT_TARFILE) $(TBOOT_BASE_URL)/$(TBOOT_TARFILE)
-diff -ru xen-4.1.0.orig1/buildconfigs/src.tarball xen-4.1.0/buildconfigs/src.tarball
---- xen-4.1.0.orig1/buildconfigs/src.tarball	2011-03-25 11:42:47.000000000 +0100
-+++ xen-4.1.0/buildconfigs/src.tarball	2011-05-12 17:28:31.906486192 +0200
-@@ -3,8 +3,6 @@
- 
- LINUX_SRCDIR ?= linux-$(LINUX_VER)
- 
--KETCHUP ?= python buildconfigs/ketchup
--
- vpath linux-%.tar.bz2 $(LINUX_SRC_PATH)
- 
- # download a pristine Linux kernel tarball if there isn't one in LINUX_SRC_PATH
-@@ -13,7 +11,3 @@
- 	false wget $(XEN_LINUX_MIRROR)/$@ -O./$@
- 
- # XXX create a pristine tree for diff -Nurp convenience
--
--%/.valid-src: $(__XEN_LINUX_UPDATE)
--	$(KETCHUP) -d $(@D) $(LINUX_VER)
--	touch $@ # update timestamp to avoid rebuild
 --- xen-4.4.0/m4/fetcher.m4.orig	2014-06-24 01:08:52.593933406 +0200
 +++ xen-4.4.0/m4/fetcher.m4	2014-06-24 01:09:29.337842284 +0200
 @@ -1,14 +1,4 @@

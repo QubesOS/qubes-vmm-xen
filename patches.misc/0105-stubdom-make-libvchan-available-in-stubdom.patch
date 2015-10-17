@@ -59,7 +59,7 @@ index a2ac044..4640d8d 100644
 --- a/stubdom/Makefile
 +++ b/stubdom/Makefile
 @@ -309,6 +309,11 @@ mk-headers-$(XEN_TARGET_ARCH): ioemu/linkfarm.stamp
- 	  ln -sf $(XEN_ROOT)/tools/libxc/*.h . && \
+ 	  ln -sf $(XEN_ROOT)/tools/libxc/include/*.h . && \
  	  ln -sf $(XEN_ROOT)/tools/libxc/*.c . && \
  	  ln -sf $(XEN_ROOT)/tools/libxc/Makefile . )
 +	mkdir -p libvchan-$(XEN_TARGET_ARCH)

@@ -1,4 +1,4 @@
-/var/log/xen/xend-debug.log /var/log/xen/xen-hotplug.log
+/var/log/xen/xen-hotplug.log
 /var/log/xen/domain-builder-ng.log
 /var/log/xen/console/*.log{
     notifempty

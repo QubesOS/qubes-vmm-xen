@@ -1,0 +1,10 @@
+#!/bin/sh
+
+test -d /proc/xen				|| exit 0
+test -f /proc/xen/capabilities			|| mount -t xenfs xen /proc/xen
+test -f /proc/xen/capabilities			|| exit 0
+grep -q "control_d" /proc/xen/capabilities	|| exit 0
+
+for module in xen-evtchn evtchn xen-gntdev gntdev xen-blkback xen-netback blkbk netbk blktap xen-acpi-processor; do
+	modprobe ${module} >/dev/null 2>&1
+done

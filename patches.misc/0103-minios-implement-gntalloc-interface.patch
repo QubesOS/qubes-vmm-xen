@@ -37,7 +37,7 @@ new file mode 100644
 index 0000000..1029d5c
 --- /dev/null
 +++ b/extras/mini-os/gntalloc.c
-@@ -0,0 +1,167 @@
+@@ -0,0 +1,168 @@
 +/******************************************************************************
 + * gntalloc.c
 + * 
@@ -72,6 +72,7 @@ index 0000000..1029d5c
 +#include <mini-os/mm.h>
 +#include <mini-os/gntalloc.h>
 +#include <mini-os/gnttab.h>
++#include <mini-os/lib.h>
 +#include <sys/queue.h>
 +#include <stdint.h>
 +#include <malloc.h>

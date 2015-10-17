@@ -31,7 +31,7 @@ index 52e7592..86f16bc 100644
 +        num_console = 1;
  
      console = libxl__calloc(gc, num_console, sizeof(libxl__device_console));
-     if (!console) {
+ 
 -- 
 2.1.0
 

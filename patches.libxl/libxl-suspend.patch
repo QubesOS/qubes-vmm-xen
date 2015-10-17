@@ -1,4 +1,4 @@
-From 08f83545098915a9f124bef44439b67fdbc7ba82 Mon Sep 17 00:00:00 2001
+From 4d1ab764a2e897ef191d6dab2de4f1c139fba994 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Tue, 10 Feb 2015 02:20:06 +0100
@@ -16,38 +16,62 @@ is totally untested on HVM (most likely it will crash device model).
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- tools/libxl/libxl_dom.c   | 12 +++++++++---
+ tools/libxl/libxl.c       | 29 +++++++++++++++++++++--------
  tools/libxl/xl.h          |  2 ++
  tools/libxl/xl_cmdimpl.c  | 47 +++++++++++++++++++++++++++++++++++++++++++++++
  tools/libxl/xl_cmdtable.c | 10 ++++++++++
- 4 files changed, 68 insertions(+), 3 deletions(-)
+ 4 files changed, 80 insertions(+), 8 deletions(-)
 
-diff --git a/tools/libxl/libxl_dom.c b/tools/libxl/libxl_dom.c
-index 69e6088..2321663 100644
---- a/tools/libxl/libxl_dom.c
-+++ b/tools/libxl/libxl_dom.c
-@@ -1378,10 +1378,16 @@ void libxl__domain_suspend(libxl__egc *egc, libxl__domain_suspend_state *dss)
-         callbacks->suspend = libxl__domain_suspend_common_callback;
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index d38d0c7..ef3c79f 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -954,9 +954,11 @@ static void domain_suspend_cb(libxl__egc *egc,
+     STATE_AO_GC(dss->ao);
+     int flrc;
  
-     callbacks->switch_qemu_logdirty = libxl__domain_suspend_common_switch_qemu_logdirty;
--    dss->shs.callbacks.save.toolstack_save = libxl__toolstack_save;
+-    flrc = libxl__fd_flags_restore(gc, dss->fd, dss->fdfl);
+-    /* If suspend has failed already then report that error not this one. */
+-    if (flrc && !rc) rc = flrc;
 +    if (dss->fd >= 0) {
-+        dss->shs.callbacks.save.toolstack_save = libxl__toolstack_save;
- 
--    libxl__xc_domain_save(egc, dss, vm_generationid_addr);
--    return;
-+        libxl__xc_domain_save(egc, dss, vm_generationid_addr);
-+        return;
-+    } else {
-+        /* TODO: make that call async */
-+        if (libxl__domain_suspend_common_callback(&dss->shs))
-+            rc = 0;
++        flrc = libxl__fd_flags_restore(gc, dss->fd, dss->fdfl);
++        /* If suspend has failed already then report that error not this one. */
++        if (flrc && !rc) rc = flrc;
 +    }
  
-  out:
-     domain_suspend_done(egc, dss, rc);
+     libxl__ao_complete(egc,ao,rc);
+ 
+@@ -986,12 +988,23 @@ int libxl_domain_suspend(libxl_ctx *ctx, uint32_t domid, int fd, int flags,
+     dss->live = flags & LIBXL_SUSPEND_LIVE;
+     dss->debug = flags & LIBXL_SUSPEND_DEBUG;
+ 
+-    rc = libxl__fd_flags_modify_save(gc, dss->fd,
+-                                     ~(O_NONBLOCK|O_NDELAY), 0,
+-                                     &dss->fdfl);
+-    if (rc < 0) goto out_err;
++    if (dss->fd >= 0) {
++        rc = libxl__fd_flags_modify_save(gc, dss->fd,
++                                         ~(O_NONBLOCK|O_NDELAY), 0,
++                                         &dss->fdfl);
++        if (rc < 0) goto out_err;
++
++        libxl__domain_save(egc, dss);
++    } else {
++        dss->hvm = (dss->type == LIBXL_DOMAIN_TYPE_HVM);
++        dss->guest_evtchn.port = -1;
++        dss->guest_evtchn_lockfd = -1;
++        dss->guest_responded = 0;
++        /* TODO: setup dss->guest_evtchn.port ? */
++        dss->callback_common_done = domain_suspend_cb;
++        libxl__domain_suspend(egc, dss);
++    }
+ 
+-    libxl__domain_save(egc, dss);
+     return AO_INPROGRESS;
+ 
+  out_err:
 diff --git a/tools/libxl/xl.h b/tools/libxl/xl.h
-index f188708..9e316d1 100644
+index 13bccba..8f36a44 100644
 --- a/tools/libxl/xl.h
 +++ b/tools/libxl/xl.h
 @@ -48,6 +48,8 @@ int main_restore(int argc, char **argv);
@@ -60,10 +84,10 @@ index f188708..9e316d1 100644
  int main_dump_core(int argc, char **argv);
  int main_pause(int argc, char **argv);
 diff --git a/tools/libxl/xl_cmdimpl.c b/tools/libxl/xl_cmdimpl.c
-index 4fc46eb..5b4c80c 100644
+index 9a2870e..83e9a5b 100644
 --- a/tools/libxl/xl_cmdimpl.c
 +++ b/tools/libxl/xl_cmdimpl.c
-@@ -3499,6 +3499,27 @@ static int save_domain(uint32_t domid, const char *filename, int checkpoint,
+@@ -4096,6 +4096,27 @@ static int save_domain(uint32_t domid, const char *filename, int checkpoint,
      exit(rc < 0 ? 1 : 0);
  }
  
@@ -91,7 +115,7 @@ index 4fc46eb..5b4c80c 100644
  static pid_t create_migration_child(const char *rune, int *send_fd,
                                          int *recv_fd)
  {
-@@ -4234,6 +4255,32 @@ int main_reboot(int argc, char **argv)
+@@ -4849,6 +4870,32 @@ int main_reboot(int argc, char **argv)
      return main_shutdown_or_reboot(1, argc, argv);
  }
  
@@ -123,12 +147,12 @@ index 4fc46eb..5b4c80c 100644
 +
  int main_list(int argc, char **argv)
  {
-     int opt, verbose = 0;
+     int opt;
 diff --git a/tools/libxl/xl_cmdtable.c b/tools/libxl/xl_cmdtable.c
-index e8ab93a..458641e 100644
+index 0071f12..12e28eb 100644
 --- a/tools/libxl/xl_cmdtable.c
 +++ b/tools/libxl/xl_cmdtable.c
-@@ -68,6 +68,16 @@ struct cmd_spec cmd_table[] = {
+@@ -75,6 +75,16 @@ struct cmd_spec cmd_table[] = {
        "                        no PV drivers.\n"
        "-w, --wait              Wait for guest(s) to shutdown.\n"
      },
@@ -146,5 +170,5 @@ index e8ab93a..458641e 100644
        &main_reboot, 0, 1,
        "Issue a reboot signal to a domain",
 -- 
-1.8.3.1
+2.1.0
 

@@ -73,7 +73,7 @@ index 4dbfddc..52e7592 100644
  
      if (ret) {
          LOG(ERROR, "error connecting disk devices");
-@@ -1066,12 +1070,16 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+@@ -1066,20 +1070,23 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
          if (ret)
              goto out;
      }
@@ -96,8 +96,16 @@ index 4dbfddc..52e7592 100644
  
      if (guest_config->b_info.u.hvm.serial)
          num_console++;
+ 
+     console = libxl__calloc(gc, num_console, sizeof(libxl__device_console));
+ 
+     for (i = 0; i < num_console; i++) {
+-        libxl__device device;
+         console[i].devid = i;
+         console[i].consback = LIBXL__CONSOLE_BACKEND_IOEMU;
+         /* STUBDOM_CONSOLE_LOGGING (console 0) is for minios logging
 @@ -1098,6 +1106,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
-                 libxl_create_logfile(ctx, name, &filename);
+                 if (ret) goto out;
                  console[i].output = libxl__sprintf(gc, "file:%s", filename);
                  free(filename);
 +                /* will be changed back to LIBXL__CONSOLE_BACKEND_IOEMU if qemu
@@ -106,7 +114,7 @@ index 4dbfddc..52e7592 100644
                  break;
              case STUBDOM_CONSOLE_SAVE:
                  console[i].output = libxl__sprintf(gc, "file:%s",
-@@ -1112,6 +1123,13 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+@@ -1112,6 +1123,15 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
                  console[i].output = "pty";
                  break;
          }
@@ -114,12 +122,14 @@ index 4dbfddc..52e7592 100644
 +
 +    need_qemu = libxl__need_xenpv_qemu(gc, num_console, console,
 +            dm_config->num_vfbs, dm_config->vfbs,
-+            dm_config->num_disks, dm_config->disks);
++            dm_config->num_disks, dm_config->disks,
++            dm_config->num_channels, dm_config->channels);
 +
 +    for (i = 0; i < num_console; i++) {
++        libxl__device device;
          ret = libxl__device_console_add(gc, dm_domid, &console[i],
-                         i == STUBDOM_CONSOLE_LOGGING ? stubdom_state : NULL);
-         if (ret)
+                         i == STUBDOM_CONSOLE_LOGGING ? stubdom_state : NULL,
+                         &device);
 @@ -1124,7 +1142,12 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
      sdss->pvqemu.build_state = &sdss->dm_state;
      sdss->pvqemu.callback = spawn_stubdom_pvqemu_cb;
@@ -136,4 +146,3 @@ index 4dbfddc..52e7592 100644
  
 -- 
 2.1.0
-

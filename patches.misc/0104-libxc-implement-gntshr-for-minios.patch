@@ -19,13 +19,13 @@ index 935bede..d664ded 100644
 --- a/extras/mini-os/include/lib.h
 +++ b/extras/mini-os/include/lib.h
 @@ -54,6 +54,7 @@
+ #include <xen/xen.h>
  #include <xen/event_channel.h>
- #include <sys/queue.h>
  #include "gntmap.h"
 +#include "gntalloc.h"
  
- #ifdef HAVE_LIBC
- #include <stdio.h>
+ #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+ #define BUILD_BUG_ON(cond) ({ _Static_assert(!(cond), "!(" #cond ")"); })
 @@ -135,6 +136,7 @@ enum fd_type {
      FTYPE_XC,
      FTYPE_EVTCHN,

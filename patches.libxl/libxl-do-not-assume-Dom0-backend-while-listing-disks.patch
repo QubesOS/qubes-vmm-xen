@@ -1,10 +1,13 @@
-From a217aae81c58963fa7a8816771a05ea05241c5ee Mon Sep 17 00:00:00 2001
+From c904b4e905ac8a0a0c885e931c34ae26928e4ab5 Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Sun, 28 Apr 2013 01:12:49 +0200
 Subject: [PATCH] libxl: do not assume Dom0 backend while listing disks and
  nics
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Organization: Invisible Things Lab
-Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 One more place where code assumed that all backends are in dom0. List
 devices in domain device/ tree, instead of backend/ of dom0.
@@ -12,15 +15,16 @@ Additionally fix libxl_devid_to_device_{nic,disk} to fill backend_domid
 properly.
 
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- tools/libxl/libxl.c | 71 ++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 51 insertions(+), 20 deletions(-)
+ tools/libxl/libxl.c | 45 ++++++++++++++++++++++++++++-----------------
+ 1 file changed, 28 insertions(+), 17 deletions(-)
 
 diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
-index c386004..e2c678a 100644
+index d38d0c7..74ef91c 100644
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -2374,16 +2374,16 @@
+@@ -2739,16 +2739,16 @@ static int libxl__append_disk_list_of_type(libxl__gc *gc,
                                             libxl_device_disk **disks,
                                             int *ndisks)
  {
@@ -41,7 +45,7 @@ index c386004..e2c678a 100644
      if (dir && n) {
          libxl_device_disk *tmp;
          tmp = realloc(*disks, sizeof (libxl_device_disk) * (*ndisks + n));
-@@ -2393,11 +2393,13 @@
+@@ -2758,11 +2758,13 @@ static int libxl__append_disk_list_of_type(libxl__gc *gc,
          pdisk = *disks + initial_disks;
          pdisk_end = *disks + initial_disks + n;
          for (; pdisk < pdisk_end; pdisk++, dir++) {
@@ -59,20 +63,21 @@ index c386004..e2c678a 100644
              *ndisks += 1;
          }
      }
-@@ -2999,6 +3002,12 @@
+@@ -3442,6 +3444,13 @@ static int libxl__device_nic_from_xs_be(libxl__gc *gc,
  
      libxl_device_nic_init(nic);
  
 +    rc = sscanf(be_path, "/local/domain/%d/", &nic->backend_domid);
 +    if (rc != 1) {
++        rc = ERROR_FAIL;
 +        LOG(ERROR, "Unable to fetch device backend domid from %s", be_path);
 +        goto out;
 +    }
 +
- #define READ_BACKEND(tgc, subpath) ({                                   \
-         rc = libxl__xs_read_checked(tgc, XBT_NULL,                      \
-                                     GCSPRINTF("%s/" subpath, be_path),  \
-@@ -3070,15 +3079,15 @@
+     tmp = READ_BACKEND(gc, "handle");
+     if (tmp)
+         nic->devid = atoi(tmp);
+@@ -3511,15 +3520,15 @@ static int libxl__append_nic_list_of_type(libxl__gc *gc,
                                             libxl_device_nic **nics,
                                             int *nnics)
  {
@@ -92,7 +97,7 @@ index c386004..e2c678a 100644
      if (dir && n) {
          libxl_device_nic *tmp;
          tmp = realloc(*nics, sizeof (libxl_device_nic) * (*nnics + n));
-@@ -3088,13 +3097,15 @@
+@@ -3529,13 +3538,15 @@ static int libxl__append_nic_list_of_type(libxl__gc *gc,
          pnic = *nics + *nnics;
          pnic_end = *nics + *nnics + n;
          for (; pnic < pnic_end; pnic++, dir++) {
@@ -113,3 +118,6 @@ index c386004..e2c678a 100644
      }
      return 0;
  
+-- 
+2.1.0
+

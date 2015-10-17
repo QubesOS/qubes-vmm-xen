@@ -38,7 +38,7 @@
 @@ -13,6 +13,8 @@
  export XEN_ROOT := $(BASEDIR)/..
  
- EFI_MOUNTPOINT ?= /boot/efi
+ EFI_MOUNTPOINT ?= $(BOOT_DIR)/efi
 +EFI_VENDOR=fedora
 +LD_EFI ?= $(LD)
  
