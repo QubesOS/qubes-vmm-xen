@@ -1,0 +1,32 @@
+From 1ffa599587ce5462bacbddf683ebaff307f0282e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 19 Oct 2015 03:25:16 +0200
+Subject: [PATCH] systemd: enable xenconsoled logging by default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/hotplug/Linux/systemd/xenconsoled.service.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/hotplug/Linux/systemd/xenconsoled.service.in b/tools/hotplug/Linux/systemd/xenconsoled.service.in
+index cd282bf..ab58ddc 100644
+--- a/tools/hotplug/Linux/systemd/xenconsoled.service.in
++++ b/tools/hotplug/Linux/systemd/xenconsoled.service.in
+@@ -7,7 +7,7 @@ ConditionPathExists=/proc/xen/capabilities
+ [Service]
+ Type=simple
+ Environment=XENCONSOLED_ARGS=
+-Environment=XENCONSOLED_TRACE=none
++Environment=XENCONSOLED_TRACE=all
+ Environment=XENCONSOLED_LOG_DIR=@XEN_LOG_DIR@/console
+ EnvironmentFile=@CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons
+ PIDFile=@XEN_RUN_DIR@/xenconsoled.pid
+-- 
+2.1.0
+
