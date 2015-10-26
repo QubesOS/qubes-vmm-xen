@@ -499,6 +499,9 @@ if [ $1 != 0 ]; then
 fi
 %endif
 
+%post qubes-vm
+/sbin/chkconfig --add xendriverdomain
+
 %preun runtime
 %if %with_systemd_presets
 %systemd_preun xenstored.service xenconsoled.service
@@ -828,6 +831,7 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
 %{_sbindir}/xl
+%config(noreplace) %{_sysconfdir}/xen/xl.conf
 
 # Hotplug rules
 %{_sysconfdir}/rc.d/init.d/xendriverdomain
