@@ -8,6 +8,7 @@ Build-Depends:
     iasl,
     libyajl-dev,
     seabios,
+    cmake,
     libaio-dev, 
     libfdt-dev,
     libssl-dev, 

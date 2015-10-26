@@ -123,6 +123,8 @@ BuildRequires: bzip2-devel xz-devel
 BuildRequires: e2fsprogs-devel
 # tools now require yajl
 BuildRequires: yajl-devel
+# stubdom build requires cmake
+BuildRequires: cmake
 %if %with_xsm
 # xsm policy file needs needs checkpolicy and m4
 BuildRequires: checkpolicy m4
