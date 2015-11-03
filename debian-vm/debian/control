@@ -43,10 +43,11 @@ Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
 
-Package: libxen-4.4
+Package: libxen-4.6
 Section: libs
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Description: Libraries for Xen tools
  This package contains the libraries needed to run Xen tools inside of Qubes VM
 
@@ -54,13 +55,14 @@ Package: libxenstore3.0
 Section: libs
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Description: Xenstore communications library for Xen
  This package contains the client library interface to XenStore.
 
 Package: libxen-dev
 Section: libdevel
 Architecture: amd64
-Depends: libxen-4.4 (= ${binary:Version}), libxenstore3.0 (= ${binary:Version}), ${misc:Depends}
+Depends: libxen-4.6 (= ${binary:Version}), libxenstore3.0 (= ${binary:Version}), ${misc:Depends}
 Description: Development libraries for Xen tools
  This package contains what's needed to develop applications
  which manage Xen virtual machines.
@@ -86,7 +88,8 @@ Description: Xenstore command line utilities for Xen
 
 Package: xen-utils-common
 Architecture: all
-Depends: lsb-base, python, udev, xenstore-utils, ${misc:Depends}
+Depends: lsb-base, python, udev, xenstore-utils, ${shlibs:Depends}, ${python:Depends}, ${misc:Depends}
+X-Python-Version: ${python:Versions}
 Description: Xen administrative tools - common files
  The userspace tools to manage a system virtualized through the Xen virtual
  machine monitor.

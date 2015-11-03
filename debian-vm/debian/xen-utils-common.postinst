@@ -5,6 +5,7 @@ set -e
 case "$1" in
 configure)
 	install -d -m 2750 -g adm /var/log/xen
+	systemctl enable xendriverdomain.service 2> /dev/null
 	;;
 
 abort-upgrade|abort-remove|abort-deconfigure)

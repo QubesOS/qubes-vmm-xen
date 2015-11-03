@@ -4,3 +4,7 @@ usr/lib/*/libxenguest*.so
 usr/lib/*/libxenguest.so.*
 usr/lib/*/libxenvchan*.so
 usr/lib/*/libxenvchan.so.*
+usr/lib/*/libxenlight*.so
+usr/lib/*/libxenlight.so.*
+usr/lib/*/libxlutil*.so
+usr/lib/*/libxlutil.so.*
