@@ -48,6 +48,7 @@ Section: libs
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
+Conflicts: libxen-4.4
 Description: Libraries for Xen tools
  This package contains the libraries needed to run Xen tools inside of Qubes VM
 
