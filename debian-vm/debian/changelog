@@ -1,3 +1,10 @@
+xen (2001:4.4.3-9) wheezy; urgency=medium
+
+  * Restore VM udev script fix
+  * Apply XSA 149-153
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 07 Nov 2015 15:58:54 +0100
+
 xen (2001:4.4.3-8) wheezy; urgency=medium
 
   * Convert hacky copy-in stage into git submodules
