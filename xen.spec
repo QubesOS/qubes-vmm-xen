@@ -25,17 +25,17 @@
 %ifnarch x86_64
 %define build_efi 0
 %endif
-%if "%dist" >= ".fc17"
+%if 0%fedora >= 17
 %define with_sysv 0
 %else
 %define with_sysv 1
 %endif
-%if "%dist" >= ".fc15"
+%if 0%fedora >= 15
 %define with_systemd 1
 %else
 %define with_systemd 0
 %endif
-%if "%dist" >= ".fc20"
+%if 0%fedora >= 20
 %define with_systemd_presets 1
 %else
 %define with_systemd_presets 0
@@ -92,7 +92,7 @@ Source103: patches.qubes
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript texlive-latex
-%if "%dist" >= ".fc18"
+%if 0%fedora >= 18
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
 %endif
 BuildRequires: ncurses-devel gtk2-devel libaio-devel
