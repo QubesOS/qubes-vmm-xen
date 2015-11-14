@@ -1,3 +1,10 @@
+xen (2001:4.4.3-10) wheezy; urgency=medium
+
+  * Compile fix for qemu-traditional with newer gnutls
+  * rpm: Use %fedora macro instead of %dist for version check
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 14 Nov 2015 16:24:55 +0100
+
 xen (2001:4.4.3-9) wheezy; urgency=medium
 
   * Restore VM udev script fix
