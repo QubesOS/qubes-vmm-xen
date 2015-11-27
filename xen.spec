@@ -143,7 +143,7 @@ Requires: xen-runtime = %{version}-%{release}
 Requires: kpartx
 Requires: chkconfig
 ExclusiveArch: %{ix86} x86_64
-#ExclusiveArch: %{ix86} x86_64 ia64 noarch
+#ExclusiveArch: %%{ix86} x86_64 ia64 noarch
 %if %with_ocaml
 BuildRequires: ocaml, ocaml-findlib
 %endif
@@ -435,9 +435,9 @@ mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
 install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 
 # init scripts
-#mkdir -p %{buildroot}%{_sysconfdir}/rc.d/init.d
-#mv %{buildroot}%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
-#rmdir %{buildroot}%{_sysconfdir}/init.d
+#mkdir -p %%{buildroot}%%{_sysconfdir}/rc.d/init.d
+#mv %%{buildroot}%%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
+#rmdir %%{buildroot}%%{_sysconfdir}/init.d
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xen-watchdog
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
@@ -702,7 +702,7 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore-*
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
-#%{_bindir}/remus
+#%%{_bindir}/remus
 # blktap daemon
 %{_sbindir}/tapdisk*
 # XSM
