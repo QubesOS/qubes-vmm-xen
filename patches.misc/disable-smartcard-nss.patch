@@ -1,0 +1,10 @@
+--- xen-4.4.3/tools/Makefile.orig	2016-01-14 21:09:25.851724757 +0100
++++ xen-4.4.3/tools/Makefile	2016-01-14 21:15:32.507724757 +0100
+@@ -203,6 +203,7 @@ subdir-all-qemu-xen-dir: qemu-xen-dir-fi
+ 		--disable-kvm \
+ 		--disable-docs \
+ 		--disable-guest-agent \
++		--disable-smartcard-nss \
+ 		--python=$(PYTHON) \
+ 		$(IOEMU_CONFIGURE_CROSS); \
+ 	$(MAKE) all
