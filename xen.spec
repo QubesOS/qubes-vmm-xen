@@ -328,6 +328,7 @@ mkdir -p dist/install/boot/efi/efi/qubes
 %endif
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS="$RPM_OPT_FLAGS"
+export PATH="/usr/bin:$PATH"
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
 # setting libexecdir to real libexec is broken in the configure script (it is
