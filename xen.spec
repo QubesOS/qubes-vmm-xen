@@ -106,6 +106,8 @@ BuildRequires: /usr/include/gnu/stubs-32.h
 # for the VMX "bios"
 BuildRequires: dev86
 %endif
+BuildRequires: autoconf
+BuildRequires: automake
 BuildRequires: gettext
 BuildRequires: gnutls-devel
 BuildRequires: openssl-devel
