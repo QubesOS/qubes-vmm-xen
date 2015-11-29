@@ -1,3 +1,9 @@
+xen (2001:4.6.0-9) wheezy; urgency=medium
+
+  * rpm: add missing build requirements
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 29 Nov 2015 09:20:48 +0100
+
 xen (2001:4.6.0-8) wheezy; urgency=medium
 
   * Convert hacky copy-in stage into git submodules
