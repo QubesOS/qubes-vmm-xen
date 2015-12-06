@@ -1,3 +1,9 @@
+xen (2001:4.6.0-10) wheezy; urgency=medium
+
+  * stubdom: revert commit breaking netfront driver in stubdomain
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 07 Dec 2015 00:21:40 +0100
+
 xen (2001:4.6.0-9) wheezy; urgency=medium
 
   * rpm: add missing build requirements
