@@ -1,3 +1,9 @@
+xen (2001:4.6.0-11) wheezy; urgency=medium
+
+  * Apply XSA-155, XSA-165, XSA-166
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 17 Dec 2015 08:42:19 +0100
+
 xen (2001:4.6.0-10) wheezy; urgency=medium
 
   * stubdom: revert commit breaking netfront driver in stubdomain
