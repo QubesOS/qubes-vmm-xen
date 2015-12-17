@@ -1,3 +1,9 @@
+xen (2001:4.4.3-11) wheezy; urgency=medium
+
+  * Apply XSA-155, XSA-165, XSA-166
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 17 Dec 2015 05:49:28 +0100
+
 xen (2001:4.4.3-10) wheezy; urgency=medium
 
   * Compile fix for qemu-traditional with newer gnutls
