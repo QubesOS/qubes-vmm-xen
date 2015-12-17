@@ -1,0 +1,46 @@
+x86/HVM: avoid reading ioreq state more than once
+
+Otherwise, especially when the compiler chooses to translate the
+switch() to a jump table, unpredictable behavior (and in the jump table
+case arbitrary code execution) can result.
+
+This is XSA-166.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
+
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -460,7 +460,10 @@ static bool_t hvm_wait_for_io(struct hvm
+ {
+     while ( sv->pending )
+     {
+-        switch ( p->state )
++        unsigned int state = p->state;
++
++        rmb();
++        switch ( state )
+         {
+         case STATE_IOREQ_NONE:
+             /*
+@@ -471,18 +474,15 @@ static bool_t hvm_wait_for_io(struct hvm
+             hvm_io_assist(sv, ~0ul);
+             break;
+         case STATE_IORESP_READY: /* IORESP_READY -> NONE */
+-            rmb(); /* see IORESP_READY /then/ read contents of ioreq */
+             p->state = STATE_IOREQ_NONE;
+             hvm_io_assist(sv, p->data);
+             break;
+         case STATE_IOREQ_READY:  /* IOREQ_{READY,INPROCESS} -> IORESP_READY */
+         case STATE_IOREQ_INPROCESS:
+-            wait_on_xen_event_channel(sv->ioreq_evtchn,
+-                                      (p->state != STATE_IOREQ_READY) &&
+-                                      (p->state != STATE_IOREQ_INPROCESS));
++            wait_on_xen_event_channel(sv->ioreq_evtchn, p->state != state);
+             break;
+         default:
+-            gdprintk(XENLOG_ERR, "Weird HVM iorequest state %d.\n", p->state);
++            gdprintk(XENLOG_ERR, "Weird HVM iorequest state %u\n", state);
+             sv->pending = 0;
+             domain_crash(sv->vcpu->domain);
+             return 0; /* bail */
