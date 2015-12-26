@@ -46,7 +46,10 @@ build() {
   export PYTHON=/usr/bin/python2
   unset LDFLAGS
 
-  ./configure --prefix=/usr
+  ./configure --prefix=/usr \
+              --disable-ocamltools \
+              --disable-blktap2
+
 #  make prefix=/usr dist-xen
   make prefix=/usr dist-tools
 #  make prefix=/usr dist-docs
