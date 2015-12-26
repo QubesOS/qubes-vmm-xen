@@ -37,10 +37,8 @@ build() {
 
   cd xen-$pkgver
 
-  ln -s $srcdir/../patches.fedora patches.fedora
-  ln -s $srcdir/../patches.misc patches.misc
-  ln -s $srcdir/../patches.qubes patches.qubes
-
+  for p in $srcdir/../patches.*; do ln -s $p; done
+  
   $srcdir/apply-patches $srcdir/series-vm.conf .  
 
   export XEN_VENDORVERSION="-$pkgrel"
