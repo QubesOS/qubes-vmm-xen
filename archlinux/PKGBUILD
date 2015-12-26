@@ -128,7 +128,9 @@ package() {
 
   # Archlinux specific
   # Change /var/run to /run as it is handled as a symlink by archlinux filesystem package
-  mv $pkgdir/var/run $pkgdir/
+  if [ -d $pkgdir/var/run ]; then
+    $pkgdir/var/run $pkgdir/
+  fi
 
 }
 
