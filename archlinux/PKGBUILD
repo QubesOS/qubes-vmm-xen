@@ -47,6 +47,7 @@ build() {
   unset LDFLAGS
 
   ./configure --prefix=/usr \
+              --sbindir=/usr/bin \
               --disable-ocamltools \
               --disable-blktap2
 
