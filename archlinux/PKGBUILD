@@ -13,8 +13,8 @@ arch=("x86_64")
 url="http://qubes-os.org/"
 license=('GPL')
 groups=()
-depends=(python2 bridge-utils python2-lxml)
-makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config openssl)
+depends=(python2 bridge-utils python2-lxml libutil-linux lzo libsystemd yajl)
+makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config openssl pixman)
 checkdepends=()
 optdepends=()
 provides=('xen-qubes-vm-essentials')
@@ -37,10 +37,8 @@ build() {
 
   cd xen-$pkgver
 
-  ln -s $srcdir/../patches.fedora patches.fedora
-  ln -s $srcdir/../patches.misc patches.misc
-  ln -s $srcdir/../patches.qubes patches.qubes
-
+  for p in $srcdir/../patches.*; do ln -s $p; done
+  
   $srcdir/apply-patches $srcdir/series-vm.conf .  
 
   export XEN_VENDORVERSION="-$pkgrel"
@@ -49,6 +47,7 @@ build() {
   unset LDFLAGS
 
   ./configure --prefix=/usr \
+              --sbindir=/usr/bin \
               --disable-ocamltools \
               --disable-blktap2
 
@@ -127,10 +126,6 @@ package() {
 
   # Remove /var/lock (it is tmpfs in archlinux anyway)
   rm -rf $pkgdir/var/lock
-
-  # Archlinux specific
-  # Change /var/run to /run as it is handled as a symlink by archlinux filesystem package
-  mv $pkgdir/var/run $pkgdir/
 
 }
 
