@@ -127,12 +127,6 @@ package() {
   # Remove /var/lock (it is tmpfs in archlinux anyway)
   rm -rf $pkgdir/var/lock
 
-  # Archlinux specific
-  # Change /var/run to /run as it is handled as a symlink by archlinux filesystem package
-  if [ -d $pkgdir/var/run ]; then
-    mv $pkgdir/var/run $pkgdir/
-  fi
-
 }
 
 # vim:set ts=2 sw=2 et:
