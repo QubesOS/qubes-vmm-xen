@@ -1,3 +1,24 @@
+xen (2001:4.6.0-12) wheezy; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Sync series-vm.conf and series-debian-vm.conf with series.conf
+
+  [ noname ]
+  * create symlink for all patches.*
+
+  [ Marek Marczykowski-Górecki ]
+  * archlinux: update ./configure call
+
+  [ noname ]
+  * archlinux: move directory only if exists
+  * missing mv
+  * archlinux: xen 4.6 build requires pixman.
+  * archlinux: configured xen to use /usr/bin instead of /usr/sbin
+  * archlinux: moving /var/run to /run is not necessary. /var/run is not
+    created.
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 07 Jan 2016 06:12:11 +0100
+
 xen (2001:4.6.0-11) wheezy; urgency=medium
 
   * Apply XSA-155, XSA-165, XSA-166
