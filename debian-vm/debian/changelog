@@ -1,3 +1,9 @@
+xen (2001:4.6.0-13) wheezy; urgency=medium
+
+  * Add EFI workaround patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 11 Feb 2016 04:05:59 +0100
+
 xen (2001:4.6.0-12) wheezy; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
