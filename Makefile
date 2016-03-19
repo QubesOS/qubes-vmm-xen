@@ -27,9 +27,6 @@ RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
 		--define "version $(VERSION)" \
 		--define "jobs $(NO_OF_CPUS)"
 
-ifndef NAME
-$(error "You can not run this Makefile without having NAME defined")
-endif
 ifndef VERSION
 $(error "You can not run this Makefile without having VERSION defined")
 endif
