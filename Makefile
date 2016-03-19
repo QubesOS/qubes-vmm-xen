@@ -88,36 +88,33 @@ clean-sources:
 	-rm xen-${version}.tar.gz
 
 
-#RPM := rpmbuild --buildroot=/dev/shm/buildroot/
-RPM := rpmbuild
-
-RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
+RPMBUILD = rpmbuild $(RPM_DEFINES)
 
 rpms-vm:
-	$(RPM_WITH_DIRS) -bb xen-vm.spec
+	$(RPMBUILD) -bb xen-vm.spec
 	rpm --addsign $(_rpmdir)/x86_64/xen-qubes-vm*$(version)-$(release)*.rpm
 
 rpms-dom0: rpms
 
 rpms: get-sources verify-sources $(SPECFILE)
 	[ -d gui -a -d vchan ] || { echo "You must copy Qubes 'gui' and 'vchan' here to build Xen for HVM domain; it is done automatically by qubes-builder"; exit 1; }
-	$(RPM_WITH_DIRS) -bb $(SPECFILE)
+	$(RPMBUILD) -bb $(SPECFILE)
 	rpm --addsign $(_rpmdir)/x86_64/*$(version)-$(release)*.rpm
 
 rpms-nobuild:
-	$(RPM_WITH_DIRS) --nobuild -bb $(SPECFILE)
+	$(RPMBUILD) --nobuild -bb $(SPECFILE)
 
 rpms-just-build:
-	$(RPM_WITH_DIRS) --short-circuit -bc $(SPECFILE)
+	$(RPMBUILD) --short-circuit -bc $(SPECFILE)
 
 rpms-install:
-	$(RPM_WITH_DIRS) -bi $(SPECFILE)
+	$(RPMBUILD) -bi $(SPECFILE)
 
 prep: get-sources $(SPECFILE)
-	$(RPM_WITH_DIRS) -bp $(SPECFILE)
+	$(RPMBUILD) -bp $(SPECFILE)
 
 srpm: get-sources $(SPECFILE)
-	$(RPM_WITH_DIRS) -bs $(SPECFILE)
+	$(RPMBUILD) -bs $(SPECFILE)
 
 verrel:
 	@echo $(NAME)-$(version)-$(release)
@@ -127,7 +124,7 @@ verrel:
 .PHONY : clean
 clean ::
 	@echo "Running the %clean script of the rpmbuild..."
-	$(RPM_WITH_DIRS) --clean --nodeps $(SPECFILE)
+	$(RPMBUILD) --clean --nodeps $(SPECFILE)
 
 define make-repo-links
     dist=`basename $$vmrepo`;\
