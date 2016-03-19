@@ -5,33 +5,27 @@
 NAME := xen
 SPECFILE := xen.spec
 
-WORKDIR := $(shell pwd)
-SPECDIR ?= $(WORKDIR)
-SRCRPMDIR ?= $(WORKDIR)/srpm
-BUILDDIR ?= $(WORKDIR)
-RPMDIR ?= $(WORKDIR)/rpm
-SOURCEDIR := $(WORKDIR)
-VERSION := $(shell cat version)
-RELEASE := $(shell cat rel)
+_sourcedir := $(shell pwd)
+_specdir := $(if $(SPECDIR), $(SPECDIR), $(_sourcedir))
+_builddir := $(if $(BUILDDIR), $(BUILDDIR), $(_sourcedir))
+_srcrpmdir := $(if $(SRCRPMDIR), $(SRCRPMDIR), $(_sourcedir)/srpm)
+_rpmdir := $(if $(RPMDIR), $(RPMDIR), $(_sourcedir)/rpm)
+version := $(shell cat version)
+release := $(shell cat rel)
+jobs := $(shell grep -c ^processor /proc/cpuinfo)
+
+def = --define "$(v) $(value $(v))"
+RPM_DEFINES := $(foreach v, _sourcedir _specdir _builddir _srcrpmdir _rpmdir version jobs, $(def))
 
 DIST_DOM0 ?= fc13
 
 DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
-NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
-RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
-    --define "_specdir $(SPECDIR)" \
-    --define "_builddir $(BUILDDIR)" \
-    --define "_srcrpmdir $(SRCRPMDIR)" \
-    --define "_rpmdir $(RPMDIR)" \
-    --define "version $(VERSION)" \
-    --define "jobs $(NO_OF_CPUS)"
-
-ifndef VERSION
-$(error "You can not run this Makefile without having VERSION defined")
+ifndef version
+$(error "You can not run this Makefile without having version defined")
 endif
-ifndef RELEASE
-$(error "You can not run this Makefile without having RELEASE defined")
+ifndef release
+$(error "You can not run this Makefile without having release defined")
 endif
 
 all: help
@@ -39,7 +33,7 @@ all: help
 UNTRUSTED_SUFF := .UNTRUSTED
 
 URLS := \
-    http://bits.xensource.com/oss-xen/release/${VERSION}/xen-${VERSION}.tar.gz.sig \
+    http://bits.xensource.com/oss-xen/release/${version}/xen-${version}.tar.gz.sig \
     ftp://alpha.gnu.org/gnu/grub/grub-0.97.tar.gz.sig \
     http://download.savannah.gnu.org/releases/lwip/older_versions/lwip-1.3.0.tar.gz.sig \
     ftp://sources.redhat.com/pub/newlib/newlib-1.16.0.tar.gz \
@@ -91,7 +85,7 @@ $(filter %.sig, $(ALL_FILES)): %:
 
 .PHONY: clean-sources
 clean-sources:
-	-rm xen-${VERSION}.tar.gz
+	-rm xen-${version}.tar.gz
 
 
 #RPM := rpmbuild --buildroot=/dev/shm/buildroot/
@@ -101,14 +95,14 @@ RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
 rpms-vm:
 	$(RPM_WITH_DIRS) -bb xen-vm.spec
-	rpm --addsign $(RPMDIR)/x86_64/xen-qubes-vm*$(VERSION)-$(RELEASE)*.rpm
+	rpm --addsign $(_rpmdir)/x86_64/xen-qubes-vm*$(version)-$(release)*.rpm
 
 rpms-dom0: rpms
 
 rpms: get-sources verify-sources $(SPECFILE)
 	[ -d gui -a -d vchan ] || { echo "You must copy Qubes 'gui' and 'vchan' here to build Xen for HVM domain; it is done automatically by qubes-builder"; exit 1; }
 	$(RPM_WITH_DIRS) -bb $(SPECFILE)
-	rpm --addsign $(RPMDIR)/x86_64/*$(VERSION)-$(RELEASE)*.rpm
+	rpm --addsign $(_rpmdir)/x86_64/*$(version)-$(release)*.rpm
 
 rpms-nobuild:
 	$(RPM_WITH_DIRS) --nobuild -bb $(SPECFILE)
@@ -126,7 +120,7 @@ srpm: get-sources $(SPECFILE)
 	$(RPM_WITH_DIRS) -bs $(SPECFILE)
 
 verrel:
-	@echo $(NAME)-$(VERSION)-$(RELEASE)
+	@echo $(NAME)-$(version)-$(release)
 
 # mop up, printing out exactly what was mopped.
 
@@ -137,16 +131,16 @@ clean ::
 
 define make-repo-links
     dist=`basename $$vmrepo`;\
-    ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/;\
-    ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/;\
-    ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/;\
-    ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/
+    ln -f rpm/x86_64/xen-libs-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/;\
+    ln -f rpm/x86_64/xen-devel-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/;\
+    ln -f rpm/x86_64/xen-qubes-vm-essentials-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/;\
+    ln -f rpm/x86_64/xen-licenses-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/
 endef
 
 update-repo.%: repo = $(subst .,,$(suffix $@))
 update-repo.%:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
+	ln -f rpm/x86_64/*$(version)-$(release).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(version)gui*$(release).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
 	for vmrepo in ../yum/current-release/$(repo)/vm/*; do $(make-repo-links); done
 
 update-repo-current: update-repo.current
@@ -157,11 +151,11 @@ update-repo-template:
 	for vmrepo in ../template-builder/yum_repo_qubes/*; do $(make-repo-links); done
 
 xen-pkg-names := xen xen-debuginfo xen-doc xen-hypervisor xen-libs xen-runtime xen-licenses
-xen-pkgs := $(xen-pkg-names:%=%-$(VERSION)-$(RELEASE).$(DIST_DOM0))
+xen-pkgs := $(xen-pkg-names:%=%-$(version)-$(release).$(DIST_DOM0))
 
 update-repo-installer:
 	for pkg in $(xen-pkgs); do ln -f rpm/x86_64/$$pkg*.rpm ../installer/yum/qubes-dom0/rpm/; done
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(version)gui2*-$(release).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
 
 help:
 	@echo "Usage: make <target>"
