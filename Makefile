@@ -20,12 +20,12 @@ DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
 NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
 RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
-		--define "_specdir $(SPECDIR)" \
-		--define "_builddir $(BUILDDIR)" \
-		--define "_srcrpmdir $(SRCRPMDIR)" \
-		--define "_rpmdir $(RPMDIR)" \
-		--define "version $(VERSION)" \
-		--define "jobs $(NO_OF_CPUS)"
+    --define "_specdir $(SPECDIR)" \
+    --define "_builddir $(BUILDDIR)" \
+    --define "_srcrpmdir $(SRCRPMDIR)" \
+    --define "_rpmdir $(RPMDIR)" \
+    --define "version $(VERSION)" \
+    --define "jobs $(NO_OF_CPUS)"
 
 ifndef VERSION
 $(error "You can not run this Makefile without having VERSION defined")
@@ -84,7 +84,7 @@ clean-sources:
 
 
 #RPM := rpmbuild --buildroot=/dev/shm/buildroot/
-RPM := rpmbuild 
+RPM := rpmbuild
 
 RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
 
@@ -102,10 +102,10 @@ rpms: get-sources verify-sources $(SPECFILE)
 rpms-nobuild:
 	$(RPM_WITH_DIRS) --nobuild -bb $(SPECFILE)
 
-rpms-just-build: 
+rpms-just-build:
 	$(RPM_WITH_DIRS) --short-circuit -bc $(SPECFILE)
 
-rpms-install: 
+rpms-install:
 	$(RPM_WITH_DIRS) -bi $(SPECFILE)
 
 prep: get-sources $(SPECFILE)
@@ -136,14 +136,14 @@ update-repo.%: repo = $(subst .,,$(suffix $@))
 update-repo.%:
 	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
 	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
-	for vmrepo in ../yum/current-release/$(repo)/vm/* ; do $(make-repo-links); done
+	for vmrepo in ../yum/current-release/$(repo)/vm/*; do $(make-repo-links); done
 
 update-repo-current: update-repo.current
 update-repo-current-testing: update-repo.current-testing
 update-repo-unstable: update-repo.unstable
 
 update-repo-template:
-	for vmrepo in ../template-builder/yum_repo_qubes/* ; do $(make-repo-links); done
+	for vmrepo in ../template-builder/yum_repo_qubes/*; do $(make-repo-links); done
 
 xen-pkg-names := xen xen-debuginfo xen-doc xen-hypervisor xen-libs xen-runtime xen-licenses
 xen-pkgs := $(xen-pkg-names:%=%-$(VERSION)-$(RELEASE).$(DIST_DOM0))
@@ -158,7 +158,7 @@ help:
 	@echo "get-sources      Download kernel sources from kernel.org"
 	@echo "verify-sources"
 	@echo
-	@echo "prep             Just do the prep"	
+	@echo "prep             Just do the prep"
 	@echo "rpms             Build rpms"
 	@echo "rpms-nobuild     Skip the build stage (for testing)"
 	@echo "rpms-just-build  Skip packaging (just test compilation)"
