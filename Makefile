@@ -96,18 +96,20 @@ get-sources: $(ALL_FILES)
 $(ALL_FILES):
 	@wget -qN $(ALL_URLS)
 
-import-keys:
-	@if [ -n "$$GNUPGHOME" ]; then rm -f "$$GNUPGHOME/vmm-xen-trustedkeys.gpg"; fi
-	@gpg --no-auto-check-trustdb --no-default-keyring --keyring vmm-xen-trustedkeys.gpg -q --import *-key.asc
+keyring := vmm-xen-trustedkeys.gpg
+keyring-file := $(if $(GNUPGHOME), $(GNUPGHOME)/, $(HOME)/.gnupg/)$(keyring)
+keyring-import:= gpg -q --no-auto-check-trustdb --no-default-keyring --import
 
-verify-sources: import-keys verify-sources-sig verify-sources-sum
+$(keyring-file): $(wildcard *.asc)
+	@rm -f $(keyring-file) && $(keyring-import) --keyring $(keyring) $^
 
-verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE)
-	@for f in $^; do gpgv --keyring vmm-xen-trustedkeys.gpg $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
+%.verified: %.sig % $(keyring-file)
+	@gpgv --keyring $(keyring) $< $* >/dev/null 2>&1 && touch $@
 
-verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE)
-	@for f in $^; do sha1sum --quiet -c $$f.sha1sum || exit 1; done
+%.verified: %.sha1sum %
+	@sha1sum --quiet -c $< && touch $@
 
+verify-sources: $(filter-out %.sig.verified, $(ALL_FILES:%=%.verified))
 
 .PHONY: clean-sources
 clean-sources:
