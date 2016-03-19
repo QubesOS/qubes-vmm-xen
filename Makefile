@@ -145,14 +145,11 @@ update-repo-unstable: update-repo.unstable
 update-repo-template:
 	for vmrepo in ../template-builder/yum_repo_qubes/* ; do $(make-repo-links); done
 
+xen-pkg-names := xen xen-debuginfo xen-doc xen-hypervisor xen-libs xen-runtime xen-licenses
+xen-pkgs := $(xen-pkg-names:%=%-$(VERSION)-$(RELEASE).$(DIST_DOM0))
+
 update-repo-installer:
-	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	for pkg in $(xen-pkgs); do ln -f rpm/x86_64/$$pkg*.rpm ../installer/yum/qubes-dom0/rpm/; done
 	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
 
 help:
