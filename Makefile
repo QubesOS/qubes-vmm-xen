@@ -39,52 +39,22 @@ endif
 
 all: help
 
-SRC_BASEURL := http://bits.xensource.com/oss-xen/release/${VERSION}/
-SRC_FILE := xen-${VERSION}.tar.gz
-SIGN_FILE := xen-${VERSION}.tar.gz.sig
+URLS := \
+    http://bits.xensource.com/oss-xen/release/${VERSION}/xen-${VERSION}.tar.gz.sig \
+    ftp://alpha.gnu.org/gnu/grub/grub-0.97.tar.gz.sig \
+    http://download.savannah.gnu.org/releases/lwip/older_versions/lwip-1.3.0.tar.gz.sig \
+    ftp://sources.redhat.com/pub/newlib/newlib-1.16.0.tar.gz \
+    http://www.kernel.org/pub/software/utils/pciutils/pciutils-2.2.9.tar.bz2 \
+    http://downloads.sourceforge.net/project/libpng/zlib/1.2.3/zlib-1.2.3.tar.gz \
+    http://caml.inria.fr/pub/distrib/ocaml-3.11/ocaml-3.11.0.tar.gz \
+    http://xenbits.xensource.com/xen-extfiles/gc.tar.gz \
+    http://sourceforge.net/projects/tpm-emulator.berlios/files/tpm_emulator-0.7.4.tar.gz \
+    ftp://ftp.gmplib.org/pub/gmp-4.3.2/gmp-4.3.2.tar.bz2.sig \
+    http://polarssl.org/code/releases/polarssl-1.1.4-gpl.tgz \
+    http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
 
-GRUB_FILE := grub-0.97.tar.gz
-GRUB_URL := ftp://alpha.gnu.org/gnu/grub/$(GRUB_FILE)
-GRUB_SIGN_SUFF := .sig
-
-LWIP_FILE := lwip-1.3.0.tar.gz
-LWIP_URL := http://download.savannah.gnu.org/releases/lwip/older_versions/$(LWIP_FILE)
-LWIP_SIGN_SUFF := .sig
-
-NEWLIB_FILE := newlib-1.16.0.tar.gz
-NEWLIB_URL := ftp://sources.redhat.com/pub/newlib/$(NEWLIB_FILE)
-
-PCIUTILS_FILE := pciutils-2.2.9.tar.bz2
-PCIUTILS_URL := http://www.kernel.org/pub/software/utils/pciutils/$(PCIUTILS_FILE)
-
-ZLIB_FILE := zlib-1.2.3.tar.gz
-ZLIB_URL := http://downloads.sourceforge.net/project/libpng/zlib/1.2.3/$(ZLIB_FILE)
-
-OCAML_FILE := ocaml-3.11.0.tar.gz
-OCAML_URL := http://caml.inria.fr/pub/distrib/ocaml-3.11/$(OCAML_FILE)
-
-GC_FILE = gc.tar.gz
-GC_URL := http://xenbits.xensource.com/xen-extfiles/$(GC_FILE)
-
-VTPM_FILE := tpm_emulator-0.7.4.tar.gz
-VTPM_URL := http://sourceforge.net/projects/tpm-emulator.berlios/files/$(VTPM_FILE)
-
-GMP_FILE := gmp-4.3.2.tar.bz2
-GMP_URL := ftp://ftp.gmplib.org/pub/gmp-4.3.2/$(GMP_FILE)
-GMP_SIGN_SUFF := .sig
-
-POLARSSL_FILE := polarssl-1.1.4-gpl.tgz
-POLARSSL_URL := http://polarssl.org/code/releases/$(POLARSSL_FILE)
-
-TBOOT_FILE := tboot-20090330.tar.gz
-TBOOT_URL := http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
-
-URL := $(SRC_BASEURL)/$(SRC_FILE)
-URL_SIGN := $(SRC_BASEURL)/$(SIGN_FILE)
-
-ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(GMP_FILE) $(GMP_FILE)$(GMP_SIGN_SUFF) $(POLARSSL_FILE) $(TBOOT_FILE)
-
-ALL_URLS := $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(GMP_URL) $(GMP_URL)$(GMP_SIGN_SUFF) $(POLARSSL_URL) $(TBOOT_URL)
+ALL_FILES := $(notdir $(URLS:%.sig=%)) $(notdir $(filter %.sig, $(URLS)))
+ALL_URLS := $(URLS:%.sig=%) $(filter %.sig, $(URLS))
 
 ifneq ($(DISTFILES_MIRROR),)
 ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
@@ -113,9 +83,7 @@ verify-sources: $(filter-out %.sig.verified, $(ALL_FILES:%=%.verified))
 
 .PHONY: clean-sources
 clean-sources:
-ifneq ($(SRC_FILE), None)
-	-rm $(SRC_FILE)
-endif
+	-rm xen-${VERSION}.tar.gz
 
 
 #RPM := rpmbuild --buildroot=/dev/shm/buildroot/
