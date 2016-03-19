@@ -135,38 +135,21 @@ clean ::
 	@echo "Running the %clean script of the rpmbuild..."
 	$(RPM_WITH_DIRS) --clean --nodeps $(SPECFILE)
 
-update-repo-current:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
-	for vmrepo in ../yum/current-release/current/vm/* ; do \
-	    	dist=$$(basename $$vmrepo); \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+update-repo.%: repo = $(subst .,,$(suffix $@))
+update-repo.%:
+	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
+	for vmrepo in ../yum/current-release/$(repo)/vm/* ; do \
+	    dist=$$(basename $$vmrepo); \
+	    ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+	    ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+	    ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
+	    ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
-update-repo-current-testing:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
-	    	dist=$$(basename $$vmrepo); \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-	done
-
-update-repo-unstable:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
-	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
-	    	dist=$$(basename $$vmrepo); \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-	done
+update-repo-current: update-repo.current
+update-repo-current-testing: update-repo.current-testing
+update-repo-unstable: update-repo.unstable
 
 update-repo-template:
 	for vmrepo in ../template-builder/yum_repo_qubes/* ; do \
