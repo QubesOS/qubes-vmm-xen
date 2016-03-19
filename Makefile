@@ -52,16 +52,13 @@ URLS := \
 
 ALL_FILES := $(notdir $(URLS:%.sig=%)) $(notdir $(filter %.sig, $(URLS)))
 ALL_URLS := $(URLS:%.sig=%) $(filter %.sig, $(URLS))
-
-ifneq ($(DISTFILES_MIRROR),)
-ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
-endif
+DIST_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
 
 get-sources: $(ALL_FILES)
 	git submodule update --init --recursive
 
 $(ALL_FILES):
-	@wget -qN $(ALL_URLS)
+	@wget -qN $(if $(DISTFILES_MIRROR), $(DIST_URLS), $(ALL_URLS))
 
 keyring := vmm-xen-trustedkeys.gpg
 keyring-file := $(if $(GNUPGHOME), $(GNUPGHOME)/, $(HOME)/.gnupg/)$(keyring)
