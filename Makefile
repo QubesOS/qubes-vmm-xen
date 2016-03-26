@@ -71,8 +71,7 @@ verify-sources: $(filter-out %.sig.verified, $(ALL_FILES:%=%.verified))
 
 .PHONY: clean-sources
 clean-sources:
-	-rm xen-${version}.tar.gz
-
+	rm -f $(ALL_FILES) *.verified
 
 RPMBUILD = rpmbuild $(RPM_DEFINES)
 
