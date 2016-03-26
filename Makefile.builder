@@ -1,4 +1,4 @@
-RPM_SPEC_FILES.dom0 := xen.spec
+RPM_SPEC_FILES.dom0 := $(if $(filter $(DIST_DOM0), $(DISTS_VM)),, xen.spec)
 RPM_SPEC_FILES.vm := xen.spec
 
 ARCH_BUILD_DIRS.vm := archlinux
