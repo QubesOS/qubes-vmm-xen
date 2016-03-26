@@ -5,209 +5,139 @@
 NAME := xen
 SPECFILE := xen.spec
 
-WORKDIR := $(shell pwd)
-SPECDIR ?= $(WORKDIR)
-SRCRPMDIR ?= $(WORKDIR)/srpm
-BUILDDIR ?= $(WORKDIR)
-RPMDIR ?= $(WORKDIR)/rpm
-SOURCEDIR := $(WORKDIR)
-VERSION := $(shell cat version)
-RELEASE := $(shell cat rel)
+_sourcedir := $(shell pwd)
+_specdir := $(if $(SPECDIR), $(SPECDIR), $(_sourcedir))
+_builddir := $(if $(BUILDDIR), $(BUILDDIR), $(_sourcedir))
+_srcrpmdir := $(if $(SRCRPMDIR), $(SRCRPMDIR), $(_sourcedir)/srpm)
+_rpmdir := $(if $(RPMDIR), $(RPMDIR), $(_sourcedir)/rpm)
+version := $(shell cat version)
+release := $(shell cat rel)
+jobs := $(shell grep -c ^processor /proc/cpuinfo)
+
+def = --define "$(v) $(value $(v))"
+RPM_DEFINES := $(foreach v, _sourcedir _specdir _builddir _srcrpmdir _rpmdir version jobs, $(def))
 
 DIST_DOM0 ?= fc13
 
 DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
-NO_OF_CPUS := $(shell grep -c ^processor /proc/cpuinfo)
 
-RPM_DEFINES := --define "_sourcedir $(SOURCEDIR)" \
-		--define "_specdir $(SPECDIR)" \
-		--define "_builddir $(BUILDDIR)" \
-		--define "_srcrpmdir $(SRCRPMDIR)" \
-		--define "_rpmdir $(RPMDIR)" \
-		--define "version $(VERSION)" \
-		--define "jobs $(NO_OF_CPUS)"
-
-ifndef NAME
-$(error "You can not run this Makefile without having NAME defined")
+ifndef version
+$(error "You can not run this Makefile without having version defined")
 endif
-ifndef VERSION
-$(error "You can not run this Makefile without having VERSION defined")
-endif
-ifndef RELEASE
-$(error "You can not run this Makefile without having RELEASE defined")
+ifndef release
+$(error "You can not run this Makefile without having release defined")
 endif
 
 all: help
 
-SRC_BASEURL := http://bits.xensource.com/oss-xen/release/${VERSION}/
-SRC_FILE := xen-${VERSION}.tar.gz
-SIGN_FILE := xen-${VERSION}.tar.gz.sig
+# All the URLs we need to fetch. URLS ending in .sig result in fetching the
+# signature file _and_ the file it signs for (assumed to be the basename).
+URLS := \
+    http://bits.xensource.com/oss-xen/release/${version}/xen-${version}.tar.gz.sig \
+    ftp://alpha.gnu.org/gnu/grub/grub-0.97.tar.gz.sig \
+    http://download.savannah.gnu.org/releases/lwip/older_versions/lwip-1.3.0.tar.gz.sig \
+    ftp://sources.redhat.com/pub/newlib/newlib-1.16.0.tar.gz \
+    http://www.kernel.org/pub/software/utils/pciutils/pciutils-2.2.9.tar.bz2 \
+    http://downloads.sourceforge.net/project/libpng/zlib/1.2.3/zlib-1.2.3.tar.gz \
+    http://caml.inria.fr/pub/distrib/ocaml-3.11/ocaml-3.11.0.tar.gz \
+    http://xenbits.xensource.com/xen-extfiles/gc.tar.gz \
+    http://sourceforge.net/projects/tpm-emulator.berlios/files/tpm_emulator-0.7.4.tar.gz \
+    ftp://ftp.gmplib.org/pub/gmp-4.3.2/gmp-4.3.2.tar.bz2.sig \
+    http://polarssl.org/code/releases/polarssl-1.1.4-gpl.tgz \
+    http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
 
-GRUB_FILE := grub-0.97.tar.gz
-GRUB_URL := ftp://alpha.gnu.org/gnu/grub/$(GRUB_FILE)
-GRUB_SIGN_SUFF := .sig
-
-LWIP_FILE := lwip-1.3.0.tar.gz
-LWIP_URL := http://download.savannah.gnu.org/releases/lwip/older_versions/$(LWIP_FILE)
-LWIP_SIGN_SUFF := .sig
-
-NEWLIB_FILE := newlib-1.16.0.tar.gz
-NEWLIB_URL := ftp://sources.redhat.com/pub/newlib/$(NEWLIB_FILE)
-
-PCIUTILS_FILE := pciutils-2.2.9.tar.bz2
-PCIUTILS_URL := http://www.kernel.org/pub/software/utils/pciutils/$(PCIUTILS_FILE)
-
-ZLIB_FILE := zlib-1.2.3.tar.gz
-ZLIB_URL := http://downloads.sourceforge.net/project/libpng/zlib/1.2.3/$(ZLIB_FILE)
-
-OCAML_FILE := ocaml-3.11.0.tar.gz
-OCAML_URL := http://caml.inria.fr/pub/distrib/ocaml-3.11/$(OCAML_FILE)
-
-GC_FILE = gc.tar.gz
-GC_URL := http://xenbits.xensource.com/xen-extfiles/$(GC_FILE)
-
-VTPM_FILE := tpm_emulator-0.7.4.tar.gz
-VTPM_URL := http://sourceforge.net/projects/tpm-emulator.berlios/files/$(VTPM_FILE)
-
-GMP_FILE := gmp-4.3.2.tar.bz2
-GMP_URL := ftp://ftp.gmplib.org/pub/gmp-4.3.2/$(GMP_FILE)
-GMP_SIGN_SUFF := .sig
-
-POLARSSL_FILE := polarssl-1.1.4-gpl.tgz
-POLARSSL_URL := http://polarssl.org/code/releases/$(POLARSSL_FILE)
-
-TBOOT_FILE := tboot-20090330.tar.gz
-TBOOT_URL := http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
-
-URL := $(SRC_BASEURL)/$(SRC_FILE)
-URL_SIGN := $(SRC_BASEURL)/$(SIGN_FILE)
-
-ALL_FILES := $(SRC_FILE) $(SIGN_FILE) $(GRUB_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(NEWLIB_FILE) $(PCIUTILS_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(GMP_FILE) $(GMP_FILE)$(GMP_SIGN_SUFF) $(POLARSSL_FILE) $(TBOOT_FILE)
-
-ALL_URLS := $(URL) $(URL_SIGN) $(GRUB_URL) $(GRUB_URL)$(GRUB_SIGN_SUFF) $(LWIP_URL) $(LWIP_URL)$(LWIP_SIGN_SUFF) $(NEWLIB_URL) $(PCIUTILS_URL) $(ZLIB_URL) $(OCAML_URL) $(GC_URL) $(VTPM_URL) $(GMP_URL) $(GMP_URL)$(GMP_SIGN_SUFF) $(POLARSSL_URL) $(TBOOT_URL)
-
-ifneq ($(DISTFILES_MIRROR),)
-ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
-endif
+ALL_FILES := $(notdir $(URLS:%.sig=%)) $(notdir $(filter %.sig, $(URLS)))
+ALL_URLS := $(URLS:%.sig=%) $(filter %.sig, $(URLS))
+DIST_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
 
 get-sources: $(ALL_FILES)
 	git submodule update --init --recursive
 
 $(ALL_FILES):
-	@wget -qN $(ALL_URLS)
+	@wget -qN $(if $(DISTFILES_MIRROR), $(DIST_URLS), $(ALL_URLS))
 
-import-keys:
-	@if [ -n "$$GNUPGHOME" ]; then rm -f "$$GNUPGHOME/vmm-xen-trustedkeys.gpg"; fi
-	@gpg --no-auto-check-trustdb --no-default-keyring --keyring vmm-xen-trustedkeys.gpg -q --import *-key.asc
+keyring := vmm-xen-trustedkeys.gpg
+keyring-file := $(if $(GNUPGHOME), $(GNUPGHOME)/, $(HOME)/.gnupg/)$(keyring)
+keyring-import:= gpg -q --no-auto-check-trustdb --no-default-keyring --import
 
-verify-sources: import-keys verify-sources-sig verify-sources-sum
+$(keyring-file): $(wildcard *.asc)
+	@rm -f $(keyring-file) && $(keyring-import) --keyring $(keyring) $^
 
-verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE)
-	@for f in $^; do gpgv --keyring vmm-xen-trustedkeys.gpg $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
+%.verified: %.sig % $(keyring-file)
+	@gpgv --keyring $(keyring) $< $* >/dev/null 2>&1 && touch $@
 
-verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE)
-	@for f in $^; do sha1sum --quiet -c $$f.sha1sum || exit 1; done
+%.verified: %.sha1sum %
+	@sha1sum --quiet -c $< && touch $@
 
+verify-sources: $(filter-out %.sig.verified, $(ALL_FILES:%=%.verified))
 
 .PHONY: clean-sources
 clean-sources:
-ifneq ($(SRC_FILE), None)
-	-rm $(SRC_FILE)
-endif
+	rm -f $(ALL_FILES) *.verified
 
-
-#RPM := rpmbuild --buildroot=/dev/shm/buildroot/
-RPM := rpmbuild 
-
-RPM_WITH_DIRS = $(RPM) $(RPM_DEFINES)
+RPMBUILD = rpmbuild $(RPM_DEFINES)
 
 rpms-vm:
-	$(RPM_WITH_DIRS) -bb xen-vm.spec
-	rpm --addsign $(RPMDIR)/x86_64/xen-qubes-vm*$(VERSION)-$(RELEASE)*.rpm
+	$(RPMBUILD) -bb xen-vm.spec
+	rpm --addsign $(_rpmdir)/x86_64/xen-qubes-vm*$(version)-$(release)*.rpm
 
 rpms-dom0: rpms
 
 rpms: get-sources verify-sources $(SPECFILE)
 	[ -d gui -a -d vchan ] || { echo "You must copy Qubes 'gui' and 'vchan' here to build Xen for HVM domain; it is done automatically by qubes-builder"; exit 1; }
-	$(RPM_WITH_DIRS) -bb $(SPECFILE)
-	rpm --addsign $(RPMDIR)/x86_64/*$(VERSION)-$(RELEASE)*.rpm
+	$(RPMBUILD) -bb $(SPECFILE)
+	rpm --addsign $(_rpmdir)/x86_64/*$(version)-$(release)*.rpm
 
 rpms-nobuild:
-	$(RPM_WITH_DIRS) --nobuild -bb $(SPECFILE)
+	$(RPMBUILD) --nobuild -bb $(SPECFILE)
 
-rpms-just-build: 
-	$(RPM_WITH_DIRS) --short-circuit -bc $(SPECFILE)
+rpms-just-build:
+	$(RPMBUILD) --short-circuit -bc $(SPECFILE)
 
-rpms-install: 
-	$(RPM_WITH_DIRS) -bi $(SPECFILE)
+rpms-install:
+	$(RPMBUILD) -bi $(SPECFILE)
 
 prep: get-sources $(SPECFILE)
-	$(RPM_WITH_DIRS) -bp $(SPECFILE)
+	$(RPMBUILD) -bp $(SPECFILE)
 
 srpm: get-sources $(SPECFILE)
-	$(RPM_WITH_DIRS) -bs $(SPECFILE)
+	$(RPMBUILD) -bs $(SPECFILE)
 
 verrel:
-	@echo $(NAME)-$(VERSION)-$(RELEASE)
+	@echo $(NAME)-$(version)-$(release)
 
-# mop up, printing out exactly what was mopped.
-
-.PHONY : clean
-clean ::
+.PHONY: clean
+clean::
 	@echo "Running the %clean script of the rpmbuild..."
-	$(RPM_WITH_DIRS) --clean --nodeps $(SPECFILE)
+	-$(RPMBUILD) --clean --nodeps $(SPECFILE)
 
-update-repo-current:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
-	for vmrepo in ../yum/current-release/current/vm/* ; do \
-	    	dist=$$(basename $$vmrepo); \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-	done
+define make-repo-links
+    dist=`basename $$vmrepo`;\
+    ln -f rpm/x86_64/xen-libs-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/;\
+    ln -f rpm/x86_64/xen-devel-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/;\
+    ln -f rpm/x86_64/xen-qubes-vm-essentials-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/;\
+    ln -f rpm/x86_64/xen-licenses-$(version)-$(release).$$dist*.rpm $$vmrepo/rpm/
+endef
 
-update-repo-current-testing:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
-	    	dist=$$(basename $$vmrepo); \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-	done
+update-repo.%: repo = $(subst .,,$(suffix $@))
+update-repo.%:
+	ln -f rpm/x86_64/*$(version)-$(release).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
+	ln -f rpm/x86_64/xen-hvm-$(version)gui*$(release).$(DIST_DOM0)*.rpm ../yum/current-release/$(repo)/dom0/rpm/
+	for vmrepo in ../yum/current-release/$(repo)/vm/*; do $(make-repo-links); done
 
-update-repo-unstable:
-	ln -f rpm/x86_64/*$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui*$(RELEASE).$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
-	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
-	    	dist=$$(basename $$vmrepo); \
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-	done
+update-repo-current: update-repo.current
+update-repo-current-testing: update-repo.current-testing
+update-repo-unstable: update-repo.unstable
 
 update-repo-template:
-	for vmrepo in ../template-builder/yum_repo_qubes/* ; do \
-		dist=$$(basename $$vmrepo) ;\
-		ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-devel-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-qubes-vm-essentials-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-		ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$$dist*.rpm $$vmrepo/rpm/ ;\
-	done
+	for vmrepo in ../template-builder/yum_repo_qubes/*; do $(make-repo-links); done
+
+xen-pkg-names := xen xen-debuginfo xen-doc xen-hypervisor xen-libs xen-runtime xen-licenses
+xen-pkgs := $(xen-pkg-names:%=%-$(version)-$(release).$(DIST_DOM0))
 
 update-repo-installer:
-	ln -f rpm/x86_64/xen-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-debuginfo-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-doc-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-hypervisor-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-libs-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-runtime-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-licenses-$(VERSION)-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f rpm/x86_64/xen-hvm-$(VERSION)gui2*-$(RELEASE).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	for pkg in $(xen-pkgs); do ln -f rpm/x86_64/$$pkg*.rpm ../installer/yum/qubes-dom0/rpm/; done
+	ln -f rpm/x86_64/xen-hvm-$(version)gui2*-$(release).$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
 
 help:
 	@echo "Usage: make <target>"
@@ -215,7 +145,7 @@ help:
 	@echo "get-sources      Download kernel sources from kernel.org"
 	@echo "verify-sources"
 	@echo
-	@echo "prep             Just do the prep"	
+	@echo "prep             Just do the prep"
 	@echo "rpms             Build rpms"
 	@echo "rpms-nobuild     Skip the build stage (for testing)"
 	@echo "rpms-just-build  Skip packaging (just test compilation)"

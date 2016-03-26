@@ -3,5 +3,6 @@
 *.tar.bz2
 *.tar.*.sig*
 *.sign
+*.verified
 xen-?.?.?/
 deb/
