@@ -85,8 +85,7 @@ $(filter %.sig, $(ALL_FILES)): %:
 
 .PHONY: clean-sources
 clean-sources:
-	-rm xen-${version}.tar.gz
-
+	rm -f $(ALL_FILES) *$(UNTRUSTED_SUFF)
 
 RPMBUILD = rpmbuild $(RPM_DEFINES)
 
