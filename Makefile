@@ -105,12 +105,10 @@ srpm: get-sources $(SPECFILE)
 verrel:
 	@echo $(NAME)-$(version)-$(release)
 
-# mop up, printing out exactly what was mopped.
-
-.PHONY : clean
-clean ::
+.PHONY: clean
+clean::
 	@echo "Running the %clean script of the rpmbuild..."
-	$(RPMBUILD) --clean --nodeps $(SPECFILE)
+	-$(RPMBUILD) --clean --nodeps $(SPECFILE)
 
 define make-repo-links
     dist=`basename $$vmrepo`;\
