@@ -32,6 +32,8 @@ all: help
 
 UNTRUSTED_SUFF := .UNTRUSTED
 
+# All the URLs we need to fetch. URLS ending in .sig result in fetching the
+# signature file _and_ the file it signs for (assumed to be the basename).
 URLS := \
     http://bits.xensource.com/oss-xen/release/${version}/xen-${version}.tar.gz.sig \
     ftp://alpha.gnu.org/gnu/grub/grub-0.97.tar.gz.sig \
