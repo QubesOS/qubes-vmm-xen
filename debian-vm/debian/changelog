@@ -1,3 +1,9 @@
+xen (2001:4.6.1-13) wheezy; urgency=medium
+
+  * Add .travis.yml
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 10 May 2016 02:20:22 +0200
+
 xen (2001:4.6.0-13) wheezy; urgency=medium
 
   * Add EFI workaround patches
