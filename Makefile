@@ -93,21 +93,24 @@ endif
 get-sources: $(ALL_FILES)
 	git submodule update --init --recursive
 
-$(ALL_FILES):
-	@wget -qN $(ALL_URLS)
-
 import-keys:
 	@if [ -n "$$GNUPGHOME" ]; then rm -f "$$GNUPGHOME/vmm-xen-trustedkeys.gpg"; fi
 	@gpg --no-auto-check-trustdb --no-default-keyring --keyring vmm-xen-trustedkeys.gpg -q --import *-key.asc
 
-verify-sources: import-keys verify-sources-sig verify-sources-sum
+verify-sources:
+	@true
 
-verify-sources-sig: $(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE)
-	@for f in $^; do gpgv --keyring vmm-xen-trustedkeys.gpg $$f.sig $$f 2>/dev/null || (echo "Wrong signature on $$f!"; exit 1); done
+$(SIGN_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(GMP_FILE)$(GMP_SIGN_SUFF): %:
+	@wget -qN $(filter %$@,$(ALL_URLS))
 
-verify-sources-sum: $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE)
-	@for f in $^; do sha1sum --quiet -c $$f.sha1sum || exit 1; done
+$(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE): %: %.sig import-keys
+	@wget -qN $(filter %$@,$(ALL_URLS))
+	@gpgv --keyring vmm-xen-trustedkeys.gpg $< $@ 2>/dev/null || { rm -f $@; echo "Wrong signature on $*!"; exit 1; }
 
+
+$(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE): %: %.sha1sum
+	@wget -qN $(filter %$@,$(ALL_URLS))
+	@sha1sum --quiet -c $< || { rm -f $@; exit 1; }
 
 .PHONY: clean-sources
 clean-sources:
