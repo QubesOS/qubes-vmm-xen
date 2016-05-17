@@ -75,6 +75,7 @@ Source21: init.xenconsoled
 # sysconfig bits
 Source30: sysconfig.xenstored
 Source31: sysconfig.xenconsoled
+Source32: xen.modules-load.conf
 
 # Qubes components for stubdom
 Source33: gui-agent-xen-hvm-stubdom
@@ -446,6 +447,10 @@ rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xen-watchdog
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
 rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
+
+%if %with_systemd
+cp %{SOURCE32} %{buildroot}/usr/lib/modules-load.d/xen.conf
+%endif
 
 # Qubes specific - get rid of standard domain starting scripts
 rm %{buildroot}%{_unitdir}/xen-qemu-dom0-disk-backend.service
