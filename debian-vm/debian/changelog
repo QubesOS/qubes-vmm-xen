@@ -1,3 +1,12 @@
+xen (2001:4.6.1-14) wheezy; urgency=medium
+
+  * hotplug: trigger udev event when attaching/detaching a block device
+  * Override kernel modules list
+  * Fix source verification
+  * travis: allow build failure on fc23 VM
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 18 May 2016 02:27:09 +0200
+
 xen (2001:4.6.1-13) wheezy; urgency=medium
 
   * Add .travis.yml
