@@ -343,7 +343,7 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --with-system-seabios=%{seabiosloc} \
     --enable-vtpm-stubdom \
     --enable-vtpmmgr-stubdom \
-    --with-extra-qemuu-configure-args=--disable-smartcard-nss
+    --with-extra-qemuu-configure-args="--disable-smartcard-nss --disable-spice"
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
