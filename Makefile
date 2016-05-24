@@ -97,6 +97,8 @@ import-keys:
 	@if [ -n "$$GNUPGHOME" ]; then rm -f "$$GNUPGHOME/vmm-xen-trustedkeys.gpg"; fi
 	@gpg --no-auto-check-trustdb --no-default-keyring --keyring vmm-xen-trustedkeys.gpg -q --import *-key.asc
 
+# get-sources already handle verification and remove the file(s) when it fails.
+# Keep verify-sources target present for compatibility with qubes-builder API.
 verify-sources:
 	@true
 
