@@ -1,3 +1,13 @@
+xen (2001:4.6.1-15) wheezy; urgency=medium
+
+  * Enable e820_host when domain has a PCI device
+  * Compile fix on Fedora 24
+  * Disable spice support in qemu
+  * Add a comment about verify-sources target
+  * travis: enable fc24 builds
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 25 May 2016 03:23:38 +0200
+
 xen (2001:4.6.1-14) wheezy; urgency=medium
 
   * hotplug: trigger udev event when attaching/detaching a block device
