@@ -39,6 +39,8 @@ endif
 
 all: help
 
+UNTRUSTED_SUFF := .UNTRUSTED
+
 SRC_BASEURL := http://bits.xensource.com/oss-xen/release/${VERSION}/
 SRC_FILE := xen-${VERSION}.tar.gz
 SIGN_FILE := xen-${VERSION}.tar.gz.sig
@@ -90,7 +92,7 @@ ifneq ($(DISTFILES_MIRROR),)
 ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
 endif
 
-get-sources: $(ALL_FILES)
+get-sources: import-keys $(ALL_FILES)
 	git submodule update --init --recursive
 
 import-keys:
@@ -103,16 +105,20 @@ verify-sources:
 	@true
 
 $(SIGN_FILE) $(GRUB_FILE)$(GRUB_SIGN_SUFF) $(LWIP_FILE)$(LWIP_SIGN_SUFF) $(GMP_FILE)$(GMP_SIGN_SUFF): %:
-	@wget -qN $(filter %$@,$(ALL_URLS))
+	@wget --no-use-server-timestamps -q -O $@ $(filter %$@,$(ALL_URLS))
 
-$(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE): %: %.sig import-keys
-	@wget -qN $(filter %$@,$(ALL_URLS))
-	@gpgv --keyring vmm-xen-trustedkeys.gpg $< $@ 2>/dev/null || { rm -f $@; echo "Wrong signature on $*!"; exit 1; }
+$(SRC_FILE) $(GRUB_FILE) $(LWIP_FILE) $(GMP_FILE): %: %.sig
+	@wget --no-use-server-timestamps -q -O $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
+	@gpgv --keyring vmm-xen-trustedkeys.gpg $< $@$(UNTRUSTED_SUFF) 2>/dev/null || \
+		{ echo "Wrong signature on $@$(UNTRUSTED_SUFF)!"; exit 1; }
+	@mv $@$(UNTRUSTED_SUFF) $@
 
 
 $(NEWLIB_FILE) $(ZLIB_FILE) $(OCAML_FILE) $(GC_FILE) $(VTPM_FILE) $(TBOOT_FILE) $(PCIUTILS_FILE) $(POLARSSL_FILE): %: %.sha1sum
-	@wget -qN $(filter %$@,$(ALL_URLS))
-	@sha1sum --quiet -c $< || { rm -f $@; exit 1; }
+	@wget --no-use-server-timestamps -q -O $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
+	@sha1sum --status -c $< <$@$(UNTRUSTED_SUFF) || \
+		{ echo "Wrong SHA1 checksum on $@$(UNTRUSTED_SUFF)!"; exit 1; }
+	@mv $@$(UNTRUSTED_SUFF) $@
 
 .PHONY: clean-sources
 clean-sources:
