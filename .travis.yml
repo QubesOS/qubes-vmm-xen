@@ -2,6 +2,8 @@ sudo: required
 dist: trusty
 language: generic
 install: git clone https://github.com/QubesOS/qubes-builder ~/qubes-builder
+# debootstrap in trusty is old...
+before_script: sudo ln -s sid /usr/share/debootstrap/scripts/stretch
 script: ~/qubes-builder/scripts/travis-build
 # keep the log under 4MB limit
 env:
@@ -9,6 +11,7 @@ env:
  - DISTS_VM=fc23 USE_QUBES_REPO_VERSION=3.1 VERBOSE=0
  - DISTS_VM=fc24 USE_QUBES_REPO_VERSION=3.1 VERBOSE=0
  - DISTS_VM=jessie USE_QUBES_REPO_VERSION=3.1
+ - DISTS_VM=stretch USE_QUBES_REPO_VERSION=3.1
 matrix:
  allow_failures:
   - env: DISTS_VM=fc23 USE_QUBES_REPO_VERSION=3.1 VERBOSE=0
