@@ -1,3 +1,31 @@
+xen (2001:4.6.1-16) wheezy; urgency=medium
+
+  [ Rusty Bird ]
+  * Never give unverified tarballs their final filename
+
+  [ Jon Griffiths ]
+  * Simplify file lists and Use proper make dependencies for verify-
+    sources
+  * Remove check for a variable we know is set
+  * Remove duplication in update-repo- targets
+  * Further update-repo simplification
+  * Simplify update-repo-installer target
+  * Fix whitespace
+  * Directly use the RPM variable names
+  * Use RPMBUILD as the rpmbuild variable
+  * Don't fail if rpmbuild clean fails
+  * Remove editor filetype cruft
+  * Remove unneeded shell function
+  * Fix clean-sources to clean all sources
+  * Add a comment on URLS per review
+
+  [ Marek Marczykowski-Górecki ]
+  * debian: make build-depends more flexible
+  * travis: enable stretch test build
+  * Revert "Enable e820_host when domain has a PCI device"
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 01 Jun 2016 14:08:35 +0200
+
 xen (2001:4.6.1-15) wheezy; urgency=medium
 
   * Enable e820_host when domain has a PCI device
