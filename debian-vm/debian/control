@@ -20,6 +20,7 @@ Build-Depends:
     liblzma-dev:amd64,
     libmagic1:amd64,
     libncurses5-dev:amd64,
+    libpixman-1-dev,
     libpython2.7:amd64,
     libssl-dev, 
     libssl-dev:amd64,
