@@ -621,6 +621,7 @@ rm -rf %{buildroot}
 %endif
 %{_sysconfdir}/bash_completion.d/xl.sh
 %{_sysconfdir}/rc.d/init.d/xendriverdomain
+%{_sbindir}/xl-devd-trigger
 
 %if %with_systemd
 %{_unitdir}/proc-xen.mount
