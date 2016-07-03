@@ -1,0 +1,51 @@
+From 7dec5b0c658bea9c16a0e3c051e64d2abf57be48 Mon Sep 17 00:00:00 2001
+From: Anthony PERARD <anthony.perard@citrix.com>
+Date: Tue, 3 May 2016 16:59:49 +0100
+Subject: [PATCH] configure: Fix when no libsystemd compat lib are available
+
+From systemd change log, since version 209, libsystemd.so contain
+everything, including libsystemd-daemon.so. Distro may, or may not provide
+the compatibility libraries which libsystemd-daemon is part of.
+
+So, if libsystemd-daemon is not available, check for the presence of
+a recent enough libsystemd.
+
+Signed-off-by: Anthony PERARD <anthony.perard@citrix.com>
+[ wei: run autogen.sh ]
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+Release-acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ m4/systemd.m4 | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/m4/systemd.m4 b/m4/systemd.m4
+index e4b1aa5..112dc11 100644
+--- a/m4/systemd.m4
++++ b/m4/systemd.m4
+@@ -41,7 +41,9 @@ AC_DEFUN([AX_ALLOW_SYSTEMD_OPTS], [
+ ])
+ 
+ AC_DEFUN([AX_CHECK_SYSTEMD_LIBS], [
+-	PKG_CHECK_MODULES([SYSTEMD], [libsystemd-daemon])
++	PKG_CHECK_MODULES([SYSTEMD], [libsystemd-daemon],,
++		[PKG_CHECK_MODULES([SYSTEMD], [libsystemd >= 209])]
++        )
+ 	dnl pkg-config older than 0.24 does not set these for
+ 	dnl PKG_CHECK_MODULES() worth also noting is that as of version 208
+ 	dnl of systemd pkg-config --cflags currently yields no extra flags yet.
+@@ -94,8 +96,10 @@ AC_DEFUN([AX_CHECK_SYSTEMD], [
+ ])
+ 
+ AC_DEFUN([AX_CHECK_SYSTEMD_ENABLE_AVAILABLE], [
+-	PKG_CHECK_MODULES([SYSTEMD], [libsystemd-daemon], [systemd="y"],
+-                          [systemd="n"])
++	PKG_CHECK_MODULES([SYSTEMD], [libsystemd-daemon], [systemd="y"],[
++		PKG_CHECK_MODULES([SYSTEMD], [libsystemd >= 209],
++				  [systemd="y"],[systemd="n"])
++	])
+ ])
+ 
+ dnl Enables systemd by default and requires a --disable-systemd option flag
+-- 
+2.5.5
+
