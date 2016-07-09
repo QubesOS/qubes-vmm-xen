@@ -46,6 +46,7 @@ build() {
   export PYTHON=/usr/bin/python2
   unset LDFLAGS
 
+  autoreconf
   ./configure --prefix=/usr \
               --sbindir=/usr/bin \
               --disable-ocamltools \

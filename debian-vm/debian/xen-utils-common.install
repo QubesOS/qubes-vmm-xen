@@ -1,4 +1,4 @@
 etc/xen/scripts
-etc/init.d/xendriverdomain
+lib/systemd/system/xendriverdomain.service
 usr/lib/python2.7
 usr/sbin

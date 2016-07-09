@@ -25,21 +25,6 @@
 %ifnarch x86_64
 %define build_efi 0
 %endif
-%if 0%fedora >= 17
-%define with_sysv 0
-%else
-%define with_sysv 1
-%endif
-%if 0%fedora >= 15
-%define with_systemd 1
-%else
-%define with_systemd 0
-%endif
-%if 0%fedora >= 20
-%define with_systemd_presets 1
-%else
-%define with_systemd_presets 0
-%endif
 
 # Hypervisor ABI
 %define hv_abi  4.6
@@ -58,7 +43,6 @@ Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
-Source1: %{name}.modules
 Source2: %{name}.logrotate
 # used by stubdoms
 Source10: lwip-1.3.0.tar.gz
@@ -69,12 +53,6 @@ Source14: grub-0.97.tar.gz
 Source15: gmp-4.3.2.tar.bz2
 Source16: polarssl-1.1.4-gpl.tgz
 Source18: tpm_emulator-0.7.4.tar.gz
-# init.d bits
-Source20: init.xenstored
-Source21: init.xenconsoled
-# sysconfig bits
-Source30: sysconfig.xenstored
-Source31: sysconfig.xenconsoled
 Source32: xen.modules-load.conf
 
 # Qubes components for stubdom
@@ -154,15 +132,11 @@ BuildRequires: ocaml, ocaml-findlib
 %if %build_efi
 BuildRequires: mingw64-binutils
 %endif
-%if %with_systemd_presets
 Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
-%endif
-%if %with_systemd
 BuildRequires: systemd-devel
-%endif
 
 %description
 This package contains the XenD daemon and xm command line
@@ -191,9 +165,6 @@ Requires: xen-libs = %{version}-%{release}
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
 Provides: xen-runtime = %{version}-%{release}
-%if %with_systemd
-Requires(post): /bin/systemctl
-%endif
 
 %description runtime
 This package contains the runtime programs and daemons which
@@ -429,39 +400,22 @@ rm -rf %{buildroot}/%{_libdir}/efi
 
 ############ fixup files in /etc ############
 
-# modules
-%if %with_sysv
-mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/modules
-install -m 644 %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/modules/%{name}.modules
-%endif
-
 # logrotate
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d/
 install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 
 # init scripts
-#mkdir -p %%{buildroot}%%{_sysconfdir}/rc.d/init.d
-#mv %%{buildroot}%%{_sysconfdir}/init.d/* %{buildroot}%{_sysconfdir}/rc.d/init.d
-#rmdir %%{buildroot}%%{_sysconfdir}/init.d
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xen-watchdog
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
+rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendriverdomain
 rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
 
-%if %with_systemd
 cp %{SOURCE32} %{buildroot}/usr/lib/modules-load.d/xen.conf
-%endif
 
 # Qubes specific - get rid of standard domain starting scripts
 rm %{buildroot}%{_unitdir}/xen-qemu-dom0-disk-backend.service
 rm %{buildroot}%{_unitdir}/xendomains.service
-
-# sysconfig
-%if %with_sysv
-mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
-install -m 644 %{SOURCE30} %{buildroot}%{_sysconfdir}/sysconfig/xenstored
-install -m 644 %{SOURCE31} %{buildroot}%{_sysconfdir}/sysconfig/xenconsoled
-%endif
 
 ############ create dirs in /var ############
 
@@ -489,50 +443,22 @@ done
 ############ all done now ############
 
 %post runtime
-%if %with_sysv
-/sbin/chkconfig --add xenconsoled
-/sbin/chkconfig --add xenstored
-%endif
-%if %with_systemd
-%if %with_systemd_presets
 %systemd_post xenstored.service xenconsoled.service
-%else
-if [ $1 == 1 ]; then
-  /bin/systemctl enable xenstored.service
-  /bin/systemctl enable xenconsoled.service
-fi
-%endif
-%endif
-
-%if %with_sysv
-if [ $1 != 0 ]; then
-  service xenconsoled condrestart
-fi
-%endif
-
-%post qubes-vm
-/sbin/chkconfig --add xendriverdomain
 
 %preun runtime
-%if %with_systemd_presets
 %systemd_preun xenstored.service xenconsoled.service
-%else
-if [ $1 == 0 ]; then
-%if %with_sysv
-  /sbin/chkconfig --del xenconsoled
-  /sbin/chkconfig --del xenstored
-%endif
-%if %with_systemd
-  /bin/systemctl disable xenstored.service
-  /bin/systemctl disable xenconsoled.service
-%endif
-fi
-%endif
 
-%if %with_systemd_presets
 %postun runtime
 %systemd_postun
-%endif
+
+%post qubes-vm
+%systemd_post xendriverdomain.service
+
+%preun qubes-vm
+%systemd_preun xendriverdomain.service
+
+%postun qubes-vm
+%systemd_postun
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
@@ -561,31 +487,13 @@ fi
 
 %if %build_ocaml
 %post ocaml
-%if %with_systemd
-%if %with_systemd_presets
 %systemd_post oxenstored.service
-%else
-if [ $1 == 1 ]; then
-  /bin/systemctl enable oxenstored.service
-fi
-%endif
-%endif
 
 %preun ocaml
-%if %with_systemd
-%if %with_systemd_presets
 %systemd_preun oxenstored.service
-%else
-if [ $1 == 0 ]; then
-  /bin/systemctl disable oxenstored.service
-fi
-%endif
-%endif
 
-%if %with_systemd_presets
 %postun ocaml
 %systemd_postun
-%endif
 %endif
 
 %clean
@@ -613,16 +521,9 @@ rm -rf %{buildroot}
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
 %config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
 
-%if %with_sysv
-%{_sysconfdir}/rc.d/init.d/xenstored
-%{_sysconfdir}/rc.d/init.d/xenconsoled
-%{_sysconfdir}/rc.d/init.d/xen-watchdog
-%{_sysconfdir}/rc.d/init.d/xencommons
-%endif
 %{_sysconfdir}/bash_completion.d/xl.sh
-%{_sysconfdir}/rc.d/init.d/xendriverdomain
+%exclude %{_unitdir}/xendriverdomain.service
 
-%if %with_systemd
 %{_unitdir}/proc-xen.mount
 %{_unitdir}/var-lib-xenstored.mount
 %{_unitdir}/xen-init-dom0.service
@@ -632,21 +533,11 @@ rm -rf %{buildroot}
 %{_unitdir}/xenstored.socket
 %{_unitdir}/xenstored_ro.socket
 /usr/lib/modules-load.d/xen.conf
-%endif
 
-%if %with_sysv
-%config(noreplace) %{_sysconfdir}/sysconfig/xenstored
-%config(noreplace) %{_sysconfdir}/sysconfig/xenconsoled
-%endif
 %config(noreplace) %{_sysconfdir}/sysconfig/xencommons
 %config(noreplace) %{_sysconfdir}/xen/xl.conf
 %config(noreplace) %{_sysconfdir}/xen/cpupool
 %config(noreplace) %{_sysconfdir}/xen/xlexample*
-
-# Auto-load xen backend drivers
-%if %with_sysv
-%attr(0755,root,root) %{_sysconfdir}/sysconfig/modules/%{name}.modules
-%endif
 
 # Rotate console log files
 %config(noreplace) %{_sysconfdir}/logrotate.d/xen
@@ -842,10 +733,8 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
 %{_sbindir}/xl
+%{_unitdir}/xendriverdomain.service
 %config(noreplace) %{_sysconfdir}/xen/xl.conf
-
-# Hotplug rules
-%{_sysconfdir}/rc.d/init.d/xendriverdomain
 
 %dir %attr(0700,root,root) %{_sysconfdir}/xen
 %dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
