@@ -25,6 +25,8 @@ Build-Depends:
     libpython2.7:amd64,
     libssl-dev, 
     libssl-dev:amd64,
+    libsystemd-dev,
+    libsystemd-dev:amd64,
     libyajl-dev,
     libyajl-dev:amd64,
     mawk,

@@ -446,6 +446,7 @@ install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xen-watchdog
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xencommons
 rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendomains
+rm %{buildroot}%{_sysconfdir}/rc.d/init.d/xendriverdomain
 rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
 
 %if %with_systemd
@@ -510,9 +511,6 @@ if [ $1 != 0 ]; then
 fi
 %endif
 
-%post qubes-vm
-/sbin/chkconfig --add xendriverdomain
-
 %preun runtime
 %if %with_systemd_presets
 %systemd_preun xenstored.service xenconsoled.service
@@ -533,6 +531,15 @@ fi
 %postun runtime
 %systemd_postun
 %endif
+
+%post qubes-vm
+%systemd_post xendriverdomain.service
+
+%preun qubes-vm
+%systemd_preun xendriverdomain.service
+
+%postun qubes-vm
+%systemd_postun
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
@@ -620,7 +627,7 @@ rm -rf %{buildroot}
 %{_sysconfdir}/rc.d/init.d/xencommons
 %endif
 %{_sysconfdir}/bash_completion.d/xl.sh
-%{_sysconfdir}/rc.d/init.d/xendriverdomain
+%exclude %{_unitdir}/xendriverdomain.service
 
 %if %with_systemd
 %{_unitdir}/proc-xen.mount
@@ -842,10 +849,8 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
 %{_sbindir}/xl
+%{_unitdir}/xendriverdomain.service
 %config(noreplace) %{_sysconfdir}/xen/xl.conf
-
-# Hotplug rules
-%{_sysconfdir}/rc.d/init.d/xendriverdomain
 
 %dir %attr(0700,root,root) %{_sysconfdir}/xen
 %dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
