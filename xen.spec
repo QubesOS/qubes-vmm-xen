@@ -523,7 +523,6 @@ rm -rf %{buildroot}
 
 %{_sysconfdir}/bash_completion.d/xl.sh
 %exclude %{_unitdir}/xendriverdomain.service
-%{_sbindir}/xl-devd-trigger
 
 %{_unitdir}/proc-xen.mount
 %{_unitdir}/var-lib-xenstored.mount
