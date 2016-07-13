@@ -1,3 +1,23 @@
+xen (2001:4.6.1-18) wheezy; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * vm: trigger devd to initialize devices connected before its startup
+
+  [ Rusty Bird ]
+  * Backport Xen build fix for systemd >= 209
+  * Add and use native xendriverdomain.service
+  * Remove SysV init and systemd < Fedora 20
+  * Remove *.md5sum and old tpm_emulator-0.5.1.tar.gz.sha1sum
+  * Remove leftover Xen < 4.6 files
+
+  [ Marek Marczykowski-Górecki ]
+  * Revert "vm: trigger devd to initialize devices connected before its
+    startup"
+  * libxl: trigger attach events for devices attached before xl devd
+    startup
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 13 Jul 2016 04:43:32 +0200
+
 xen (2001:4.6.1-17) wheezy; urgency=medium
 
   * efi: add xen.cfg options for /mapbs and /noexitboot
