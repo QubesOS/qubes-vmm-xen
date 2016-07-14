@@ -8,10 +8,10 @@ whole device and its partitions at the same time.
  	write_dev "$dev"
          release_lock "block"
 +        # update QubesDB entries
-+        if [ -f "/sys/block/$(basename $dev)/partition" ]; then
++        if [ -f "/sys/class/block/$(basename $dev)/partition" ]; then
 +            udevadm trigger --property-match=DEVNAME=$dev
 +        else
-+            udevadm trigger --parent-match=/sys/block/$(basename $dev)
++            udevadm trigger --parent-match=/sys/class/block/$(basename $dev)
 +        fi
  	exit 0
  	;;
@@ -29,10 +29,10 @@ whole device and its partitions at the same time.
 +          dev=$(readlink -f "$dev") || fatal "$dev link does not exist."
 +        fi
 +        # update QubesDB entries
-+        if [ -f "/sys/block/$(basename $dev)/partition" ]; then
++        if [ -f "/sys/class/block/$(basename $dev)/partition" ]; then
 +            udevadm trigger --property-match=DEVNAME=$dev
 +        else
-+            udevadm trigger --parent-match=/sys/block/$(basename $dev)
++            udevadm trigger --parent-match=/sys/class/block/$(basename $dev)
 +        fi
  	exit 0
  	;;
