@@ -1,3 +1,11 @@
+xen (2001:4.4.3-12) wheezy; urgency=medium
+
+  * rpm: Reformat configure call for better readability
+  * Disable smartcard support in qemu
+  * Apply XSA 154 and XSA 182 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 15 Jul 2016 01:53:16 +0200
+
 xen (2001:4.4.3-11) wheezy; urgency=medium
 
   * Apply XSA-155, XSA-165, XSA-166
