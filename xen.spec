@@ -452,7 +452,10 @@ done
 %systemd_postun
 
 %post qubes-vm
-%systemd_post xendriverdomain.service
+# Unconditionally preset this service to make sure it's enabled even on
+# upgrade.
+
+systemctl preset xendriverdomain.service >/dev/null 2>&1 || :
 
 %preun qubes-vm
 %systemd_preun xendriverdomain.service
