@@ -1,4 +1,4 @@
-From 9861ce8e7fe7d24cf9044d4655248a20bf1c55d0 Mon Sep 17 00:00:00 2001
+From 47965a886a3dd6cb5075aa6f21492889fe0001a2 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 9 Jul 2016 17:24:43 +0200
@@ -36,7 +36,7 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 33 insertions(+)
 
 diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
-index 1c81239..dd20e29 100644
+index 1c81239..b69466f 100644
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
 @@ -4743,6 +4743,12 @@ int libxl_device_events_handler(libxl_ctx *ctx,
@@ -72,12 +72,12 @@ index 1c81239..dd20e29 100644
 +                    state_path = GCSPRINTF("%s/%s/%s/%s/state",
 +                            be_path, kinds[i], domains[j], devs[k]);
 +                    rc = libxl__xs_read_checked(gc, XBT_NULL, state_path, &sstate);
-+                    if (rc)
++                    if (rc || !sstate)
 +                        continue;
 +                    state = atoi(sstate);
 +                    if (state == XenbusStateInitWait)
 +                        backend_watch_callback(egc, &ddomain.watch,
-+                                be_path, state_path);
++                                               be_path, state_path);
 +                }
 +            }
 +        }
