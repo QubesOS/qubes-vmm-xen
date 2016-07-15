@@ -164,6 +164,7 @@ Requires: xen-libs = %{version}-%{release}
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
+Requires: perl
 Provides: xen-runtime = %{version}-%{release}
 
 %description runtime
@@ -255,6 +256,7 @@ budled with Xen, making them available for general use.
 %package qubes-vm
 Summary: Xen files required in Qubes VM
 Requires: xen-libs = %{epoch}:%{version}-%{release}
+Requires: perl
 Conflicts: xen
 Provides: xen-qubes-vm-essentials = %{epoch}:%{version}-%{release}
 
