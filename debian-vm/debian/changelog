@@ -1,3 +1,21 @@
+xen (2001:4.6.1-19) wheezy; urgency=medium
+
+  [ Rusty Bird ]
+  * Run autoreconf in Debian and Arch, too
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: unconditionally preset xendriverdomain.service
+  * Update patch for "libxl: trigger attach events for devices ..."
+
+  [ Rusty Bird ]
+  * Fix attaching block devices from fedora-23-minimal
+  * Fix QubesDB updates when attaching partitions
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: unconditionally enable xendriverdomain.service
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 17 Jul 2016 01:40:27 +0200
+
 xen (2001:4.6.1-18) wheezy; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
