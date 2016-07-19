@@ -74,7 +74,7 @@ BuildRequires: libX11-devel python-devel ghostscript texlive-latex
 %if 0%fedora >= 18
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
 %endif
-BuildRequires: ncurses-devel gtk2-devel libaio-devel
+BuildRequires: ncurses-devel gtk2-devel libaio-devel nettle-devel
 # for the docs
 BuildRequires: perl perl(Pod::Man) perl(Pod::Text) texinfo graphviz
 # so that the makefile knows to install udev rules
