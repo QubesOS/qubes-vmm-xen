@@ -19,7 +19,7 @@ RPM_DEFINES := $(foreach v, _sourcedir _specdir _builddir _srcrpmdir _rpmdir ver
 
 DIST_DOM0 ?= fc13
 
-DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
+#DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
 
 ifndef version
 $(error "You can not run this Makefile without having version defined")
@@ -44,7 +44,7 @@ URLS := \
     http://caml.inria.fr/pub/distrib/ocaml-3.11/ocaml-3.11.0.tar.gz \
     http://xenbits.xensource.com/xen-extfiles/gc.tar.gz \
     http://sourceforge.net/projects/tpm-emulator.berlios/files/tpm_emulator-0.7.4.tar.gz \
-    ftp://ftp.gmplib.org/pub/gmp-4.3.2/gmp-4.3.2.tar.bz2.sig \
+    ftp://ftp.gmplib.org/pub/archive/gmp-4.3.2/gmp-4.3.2.tar.bz2.sig \
     http://polarssl.org/code/releases/polarssl-1.1.4-gpl.tgz \
     http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
 
