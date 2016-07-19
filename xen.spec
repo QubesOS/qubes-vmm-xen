@@ -730,7 +730,6 @@ rm -rf %{buildroot}
 /usr/bin/qemu-io
 /usr/bin/qemu-nbd
 /usr/share/locale/*/LC_MESSAGES/qemu.mo
-/usr/etc/qemu/target-x86_64.conf
 
 %files qubes-vm
 %{_bindir}/xenstore
