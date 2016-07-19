@@ -104,26 +104,23 @@ index 4dbfddc..52e7592 100644
          console[i].devid = i;
          console[i].consback = LIBXL__CONSOLE_BACKEND_IOEMU;
          /* STUBDOM_CONSOLE_LOGGING (console 0) is for minios logging
-@@ -1098,6 +1106,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+@@ -1863,6 +1863,9 @@
                  if (ret) goto out;
-                 console[i].output = libxl__sprintf(gc, "file:%s", filename);
+                 console[i].output = GCSPRINTF("file:%s", filename);
                  free(filename);
 +                /* will be changed back to LIBXL__CONSOLE_BACKEND_IOEMU if qemu
 +                 * will be in use */
 +                console[i].consback = LIBXL__CONSOLE_BACKEND_XENCONSOLED;
                  break;
              case STUBDOM_CONSOLE_SAVE:
-                 console[i].output = libxl__sprintf(gc, "file:%s",
-@@ -1112,6 +1123,15 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+                 console[i].output = GCSPRINTF("file:%s",
+@@ -1112,6 +1123,12 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
                  console[i].output = "pty";
                  break;
          }
 +    }
 +
-+    need_qemu = libxl__need_xenpv_qemu(gc, num_console, console,
-+            dm_config->num_vfbs, dm_config->vfbs,
-+            dm_config->num_disks, dm_config->disks,
-+            dm_config->num_channels, dm_config->channels);
++    need_qemu = libxl__need_xenpv_qemu(gc, dm_config);
 +
 +    for (i = 0; i < num_console; i++) {
 +        libxl__device device;
