@@ -24,9 +24,9 @@ index 18b064e..a5fd815 100644
  
          init_console_info(gc, &console, 0);
          console.backend_domid = state->console_domid;
-@@ -1026,10 +1025,6 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
-         libxl__device_console_add(gc, domid, &console, state, &device);
-         libxl__device_console_dispose(&console);
+@@ -1350,10 +1350,6 @@
+             return;
+         }
  
 -        libxl_device_vkb_init(&vkb);
 -        libxl__device_vkb_add(gc, domid, &vkb);

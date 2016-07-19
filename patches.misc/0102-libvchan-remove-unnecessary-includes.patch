@@ -40,18 +40,14 @@ index 3040099..fea9687 100644
  #include <stdlib.h>
  #include <stdint.h>
  #include <string.h>
-diff --git a/tools/libvchan/libxenvchan.h b/tools/libvchan/libxenvchan.h
-index 6365d36..07d1b59 100644
---- a/tools/libvchan/libxenvchan.h
-+++ b/tools/libvchan/libxenvchan.h
-@@ -44,7 +44,6 @@
+--- xen-4.7.0/tools/libvchan/libxenvchan.h.orig	2016-07-17 00:17:27.933000000 +0300
++++ xen-4.7.0/tools/libvchan/libxenvchan.h	2016-07-17 00:17:46.003000000 +0300
+@@ -43,7 +43,6 @@
   */
  
  #include <xen/io/libxenvchan.h>
 -#include <xen/sys/evtchn.h>
- #include <xenctrl.h>
+ #include <xenevtchn.h>
+ #include <xengnttab.h>
  
- struct libxenvchan_ring {
--- 
-1.8.1.4
 
