@@ -41,7 +41,7 @@ index fdd9125..c2c8c8b 100644
 +        flexarray_append(back, libxl__strdup(gc, nic->bridge));
 +    }
      flexarray_append(back, "handle");
-     flexarray_append(back, libxl__sprintf(gc, "%d", nic->devid));
+     flexarray_append(back, GCSPRINTF("%d", nic->devid));
      flexarray_append(back, "type");
 -- 
 1.8.1.4

@@ -26,7 +26,7 @@ index cd282bf..ab58ddc 100644
 +Environment=XENCONSOLED_TRACE=all
  Environment=XENCONSOLED_LOG_DIR=@XEN_LOG_DIR@/console
  EnvironmentFile=@CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons
- PIDFile=@XEN_RUN_DIR@/xenconsoled.pid
+ ExecStartPre=/bin/grep -q control_d /proc/xen/capabilities
 -- 
 2.1.0
 
