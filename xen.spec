@@ -303,7 +303,7 @@ mkdir -p dist/install/boot/efi/efi/qubes
 %define seabiosloc /usr/share/seabios/bios.bin
 %endif
 export XEN_VENDORVERSION="-%{release}"
-export CFLAGS="$RPM_OPT_FLAGS"
+export CFLAGS_EXTRA="$RPM_OPT_FLAGS"
 export PATH="/usr/bin:$PATH"
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
