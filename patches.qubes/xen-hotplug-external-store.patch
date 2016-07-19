@@ -24,8 +24,8 @@ Signed-off-by: Marek Marczykowski <marmarek@mimuw.edu.pl>
      FRONTEND_ID=$(xenstore_read "$XENBUS_PATH/frontend-id")
      FRONTEND_UUID=$(xenstore_read_default \
 @@ -305,6 +312,7 @@
-           do_or_die losetup $roflag "$loopdev" "$file"
          fi
+         do_or_die losetup $roflag "$loopdev" "$file"
          xenstore_write "$XENBUS_PATH/node" "$loopdev"
 +        echo $loopdev > "$HOTPLUG_STORE-node"
          write_dev "$loopdev"

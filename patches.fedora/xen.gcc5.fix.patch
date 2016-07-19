@@ -6,7 +6,7 @@ gcc5 gives array-bounds warning on xen/common/symbols.c
 @@ -72,3 +72,5 @@
  
  subdir-y += libelf
- subdir-$(HAS_DEVICE_TREE) += libfdt
+ subdir-$(CONFIG_HAS_DEVICE_TREE) += libfdt
 +
 +CFLAGS += -Wno-error=array-bounds
 --- xen-4.5.0/xen/xsm/flask/Makefile.orig	2015-01-12 16:53:24.000000000 +0000
