@@ -17,15 +17,17 @@ parameter wasn't defined, detach would fail, so it will not be worse. It
 can be even improvement (some documentation needed).
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
----
- tools/libxl/libxl.c | 5 +++++
- 1 file changed, 5 insertions(+)
 
-diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
-index 2d29ad2..f8024f5 100644
---- a/tools/libxl/libxl.c
-+++ b/tools/libxl/libxl.c
-@@ -3466,6 +3466,8 @@ out:
+Ported to Xen 4.7.0:
+- Accommodate to new parameter in _nic_setdefault (hotplug is false when removing device)
+- Also _setdefault forwarders for disk and usbctrl types had to be changed. 
+- Make _usbctrl_setdefault public
+- Swapped domid and usbctrl parameter order to match other _setdefault functions
+Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
+---
+--- xen-4.7.0/tools/libxl/libxl.c       2016-07-19 19:07:12.804000000 +0300
++++ xen-4.7.0-new/tools/libxl/libxl.c   2016-07-19 18:45:10.820000000 +0300
+@@ -4357,6 +4357,8 @@
          int rc;                                                         \
                                                                          \
          GCNEW(device);                                                  \
@@ -34,18 +36,79 @@ index 2d29ad2..f8024f5 100644
          rc = libxl__device_from_##type(gc, domid, type, device);        \
          if (rc != 0) goto out;                                          \
                                                                          \
-@@ -3489,8 +3491,11 @@ DEFINE_DEVICE_REMOVE(disk, remove, 0)
+@@ -4382,12 +4384,18 @@
+ /* Define all remove/destroy functions and undef the macro */
+
+ /* disk */
++#define libxl__device_disk_setdefault(gc, type) \
++    libxl__device_disk_setdefault(gc, type, domid)
+ DEFINE_DEVICE_REMOVE(disk, remove, 0)
  DEFINE_DEVICE_REMOVE(disk, destroy, 1)
- 
++#undef libxl__device_nic_setdefault
+
  /* nic */
 +#define libxl__device_nic_setdefault(gc, type) \
-+    libxl__device_nic_setdefault(gc, type, domid)
++    libxl__device_nic_setdefault(gc, type, domid, 0)
  DEFINE_DEVICE_REMOVE(nic, remove, 0)
  DEFINE_DEVICE_REMOVE(nic, destroy, 1)
 +#undef libxl__device_nic_setdefault
- 
+
  /* vkb */
  DEFINE_DEVICE_REMOVE(vkb, remove, 0)
--- 
-1.8.3.1
+@@ -4403,8 +4411,11 @@
+ DEFINE_DEVICE_REMOVE(vtpm, destroy, 1)
+
+ /* usbctrl */
++#define libxl__device_usbctrl_setdefault(gc, type) \
++    libxl__device_usbctrl_setdefault(gc, type, domid)
+ DEFINE_DEVICE_REMOVE_CUSTOM(usbctrl, remove, 0)
+ DEFINE_DEVICE_REMOVE_CUSTOM(usbctrl, destroy, 1)
++#undef libxl__device_usbctrl_setdefault
+
+ /* channel/console hotunplug is not implemented. There are 2 possibilities:
+  * 1. add support for secondary consoles to xenconsoled
+diff -ur -x .cproject -x .project -x '*.swp' xen-4.7.0/tools/libxl/libxl_internal.h xen-4.7.0-new/tools/libxl/libxl_internal.h
+--- xen-4.7.0/tools/libxl/libxl_internal.h      2016-06-20 13:38:15.000000000 +0300
++++ xen-4.7.0-new/tools/libxl/libxl_internal.h  2016-07-19 16:08:35.613000000 +0300
+@@ -1221,6 +1221,8 @@
+                                           uint32_t domid);
+ _hidden int libxl__device_nic_setdefault(libxl__gc *gc, libxl_device_nic *nic,
+                                          uint32_t domid, bool hotplug);
++_hidden int libxl__device_usbctrl_setdefault(libxl__gc *gc, libxl_device_usbctrl *usbctrl,
++                                             uint32_t domid );
+ _hidden int libxl__device_vtpm_setdefault(libxl__gc *gc, libxl_device_vtpm *vtpm);
+ _hidden int libxl__device_vfb_setdefault(libxl__gc *gc, libxl_device_vfb *vfb);
+ _hidden int libxl__device_vkb_setdefault(libxl__gc *gc, libxl_device_vkb *vkb);
+diff -ur -x .cproject -x .project -x '*.swp' xen-4.7.0/tools/libxl/libxl_pvusb.c xen-4.7.0-new/tools/libxl/libxl_pvusb.c
+--- xen-4.7.0/tools/libxl/libxl_pvusb.c 2016-06-20 13:38:15.000000000 +0300
++++ xen-4.7.0-new/tools/libxl/libxl_pvusb.c     2016-07-19 16:08:35.608000000 +0300
+@@ -37,8 +37,8 @@
+     return ERROR_FAIL;
+ }
+
+-static int libxl__device_usbctrl_setdefault(libxl__gc *gc, uint32_t domid,
+-                                            libxl_device_usbctrl *usbctrl)
++int libxl__device_usbctrl_setdefault(libxl__gc *gc, libxl_device_usbctrl *usbctrl,
++                                     uint32_t domid)
+ {
+     int rc;
+     libxl_domain_type domtype = libxl__domain_type(gc, domid);
+@@ -226,7 +226,7 @@
+     libxl__device *device;
+     int rc;
+
+-    rc = libxl__device_usbctrl_setdefault(gc, domid, usbctrl);
++    rc = libxl__device_usbctrl_setdefault(gc, usbctrl, domid);
+     if (rc < 0) goto out;
+
+     if (usbctrl->devid == -1) {
+@@ -836,7 +836,7 @@
+
+             GCNEW(usbctrl);
+             libxl_device_usbctrl_init(usbctrl);
+-            rc = libxl__device_usbctrl_setdefault(gc, domid, usbctrl);
++            rc = libxl__device_usbctrl_setdefault(gc, usbctrl, domid);
+             if (rc < 0) goto out;
+
+             if (usbctrl->devid == -1) {
 
