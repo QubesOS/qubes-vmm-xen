@@ -1,12 +1,12 @@
---- xen-4.2.1/tools/libxl/libxl_create.c.orig	2012-12-17 16:01:09.000000000 +0100
-+++ xen-4.2.1/tools/libxl/libxl_create.c	2013-03-29 11:14:59.859901690 +0100
-@@ -502,6 +502,9 @@ retry_transaction:
-     libxl__xs_mkdir(gc, t,
-                     libxl__sprintf(gc, "%s/data", dom_path),
+--- xen-4.7.0/tools/libxl/libxl_create.c.orig	2016-07-15 20:01:43.126000000 +0300
++++ xen-4.7.0/tools/libxl/libxl_create.c	2016-07-15 20:03:23.445000000 +0300
+@@ -652,6 +652,9 @@
+                     GCSPRINTF("%s/data", dom_path),
                      rwperm, ARRAY_SIZE(rwperm));
-+    libxl__xs_mkdir(gc, t,
-+                    libxl__sprintf(gc, "%s/error", dom_path),
+     libxl__xs_mknod(gc, t,
++                    GCSPRINTF("%s/error", dom_path),
 +                    rwperm, ARRAY_SIZE(rwperm));
- 
-     if (libxl_defbool_val(info->driver_domain)) {
-         /*
++    libxl__xs_mknod(gc, t,
+                     GCSPRINTF("%s/drivers", dom_path),
+                     rwperm, ARRAY_SIZE(rwperm));
+     libxl__xs_mknod(gc, t,
