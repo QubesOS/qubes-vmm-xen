@@ -15,6 +15,9 @@ suspended (but not destroyed). This works pretty well on PV domains, but
 is totally untested on HVM (most likely it will crash device model).
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Ported to Xen 4.7.0
+Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
 ---
  tools/libxl/libxl.c       | 29 +++++++++++++++++++++--------
  tools/libxl/xl.h          |  2 ++
@@ -41,15 +44,57 @@ index d38d0c7..ef3c79f 100644
  
      libxl__ao_complete(egc,ao,rc);
  
-@@ -986,12 +988,23 @@ int libxl_domain_suspend(libxl_ctx *ctx, uint32_t domid, int fd, int flags,
-     dss->live = flags & LIBXL_SUSPEND_LIVE;
-     dss->debug = flags & LIBXL_SUSPEND_DEBUG;
+--- xen-4.7.0/tools/libxl/libxl.c.orig	2016-07-17 20:24:05.484000000 +0300
++++ xen-4.7.0/tools/libxl/libxl.c	2016-07-17 21:01:58.717000000 +0300
+@@ -934,6 +934,13 @@
  
+ }
+ 
++static void domain_suspend_empty_cb(libxl__egc *egc,
++                              libxl__domain_suspend_state *dss, int rc)
++{
++    STATE_AO_GC(dss->ao);
++    libxl__ao_complete(egc,ao,rc);
++}
++
+ int libxl_domain_suspend(libxl_ctx *ctx, uint32_t domid, int fd, int flags,
+                          const libxl_asyncop_how *ao_how)
+ {
+@@ -946,25 +953,40 @@
+         goto out_err;
+     }
+ 
+-    libxl__domain_save_state *dss;
+-    GCNEW(dss);
+-
+-    dss->ao = ao;
+-    dss->callback = domain_suspend_cb;
+-
+-    dss->domid = domid;
+-    dss->fd = fd;
+-    dss->type = type;
+-    dss->live = flags & LIBXL_SUSPEND_LIVE;
+-    dss->debug = flags & LIBXL_SUSPEND_DEBUG;
+-    dss->checkpointed_stream = LIBXL_CHECKPOINTED_STREAM_NONE;
+-
 -    rc = libxl__fd_flags_modify_save(gc, dss->fd,
 -                                     ~(O_NONBLOCK|O_NDELAY), 0,
 -                                     &dss->fdfl);
 -    if (rc < 0) goto out_err;
-+    if (dss->fd >= 0) {
++    if (fd >= 0) {
++        libxl__domain_save_state *dss;
++        GCNEW(dss);
++
++        dss->ao = ao;
++        dss->callback = domain_suspend_cb;
++
++        dss->domid = domid;
++        dss->fd = fd;
++        dss->type = type;
++        dss->live = flags & LIBXL_SUSPEND_LIVE;
++        dss->debug = flags & LIBXL_SUSPEND_DEBUG;
++        dss->checkpointed_stream = LIBXL_CHECKPOINTED_STREAM_NONE;
++
 +        rc = libxl__fd_flags_modify_save(gc, dss->fd,
 +                                         ~(O_NONBLOCK|O_NDELAY), 0,
 +                                         &dss->fdfl);
@@ -57,13 +102,17 @@ index d38d0c7..ef3c79f 100644
 +
 +        libxl__domain_save(egc, dss);
 +    } else {
-+        dss->hvm = (dss->type == LIBXL_DOMAIN_TYPE_HVM);
-+        dss->guest_evtchn.port = -1;
-+        dss->guest_evtchn_lockfd = -1;
-+        dss->guest_responded = 0;
++        libxl__domain_suspend_state *dsps;
++        GCNEW(dsps);
++        dsps->ao = ao;
++        dsps->domid = domid;
++        dsps->type = type;
++        dsps->guest_evtchn.port = -1;
++        dsps->guest_evtchn_lockfd = -1;
++        dsps->guest_responded = 0;
 +        /* TODO: setup dss->guest_evtchn.port ? */
-+        dss->callback_common_done = domain_suspend_cb;
-+        libxl__domain_suspend(egc, dss);
++        dsps->callback_common_done = domain_suspend_empty_cb;
++        libxl__domain_suspend(egc, dsps);
 +    }
  
 -    libxl__domain_save(egc, dss);
@@ -88,7 +137,7 @@ index 9a2870e..83e9a5b 100644
 --- a/tools/libxl/xl_cmdimpl.c
 +++ b/tools/libxl/xl_cmdimpl.c
 @@ -4096,6 +4096,27 @@ static int save_domain(uint32_t domid, const char *filename, int checkpoint,
-     exit(rc < 0 ? 1 : 0);
+     exit(rc < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
  }
  
 +static int suspend_domain(uint32_t domid)
