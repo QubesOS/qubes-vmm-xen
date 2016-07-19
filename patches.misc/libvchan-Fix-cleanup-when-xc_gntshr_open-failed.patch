@@ -21,7 +21,7 @@ index 8a66cef..3dd6263 100644
 @@ -321,8 +321,10 @@ struct libxenvchan *libxenvchan_server_init(xentoollog_logger *logger, int domai
  	}
  
- 	ctrl->gntshr = xc_gntshr_open(logger, 0);
+ 	ctrl->gntshr = xengntshr_open(logger, 0);
 -	if (!ctrl->gntshr)
 -		goto out;
 +	if (!ctrl->gntshr) {

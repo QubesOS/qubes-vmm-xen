@@ -24,11 +24,11 @@ index 3c8d236..3040099 100644
  		return;
  	if (ctrl->read.order >= PAGE_SHIFT)
 -		munmap(ctrl->read.buffer, 1 << ctrl->read.order);
-+		xc_gntshr_munmap(ctrl->gntshr, ctrl->read.buffer,
++		xengntshr_unshare(ctrl->gntshr, ctrl->read.buffer,
 +				1 << (ctrl->read.order - PAGE_SHIFT));
  	if (ctrl->write.order >= PAGE_SHIFT)
 -		munmap(ctrl->write.buffer, 1 << ctrl->write.order);
-+		xc_gntshr_munmap(ctrl->gntshr, ctrl->write.buffer,
++		xengntshr_unshare(ctrl->gntshr, ctrl->write.buffer,
 +				1 << (ctrl->write.order - PAGE_SHIFT));
  	if (ctrl->ring) {
  		if (ctrl->is_server) {
