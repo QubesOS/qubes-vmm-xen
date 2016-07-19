@@ -8,17 +8,13 @@ Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Based on gntalloc interface introduced in previous patch.
 
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
----
- extras/mini-os/include/lib.h |  3 +++
- extras/mini-os/lib/sys.c     |  4 ++++
- tools/libxc/xc_minios.c      | 55 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 62 insertions(+)
 
-diff --git a/extras/mini-os/include/lib.h b/extras/mini-os/include/lib.h
-index 935bede..d664ded 100644
---- a/extras/mini-os/include/lib.h
-+++ b/extras/mini-os/include/lib.h
-@@ -54,6 +54,7 @@
+Ported to Xen 4.7.0 
+Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
+---
+--- xen-4.7.0/extras/mini-os/include/lib.h.orig	2016-07-17 22:41:58.380000000 +0300
++++ xen-4.7.0-new/extras/mini-os/include/lib.h	2016-07-17 22:48:16.625000000 +0300
+@@ -53,6 +53,7 @@
  #include <xen/xen.h>
  #include <xen/event_channel.h>
  #include "gntmap.h"
@@ -26,7 +22,7 @@ index 935bede..d664ded 100644
  
  #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
  #define BUILD_BUG_ON(cond) ({ _Static_assert(!(cond), "!(" #cond ")"); })
-@@ -135,6 +136,7 @@ enum fd_type {
+@@ -144,6 +145,7 @@
      FTYPE_XC,
      FTYPE_EVTCHN,
      FTYPE_GNTMAP,
@@ -34,7 +30,7 @@ index 935bede..d664ded 100644
      FTYPE_SOCKET,
      FTYPE_TAP,
      FTYPE_BLK,
-@@ -171,6 +173,7 @@ extern struct file {
+@@ -180,6 +182,7 @@
  	    struct evtchn_port_list ports;
  	} evtchn;
  	struct gntmap gntmap;
@@ -42,10 +38,8 @@ index 935bede..d664ded 100644
  	struct {
  	    struct netfront_dev *dev;
  	} tap;
-diff --git a/extras/mini-os/lib/sys.c b/extras/mini-os/lib/sys.c
-index cfbdc90..a62e039 100644
---- a/extras/mini-os/lib/sys.c
-+++ b/extras/mini-os/lib/sys.c
+--- xen-4.7.0/extras/mini-os/lib/sys.c.orig	2016-07-17 22:42:26.874000000 +0300
++++ xen-4.7.0-new/extras/mini-os/lib/sys.c	2016-07-17 22:46:58.302000000 +0300
 @@ -88,6 +88,7 @@
  extern void minios_interface_close_fd(int fd);
  extern void minios_evtchn_close_fd(int fd);
@@ -54,7 +48,7 @@ index cfbdc90..a62e039 100644
  
  pthread_mutex_t fd_lock = PTHREAD_MUTEX_INITIALIZER;
  struct file files[NOFILE] = {
-@@ -445,6 +446,9 @@ int close(int fd)
+@@ -447,6 +448,9 @@
  	case FTYPE_GNTMAP:
  	    minios_gnttab_close_fd(fd);
  	    return 0;
@@ -64,43 +58,55 @@ index cfbdc90..a62e039 100644
  #endif
  #ifdef CONFIG_NETFRONT
  	case FTYPE_TAP:
-diff --git a/tools/libxc/xc_minios.c b/tools/libxc/xc_minios.c
-index dec4d73..01a1266 100644
---- a/tools/libxc/xc_minios.c
-+++ b/tools/libxc/xc_minios.c
-@@ -26,6 +26,7 @@
- #include <mini-os/mm.h>
+--- xen-4.7.0/tools/libs/gnttab/Makefile.orig	2016-07-17 01:08:23.991000000 +0300
++++ xen-4.7.0/tools/libs/gnttab/Makefile	2016-07-17 01:08:47.737000000 +0300
+@@ -13,7 +13,7 @@
+ SRCS-GNTSHR            += gntshr_core.c
+ 
+ SRCS-$(CONFIG_Linux)   += $(SRCS-GNTTAB) $(SRCS-GNTSHR) linux.c
+-SRCS-$(CONFIG_MiniOS)  += $(SRCS-GNTTAB) gntshr_unimp.c minios.c
++SRCS-$(CONFIG_MiniOS)  += $(SRCS-GNTTAB) $(SRCS-GNTSHR) minios.c
+ SRCS-$(CONFIG_FreeBSD) += gnttab_unimp.c gntshr_unimp.c
+ SRCS-$(CONFIG_SunOS)   += gnttab_unimp.c gntshr_unimp.c
+ SRCS-$(CONFIG_NetBSD)  += gnttab_unimp.c gntshr_unimp.c
+--- xen-4.7.0/tools/libs/gnttab/minios.c.orig	2016-07-17 01:12:21.137000000 +0300
++++ xen-4.7.0/tools/libs/gnttab/minios.c	2016-07-17 01:24:18.659000000 +0300
+@@ -25,6 +25,7 @@
  #include <mini-os/lib.h>
+
  #include <mini-os/gntmap.h>
 +#include <mini-os/gntalloc.h>
- #include <mini-os/events.h>
- #include <mini-os/wait.h>
  #include <sys/mman.h>
-@@ -45,6 +46,7 @@
- void minios_interface_close_fd(int fd);
- void minios_evtchn_close_fd(int fd);
+ 
+ #include <errno.h>
+@@ -33,6 +34,7 @@
+ #include "private.h"
+ 
  void minios_gnttab_close_fd(int fd);
 +void minios_gntalloc_close_fd(int fd);
  
- extern void minios_interface_close_fd(int fd);
- extern void minios_evtchn_close_fd(int fd);
-@@ -519,6 +521,57 @@ static struct xc_osdep_ops minios_gnttab_ops = {
-     },
- };
+ int osdep_gnttab_open(xengnttab_handle *xgt)
+ {
+@@ -106,6 +108,50 @@
+     return ret;
+ }
  
-+static xc_osdep_handle minios_gntshr_open(xc_gntshr *xcg)
++int osdep_gntshr_open(xengntshr_handle *xgs)
 +{
 +    int fd = alloc_fd(FTYPE_GNTALLOC);
 +    if ( fd == -1 )
-+        return XC_OSDEP_OPEN_ERROR;
++        return -1;
 +    gntalloc_init(&files[fd].gntalloc);
-+    return (xc_osdep_handle)fd;
++    xgs->fd = fd;
++    return 0;
 +}
 +
-+static int minios_gntshr_close(xc_gntshr *xcg, xc_osdep_handle h)
++int osdep_gntshr_close(xengntshr_handle *xgs)
 +{
-+    int fd = (int)h;
-+    return close(fd);
++    if ( xgs->fd == -1 )
++        return 0;
++
++    return close(xgs->fd);
 +}
 +
 +void minios_gntalloc_close_fd(int fd)
@@ -109,48 +115,27 @@ index dec4d73..01a1266 100644
 +    files[fd].type = FTYPE_NONE;
 +}
 +
-+static void *minios_gntshr_share_pages(xc_gntshr *xch, xc_osdep_handle h,
-+                                      uint32_t domid, int count,
-+                                      uint32_t *refs, int writable,
-+                                      uint32_t notify_offset,
-+                                      evtchn_port_t notify_port)
++void *osdep_gntshr_share_pages(xengntshr_handle *xgs,
++                               uint32_t domid, int count,
++                               uint32_t *refs, int writable,
++                               uint32_t notify_offset,
++                               evtchn_port_t notify_port)
 +{
-+    int fd = (int)h;
++    int fd = xgs->fd;
 +
 +    return gntalloc_share_pages(&files[fd].gntalloc, domid, count, refs,
 +            writable, notify_offset, notify_port);
 +}
 +
-+static int minios_gntshr_munmap(xc_gntshr *xcg, xc_osdep_handle h,
-+                               void *start_address, uint32_t count)
++int osdep_gntshr_unshare(xengntshr_handle *xgs,
++                         void *start_address, uint32_t count)
 +{
-+    int fd = (int)h;
++    int fd = xgs->fd;
 +
 +    return gntalloc_munmap(&files[fd].gntalloc, start_address, count);
 +}
 +
-+static struct xc_osdep_ops minios_gntshr_ops = {
-+    .open = &minios_gntshr_open,
-+    .close = &minios_gntshr_close,
-+
-+    .u.gntshr = {
-+        .share_pages = &minios_gntshr_share_pages,
-+        .munmap = &minios_gntshr_munmap,
-+    },
-+};
-+
- static struct xc_osdep_ops *minios_osdep_init(xc_interface *xch, enum xc_osdep_type type)
- {
-     switch ( type )
-@@ -529,6 +582,8 @@ static struct xc_osdep_ops *minios_osdep_init(xc_interface *xch, enum xc_osdep_t
-         return &minios_evtchn_ops;
-     case XC_OSDEP_GNTTAB:
-         return &minios_gnttab_ops;
-+    case XC_OSDEP_GNTSHR:
-+        return &minios_gntshr_ops;
-     default:
-         return NULL;
-     }
--- 
-1.8.1.4
+ /*
+  * Local variables:
+  * mode: C
 
