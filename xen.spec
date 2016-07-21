@@ -27,7 +27,7 @@
 %endif
 
 # Hypervisor ABI
-%define hv_abi  4.6
+%define hv_abi  4.7
 
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
@@ -344,6 +344,7 @@ mkdir %{buildroot}/boot/flask
 mv %{buildroot}/boot/xenpolicy* %{buildroot}/boot/flask
 %else
 rm -f %{buildroot}/boot/xenpolicy*
+rm -f %{buildroot}/usr/sbin/flask-*
 %endif
 
 # qemu symlinks
@@ -362,7 +363,7 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-4.6.gz
+rm -rf %{buildroot}/boot/xen-4.7.gz
 rm -rf %{buildroot}/boot/xen-4.gz
 rm -rf %{buildroot}/boot/xen.gz
 %if !%build_hyp
@@ -605,6 +606,7 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore-*
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
+/usr/lib/%{name}/bin/init-xenstore-domain
 #%%{_bindir}/remus
 # blktap daemon
 %{_sbindir}/tapdisk*
@@ -647,6 +649,8 @@ rm -rf %{buildroot}
 %{_sbindir}/xen-ringwatch
 %{_sbindir}/xencov
 %{_sbindir}/xen-mfndump
+%{_sbindir}/xen-livepatch
+%{_bindir}/xen-cpuid
 /usr/share/pkgconfig/*
 %{_bindir}/xenalyze
 %{_sbindir}/xentrace
@@ -662,6 +666,7 @@ rm -rf %{buildroot}
 %if %build_hyp
 %defattr(-,root,root)
 /boot/xen-*.gz
+%config(noreplace) /boot/xen-*.config
 %if %build_xsm
 %dir %attr(0755,root,root) /boot/flask
 /boot/flask/xenpolicy*
