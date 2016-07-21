@@ -22,7 +22,7 @@
 +.PHONY: vchan
 +vchan: vchan-$(XEN_TARGET_ARCH)/libvchan.a
 +vchan-$(XEN_TARGET_ARCH)/libvchan.a:
-+	CPPFLAGS="$(TARGET_CPPFLAGS)" CFLAGS="$(TARGET_CFLAGS)" $(MAKE) -C vchan-$(XEN_TARGET_ARCH)
++	CPPFLAGS="$(TARGET_CPPFLAGS) -I$(XEN_ROOT)/tools/libs/evtchn/include -I$(XEN_ROOT)/tools/libs/gnttab/include -I$(XEN_ROOT)/tools/libs/toollog/include" CFLAGS="$(TARGET_CFLAGS)" $(MAKE) -C vchan-$(XEN_TARGET_ARCH)
 +
 +#######
  # libvchan
