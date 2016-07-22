@@ -1,0 +1,24 @@
+diff -ur -x .cproject -x .project -x '*.swp' xen-4.7.0/tools/firmware/rombios/32bit/Makefile xen-4.7.0-new/tools/firmware/rombios/32bit/Makefile
+--- xen-4.7.0/tools/firmware/rombios/32bit/Makefile	2016-06-20 13:38:15.000000000 +0300
++++ xen-4.7.0-new/tools/firmware/rombios/32bit/Makefile	2016-07-23 00:12:52.084000000 +0300
+@@ -3,7 +3,7 @@
+ 
+ TARGET = 32bitbios_flat.h
+ 
+-CFLAGS += $(CFLAGS_xeninclude) -I..
++CFLAGS += $(CFLAGS_xeninclude) -I.. -fno-pic
+ 
+ SUBDIRS = tcgbios
+ 
+diff -ur -x .cproject -x .project -x '*.swp' xen-4.7.0/tools/firmware/rombios/32bit/tcgbios/Makefile xen-4.7.0-new/tools/firmware/rombios/32bit/tcgbios/Makefile
+--- xen-4.7.0/tools/firmware/rombios/32bit/tcgbios/Makefile	2016-06-20 13:38:15.000000000 +0300
++++ xen-4.7.0-new/tools/firmware/rombios/32bit/tcgbios/Makefile	2016-07-23 00:17:52.909000000 +0300
+@@ -3,7 +3,7 @@
+ 
+ TARGET  = tcgbiosext.o
+ 
+-CFLAGS += $(CFLAGS_xeninclude) -I.. -I../..
++CFLAGS += $(CFLAGS_xeninclude) -I.. -I../.. -fno-pic
+ 
+ .PHONY: all
+ all: $(TARGET)
