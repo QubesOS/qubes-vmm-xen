@@ -1,0 +1,44 @@
+From 013396f93ee2d4ec416f701ae420c683b7327230 Mon Sep 17 00:00:00 2001
+From: Doug Goldstein <cardoe@cardoe.com>
+Date: Tue, 1 Dec 2015 13:27:53 -0600
+Subject: [PATCH] libxc: prefer using privcmd character device
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Prefer using the character device over the proc file if the character
+device exists. This follows similar conversions of xenbus to avoid
+issues with FMODE_ATOMIC_POS added in Linux 3.14 and newer.
+
+CC: Ian Jackson <ian.jackson@eu.citrix.com>
+CC: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+CC: Ian Campbell <ian.campbell@citrix.com>
+CC: Wei Liu <wei.liu2@citrix.com>
+Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/libxc/xc_linux_osdep.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/tools/libxc/xc_linux_osdep.c b/tools/libxc/xc_linux_osdep.c
+index 76c55ff..c3a3a14 100644
+--- a/tools/libxc/xc_linux_osdep.c
++++ b/tools/libxc/xc_linux_osdep.c
+@@ -46,7 +46,13 @@
+ static xc_osdep_handle linux_privcmd_open(xc_interface *xch)
+ {
+     int flags, saved_errno;
+-    int fd = open("/proc/xen/privcmd", O_RDWR);
++    int fd = open("/dev/xen/privcmd", O_RDWR); /* prefer this newer interface */
++
++    if ( fd == -1 && ( errno == ENOENT || errno == ENXIO || errno == ENODEV ))
++    {
++        /* Fallback to /proc/xen/privcmd */
++        fd = open("/proc/xen/privcmd", O_RDWR);
++    }
+ 
+     if ( fd == -1 )
+     {
+-- 
+2.5.5
+
