@@ -1,3 +1,11 @@
+xen (2001:4.6.1-20) wheezy; urgency=medium
+
+  * Do not require /proc/xen being mounted for vchan
+  * Drop unnecessary dependencies from xendriverdomain.service
+  * Apply XSA 154 and XSA 182 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 26 Jul 2016 13:13:11 +0200
+
 xen (2001:4.6.1-19) wheezy; urgency=medium
 
   [ Rusty Bird ]
