@@ -19,7 +19,7 @@ RPM_DEFINES := $(foreach v, _sourcedir _specdir _builddir _srcrpmdir _rpmdir ver
 
 DIST_DOM0 ?= fc13
 
-#DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
+DISTFILES_MIRROR := http://ftp.qubes-os.org/distfiles/
 
 ifndef version
 $(error "You can not run this Makefile without having version defined")
