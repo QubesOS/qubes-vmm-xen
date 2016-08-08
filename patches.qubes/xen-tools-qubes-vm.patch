@@ -2,11 +2,11 @@ Index: debian-vm/tools/Makefile
 ===================================================================
 --- debian-vm.orig/tools/Makefile
 +++ debian-vm/tools/Makefile
-@@ -4,41 +4,15 @@ include $(XEN_ROOT)/tools/Rules.mk
- SUBDIRS-y :=
+@@ -5,42 +5,16 @@ include $(XEN_ROOT)/tools/Rules.mk
  SUBDIRS-y += include
+ SUBDIRS-y += libs
  SUBDIRS-y += libxc
--SUBDIRS-$(FLASK_ENABLE) += flask
+-SUBDIRS-y += flask
  SUBDIRS-y += xenstore
 -SUBDIRS-y += misc
 -SUBDIRS-y += examples
@@ -31,6 +31,7 @@ Index: debian-vm/tools/Makefile
 -
 -SUBDIRS-y += xenpmd
  SUBDIRS-y += libxl
+ SUBDIRS-y += helpers
 -SUBDIRS-$(CONFIG_X86) += xenpaging
 -SUBDIRS-$(CONFIG_X86) += debugger/gdbsx
 -SUBDIRS-$(CONFIG_X86) += debugger/kdd
