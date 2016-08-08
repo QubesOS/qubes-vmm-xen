@@ -44,6 +44,7 @@ License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
 Source0: xen-%{version}.tar.gz
 Source2: %{name}.logrotate
+Source3: config
 # used by stubdoms
 Source10: lwip-1.3.0.tar.gz
 Source11: newlib-1.16.0.tar.gz
@@ -305,6 +306,8 @@ mkdir -p dist/install/boot/efi/efi/qubes
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS_EXTRA="$RPM_OPT_FLAGS"
 export PATH="/usr/bin:$PATH"
+export KCONFIG_CONFIG=%{SOURCE3}
+export XEN_CONFIG_EXPERT=y
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
 # setting libexecdir to real libexec is broken in the configure script (it is
