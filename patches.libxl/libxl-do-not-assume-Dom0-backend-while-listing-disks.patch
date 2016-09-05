@@ -1,36 +1,47 @@
-From c904b4e905ac8a0a0c885e931c34ae26928e4ab5 Mon Sep 17 00:00:00 2001
-From: Marek Marczykowski <marmarek@invisiblethingslab.com>
-Date: Sun, 28 Apr 2013 01:12:49 +0200
-Subject: [PATCH] libxl: do not assume Dom0 backend while listing disks and
- nics
+From 77bbb03f87c5b6a9aef8262e2017cbce908082ef Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 5 Sep 2016 01:03:52 +0200
+Subject: [PATCH] libxl: do not assume Dom0 backend while getting nic info
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Organization: Invisible Things Lab
 Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
-One more place where code assumed that all backends are in dom0. List
-devices in domain device/ tree, instead of backend/ of dom0.
-Additionally fix libxl_devid_to_device_{nic,disk} to fill backend_domid
-properly.
+Fill backend_domid field based on backend path.
 
-Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_nic.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-Ported to Xen 4.7.0 (marcus@wetwa.re)
---- xen-4.7.0/tools/libxl/libxl.c.orig	2016-07-15 20:07:49.913000000 +0300
-+++ xen-4.7.0/tools/libxl/libxl.c	2016-07-15 22:02:42.927000000 +0300
-@@ -3593,6 +3593,13 @@
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index c34b7ba..5f281a9 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -3599,6 +3599,21 @@ static int libxl__device_nic_from_xenstore(libxl__gc *gc,
+     else
+         nic->devid = 0;
  
-     libxl_device_nic_init(nic);
- 
-+    rc = sscanf(libxl_path, "/local/domain/%d/", &nic->backend_domid);
-+    if (rc != 1) {
++    rc = libxl__xs_read_checked(gc, XBT_NULL,
++                                GCSPRINTF("%s/backend", libxl_path), &tmp);
++    if (rc) goto out;
++
++    if (!tmp) {
++        LOG(ERROR, "nic %s does not exist (no backend path)", libxl_path);
 +        rc = ERROR_FAIL;
-+        LOG(ERROR, "Unable to fetch device backend domid from %s", libxl_path);
++        goto out;
++    }
++    rc = libxl__backendpath_parse_domid(gc, tmp, &nic->backend_domid);
++    if (rc) {
++        LOG(ERROR, "Unable to fetch device backend domid from %s", tmp);
 +        goto out;
 +    }
 +
-     tmp = READ_LIBXLDEV(gc, "handle");
-     if (tmp)
-         nic->devid = atoi(tmp);
+     /* nic->mtu = */
+ 
+     tmp = READ_LIBXLDEV(gc, "mac");
+-- 
+2.5.5
+
