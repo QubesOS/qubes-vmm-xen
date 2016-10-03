@@ -105,6 +105,15 @@ index cec1752..29b2a36 100644
          char *vncarg = NULL;
  
          flexarray_append(dm_args, "-vnc");
+@@ -824,7 +831,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+         }
+ 
+         flexarray_append(dm_args, vncarg);
+-    } else
++    } else if (!is_stubdom)
+         /*
+          * Ensure that by default no vnc server is created.
+          */
 @@ -836,7 +843,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
       */
      flexarray_append_pair(dm_args, "-display", "none");
