@@ -1,0 +1,318 @@
+From: Eric Shelton <eshelton@pobox.com>
+Date: Tue, 3 Feb 2015 23:06:14 -0500
+Subject: [RFC 6/7] libxl: Build the domain with a Linux based stubdomain
+
+This will build a Linux-based stubdomain with QEMU upstream.
+
+Signed-off-by: Eric Shelton <eshelton@pobox.com>
+---
+ tools/libxl/libxl.c          |  25 ++++++++--
+ tools/libxl/libxl_create.c   |   7 ++-
+ tools/libxl/libxl_dm.c       | 108 ++++++++++++++++++++++++++++++++++++-------
+ tools/libxl/libxl_internal.c |  22 +++++++++
+ tools/libxl/libxl_internal.h |   4 ++
+ 5 files changed, 145 insertions(+), 21 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 82227e8..85cf5eb 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -1757,8 +1757,17 @@ static int libxl__primary_console_find(libxl_ctx *ctx, uint32_t domid_vm,
+ 
+     if (stubdomid) {
+         *domid = stubdomid;
+-        *cons_num = STUBDOM_CONSOLE_SERIAL;
+         *type = LIBXL_CONSOLE_TYPE_PV;
++        switch (libxl__stubdomain_version_running(gc, stubdomid)) {
++        case LIBXL_STUBDOMAIN_VERSION_MINIOS:
++            *cons_num = STUBDOM_CONSOLE_SERIAL;
++            break;
++        case LIBXL_STUBDOMAIN_VERSION_LINUX:
++            *cons_num = 1;
++            break;
++        default:
++            abort();
++        }
+     } else {
+         switch (libxl__domain_type(gc, domid_vm)) {
+         case LIBXL_DOMAIN_TYPE_HVM:
+@@ -4927,8 +4936,18 @@ int libxl_domain_need_memory(libxl_ctx *ctx, libxl_domain_build_info *b_info,
+     switch (b_info->type) {
+     case LIBXL_DOMAIN_TYPE_HVM:
+         *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
+-        if (libxl_defbool_val(b_info->device_model_stubdomain))
+-            *need_memkb += 32 * 1024;
++        if (libxl_defbool_val(b_info->device_model_stubdomain)) {
++            switch (b_info->stubdomain_version) {
++            case LIBXL_STUBDOMAIN_VERSION_MINIOS:
++                *need_memkb += 32 * 1024;
++                break;
++            case LIBXL_STUBDOMAIN_VERSION_LINUX:
++                *need_memkb += LIBXL_LINUX_STUBDOM_MEM * 1024;
++                break;
++            default:
++                abort();
++            }
++        }
+         break;
+     case LIBXL_DOMAIN_TYPE_PV:
+         *need_memkb += b_info->shadow_memkb + LIBXL_PV_EXTRA_MEMORY;
+diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
+index 15258fa..b2c903e 100644
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -1358,7 +1358,12 @@ static void domcreate_devmodel_started(libxl__egc *egc,
+     if (dcs->dmss.dm.guest_domid) {
+         if (d_config->b_info.device_model_version
+             == LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN) {
+-            libxl__qmp_initializations(gc, domid, d_config);
++            if (!libxl_defbool_val(d_config->b_info.device_model_stubdomain)) {
++                libxl__qmp_initializations(gc, domid, d_config);
++            } else {
++                int stubdom_domid = dcs->dmss.pvqemu.guest_domid;
++                libxl__qmp_initializations(gc, stubdom_domid, d_config);
++            }
+         }
+     }
+ 
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index 68d5886..d03be4a 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1000,6 +1000,16 @@ retry_transaction:
+     return 0;
+ }
+ 
++static int libxl__store_libxl_entry(libxl__gc *gc, uint32_t domid,
++                                    const char *name, const char *value)
++{
++    char *path = NULL;
++
++    path = libxl__xs_libxl_path(gc, domid);
++    path = libxl__sprintf(gc, "%s/%s", path, name);
++    return libxl__xs_write(gc, XBT_NULL, path, "%s", value);
++}
++
+ static void spawn_stubdom_pvqemu_cb(libxl__egc *egc,
+                                 libxl__dm_spawn_state *stubdom_dmss,
+                                 int rc);
+@@ -1030,6 +1040,7 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+     char **args;
+     struct xs_permissions perm[2];
+     xs_transaction_t t;
++    libxl_device_disk disk_stub;
+ 
+     /* convenience aliases */
+     libxl_domain_config *const dm_config = &sdss->dm_config;
+@@ -1038,10 +1049,14 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+     libxl__domain_build_state *const d_state = sdss->dm.build_state;
+     libxl__domain_build_state *const stubdom_state = &sdss->dm_state;
+ 
+-    if (guest_config->b_info.device_model_version !=
+-        LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL) {
+-        ret = ERROR_INVAL;
+-        goto out;
++    assert(libxl_defbool_val(guest_config->b_info.device_model_stubdomain));
++
++    if (guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++        if (d_state->saved_state) {
++            LOG(ERROR, "Save/Restore not supported yet with Linux Stubdom.");
++            ret = -1;
++            goto out;
++        }
+     }
+ 
+     sdss->pvqemu.guest_domid = 0;
+@@ -1062,7 +1077,16 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+     libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
+ 
+     dm_config->b_info.max_vcpus = 1;
+-    dm_config->b_info.max_memkb = 32 * 1024;
++    switch (guest_config->b_info.stubdomain_version) {
++    case LIBXL_STUBDOMAIN_VERSION_MINIOS:
++        dm_config->b_info.max_memkb = 32 * 1024;
++        break;
++    case LIBXL_STUBDOMAIN_VERSION_LINUX:
++        dm_config->b_info.max_memkb = LIBXL_LINUX_STUBDOM_MEM * 1024;
++        break;
++    default:
++        abort();
++    }
+     dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
+ 
+     dm_config->b_info.u.pv.features = "";
+@@ -1096,10 +1120,32 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+     dm_config->vkbs = vkb;
+     dm_config->num_vkbs = 1;
+ 
+-    stubdom_state->pv_kernel.path
+-        = libxl__abs_path(gc, "ioemu-stubdom.gz", libxl__xenfirmwaredir_path());
+-    stubdom_state->pv_cmdline = libxl__sprintf(gc, " -d %d", guest_domid);
+-    stubdom_state->pv_ramdisk.path = "";
++    switch (guest_config->b_info.stubdomain_version) {
++    case LIBXL_STUBDOMAIN_VERSION_MINIOS:
++        stubdom_state->pv_kernel.path
++            = libxl__abs_path(gc, "ioemu-stubdom.gz", libxl__xenfirmwaredir_path());
++        stubdom_state->pv_cmdline = libxl__sprintf(gc, " -d %d", guest_domid);
++        stubdom_state->pv_ramdisk.path = "";
++        break;
++    case LIBXL_STUBDOMAIN_VERSION_LINUX:
++        libxl_device_disk_init(&disk_stub);
++        disk_stub.readwrite = 0;
++        disk_stub.format = LIBXL_DISK_FORMAT_RAW;
++        disk_stub.is_cdrom = 0;
++        disk_stub.vdev = "xvdz";
++        disk_stub.pdev_path = libxl__abs_path(gc, "stubdom-disk.img",
++                                              libxl__xenfirmwaredir_path());
++        ret = libxl__device_disk_setdefault(gc, &disk_stub);
++        if (ret) goto out;
++        stubdom_state->pv_kernel.path
++            = libxl__abs_path(gc, "vmlinuz-stubdom", libxl__xenfirmwaredir_path());
++        stubdom_state->pv_cmdline
++            = "debug console=hvc0 root=/dev/xvdz ro init=/init";
++        stubdom_state->pv_ramdisk.path = "";
++        break;
++    default:
++        abort();
++    }
+ 
+     /* fixme: this function can leak the stubdom if it fails */
+     ret = libxl__domain_make(gc, &dm_config->c_info, &sdss->pvqemu.guest_domid);
+@@ -1117,7 +1163,12 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+         goto out;
+     }
+ 
+-    libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args);
++    libxl__store_libxl_entry(gc, guest_domid, "dm-version",
++        libxl_device_model_version_to_string(dm_config->b_info.device_model_version));
++    libxl__store_libxl_entry(gc, dm_domid, "stubdom-version",
++        libxl_stubdomain_version_to_string(guest_config->b_info.stubdomain_version));
++    libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args,
++        guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX);
+     libxl__xs_write(gc, XBT_NULL,
+                    libxl__sprintf(gc, "%s/image/device-model-domid",
+                                   libxl__xs_get_dompath(gc, guest_domid)),
+@@ -1126,6 +1177,15 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+                    libxl__sprintf(gc, "%s/target",
+                                   libxl__xs_get_dompath(gc, dm_domid)),
+                    "%d", guest_domid);
++    if (guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++        /* qemu-xen is used as a dm in the stubdomain, so we set the bios
++         * accroding to this */
++        libxl__xs_write(gc, XBT_NULL,
++                        libxl__sprintf(gc, "%s/hvmloader/bios",
++                                       libxl__xs_get_dompath(gc, guest_domid)),
++                        "%s",
++                        libxl_bios_type_to_string(LIBXL_BIOS_TYPE_SEABIOS));
++    }
+     ret = xc_domain_set_target(ctx->xch, dm_domid, guest_domid);
+     if (ret<0) {
+         LIBXL__LOG_ERRNO(ctx, LIBXL__LOG_ERROR,
+@@ -1153,6 +1213,10 @@ retry_transaction:
+ 
+     libxl__multidev_begin(ao, &sdss->multidev);
+     sdss->multidev.callback = spawn_stub_launch_dm;
++    if (guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++        libxl__ao_device *aodev = libxl__multidev_prepare(&sdss->multidev);
++        libxl__device_disk_add(egc, dm_domid, &disk_stub, aodev);
++    }
+     libxl__add_disks(egc, ao, dm_domid, dm_config, &sdss->multidev);
+     libxl__multidev_prepared(egc, &sdss->multidev, 0);
+ 
+@@ -1201,6 +1265,10 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+     if (ret)
+         goto out;
+ 
++    if (guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++        /* no special console for save/restore, only the logging console */
++        num_console = 1;
++    }
+     if (guest_config->b_info.u.hvm.serial)
+         num_console++;
+ 
+@@ -1229,14 +1297,20 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+                 free(filename);
+                 break;
+             case STUBDOM_CONSOLE_SAVE:
+-                console[i].output = libxl__sprintf(gc, "file:%s",
+-                                libxl__device_model_savefile(gc, guest_domid));
+-                break;
++                if (guest_config->b_info.stubdomain_version
++                      == LIBXL_STUBDOMAIN_VERSION_MINIOS) {
++                    console[i].output = libxl__sprintf(gc, "file:%s",
++                        libxl__device_model_savefile(gc, guest_domid));
++                    break;
++                }
+             case STUBDOM_CONSOLE_RESTORE:
+-                if (d_state->saved_state)
+-                    console[i].output =
+-                        libxl__sprintf(gc, "pipe:%s", d_state->saved_state);
+-                break;
++                if (guest_config->b_info.stubdomain_version
++                      == LIBXL_STUBDOMAIN_VERSION_MINIOS) {
++                    if (d_state->saved_state)
++                        console[i].output =
++                            libxl__sprintf(gc, "pipe:%s", d_state->saved_state);
++                    break;
++                }
+             default:
+                 console[i].output = "pty";
+                 break;
+diff --git a/tools/libxl/libxl_internal.c b/tools/libxl/libxl_internal.c
+index ddc68ab..d38e23d 100644
+--- a/tools/libxl/libxl_internal.c
++++ b/tools/libxl/libxl_internal.c
+@@ -364,6 +364,28 @@ int libxl__device_model_version_running(libxl__gc *gc, uint32_t domid)
+     return value;
+ }
+ 
++int libxl__stubdomain_version_running(libxl__gc *gc, uint32_t domid)
++{
++    char *path = NULL;
++    char *stub_version = NULL;
++    libxl_stubdomain_version value;
++
++    path = libxl__xs_libxl_path(gc, domid);
++    path = libxl__sprintf(gc, "%s/stubdom-version", path);
++    stub_version = libxl__xs_read(gc, XBT_NULL, path);
++    if (!stub_version) {
++        return LIBXL_STUBDOMAIN_VERSION_MINIOS;
++    }
++
++    if (libxl_stubdomain_version_from_string(stub_version, &value) < 0) {
++        libxl_ctx *ctx = libxl__gc_owner(gc);
++        LIBXL__LOG(ctx, LIBXL__LOG_ERROR,
++                   "fatal: %s contain a wrong value (%s)", path, stub_version);
++        return -1;
++    }
++    return value;
++}
++
+ int libxl__hotplug_settings(libxl__gc *gc, xs_transaction_t t)
+ {
+     int rc = 0;
+diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
+index 934465a..8755022 100644
+--- a/tools/libxl/libxl_internal.h
++++ b/tools/libxl/libxl_internal.h
+@@ -102,6 +102,7 @@
+ #define STUBDOM_CONSOLE_RESTORE 2
+ #define STUBDOM_CONSOLE_SERIAL 3
+ #define STUBDOM_SPECIAL_CONSOLES 3
++#define LIBXL_LINUX_STUBDOM_MEM 128
+ #define TAP_DEVICE_SUFFIX "-emu"
+ #define DISABLE_UDEV_PATH "libxl/disable_udev"
+ #define DOMID_XS_PATH "domid"
+@@ -1794,6 +1795,9 @@ _hidden libxl__json_object *libxl__json_parse(libxl__gc *gc_opt, const char *s);
+ _hidden int libxl__device_model_version_running(libxl__gc *gc, uint32_t domid);
+   /* Return the system-wide default device model */
+ _hidden libxl_device_model_version libxl__default_device_model(libxl__gc *gc);
++  /* Based on /libxl/$domid/stubdom-version xenstore key
++   * default is minios */
++_hidden int libxl__stubdomain_version_running(libxl__gc *gc, uint32_t domid);
+ 
+ /* Check how executes hotplug script currently */
+ int libxl__hotplug_settings(libxl__gc *gc, xs_transaction_t t);
+-- 
+1.8.5.5
+
