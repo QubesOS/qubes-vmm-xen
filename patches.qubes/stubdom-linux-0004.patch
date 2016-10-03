@@ -22,10 +22,10 @@ Signed-off-by: Eric Shelton <eshelton@pobox.com>
  2 files changed, 36 insertions(+), 5 deletions(-)
 
 diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
-index 98687bd..15258fa 100644
+index ba3a80a..08f79d5 100644
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -181,12 +181,36 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -145,12 +145,36 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
      }
  
      if (b_info->type == LIBXL_DOMAIN_TYPE_HVM &&
@@ -68,10 +68,10 @@ index 98687bd..15258fa 100644
  
      if (!b_info->max_vcpus)
 diff --git a/tools/libxl/libxl_types.idl b/tools/libxl/libxl_types.idl
-index 02be466..8d0ac3b 100644
+index 502a148..f15a34b 100644
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
-@@ -83,6 +83,12 @@ libxl_device_model_version = Enumeration("device_model_version", [
+@@ -100,6 +100,12 @@ libxl_device_model_version = Enumeration("device_model_version", [
      (2, "QEMU_XEN"),             # Upstream based qemu-xen device model
      ])
  
@@ -84,7 +84,7 @@ index 02be466..8d0ac3b 100644
  libxl_console_type = Enumeration("console_type", [
      (0, "UNKNOWN"),
      (1, "SERIAL"),
-@@ -379,6 +385,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
+@@ -428,6 +434,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
      
      ("device_model_version", libxl_device_model_version),
      ("device_model_stubdomain", libxl_defbool),
@@ -93,5 +93,5 @@ index 02be466..8d0ac3b 100644
      ("device_model",     string),
      ("device_model_ssidref", uint32),
 -- 
-1.8.5.5
+2.9.3
 
