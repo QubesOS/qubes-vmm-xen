@@ -163,12 +163,12 @@ index 29b2a36..e333fd5 100644
 +        disk_stub.format = LIBXL_DISK_FORMAT_RAW;
 +        disk_stub.is_cdrom = 0;
 +        disk_stub.vdev = "xvdz";
-+        disk_stub.pdev_path = libxl__abs_path(gc, "stubdom-disk.img",
++        disk_stub.pdev_path = libxl__abs_path(gc, "stubdom-linux-rootfs",
 +                                              libxl__xenfirmwaredir_path());
 +        ret = libxl__device_disk_setdefault(gc, &disk_stub);
 +        if (ret) goto out;
 +        stubdom_state->pv_kernel.path
-+            = libxl__abs_path(gc, "vmlinuz-stubdom", libxl__xenfirmwaredir_path());
++            = libxl__abs_path(gc, "stubdom-linux-kernel", libxl__xenfirmwaredir_path());
 +        stubdom_state->pv_cmdline
 +            = "debug console=hvc0 root=/dev/xvdz ro init=/init";
 +        stubdom_state->pv_ramdisk.path = "";
