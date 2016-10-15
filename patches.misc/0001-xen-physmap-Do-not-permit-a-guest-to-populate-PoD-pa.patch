@@ -1,0 +1,65 @@
+From a00a0f9139c4b3a9db8e74aca0ac0808e6f7d65b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 26 Aug 2016 10:28:48 +0200
+Subject: [PATCH] xen/physmap: Do not permit a guest to populate PoD pages for
+ itself
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+PoD is supposed to be entirely transparent to guest, but this interface has
+been left exposed for a long time.
+
+The use of PoD requires careful co-ordination by the toolstack with the
+XENMEM_{get,set}_pod_target hypercalls, and xenstore ballooning target.  The
+best a guest can do without toolstack cooperation crash.
+
+Furthermore, there are combinations of features (e.g. c/s c63868ff "libxl:
+disallow PCI device assignment for HVM guest when PoD is enabled") which a
+toolstack might wish to explicitly prohibit (in this case, because the two
+simply don't function in combination).  In such cases, the guest mustn't be
+able to subvert the configuration chosen by the toolstack.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+master commit: 2a99aa99fc84a45f505f84802af56b006d14c52e
+master date: 2016-08-19 18:40:11 +0100
+---
+ xen/common/memory.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/xen/common/memory.c b/xen/common/memory.c
+index 8baed72..b2a1874 100644
+--- a/xen/common/memory.c
++++ b/xen/common/memory.c
+@@ -140,14 +140,14 @@ static void populate_physmap(struct memop_args *a)
+     struct page_info *page;
+     unsigned long i, j;
+     xen_pfn_t gpfn, mfn;
+-    struct domain *d = a->domain;
++    struct domain *d = a->domain, *curr_d = current->domain;
+ 
+     if ( !guest_handle_subrange_okay(a->extent_list, a->nr_done,
+                                      a->nr_extents-1) )
+         return;
+ 
+     if ( a->extent_order > (a->memflags & MEMF_populate_on_demand ? MAX_ORDER :
+-                            max_order(current->domain)) )
++                            max_order(curr_d)) )
+         return;
+ 
+     for ( i = a->nr_done; i < a->nr_extents; i++ )
+@@ -163,6 +163,10 @@ static void populate_physmap(struct memop_args *a)
+ 
+         if ( a->memflags & MEMF_populate_on_demand )
+         {
++            /* Disallow populating PoD pages on oneself. */
++            if ( d == curr_d )
++                goto out;
++
+             if ( guest_physmap_mark_populate_on_demand(d, gpfn,
+                                                        a->extent_order) < 0 )
+                 goto out;
+-- 
+2.5.5
+

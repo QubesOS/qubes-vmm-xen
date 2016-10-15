@@ -1,0 +1,80 @@
+From b9daff9d811285f1e40669bc621c2241793f7a95 Mon Sep 17 00:00:00 2001
+From: Chris Patterson <pattersonc@ainfosec.com>
+Date: Fri, 3 Jun 2016 12:50:09 -0400
+Subject: [PATCH] libxl: replace deprecated readdir_r() with readdir()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace the usage of readdir_r() with readdir() to address a
+compilation error under glibc due to the deprecation of readdir_r
+for their next release (2.24) [1, 2].
+
+Remove code specific to usage of readdir_r which is no longer required,
+such as zalloc_dirent().
+
+--
+
+From the GNU libc manual [3]:
+"
+ It is expected that future versions of POSIX will obsolete readdir_r and
+ mandate the level of thread safety for readdir which is provided by the
+ GNU C Library and other implementations today.
+"
+
+There is a filed bug in the Austin Group Defect Tracker [4]  in which 'dalias'
+proposes (in comment 0001632) that:
+"
+   I would like to propose an alternate solution. For readdir, replace the text:
+    "The readdir() function need not be thread-safe."
+   with:
+    "If multiple threads call the readdir() function with the same directory
+    stream argument and without synchronization to preclude simultaneous
+    access, then the behavior is undefined."
+
+   With this change, the clunky readdir_r function is no longer needed or
+   useful, and should probably be deprecated. As the only reasonable way
+   to meet the implementation requirements for readdir is to have the dirent
+   buffer in the DIR structure, this change should not require any change to
+   existing implementations.
+"
+
+[1] https://sourceware.org/ml/libc-alpha/2016-02/msg00093.html
+[2] https://sourceware.org/bugzilla/show_bug.cgi?id=19056
+[3] https://www.gnu.org/software/libc/manual/html_node/Reading_002fClosing-Directory.html
+[4] http://austingroupbugs.net/view.php?id=696
+
+Signed-off-by: Chris Patterson <pattersonc@ainfosec.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Release-acked-by: Wei Liu <wei.liu2@citrix.com>
+[Backport to 4.6]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_utils.c |  8 +++-----
+ 2 files changed, 9 insertions(+), 23 deletions(-)
+
+diff --git a/tools/libxl/libxl_utils.c b/tools/libxl/libxl_utils.c
+index ceb8825..4ca6bcb 100644
+--- a/tools/libxl/libxl_utils.c
++++ b/tools/libxl/libxl_utils.c
+@@ -548,14 +548,12 @@ int libxl__remove_directory(libxl__gc *gc, const char *dirpath)
+         goto out;
+     }
+ 
+-    size_t need = offsetof(struct dirent, d_name) +
+-        pathconf(dirpath, _PC_NAME_MAX) + 1;
+-    struct dirent *de_buf = libxl__zalloc(gc, need);
+     struct dirent *de;
+ 
+     for (;;) {
+-        int r = readdir_r(d, de_buf, &de);
+-        if (r) {
++        errno = 0;
++        de = readdir(d);
++        if (!de && errno) {
+             LOGE(ERROR, "failed to readdir %s for removal", dirpath);
+             rc = ERROR_FAIL;
+             break;
+-- 
+2.5.5
+

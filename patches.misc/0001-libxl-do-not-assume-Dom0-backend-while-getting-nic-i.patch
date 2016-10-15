@@ -1,0 +1,49 @@
+From 57dbc55cd3e239ab0ce5bdd62cf309e27fe52a1a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 5 Sep 2016 12:15:26 +0200
+Subject: [PATCH] libxl: do not assume Dom0 backend while getting nic info
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Fill backend_domid field based on backend path.
+
+[ Correspoding xen.git#master commit is 7539772a65b0 -iwj ]
+
+Cc: Ian Jackson <ian.jackson@eu.citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+(cherry picked from commit 317eb71bc3b0830338601fb14d1f49546a1c1e35)
+---
+ tools/libxl/libxl.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 45d202a..18e9d4d 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -3485,6 +3485,18 @@ static int libxl__device_nic_from_xenstore(libxl__gc *gc,
+     else
+         nic->devid = 0;
+ 
++    rc = libxl__xs_read_checked(gc, XBT_NULL,
++                                GCSPRINTF("%s/backend", libxl_path), &tmp);
++    if (rc) goto out;
++
++    if (!tmp) {
++        LOG(ERROR, "nic %s does not exist (no backend path)", libxl_path);
++        rc = ERROR_FAIL;
++        goto out;
++    }
++    rc = libxl__backendpath_parse_domid(gc, tmp, &nic->backend_domid);
++    if (rc) goto out;
++
+     /* nic->mtu = */
+ 
+     tmp = READ_LIBXLDEV(gc, "mac");
+-- 
+2.5.5
+

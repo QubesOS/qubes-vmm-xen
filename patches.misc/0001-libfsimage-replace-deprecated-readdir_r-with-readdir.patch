@@ -1,0 +1,102 @@
+From c2a17869d5dcd845d646bf4db122cad73596a2be Mon Sep 17 00:00:00 2001
+From: Chris Patterson <pattersonc@ainfosec.com>
+Date: Fri, 3 Jun 2016 12:50:10 -0400
+Subject: [PATCH] libfsimage: replace deprecated readdir_r() with readdir()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace the usage of readdir_r() with readdir() to address a
+compilation error under glibc due to the deprecation of readdir_r
+for their next release (2.24) [1, 2].
+
+Add new error checking on readdir(), and fail if error occurs.
+
+--
+
+From the GNU libc manual [3]:
+"
+ It is expected that future versions of POSIX will obsolete readdir_r and
+ mandate the level of thread safety for readdir which is provided by the
+ GNU C Library and other implementations today.
+"
+
+There is a filed bug in the Austin Group Defect Tracker [4]  in which 'dalias'
+proposes (in comment 0001632) that:
+"
+   I would like to propose an alternate solution. For readdir, replace the text:
+    "The readdir() function need not be thread-safe."
+   with:
+    "If multiple threads call the readdir() function with the same directory
+    stream argument and without synchronization to preclude simultaneous
+    access, then the behavior is undefined."
+
+   With this change, the clunky readdir_r function is no longer needed or
+   useful, and should probably be deprecated. As the only reasonable way
+   to meet the implementation requirements for readdir is to have the dirent
+   buffer in the DIR structure, this change should not require any change to
+   existing implementations.
+"
+
+[1] https://sourceware.org/ml/libc-alpha/2016-02/msg00093.html
+[2] https://sourceware.org/bugzilla/show_bug.cgi?id=19056
+[3] https://www.gnu.org/software/libc/manual/html_node/Reading_002fClosing-Directory.html
+[4] http://austingroupbugs.net/view.php?id=696
+
+Signed-off-by: Chris Patterson <pattersonc@ainfosec.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Release-acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/libfsimage/common/fsimage_plugin.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/tools/libfsimage/common/fsimage_plugin.c b/tools/libfsimage/common/fsimage_plugin.c
+index 3fa06c7..0744e7b 100644
+--- a/tools/libfsimage/common/fsimage_plugin.c
++++ b/tools/libfsimage/common/fsimage_plugin.c
+@@ -123,7 +123,6 @@ static int load_plugins(void)
+ {
+ 	const char *fsdir = getenv("FSIMAGE_FSDIR");
+ 	struct dirent *dp = NULL;
+-	struct dirent *dpp;
+ 	DIR *dir = NULL;
+ 	char *tmp = NULL;
+ 	size_t name_max;
+@@ -139,22 +138,26 @@ static int load_plugins(void)
+ 	if ((tmp = malloc(name_max + 1)) == NULL)
+ 		goto fail;
+ 
+-	if ((dp = malloc(sizeof (struct dirent) + name_max + 1)) == NULL)
+-		goto fail;
+-
+ 	if ((dir = opendir(fsdir)) == NULL)
+ 		goto fail;
+ 
+-	bzero(dp, sizeof (struct dirent) + name_max + 1);
++	for (;;) {
++		errno = 0;
++		dp = readdir(dir);
++
++		if (dp == NULL && errno != 0)
++			goto fail;
++
++		if (dp == NULL)
++			break;
+ 
+-	while (readdir_r(dir, dp, &dpp) == 0 && dpp != NULL) {
+-		if (strcmp(dpp->d_name, ".") == 0)
++		if (strcmp(dp->d_name, ".") == 0)
+ 			continue;
+-		if (strcmp(dpp->d_name, "..") == 0)
++		if (strcmp(dp->d_name, "..") == 0)
+ 			continue;
+ 
+ 		(void) snprintf(tmp, name_max, "%s/%s/fsimage.so", fsdir,
+-			dpp->d_name);
++			dp->d_name);
+ 
+ 		if (init_plugin(tmp) != 0)
+ 			goto fail;
+-- 
+2.5.5
+
