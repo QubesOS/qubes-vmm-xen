@@ -1,0 +1,45 @@
+From cd193a2875186e3016c520b43c56d0256b26b968 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 23 Jun 2016 14:20:52 +0200
+Subject: [PATCH 2/2] xen: allow XEN_DOMCTL_getdomaininfo for device model
+ domains
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Allow device model domain to get info about its target domain.
+It is used during PCI passthrough setup (xc_domain_memory_mapping
+checks for guest being auto-translated). While it happens in stubdomain,
+it failed, breaking PCI passthrough in such setup.
+
+While it is possible to workaround this at toolstack side, it seems
+logical to allow device model to get information about its target
+domain.
+
+The problem was exposed by c428c9f "tools/libxl: handle the iomem
+parameter with the memory_mapping hcall".
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/include/xsm/dummy.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/xen/include/xsm/dummy.h b/xen/include/xsm/dummy.h
+index 406cd18..70a1633 100644
+--- a/xen/include/xsm/dummy.h
++++ b/xen/include/xsm/dummy.h
+@@ -128,6 +128,8 @@ static XSM_INLINE int xsm_domctl(XSM_DEFAULT_ARG struct domain *d, int cmd)
+     case XEN_DOMCTL_bind_pt_irq:
+     case XEN_DOMCTL_unbind_pt_irq:
+         return xsm_default_action(XSM_DM_PRIV, current->domain, d);
++    case XEN_DOMCTL_getdomaininfo:
++        return xsm_default_action(XSM_DM_PRIV, current->domain, d);
+     default:
+         return xsm_default_action(XSM_PRIV, current->domain, d);
+     }
+-- 
+2.5.5
+

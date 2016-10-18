@@ -1,0 +1,36 @@
+From 7f121a8b1ba6c82aa8a9e9f5c8c50719a0dc472f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 23 Jun 2016 00:04:23 +0200
+Subject: [PATCH 2/2] flask/policy: allow device model to get info about its
+ target
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Same as "xen: allow XEN_DOMCTL_getdomaininfo from stubdomain to
+its target" but for flask policy case.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/flask/policy/policy/modules/xen/xen.if | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/flask/policy/policy/modules/xen/xen.if b/tools/flask/policy/policy/modules/xen/xen.if
+index 00d1bbb..f92e85e 100644
+--- a/tools/flask/policy/policy/modules/xen/xen.if
++++ b/tools/flask/policy/policy/modules/xen/xen.if
+@@ -148,7 +148,7 @@ define(`device_model', `
+ 	create_channel($2, $1, $2_channel)
+ 	allow $1 $2_channel:event create;
+ 
+-	allow $1 $2_target:domain shutdown;
++	allow $1 $2_target:domain { shutdown getdomaininfo };
+ 	allow $1 $2_target:mmu { map_read map_write adjust physmap target_hack };
+ 	allow $1 $2_target:hvm { getparam setparam trackdirtyvram hvmctl irqlevel pciroute cacheattr send_irq };
+ ')
+-- 
+2.5.5
+

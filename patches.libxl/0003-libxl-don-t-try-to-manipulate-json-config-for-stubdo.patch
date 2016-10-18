@@ -1,0 +1,69 @@
+From 19eae68c2f5fc3da47a9f538c4b2260f9564bc09 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 17 Oct 2016 21:49:03 +0200
+Subject: [PATCH 3/3] libxl: don't try to manipulate json config for stubdomain
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Stubdomain do not have it's own config file - its configuration is
+derived from target domains. Do not try to manipulate it when attaching
+PCI device.
+
+This bug prevented starting HVM with stubdomain and PCI passthrough
+device attached.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_pci.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/tools/libxl/libxl_pci.c b/tools/libxl/libxl_pci.c
+index d3cf843..71dac87 100644
+--- a/tools/libxl/libxl_pci.c
++++ b/tools/libxl/libxl_pci.c
+@@ -160,14 +160,18 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
+     GCNEW(device);
+     libxl__device_from_pcidev(gc, domid, pcidev, device);
+ 
+-    lock = libxl__lock_domain_userdata(gc, domid);
+-    if (!lock) {
+-        rc = ERROR_LOCK_FAIL;
+-        goto out;
+-    }
++    /* Stubdomain config is derived from its target domain, it doesn't have
++       its own file */
++    if (!libxl_is_stubdom(CTX, domid, NULL)) {
++        lock = libxl__lock_domain_userdata(gc, domid);
++        if (!lock) {
++            rc = ERROR_LOCK_FAIL;
++            goto out;
++        }
+ 
+-    rc = libxl__get_domain_configuration(gc, domid, &d_config);
+-    if (rc) goto out;
++        rc = libxl__get_domain_configuration(gc, domid, &d_config);
++        if (rc) goto out;
++    }
+ 
+     DEVICE_ADD(pci, pcidevs, domid, &pcidev_saved, COMPARE_PCI, &d_config);
+ 
+@@ -175,8 +179,10 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
+         rc = libxl__xs_transaction_start(gc, &t);
+         if (rc) goto out;
+ 
+-        rc = libxl__set_domain_configuration(gc, domid, &d_config);
+-        if (rc) goto out;
++        if (lock) {
++            rc = libxl__set_domain_configuration(gc, domid, &d_config);
++            if (rc) goto out;
++        }
+ 
+         libxl__xs_writev(gc, t, be_path,
+                          libxl__xs_kvs_of_flexarray(gc, back, back->count));
+-- 
+2.5.5
+
