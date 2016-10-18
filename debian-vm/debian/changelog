@@ -1,3 +1,12 @@
+xen (2001:4.6.3-21) wheezy; urgency=medium
+
+  * Update to Xen 4.6.3
+  * Add security fixes released after Xen 4.6.3
+  * Backport few more bugfixes
+  * Add patches fixing PCI passthrouth for HVM domains
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 18 Oct 2016 15:58:04 +0200
+
 xen (2001:4.6.1-20) wheezy; urgency=medium
 
   * Do not require /proc/xen being mounted for vchan
