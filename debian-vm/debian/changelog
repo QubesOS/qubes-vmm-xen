@@ -1,3 +1,52 @@
+xen (2001:4.7.0-2) wheezy; urgency=medium
+
+  [ WetwareLabs ]
+  * Update Xen version. Temporarily download from original sources
+    (Qubes does not host Xen 4.7.0). Fix gmp DL path.
+  * Batch of straightforward updates to patch files without any actual
+    code modification.
+  * Batch of straightforward updates to patch files without any actual
+    code modification (#2)
+  * Ported 'Implement gntshr for minios -patch' to Xen 4.7.0
+  * Ported 'libxl: do not assume dom0 backend while listing disks' patch
+    to Xen 4.7.0. Most of the code removed, because functionality
+    already exists.
+  * Ported 'Libxl suspend' patch to Xen 4.7.0
+  * Ported 'LibXL: Remove with driver domain ...' patch to Xen 4.7.0
+  * Ported 'LibXL: qubes minimal stubdom' patch to Xen 4.7.0
+  * Ported 'LibXL: error write perm' patch to Xen 4.7.0
+  * Ported 'Use fedora ipxe' patch to Xen 4.7.0
+  * Batch of straightforward updates to patch files without any actual
+    code modification (part 3)
+  * Port 2 patches to Xen 4.7.0 (Use new gntshr functions names)
+  * This patch fixes the "<command-line>:0:0: error: "__OBJECT_FILE__"
+    redefined [-Werror]" error when compiling Xen 4.7.0 on Fedora 23.
+  * Xen 4.7.0 tools needs 'nettle-devel'
+  * qemu-tools: remove "target-x86_64.conf" (not built anymore)
+  * Ported 'Add EFI noexit...' patch to Xen 4.7.0
+  * - Change version to 4.7.0 - Add new files to packages - FLASK/XSM
+    files are created automatically, so delete them if not used
+  * Fix 'xen stubdom gui' patch: vchan needs extra include dirs
+  * Remove patches that are already in Xen 4.7.0
+  * Fix "There are undefined symbols in the BIOS: U
+    _GLOBAL_OFFSET_TABLE_" when compiling for vm (Fedora 23)
+  * Update XSA182 patch to Xen 4.7 version Remove XSA154 patch (already
+    in Xen 4.7.0) Remove patch "0001-libxc-prefer-using-privcmd..."
+    (already in Xen 4.7.0)
+
+  [ Marek Marczykowski-Górecki ]
+  * Sync other series-*.conf files
+  * Port xen-tools-qubes-vm.patch to Xen 4.7
+  * Restore using distfiles mirror
+  * Build hypervisor with custom config
+  * Update vchan submodule to xen-4.7 compatible version
+  * Update nics listing fix
+  * Remove patches not referenced anywhere
+  * Drop some more unused patches
+  * debian: reorganize libraries packaging for Xen 4.7
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 27 Oct 2016 03:58:58 +0200
+
 xen (2001:4.6.3-21) wheezy; urgency=medium
 
   * Update to Xen 4.6.3
