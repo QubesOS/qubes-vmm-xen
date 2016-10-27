@@ -1,0 +1,51 @@
+From be920c5c4906aa41a8d0d035a23dd9b5122f12b1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 17 Oct 2016 23:03:28 +0200
+Subject: [PATCH 2/3] libxl: attach PCI device to qemu only after setting
+ pciback/pcifront
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+When qemu is running in stubdomain, handling "pci-ins" command will fail
+if pcifront is not initialized already. Fix this by sending such command
+only after confirming that pciback/front is running.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_pci.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/tools/libxl/libxl_pci.c b/tools/libxl/libxl_pci.c
+index 2942772..d3cf843 100644
+--- a/tools/libxl/libxl_pci.c
++++ b/tools/libxl/libxl_pci.c
+@@ -1084,6 +1084,7 @@ int libxl__device_pci_add(libxl__gc *gc, uint32_t domid, libxl_device_pci *pcide
+ {
+     libxl_ctx *ctx = libxl__gc_owner(gc);
+     unsigned int orig_vdev, pfunc_mask;
++    char *be_path;
+     libxl_device_pci *assigned;
+     int num_assigned, i, rc;
+     int stubdomid = 0;
+@@ -1137,6 +1138,14 @@ int libxl__device_pci_add(libxl__gc *gc, uint32_t domid, libxl_device_pci *pcide
+         rc = do_pci_add(gc, stubdomid, &pcidev_s, 0);
+         if ( rc )
+             goto out;
++        /* wait for the device actually being connected, otherwise device model
++         * running there will fail to find the device */
++        be_path = libxl__sprintf(gc, "%s/backend/pci/%d/0",
++                libxl__xs_get_dompath(gc, 0), stubdomid);
++        rc = libxl__wait_for_backend(gc, be_path,
++                    GCSPRINTF("%d", XenbusStateConnected));
++        if ( rc )
++            goto out;
+     }
+ 
+     orig_vdev = pcidev->vdevfn & ~7U;
+-- 
+2.5.5
+
