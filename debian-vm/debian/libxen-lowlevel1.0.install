@@ -1,0 +1,10 @@
+usr/lib/*/libxencall.so.1
+usr/lib/*/libxencall.so.1.0
+usr/lib/*/libxenevtchn.so.1
+usr/lib/*/libxenevtchn.so.1.0
+usr/lib/*/libxenforeignmemory.so.1
+usr/lib/*/libxenforeignmemory.so.1.0
+usr/lib/*/libxengnttab.so.1
+usr/lib/*/libxengnttab.so.1.0
+usr/lib/*/libxentoollog.so.1
+usr/lib/*/libxentoollog.so.1.0

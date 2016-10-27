@@ -46,14 +46,26 @@ Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
 
-Package: libxen-4.6
+Package: libxen-4.7
+Section: libs
+Architecture: amd64
+Depends: libxen-lowlevel1.0, ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: Libraries for Xen tools
+ This package contains the libraries needed to run Xen tools inside of Qubes VM
+
+Package: libxen-lowlevel1.0
 Section: libs
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
-Conflicts: libxen-4.4
-Description: Libraries for Xen tools
- This package contains the libraries needed to run Xen tools inside of Qubes VM
+Description: Low level libraries for Xen hypervisor
+ This package contains the libraries providing a stable low level API and ABI
+ for Xen hypervisor:
+  - hypercalls
+  - mapping foreign domain memory
+  - accessing the grant table devices
+  - accessing the evtchn device
 
 Package: libxenstore3.0
 Section: libs
@@ -66,7 +78,11 @@ Description: Xenstore communications library for Xen
 Package: libxen-dev
 Section: libdevel
 Architecture: amd64
-Depends: libxen-4.6 (= ${binary:Version}), libxenstore3.0 (= ${binary:Version}), ${misc:Depends}
+Depends:
+ libxen-4.8 (= ${binary:Version}),
+ libxen-lowlevel1.0 (= ${binary:Version}),
+ libxenstore3.0 (= ${binary:Version}),
+ ${misc:Depends}
 Description: Development libraries for Xen tools
  This package contains what's needed to develop applications
  which manage Xen virtual machines.
