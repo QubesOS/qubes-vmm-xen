@@ -1,0 +1,46 @@
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1380,7 +1380,6 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+     char **args;
+     struct xs_permissions perm[2];
+     xs_transaction_t t;
+-    libxl_device_disk disk_stub;
+ 
+     /* convenience aliases */
+     libxl_domain_config *const dm_config = &sdss->dm_config;
+@@ -1471,20 +1470,13 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+         stubdom_state->pv_ramdisk.path = "";
+         break;
+     case LIBXL_STUBDOMAIN_VERSION_LINUX:
+-        libxl_device_disk_init(&disk_stub);
+-        disk_stub.readwrite = 0;
+-        disk_stub.format = LIBXL_DISK_FORMAT_RAW;
+-        disk_stub.is_cdrom = 0;
+-        disk_stub.vdev = "xvdz";
+-        disk_stub.pdev_path = libxl__abs_path(gc, "stubdom-linux-rootfs",
+-                                              libxl__xenfirmwaredir_path());
+-        ret = libxl__device_disk_setdefault(gc, &disk_stub);
+-        if (ret) goto out;
+         stubdom_state->pv_kernel.path
+             = libxl__abs_path(gc, "stubdom-linux-kernel", libxl__xenfirmwaredir_path());
+         stubdom_state->pv_cmdline
+-            = "debug console=hvc0 root=/dev/xvdz ro init=/init";
+-        stubdom_state->pv_ramdisk.path = "";
++            = "debug console=hvc0";
++        stubdom_state->pv_ramdisk.path = libxl__abs_path(gc,
++                "stubdom-linux-rootfs",
++                libxl__xenfirmwaredir_path());
+         break;
+     default:
+         abort();
+@@ -1559,10 +1551,6 @@ retry_transaction:
+ 
+     libxl__multidev_begin(ao, &sdss->multidev);
+     sdss->multidev.callback = spawn_stub_launch_dm;
+-    if (guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
+-        libxl__ao_device *aodev = libxl__multidev_prepare(&sdss->multidev);
+-        libxl__device_disk_add(egc, dm_domid, &disk_stub, aodev);
+-    }
+     libxl__add_disks(egc, ao, dm_domid, dm_config, &sdss->multidev);
+     libxl__multidev_prepared(egc, &sdss->multidev, 0);
+ 
