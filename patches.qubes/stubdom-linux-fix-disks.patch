@@ -1,0 +1,16 @@
+extracted from
+https://github.com/jean-edouard/xenclient-oe/blob/b27f2a8935d778c1b719fb75ea48808b6c00f084/recipes-extended/xen/files/libxl-misc-fixes.patch
+
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1182,8 +1182,8 @@ static int libxl__build_device_model_arg
+                 } else if (disk < 4) {
+                     if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
+                         drive = libxl__sprintf
+-                                (gc, "file=%s,if=ide,index=%d,media=disk,cache=writeback,format=%s",
+-                                 "/dev/xvda", disk, "host_device");
++                                (gc, "file=%s%c,if=ide,index=%d,media=disk,cache=writeback,format=%s",
++                                 "/dev/xvd", 'a' + disk, disk, "host_device");
+                     else
+                         drive = libxl__sprintf
+                                 (gc, "file=%s,if=ide,index=%d,media=disk,format=%s,cache=writeback",
