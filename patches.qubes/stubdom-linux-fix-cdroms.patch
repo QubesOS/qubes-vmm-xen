@@ -1,0 +1,13 @@
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1130,8 +1130,8 @@ static int libxl__build_device_model_arg
+                          disk, disks[i].readwrite ? "off" : "on", dev_number);
+                 else if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
+                     drive = libxl__sprintf
+-                        (gc, "file=%s,if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,format=%s,id=ide-%i",
+-                         "/dev/xvdc", disk, disks[i].readwrite ? "off" : "on", "host_cdrom", dev_number);
++                        (gc, "file=%s%c,if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,format=%s,id=ide-%i",
++                         "/dev/xvd", 'a' + disk, disk, disks[i].readwrite ? "off" : "on", "host_device", dev_number);
+                 else
+                     drive = libxl__sprintf
+                         (gc, "file=%s,if=ide,index=%d,readonly=%s,media=cdrom,format=%s,cache=writeback,id=ide-%i",
