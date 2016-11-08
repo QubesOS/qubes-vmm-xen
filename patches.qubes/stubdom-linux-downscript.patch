@@ -1,0 +1,35 @@
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -32,6 +32,14 @@ static const char *libxl_tapif_script(li
+ #endif
+ }
+ 
++static const char *libxl_tapif_downscript(libxl__gc *gc,
++                                          const libxl_domain_build_info *info)
++{
++    if (info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
++        return libxl__sprintf(gc, "/etc/qemu-ifdown");
++    return libxl__strdup(gc, "no");
++}
++
+ const char *libxl__device_model_savefile(libxl__gc *gc, uint32_t domid)
+ {
+     return libxl__sprintf(gc, "/var/lib/xen/qemu-save.%d", domid);
+@@ -598,7 +606,7 @@ static int libxl__build_device_model_arg
+                                       "script=%s,downscript=%s",
+                                       nics[i].devid, ifname, nics[i].bridge,
+                                       libxl_tapif_script(gc, b_info),
+-                                      libxl_tapif_script(gc, b_info)),
++                                      libxl_tapif_downscript(gc, b_info)),
+                                   NULL);
+                 ioemu_nics++;
+             }
+@@ -1038,7 +1046,7 @@ static int libxl__build_device_model_arg
+                                           "script=%s,downscript=%s",
+                                           nics[i].devid, ifname,
+                                           libxl_tapif_script(gc, b_info),
+-                                          libxl_tapif_script(gc, b_info)));
++                                          libxl_tapif_downscript(gc, b_info)));
+                 ioemu_nics++;
+             }
+         }
