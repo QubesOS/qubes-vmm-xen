@@ -21,6 +21,7 @@ usr/lib/*/libxenvchan.a
 usr/lib/*/libxenvchan.so
 usr/lib/*/libxlutil.a
 usr/lib/*/libxlutil.so
+usr/include/libxenvchan.h
 usr/include/_libxl*.h
 usr/include/libxl*.h
 usr/include/xencall.h
