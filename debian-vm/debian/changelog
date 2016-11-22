@@ -1,3 +1,9 @@
+xen (2001:4.6.3-23) wheezy; urgency=medium
+
+  * Update /boot/efi/EFI/qubes/xen.efi on install/update
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 22 Nov 2016 14:42:25 +0100
+
 xen (2001:4.6.3-22) wheezy; urgency=medium
 
   * Drop unneeded patches from series-vm.conf
