@@ -469,24 +469,22 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 %if %build_hyp
 %post hypervisor
 %if %build_efi
-if [ $1 == 1 ]; then
-  EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
-          /^BootCurrent:/ { current=$2; }
-          /^Boot....\* / {
-              if ("Boot" current "*" == $1) {
-                  sub(".*File\\(", "");
-                  sub("\\\\xen.efi\\).*", "");
-                  gsub("\\\\", "/");
-                  print;
-              }
-          }')
-  # FAT (on ESP) does not support symlinks
-  # override the file on purpose
-  if [ -n "${EFI_DIR}" ]; then
-    cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi ${EFI_DIR}/xen.efi
-  else
-    cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi/EFI/qubes/xen.efi
-  fi
+EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
+      /^BootCurrent:/ { current=$2; }
+      /^Boot....\* / {
+          if ("Boot" current "*" == $1) {
+              sub(".*File\\(", "");
+              sub("\\\\xen.efi\\).*", "");
+              gsub("\\\\", "/");
+              print;
+          }
+      }')
+# FAT (on ESP) does not support symlinks
+# override the file on purpose
+if [ -d "/boot/efi${EFI_DIR}" ]; then
+  cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi${EFI_DIR}/xen.efi
+else
+  cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi/EFI/qubes/xen.efi
 fi
 %endif
 if [ $1 == 1 -a -f /sbin/grub2-mkconfig ]; then
