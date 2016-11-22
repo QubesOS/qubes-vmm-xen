@@ -1,0 +1,40 @@
+A couple of issues being fixed here:
+(1) The write of 0xffffffff by MiniOS for sizing an expansion ROM BAR was
+    not triggering sizing in older pciback.  This led to reading back the
+    base address, rather than the size, which would cause QEMU to crash.
+(2) pci_size needs to be used to translate the series of 1's read back for
+    sizing into a size value.
+
+Signed-off-by: Eric Shelton <eshelton@pobox.com>
+
+--- a/stubdom/pciutils.patch	2016-10-27 00:36:52.457265294 -0400
++++ b/stubdom/pciutils.patch	2016-10-27 00:41:11.664265294 -0400
+@@ -260,7 +260,7 @@
+  #endif
+  		    }
+  		}
+-@@ -154,10 +205,19 @@
++@@ -154,10 +205,26 @@
+  	{
+  	  u32 u = pci_read_long(d, reg);
+  	  if (u != 0xffffffff)
+@@ -269,9 +269,16 @@
+ +              d->rom_base_addr = u;
+ +              if (flags & PCI_FILL_SIZES)
+ +                {
+-+                  u32 size;
+-+                  pci_write_long(d, reg, ~0);
+-+                  d->rom_size = pci_read_long(d, reg);
+++                  u32 writeval, readval;
+++                  writeval = PCI_ROM_ADDRESS_MASK | (u & ~PCI_ROM_ADDRESS_ENABLE & ~PCI_ROM_ADDRESS_MASK);
+++                  pci_write_long(d, reg, writeval);
+++                  readval = pci_read_long(d, reg);
+++                  if (readval == u)  /* writeval did not trigger sizing */
+++                    {
+++                      pci_write_long(d, reg, ~PCI_ROM_ADDRESS_ENABLE);
+++                      readval = pci_read_long(d, reg);
+++                    }
+++                  d->rom_size = pci_size(u, readval, PCI_ROM_ADDRESS_MASK);
+ +                  pci_write_long(d, reg, u);
+ +                }
+ +            }

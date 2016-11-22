@@ -1,0 +1,71 @@
+MiniOS in stubdom is unable to map a PIO BAR, and will crash if a guest tries
+to.
+
+Just flat out hide the PIO BAR from the guest.  This requires the previous
+patch to MiniOS to allow QEMU to correctly identify a PIO BAR.
+
+This causes no harm versus the previous state of things, in which a PIO BAR
+was incorrectly being identified as an MMIO BAR and not getting mapped
+anyway.  AT least with this the guest is no longer seeing a bogus MMIO BAR.
+
+Signed-off-by: Eric Shelton <eshelton@pobox.com>
+
+--- a/tools/qemu-xen-traditional/hw/pass-through.c	2016-10-28 23:29:20.845551807 -0400
++++ b/tools/qemu-xen-traditional/hw/pass-through.c	2016-10-28 23:51:13.770551807 -0400
+@@ -1660,6 +1660,15 @@
+ 
+     /* check unused BAR register */
+     index = pt_bar_offset_to_index(address);
++#ifdef CONFIG_STUBDOM
++    /* ignore PIO BARs */
++    if ((index >= 0) && (pci_dev->base_addr[index] & PCI_ADDRESS_SPACE_IO))
++    {
++        PT_LOG_DEV(d, "Warning: Ignoring guest attempt to set address to hidden "
++            "PIO Base Address Register. [Offset:%02xh][Length:%d]\n", address, len);
++        goto exit;
++    }
++#endif
+     if ((index >= 0) && (val > 0 && val < PT_BAR_ALLF) &&
+         (assigned_device->bases[index].bar_flag == PT_BAR_FLAG_UNUSED))
+     {
+@@ -1854,6 +1863,9 @@
+     uint8_t *ptr_val = NULL;
+     int emul_len = 0;
+     int ret = 0;
++#ifdef CONFIG_STUBDOM
++    int index = 0;
++#endif
+ 
+     /* check offset range */
+     if (address > 0xFF)
+@@ -1879,6 +1891,16 @@
+         goto exit;
+     }
+ 
++#ifdef CONFIG_STUBDOM
++    /* ignore PIO BARs - return zero to indicate unimplemented BAR */
++    index = pt_bar_offset_to_index(address);
++    if ((index >= 0) && (pci_dev->base_addr[index] & PCI_ADDRESS_SPACE_IO))
++    {
++        val = 0;
++        goto exit;
++    }
++#endif
++
+     /* check power state transition flags */
+     if (pm_state != NULL && pm_state->flags & PT_FLAG_TRANSITING)
+         /* can't accept untill previous power state transition is completed.
+@@ -2058,7 +2080,13 @@
+     /* Register PIO/MMIO BARs */
+     for ( i = 0; i < PCI_BAR_ENTRIES; i++ )
+     {
++#ifdef CONFIG_STUBDOM
++        /* miniOS will not map PIO BARs - ignore and hide them */
++        if ( pt_pci_base_addr(pci_dev->base_addr[i]) &&
++             ! ( pci_dev->base_addr[i] & PCI_ADDRESS_SPACE_IO ) )
++#else
+         if ( pt_pci_base_addr(pci_dev->base_addr[i]) )
++#endif
+         {
+             assigned_device->bases[i].e_physbase =
+                     pt_pci_base_addr(pci_dev->base_addr[i]);
