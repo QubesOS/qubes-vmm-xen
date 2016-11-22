@@ -1,0 +1,52 @@
+MiniOS + QEMU do not appear to work with either MSI or MSI-X.  Some guests
+or device drivers do not gracefully handle being told a PCI device has
+MSI/MSI-X and then they don't actually get it.  Disable the MSI and MSI-X
+capability reporting in PCI config space, making only INTX legacy interrupts
+available.
+
+Signed-off-by: Eric Shelton <eshelton@pobox.com>
+
+--- a/tools/qemu-xen-traditional/hw/pass-through.c	2016-10-31 12:48:42.924026468 -0400
++++ b/tools/qemu-xen-traditional/hw/pass-through.c	2016-10-31 12:50:52.953026468 -0400
+@@ -874,6 +874,10 @@
+         .grp_size   = 0x04,
+         .size_init  = pt_reg_grp_size_init,
+     },
++#ifndef CONFIG_STUBDOM
++    /* At present stubdom doesn't support MSI for passthrough, so let's not
++     * expose MSI capability to stubdom HVM guest for now.
++     */
+ #ifndef __ia64__
+     /* At present IA64 Xen doesn't support MSI for passthrough, so let's not
+      * expose MSI capability to IA64 HVM guest for now.
+@@ -886,7 +890,8 @@
+         .size_init  = pt_msi_size_init,
+         .emu_reg_tbl= pt_emu_reg_msi_tbl,
+     },
+-#endif
++#endif /* __ia64__ */
++#endif /* !CONFIG_STUBDOM */
+     /* PCI-X Capabilities List Item reg group */
+     {
+         .grp_id     = PCI_CAP_ID_PCIX,
+@@ -931,6 +936,10 @@
+         .size_init  = pt_pcie_size_init,
+         .emu_reg_tbl= pt_emu_reg_pcie_tbl,
+     },
++#ifndef CONFIG_STUBDOM
++    /* At present stubdom doesn't support MSI for passthrough, so let's not
++     * expose MSI-X capability to stubdom HVM guest for now.
++     */
+ #ifndef __ia64__
+     /* At present IA64 Xen doesn't support MSI for passthrough, so let's not
+      * expose MSI-X capability to IA64 HVM guest for now.
+@@ -943,7 +952,8 @@
+         .size_init  = pt_msix_size_init,
+         .emu_reg_tbl= pt_emu_reg_msix_tbl,
+     },
+-#endif
++#endif /* __ia64__ */
++#endif /* !CONFIG_STUBDOM */
+     {
+         .grp_size = 0,
+     },
