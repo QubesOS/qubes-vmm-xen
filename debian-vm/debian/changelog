@@ -1,3 +1,9 @@
+xen (2001:4.6.3-24) wheezy; urgency=medium
+
+  * Really update /boot/efi/EFI/qubes/xen.efi
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 22 Nov 2016 16:33:26 +0100
+
 xen (2001:4.6.3-23) wheezy; urgency=medium
 
   * Update /boot/efi/EFI/qubes/xen.efi on install/update
