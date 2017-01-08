@@ -1,3 +1,11 @@
+xen (2001:4.6.3-25) unstable; urgency=medium
+
+  * Stubdom fixes for PCI passthrough
+  * Update gui-agent in stubdomain
+  * travis: drop debootstrap workaround
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 08 Jan 2017 04:05:55 +0100
+
 xen (2001:4.6.3-24) wheezy; urgency=medium
 
   * Really update /boot/efi/EFI/qubes/xen.efi
