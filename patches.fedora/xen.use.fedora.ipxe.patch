@@ -12,18 +12,18 @@
 --- xen-4.2.0/Config.mk.orig	2012-05-27 21:57:04.479812884 +0100
 +++ xen-4.2.0/Config.mk	2012-06-02 18:55:14.087169469 +0100
 @@ -206,7 +206,7 @@
- # Tue, 1 Mar 2016 15:06:45 +0100 (16:06 +0200)
- # fw/pci: add Q35 S3 support
+ # Wed Jun 22 14:53:24 2016 +0800
+ # fw/msr_feature_control: add support to set MSR_IA32_FEATURE_CONTROL
  
 -ETHERBOOT_NICS ?= rtl8139 8086100e
 +ETHERBOOT_NICS ?= 10ec8139 8086100e
  
  
- QEMU_TRADITIONAL_REVISION ?= xen-4.7.1
+ QEMU_TRADITIONAL_REVISION ?= xen-4.8.0
 --- xen-4.2.0/tools/firmware/Makefile.orig	2012-05-27 21:57:04.480812871 +0100
 +++ xen-4.2.0/tools/firmware/Makefile	2012-06-02 19:03:52.254691484 +0100
 @@ -10,7 +10,7 @@
- endif
+ SUBDIRS-$(CONFIG_SEABIOS) += seabios-dir
  SUBDIRS-$(CONFIG_ROMBIOS) += rombios
  SUBDIRS-$(CONFIG_ROMBIOS) += vgabios
 -SUBDIRS-$(CONFIG_ROMBIOS) += etherboot

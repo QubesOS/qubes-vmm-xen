@@ -319,7 +319,7 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --with-system-seabios=%{seabiosloc} \
     --enable-vtpm-stubdom \
     --enable-vtpmmgr-stubdom \
-    --with-extra-qemuu-configure-args="--disable-smartcard-nss --disable-spice"
+    --with-extra-qemuu-configure-args="--disable-spice"
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
@@ -556,8 +556,6 @@ rm -rf %{buildroot}
 %{_unitdir}/xenstored.service
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
-%{_unitdir}/xenstored.socket
-%{_unitdir}/xenstored_ro.socket
 /usr/lib/modules-load.d/xen.conf
 
 %config(noreplace) %{_sysconfdir}/sysconfig/xencommons
@@ -573,6 +571,8 @@ rm -rf %{buildroot}
 %dir /usr/lib/%{name}/bin
 # List them explicitly to exclude files owned by xen-hvm package
 %attr(0700,root,root) /usr/lib/%{name}/bin/convert-legacy-stream
+%attr(0700,root,root) /usr/lib/%{name}/bin/ivshmem-client
+%attr(0700,root,root) /usr/lib/%{name}/bin/ivshmem-server
 %attr(0700,root,root) /usr/lib/%{name}/bin/libxl-save-helper
 %attr(0700,root,root) /usr/lib/%{name}/bin/lsevtchn
 %attr(0700,root,root) /usr/lib/%{name}/bin/pygrub
@@ -644,7 +644,6 @@ rm -rf %{buildroot}
 %{_bindir}/xen-detect
 %{_bindir}/xencov_split
 %{_sbindir}/gdbsx
-%{_sbindir}/gtrace*
 %{_sbindir}/kdd
 %{_sbindir}/lock-util
 %{_sbindir}/tap-ctl

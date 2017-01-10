@@ -32,9 +32,9 @@ index 18b064e..a5fd815 100644
 -        libxl__device_vkb_add(gc, domid, &vkb);
 -        libxl_device_vkb_dispose(&vkb);
 -
-         dcs->dmss.dm.guest_domid = domid;
+         dcs->sdss.dm.guest_domid = domid;
          if (libxl_defbool_val(d_config->b_info.device_model_stubdomain))
-             libxl__spawn_stub_dm(egc, &dcs->dmss);
+             libxl__spawn_stub_dm(egc, &dcs->sdss);
 -- 
 1.8.1.4
 

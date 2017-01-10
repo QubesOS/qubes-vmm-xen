@@ -5,8 +5,8 @@ diff -ur -x .cproject -x .project -x '*.swp' xen-4.7.0/tools/firmware/rombios/32
  
  TARGET = 32bitbios_flat.h
  
--CFLAGS += $(CFLAGS_xeninclude) -I..
-+CFLAGS += $(CFLAGS_xeninclude) -I.. -fno-pic
+-CFLAGS += $(CFLAGS_xeninclude) -I.. -I../../../libacpi
++CFLAGS += $(CFLAGS_xeninclude) -I.. -I../../../libacpi -fno-pic
  
  SUBDIRS = tcgbios
  
@@ -17,8 +17,8 @@ diff -ur -x .cproject -x .project -x '*.swp' xen-4.7.0/tools/firmware/rombios/32
  
  TARGET  = tcgbiosext.o
  
--CFLAGS += $(CFLAGS_xeninclude) -I.. -I../..
-+CFLAGS += $(CFLAGS_xeninclude) -I.. -I../.. -fno-pic
+-CFLAGS += $(CFLAGS_xeninclude) -I.. -I../.. -I../../../../libacpi
++CFLAGS += $(CFLAGS_xeninclude) -I.. -I../.. -I../../../../libacpi -fno-pic
  
  .PHONY: all
  all: $(TARGET)

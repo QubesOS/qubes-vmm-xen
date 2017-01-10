@@ -31,19 +31,23 @@ index 6753368..d7787ff 100644
  stubdom/vtpm/vtpm_manager.h
  stubdom/xenstore
  stubdom/zlib-*
+diff --git a/extras/mini-os/Config.mk b/extras/mini-os/Config.mk
+index 658c159..e4f7a61 100644
+--- a/extras/mini-os/Config.mk
++++ b/extras/mini-os/Config.mk
+@@ -32,6 +32,7 @@ CONFIG_CONSFRONT ?= y
+ CONFIG_XC ?=y
+ CONFIG_LWIP ?= $(lwip)
+ CONFIG_BALLOON ?= n
++CONFIG_VCHAN ?= n
+ 
+ # Export config items as compiler directives
+ DEFINES-$(CONFIG_PARAVIRT) += -DCONFIG_PARAVIRT
 diff --git a/extras/mini-os/Makefile b/extras/mini-os/Makefile
 index 658c159..e4f7a61 100644
 --- a/extras/mini-os/Makefile
 +++ b/extras/mini-os/Makefile
-@@ -32,6 +32,7 @@ CONFIG_CONSFRONT ?= y
- CONFIG_XENBUS ?= y
- CONFIG_XC ?=y
- CONFIG_LWIP ?= $(lwip)
-+CONFIG_VCHAN ?= n
- 
- # Export config items as compiler directives
- flags-$(CONFIG_START_NETWORK) += -DCONFIG_START_NETWORK
-@@ -164,6 +165,10 @@ APP_LDLIBS += -lm
+@@ -164,6 +164,10 @@ APP_LDLIBS += -lm
  LDLIBS += -lc
  endif
  

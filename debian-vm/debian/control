@@ -46,7 +46,7 @@ Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
 
-Package: libxen-4.7
+Package: libxen-4.8
 Section: libs
 Architecture: amd64
 Depends: libxen-lowlevel1.0, ${shlibs:Depends}, ${misc:Depends}
@@ -79,7 +79,7 @@ Package: libxen-dev
 Section: libdevel
 Architecture: amd64
 Depends:
- libxen-4.7 (= ${binary:Version}),
+ libxen-4.8 (= ${binary:Version}),
  libxen-lowlevel1.0 (= ${binary:Version}),
  libxenstore3.0 (= ${binary:Version}),
  ${misc:Depends}

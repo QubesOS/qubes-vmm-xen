@@ -87,10 +87,11 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
  
  int osdep_gnttab_open(xengnttab_handle *xgt)
  {
-@@ -106,6 +108,50 @@
-     return ret;
+@@ -106,6 +108,51 @@
+ {
+     return -1;
  }
- 
++ 
 +int osdep_gntshr_open(xengntshr_handle *xgs)
 +{
 +    int fd = alloc_fd(FTYPE_GNTALLOC);

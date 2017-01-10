@@ -1,8 +1,8 @@
-From 19eae68c2f5fc3da47a9f538c4b2260f9564bc09 Mon Sep 17 00:00:00 2001
+From f0d74dd1e66783375f6a04b40aab564abb4f268a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Mon, 17 Oct 2016 21:49:03 +0200
-Subject: [PATCH 3/3] libxl: don't try to manipulate json config for stubdomain
+Subject: [PATCH] libxl: don't try to manipulate json config for stubdomain
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -22,10 +22,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 15 insertions(+), 9 deletions(-)
 
 diff --git a/tools/libxl/libxl_pci.c b/tools/libxl/libxl_pci.c
-index d3cf843..71dac87 100644
+index 77d9d02..1087f1a 100644
 --- a/tools/libxl/libxl_pci.c
 +++ b/tools/libxl/libxl_pci.c
-@@ -160,14 +160,18 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
+@@ -151,14 +151,18 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
      GCNEW(device);
      libxl__device_from_pcidev(gc, domid, pcidev, device);
  
@@ -51,7 +51,7 @@ index d3cf843..71dac87 100644
  
      DEVICE_ADD(pci, pcidevs, domid, &pcidev_saved, COMPARE_PCI, &d_config);
  
-@@ -175,8 +179,10 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
+@@ -169,8 +173,10 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
          rc = libxl__xs_transaction_start(gc, &t);
          if (rc) goto out;
  
@@ -62,8 +62,8 @@ index d3cf843..71dac87 100644
 +            if (rc) goto out;
 +        }
  
-         libxl__xs_writev(gc, t, be_path,
-                          libxl__xs_kvs_of_flexarray(gc, back, back->count));
+         libxl__xs_writev(gc, t, be_path, libxl__xs_kvs_of_flexarray(gc, back));
+ 
 -- 
-2.5.5
+2.7.4
 
