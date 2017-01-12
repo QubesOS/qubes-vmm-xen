@@ -123,7 +123,7 @@ index 29b2a36..e333fd5 100644
      }
  
      sdss->pvqemu.guest_domid = 0;
-@@ -1402,8 +1417,16 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+@@ -1402,8 +1417,17 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
      libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
  
      dm_config->b_info.max_vcpus = 1;
@@ -139,6 +139,7 @@ index 29b2a36..e333fd5 100644
 +    default:
 +        abort();
 +    }
++    dm_config->b_info.max_memkb += guest_config->b_info.video_memkb;
      dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
  
      dm_config->b_info.u.pv.features = "";
