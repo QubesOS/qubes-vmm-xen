@@ -1,0 +1,73 @@
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -5072,16 +5072,7 @@ int libxl_domain_need_memory(libxl_ctx *
+     case LIBXL_DOMAIN_TYPE_HVM:
+         *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
+         if (libxl_defbool_val(b_info->device_model_stubdomain)) {
+-            switch (b_info->stubdomain_version) {
+-            case LIBXL_STUBDOMAIN_VERSION_MINIOS:
+-                *need_memkb += 28 * 1024;
+-                break;
+-            case LIBXL_STUBDOMAIN_VERSION_LINUX:
+-                *need_memkb += LIBXL_LINUX_STUBDOM_MEM * 1024;
+-                break;
+-            default:
+-                abort();
+-            }
++            *need_memkb += b_info->stubdom_memkb;
+             *need_memkb += b_info->video_memkb;
+         }
+         break;
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -206,6 +206,19 @@ int libxl__domain_build_info_setdefault(
+     if (b_info->target_memkb == LIBXL_MEMKB_DEFAULT)
+         b_info->target_memkb = b_info->max_memkb;
+ 
++    if (b_info->stubdom_memkb == LIBXL_MEMKB_DEFAULT) {
++        switch (b_info->stubdomain_version) {
++            case LIBXL_STUBDOMAIN_VERSION_MINIOS:
++                b_info->stubdom_memkb = 28 * 1024;
++                break;
++            case LIBXL_STUBDOMAIN_VERSION_LINUX:
++                b_info->stubdom_memkb = LIBXL_LINUX_STUBDOM_MEM * 1024;;
++                break;
++            default:
++                b_info->stubdom_memkb = 0; // no stubdomain
++        }
++    }
++
+     libxl_defbool_setdefault(&b_info->claim_mode, false);
+ 
+     libxl_defbool_setdefault(&b_info->localtime, false);
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1449,16 +1449,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+     libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
+ 
+     dm_config->b_info.max_vcpus = 1;
+-    switch (guest_config->b_info.stubdomain_version) {
+-    case LIBXL_STUBDOMAIN_VERSION_MINIOS:
+-        dm_config->b_info.max_memkb = 28 * 1024;
+-        break;
+-    case LIBXL_STUBDOMAIN_VERSION_LINUX:
+-        dm_config->b_info.max_memkb = LIBXL_LINUX_STUBDOM_MEM * 1024;
+-        break;
+-    default:
+-        abort();
+-    }
++    dm_config->b_info.max_memkb = guest_config->b_info.stubdom_memkb;
+     dm_config->b_info.max_memkb += guest_config->b_info.video_memkb;
+     dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
+ 
+--- a/tools/libxl/libxl_types.idl
++++ b/tools/libxl/libxl_types.idl
+@@ -449,6 +449,8 @@ libxl_domain_build_info = Struct("domain
+     #  parameters for all type of scheduler
+     ("sched_params",     libxl_domain_sched_params),
+ 
++    ("stubdom_memkb",   MemKB),
++
+     ("ioports",          Array(libxl_ioport_range, "num_ioports")),
+     ("irqs",             Array(uint32, "num_irqs")),
+     ("iomem",            Array(libxl_iomem_range, "num_iomem")),
