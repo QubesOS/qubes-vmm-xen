@@ -25,8 +25,6 @@ Build-Depends:
     libpython2.7:amd64,
     libssl-dev, 
     libssl-dev:amd64,
-    libsystemd-dev,
-    libsystemd-dev:amd64,
     libyajl-dev,
     libyajl-dev:amd64,
     mawk,
@@ -38,10 +36,11 @@ Build-Depends:
     uuid-dev:amd64,
     zlib1g-dev,
 X-Python-Version: 2.7
-X-Qubes-Build-Depends-wheezy: python-dev
-X-Qubes-Build-Depends-jessie: libpython2.7-dev
-X-Qubes-Build-Depends-stretch: libpython2.7-dev
-X-Qubes-Build-Depends-qubuntu: libpython2.7-dev
+X-Qubes-Build-Depends-wheezy: libsystemd-dev,libsystemd-dev:amd64,python-dev
+X-Qubes-Build-Depends-jessie:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
+X-Qubes-Build-Depends-stretch:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
+X-Qubes-Build-Depends-trusty: libsystemd-daemon-dev,libsystemd-daemon-dev:amd64,libpython2.7-dev
+X-Qubes-Build-Depends-xenial:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
 Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
