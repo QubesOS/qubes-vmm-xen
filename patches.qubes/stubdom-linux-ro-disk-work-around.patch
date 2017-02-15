@@ -1,6 +1,6 @@
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -1138,8 +1138,11 @@ static int libxl__build_device_model_arg
+@@ -1164,8 +1164,11 @@ static int libxl__build_device_model_arg
                           disks[i].pdev_path, disk, disks[i].readwrite ? "off" : "on", format, dev_number);
              } else {
                  if (!disks[i].readwrite) {

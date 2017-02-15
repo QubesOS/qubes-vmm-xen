@@ -12,15 +12,19 @@ stubdomains, such as:
 - graphics output (e.g., VNC)
 
 Signed-off-by: Eric Shelton <eshelton@pobox.com>
+
+HW42:
+ * fix disk path
+ * fix cdrom path and "format"
+ * pass downscript for network interfaces
+
 ---
  tools/libxl/libxl_dm.c | 98 ++++++++++++++++++++++++++++++++------------------
  1 file changed, 64 insertions(+), 34 deletions(-)
 
-diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
-index cec1752..29b2a36 100644
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -20,9 +20,12 @@
+@@ -20,15 +20,26 @@
  #include "libxl_internal.h"
  #include <xen/hvm/e820.h>
  
@@ -34,18 +38,32 @@ index cec1752..29b2a36 100644
      return libxl__strdup(gc, "no");
  #else
      return libxl__sprintf(gc, "%s/qemu-ifup", libxl__xen_script_dir_path());
-@@ -594,8 +597,8 @@ static int libxl__build_device_model_args_old(libxl__gc *gc,
+ #endif
+ }
+ 
++static const char *libxl_tapif_downscript(libxl__gc *gc,
++                                          const libxl_domain_build_info *info)
++{
++    if (info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
++        return libxl__sprintf(gc, "/etc/qemu-ifdown");
++    return libxl__strdup(gc, "no");
++}
++
+ const char *libxl__device_model_savefile(libxl__gc *gc, uint32_t domid)
+ {
+     return libxl__sprintf(gc, "/var/lib/xen/qemu-save.%d", domid);
+@@ -610,8 +621,8 @@ static int libxl__build_device_model_arg
                                        "tap,vlan=%d,ifname=%s,bridge=%s,"
                                        "script=%s,downscript=%s",
                                        nics[i].devid, ifname, nics[i].bridge,
 -                                      libxl_tapif_script(gc),
 -                                      libxl_tapif_script(gc)),
 +                                      libxl_tapif_script(gc, b_info),
-+                                      libxl_tapif_script(gc, b_info)),
++                                      libxl_tapif_downscript(gc, b_info)),
                                    NULL);
                  ioemu_nics++;
              }
-@@ -722,6 +725,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -738,6 +749,7 @@ static int libxl__build_device_model_arg
      int i, connection, devid;
      uint64_t ram_size;
      const char *path, *chardev;
@@ -53,7 +71,7 @@ index cec1752..29b2a36 100644
  
      dm_args = flexarray_make(gc, 16, 1);
      dm_envs = flexarray_make(gc, 16, 1);
-@@ -730,24 +734,27 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -748,24 +760,27 @@ static int libxl__build_device_model_arg
                        "-xen-domid",
                        libxl__sprintf(gc, "%d", guest_domid), NULL);
  
@@ -62,6 +80,16 @@ index cec1752..29b2a36 100644
 -                     libxl__sprintf(gc, "socket,id=libxl-cmd,"
 -                                    "path=%s/qmp-libxl-%d,server,nowait",
 -                                    libxl__run_dir_path(), guest_domid));
+-
+-    flexarray_append(dm_args, "-no-shutdown");
+-    flexarray_append(dm_args, "-mon");
+-    flexarray_append(dm_args, "chardev=libxl-cmd,mode=control");
+-
+-    flexarray_append(dm_args, "-chardev");
+-    flexarray_append(dm_args,
+-                     libxl__sprintf(gc, "socket,id=libxenstat-cmd,"
+-                                    "path=%s/qmp-libxenstat-%d,server,nowait",
+-                                    libxl__run_dir_path(), guest_domid));
 +    /* There is currently no way to access the QMP socket in the stubdom */
 +    if (!is_stubdom) {
 +        flexarray_append(dm_args, "-chardev");
@@ -69,19 +97,11 @@ index cec1752..29b2a36 100644
 +                         libxl__sprintf(gc, "socket,id=libxl-cmd,"
 +                                        "path=%s/qmp-libxl-%d,server,nowait",
 +                                        libxl__run_dir_path(), guest_domid));
- 
--    flexarray_append(dm_args, "-no-shutdown");
--    flexarray_append(dm_args, "-mon");
--    flexarray_append(dm_args, "chardev=libxl-cmd,mode=control");
++
 +        flexarray_append(dm_args, "-no-shutdown");
 +        flexarray_append(dm_args, "-mon");
 +        flexarray_append(dm_args, "chardev=libxl-cmd,mode=control");
- 
--    flexarray_append(dm_args, "-chardev");
--    flexarray_append(dm_args,
--                     libxl__sprintf(gc, "socket,id=libxenstat-cmd,"
--                                    "path=%s/qmp-libxenstat-%d,server,nowait",
--                                    libxl__run_dir_path(), guest_domid));
++
 +        flexarray_append(dm_args, "-chardev");
 +        flexarray_append(dm_args,
 +                         libxl__sprintf(gc, "socket,id=libxenstat-cmd,"
@@ -96,7 +116,7 @@ index cec1752..29b2a36 100644
  
      for (i = 0; i < guest_config->num_channels; i++) {
          connection = guest_config->channels[i].connection;
-@@ -785,7 +792,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -803,7 +818,7 @@ static int libxl__build_device_model_arg
          flexarray_vappend(dm_args, "-name", c_info->name, NULL);
      }
  
@@ -105,7 +125,7 @@ index cec1752..29b2a36 100644
          char *vncarg = NULL;
  
          flexarray_append(dm_args, "-vnc");
-@@ -824,7 +831,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -842,7 +857,7 @@ static int libxl__build_device_model_arg
          }
  
          flexarray_append(dm_args, vncarg);
@@ -114,7 +134,7 @@ index cec1752..29b2a36 100644
          /*
           * Ensure that by default no vnc server is created.
           */
-@@ -836,7 +843,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -854,7 +869,7 @@ static int libxl__build_device_model_arg
       */
      flexarray_append_pair(dm_args, "-display", "none");
  
@@ -123,7 +143,7 @@ index cec1752..29b2a36 100644
          flexarray_append(dm_args, "-sdl");
          if (sdl->display)
              flexarray_append_pair(dm_envs, "DISPLAY", sdl->display);
-@@ -867,10 +874,19 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -885,10 +900,19 @@ static int libxl__build_device_model_arg
                  return ERROR_INVAL;
              }
              if (b_info->u.hvm.serial) {
@@ -145,7 +165,7 @@ index cec1752..29b2a36 100644
                  for (p = b_info->u.hvm.serial_list;
                       *p;
                       p++) {
-@@ -885,7 +901,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -903,7 +927,7 @@ static int libxl__build_device_model_arg
              flexarray_append(dm_args, "-nographic");
          }
  
@@ -154,29 +174,29 @@ index cec1752..29b2a36 100644
              const libxl_spice_info *spice = &b_info->u.hvm.spice;
              char *spiceoptions = dm_spice_options(gc, spice);
              if (!spiceoptions)
-@@ -1021,8 +1037,8 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1039,8 +1063,8 @@ static int libxl__build_device_model_arg
                                            "type=tap,id=net%d,ifname=%s,"
                                            "script=%s,downscript=%s",
                                            nics[i].devid, ifname,
 -                                          libxl_tapif_script(gc),
 -                                          libxl_tapif_script(gc)));
 +                                          libxl_tapif_script(gc, b_info),
-+                                          libxl_tapif_script(gc, b_info)));
++                                          libxl_tapif_downscript(gc, b_info)));
                  ioemu_nics++;
              }
          }
-@@ -1112,6 +1128,10 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1130,6 +1154,10 @@ static int libxl__build_device_model_arg
                      drive = libxl__sprintf
                          (gc, "if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,id=ide-%i",
                           disk, disks[i].readwrite ? "off" : "on", dev_number);
 +                else if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
 +                    drive = libxl__sprintf
-+                        (gc, "file=%s,if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,format=%s,id=ide-%i",
-+                         "/dev/xvdc", disk, disks[i].readwrite ? "off" : "on", "host_cdrom", dev_number);
++                        (gc, "file=%s%c,if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,format=%s,id=ide-%i",
++                         "/dev/xvd", 'a' + disk, disk, disks[i].readwrite ? "off" : "on", "host_device", dev_number);
                  else
                      drive = libxl__sprintf
                          (gc, "file=%s,if=ide,index=%d,readonly=%s,media=cdrom,format=%s,cache=writeback,id=ide-%i",
-@@ -1159,10 +1179,16 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1177,10 +1205,16 @@ static int libxl__build_device_model_arg
                          "-device", GCSPRINTF("ide-hd,bus=ahci0.%d,unit=0,drive=ahcidisk-%d",
                          disk, disk), NULL);
                      continue;
@@ -187,8 +207,8 @@ index cec1752..29b2a36 100644
 +                } else if (disk < 4) {
 +                    if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
 +                        drive = libxl__sprintf
-+                                (gc, "file=%s,if=ide,index=%d,media=disk,cache=writeback,format=%s",
-+                                 "/dev/xvda", disk, "host_device");
++                                (gc, "file=%s%c,if=ide,index=%d,media=disk,cache=writeback,format=%s",
++                                 "/dev/xvd", 'a' + disk, disk, "host_device");
 +                    else
 +                        drive = libxl__sprintf
 +                                (gc, "file=%s,if=ide,index=%d,media=disk,format=%s,cache=writeback",
@@ -197,7 +217,7 @@ index cec1752..29b2a36 100644
                  else
                      continue; /* Do not emulate this disk */
              }
-@@ -1194,7 +1220,7 @@ static int libxl__build_device_model_args(libxl__gc *gc,
+@@ -1212,7 +1246,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)
@@ -206,7 +226,7 @@ index cec1752..29b2a36 100644
   * and therefore will be passing a filename rather than a fd. */
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
-@@ -1206,8 +1232,10 @@ static int libxl__build_device_model_args(libxl__gc *gc,
+@@ -1224,8 +1258,10 @@ static int libxl__build_device_model_arg
                                                    args, envs,
                                                    state);
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -219,7 +239,7 @@ index cec1752..29b2a36 100644
          return libxl__build_device_model_args_new(gc, dm,
                                                    guest_domid, guest_config,
                                                    args, envs,
-@@ -1264,7 +1292,7 @@ static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
+@@ -1282,7 +1318,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
  
  static int libxl__write_stub_dmargs(libxl__gc *gc,
                                      int dm_domid, int guest_domid,
@@ -228,7 +248,7 @@ index cec1752..29b2a36 100644
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
      int i;
-@@ -1292,7 +1320,9 @@ static int libxl__write_stub_dmargs(libxl__gc *gc,
+@@ -1310,7 +1346,9 @@ static int libxl__write_stub_dmargs(libx
      i = 1;
      dmargs[0] = '\0';
      while (args[i] != NULL) {
@@ -239,6 +259,3 @@ index cec1752..29b2a36 100644
              strcat(dmargs, " ");
              strcat(dmargs, args[i]);
          }
--- 
-2.9.3
-
