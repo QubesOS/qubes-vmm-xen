@@ -42,7 +42,7 @@
      libxl_defbool_setdefault(&b_info->localtime, false);
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -1449,16 +1449,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1446,16 +1446,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
      libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
  
      dm_config->b_info.max_vcpus = 1;

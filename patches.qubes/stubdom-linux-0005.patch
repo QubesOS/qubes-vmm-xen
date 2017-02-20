@@ -17,6 +17,7 @@ HW42:
  * fix disk path
  * fix cdrom path and "format"
  * pass downscript for network interfaces
+ * pass-through all disks as scsi disks and allow read-only disks
 
 ---
  tools/libxl/libxl_dm.c | 98 ++++++++++++++++++++++++++++++++------------------
@@ -185,7 +186,7 @@ HW42:
                  ioemu_nics++;
              }
          }
-@@ -1130,6 +1154,10 @@ static int libxl__build_device_model_arg
+@@ -1130,16 +1154,15 @@ static int libxl__build_device_model_arg
                      drive = libxl__sprintf
                          (gc, "if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,id=ide-%i",
                           disk, disks[i].readwrite ? "off" : "on", dev_number);
@@ -196,28 +197,50 @@ HW42:
                  else
                      drive = libxl__sprintf
                          (gc, "file=%s,if=ide,index=%d,readonly=%s,media=cdrom,format=%s,cache=writeback,id=ide-%i",
-@@ -1177,10 +1205,16 @@ static int libxl__build_device_model_arg
-                         "-device", GCSPRINTF("ide-hd,bus=ahci0.%d,unit=0,drive=ahcidisk-%d",
-                         disk, disk), NULL);
-                     continue;
+                          disks[i].pdev_path, disk, disks[i].readwrite ? "off" : "on", format, dev_number);
+             } else {
+-                if (!disks[i].readwrite) {
+-                    LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "qemu-xen doesn't support read-only disk drivers");
+-                    return ERROR_INVAL;
+-                }
+-
+                 if (disks[i].format == LIBXL_DISK_FORMAT_EMPTY) {
+                     LIBXL__LOG(ctx, LIBXL__LOG_WARNING, "cannot support"
+                                " empty disk format for %s", disks[i].vdev);
+@@ -1160,29 +1183,9 @@ static int libxl__build_device_model_arg
+                     pdev_path = disks[i].pdev_path;
+                 }
+ 
+-                /*
+-                 * Explicit sd disks are passed through as is.
+-                 *
+-                 * For other disks we translate devices 0..3 into
+-                 * hd[a-d] and ignore the rest.
+-                 */
+-                if (strncmp(disks[i].vdev, "sd", 2) == 0)
+-                    drive = libxl__sprintf
+-                        (gc, "file=%s,if=scsi,bus=0,unit=%d,format=%s,cache=writeback",
+-                         pdev_path, disk, format);
+-                else if (disk < 6 && b_info->u.hvm.hdtype == LIBXL_HDTYPE_AHCI) {
+-                    flexarray_vappend(dm_args, "-drive",
+-                        GCSPRINTF("file=%s,if=none,id=ahcidisk-%d,format=%s,cache=writeback",
+-                        pdev_path, disk, format),
+-                        "-device", GCSPRINTF("ide-hd,bus=ahci0.%d,unit=0,drive=ahcidisk-%d",
+-                        disk, disk), NULL);
+-                    continue;
 -                } else if (disk < 4)
 -                    drive = libxl__sprintf
 -                        (gc, "file=%s,if=ide,index=%d,media=disk,format=%s,cache=writeback",
 -                         pdev_path, disk, format);
-+                } else if (disk < 4) {
-+                    if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
-+                        drive = libxl__sprintf
-+                                (gc, "file=%s%c,if=ide,index=%d,media=disk,cache=writeback,format=%s",
-+                                 "/dev/xvd", 'a' + disk, disk, "host_device");
-+                    else
-+                        drive = libxl__sprintf
-+                                (gc, "file=%s,if=ide,index=%d,media=disk,format=%s,cache=writeback",
-+                                 pdev_path, disk, format);
-+                }
-                 else
-                     continue; /* Do not emulate this disk */
+-                else
+-                    continue; /* Do not emulate this disk */
++                drive = libxl__sprintf
++                    (gc, "file=/dev/xvd%c,if=scsi,bus=0,unit=%d,format=host_device,cache=writeback,readonly=%s",
++                     'a' + disk, disk, disks[i].readwrite ? "off" : "on");
              }
-@@ -1212,7 +1246,7 @@ static int libxl__build_device_model_arg
+ 
+             flexarray_append(dm_args, "-drive");
+@@ -1212,7 +1215,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)
@@ -226,7 +249,7 @@ HW42:
   * and therefore will be passing a filename rather than a fd. */
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
-@@ -1224,8 +1258,10 @@ static int libxl__build_device_model_arg
+@@ -1224,8 +1227,10 @@ static int libxl__build_device_model_arg
                                                    args, envs,
                                                    state);
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -239,7 +262,7 @@ HW42:
          return libxl__build_device_model_args_new(gc, dm,
                                                    guest_domid, guest_config,
                                                    args, envs,
-@@ -1282,7 +1318,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
+@@ -1282,7 +1287,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
  
  static int libxl__write_stub_dmargs(libxl__gc *gc,
                                      int dm_domid, int guest_domid,
@@ -248,7 +271,7 @@ HW42:
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
      int i;
-@@ -1310,7 +1346,9 @@ static int libxl__write_stub_dmargs(libx
+@@ -1310,7 +1315,9 @@ static int libxl__write_stub_dmargs(libx
      i = 1;
      dmargs[0] = '\0';
      while (args[i] != NULL) {
