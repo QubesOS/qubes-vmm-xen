@@ -8,6 +8,7 @@ Signed-off-by: Eric Shelton <eshelton@pobox.com>
 
 HW42:
  * use initramfs instead of disk with rootfs
+ * don't initialize qmp (unused in Qubes)
 
 ---
  tools/libxl/libxl.c          |  25 ++++++++--
@@ -61,23 +62,20 @@ HW42:
          *need_memkb += b_info->shadow_memkb + LIBXL_PV_EXTRA_MEMORY;
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -1370,7 +1370,12 @@ static void domcreate_devmodel_started(l
+@@ -1370,7 +1370,9 @@ static void domcreate_devmodel_started(l
      if (dcs->dmss.dm.guest_domid) {
          if (d_config->b_info.device_model_version
              == LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN) {
 -            libxl__qmp_initializations(gc, domid, d_config);
 +            if (!libxl_defbool_val(d_config->b_info.device_model_stubdomain)) {
 +                libxl__qmp_initializations(gc, domid, d_config);
-+            } else {
-+                int stubdom_domid = dcs->dmss.pvqemu.guest_domid;
-+                libxl__qmp_initializations(gc, stubdom_domid, d_config);
 +            }
          }
      }
  
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -1367,6 +1367,16 @@ retry_transaction:
+@@ -1336,6 +1336,16 @@ retry_transaction:
      return 0;
  }
  
@@ -94,7 +92,7 @@ HW42:
  static void spawn_stubdom_pvqemu_cb(libxl__egc *egc,
                                  libxl__dm_spawn_state *stubdom_dmss,
                                  int rc);
-@@ -1404,10 +1414,14 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1373,10 +1383,14 @@ void libxl__spawn_stub_dm(libxl__egc *eg
      libxl__domain_build_state *const d_state = sdss->dm.build_state;
      libxl__domain_build_state *const stubdom_state = &sdss->dm_state;
  
@@ -113,7 +111,7 @@ HW42:
      }
  
      sdss->pvqemu.guest_domid = 0;
-@@ -1428,8 +1442,17 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1397,8 +1411,17 @@ void libxl__spawn_stub_dm(libxl__egc *eg
      libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
  
      dm_config->b_info.max_vcpus = 1;
@@ -133,7 +131,7 @@ HW42:
      dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
  
      dm_config->b_info.u.pv.features = "";
-@@ -1466,10 +1489,25 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1435,10 +1458,25 @@ void libxl__spawn_stub_dm(libxl__egc *eg
          dm_config->num_vkbs = 1;
      }
  
@@ -163,7 +161,7 @@ HW42:
  
      /* fixme: this function can leak the stubdom if it fails */
      ret = libxl__domain_make(gc, dm_config, &sdss->pvqemu.guest_domid,
-@@ -1489,7 +1527,12 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1458,7 +1496,12 @@ void libxl__spawn_stub_dm(libxl__egc *eg
          goto out;
      }
  
@@ -177,7 +175,7 @@ HW42:
      libxl__xs_write(gc, XBT_NULL,
                     libxl__sprintf(gc, "%s/image/device-model-domid",
                                    libxl__xs_get_dompath(gc, guest_domid)),
-@@ -1498,6 +1541,15 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1467,6 +1510,15 @@ void libxl__spawn_stub_dm(libxl__egc *eg
                     libxl__sprintf(gc, "%s/target",
                                    libxl__xs_get_dompath(gc, dm_domid)),
                     "%d", guest_domid);
@@ -193,7 +191,7 @@ HW42:
      ret = xc_domain_set_target(ctx->xch, dm_domid, guest_domid);
      if (ret<0) {
          LIBXL__LOG_ERRNO(ctx, LIBXL__LOG_ERROR,
-@@ -1579,6 +1631,10 @@ static void spawn_stub_launch_dm(libxl__
+@@ -1548,6 +1600,10 @@ static void spawn_stub_launch_dm(libxl__
              goto out;
      }
  
@@ -204,7 +202,7 @@ HW42:
      if (guest_config->b_info.u.hvm.serial)
          num_console++;
      else
-@@ -1609,14 +1665,20 @@ static void spawn_stub_launch_dm(libxl__
+@@ -1578,14 +1634,20 @@ static void spawn_stub_launch_dm(libxl__
                  console[i].consback = LIBXL__CONSOLE_BACKEND_XENCONSOLED;
                  break;
              case STUBDOM_CONSOLE_SAVE:
