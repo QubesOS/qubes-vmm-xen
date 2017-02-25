@@ -1,0 +1,50 @@
+From c364e32be18ed79193563898729e13d96165a505 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 17 Feb 2017 03:28:02 +0100
+Subject: [PATCH 3/7] python: use Py_TYPE instead of looking directly into
+ PyObject_HEAD
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Py_TYPE works on both Python2 and Python3, while internals of
+PyObject_HEAD have changed.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/python/xen/lowlevel/xc/xc.c | 2 +-
+ tools/python/xen/lowlevel/xs/xs.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/python/xen/lowlevel/xc/xc.c b/tools/python/xen/lowlevel/xc/xc.c
+index 109ef57..75842ef 100644
+--- a/tools/python/xen/lowlevel/xc/xc.c
++++ b/tools/python/xen/lowlevel/xc/xc.c
+@@ -2670,7 +2670,7 @@ static void PyXc_dealloc(XcObject *self)
+         self->xc_handle = NULL;
+     }
+ 
+-    self->ob_type->tp_free((PyObject *)self);
++    Py_TYPE(self)->tp_free((PyObject *)self);
+ }
+ 
+ static PyTypeObject PyXcType = {
+diff --git a/tools/python/xen/lowlevel/xs/xs.c b/tools/python/xen/lowlevel/xs/xs.c
+index e9eef73..74a80ca 100644
+--- a/tools/python/xen/lowlevel/xs/xs.c
++++ b/tools/python/xen/lowlevel/xs/xs.c
+@@ -922,7 +922,7 @@ static void xshandle_dealloc(XsHandle *self)
+ 
+     Py_XDECREF(self->watches);
+ 
+-    self->ob_type->tp_free((PyObject *)self);
++    Py_TYPE(self)->tp_free((PyObject *)self);
+ }
+ 
+ static PyTypeObject xshandle_type = {
+-- 
+2.7.4
+

@@ -25,6 +25,8 @@
 %ifnarch x86_64
 %define build_efi 0
 %endif
+%define with_python2 1
+%define with_python3 1
 
 # Hypervisor ABI
 %define hv_abi  4.7
@@ -71,7 +73,13 @@ Source103: patches.qubes
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
-BuildRequires: libX11-devel python-devel ghostscript texlive-latex
+BuildRequires: libX11-devel ghostscript texlive-latex
+%if %with_python2
+BuildRequires: python2-devel
+%endif
+%if %with_python3
+BuildRequires: python3-devel
+%endif
 %if 0%fedora >= 18
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
 %endif
@@ -143,6 +151,34 @@ BuildRequires: systemd-devel
 This package contains the XenD daemon and xm command line
 tools, needed to manage virtual machines running under the
 Xen hypervisor
+
+%if %with_python2
+%package -n python2-%{name}
+Summary: Python2 bindings for Xen tools
+Group: Development/Libraries
+Requires: xen-libs = %{version}-%{release}
+Requires: python2
+%{?python_provide:%python_provide python2-%{name}}
+
+%description -n python2-%{name}
+This package contains Python2 bindings to Xen tools. Especially xen.lowlevel.xs
+and xen.lowlevel.xc modules.
+
+%endif
+
+%if %with_python3
+%package -n python3-%{name}
+Summary: Python3 bindings for Xen tools
+Group: Development/Libraries
+Requires: xen-libs = %{version}-%{release}
+Requires: python3
+%{?python_provide:%python_provide python3-%{name}}
+
+%description -n python3-%{name}
+This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
+and xen.lowlevel.xc modules.
+
+%endif
 
 %package libs
 Summary: Libraries for Xen tools
@@ -325,6 +361,12 @@ make                 prefix=/usr dist-docs
 unset CFLAGS
 make %{?ocaml_flags} dist-stubdom
 
+%if %with_python2
+make PYTHON=%{__python2} -C tools/python
+%endif
+%if %with_python3
+make PYTHON=%{__python3} -C tools/python
+%endif
 
 %install
 rm -rf %{buildroot}
@@ -348,6 +390,13 @@ mv %{buildroot}/boot/xenpolicy* %{buildroot}/boot/flask
 %else
 rm -f %{buildroot}/boot/xenpolicy*
 rm -f %{buildroot}/usr/sbin/flask-*
+%endif
+
+%if %with_python2
+make PYTHON=%{__python2} DESTDIR=%{buildroot} prefix=/usr -C tools/python install
+%endif
+%if %with_python3
+make PYTHON=%{__python3} DESTDIR=%{buildroot} prefix=/usr -C tools/python install
 %endif
 
 # qemu symlinks
@@ -531,8 +580,14 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %doc COPYING README
 %{_bindir}/xencons
+
+%files -n python2-%{name}
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
+
+%files -n python3-%{name}
+%{python3_sitearch}/%{name}
+%{python3_sitearch}/xen-*.egg-info
 
 %files libs
 %defattr(-,root,root)

@@ -1,0 +1,175 @@
+From 940aeb6a0d458367b615d08adc870e3058be53b4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 17 Feb 2017 04:33:00 +0100
+Subject: [PATCH 7/7] python: adjust module initalization for Python3
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+In Python3, PyTypeObject looks slightly different, and also module
+initialization is different. Instead of Py_InitModule, PyModule_Create
+should be called on already defined PyModuleDef structure. And then
+initialization function should return that module.
+
+Additionally initialization function should be named PyInit_<name>,
+instead of init<name>.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/python/xen/lowlevel/xc/xc.c | 35 ++++++++++++++++++++++++++++++++---
+ tools/python/xen/lowlevel/xs/xs.c | 34 +++++++++++++++++++++++++++++++---
+ 2 files changed, 63 insertions(+), 6 deletions(-)
+
+diff --git a/tools/python/xen/lowlevel/xc/xc.c b/tools/python/xen/lowlevel/xc/xc.c
+index df31a1d..d09c45f 100644
+--- a/tools/python/xen/lowlevel/xc/xc.c
++++ b/tools/python/xen/lowlevel/xc/xc.c
+@@ -2685,7 +2685,11 @@ static void PyXc_dealloc(XcObject *self)
+ }
+ 
+ static PyTypeObject PyXcType = {
++#if PY_MAJOR_VERSION >= 3
++    .ob_base = { PyObject_HEAD_INIT(NULL) },
++#else
+     PyObject_HEAD_INIT(NULL)
++#endif
+     .tp_name = PKG "." CLS,
+     .tp_basicsize = sizeof(XcObject),
+     .tp_itemsize = 0,
+@@ -2699,22 +2703,44 @@ static PyTypeObject PyXcType = {
+ 
+ static PyMethodDef xc_methods[] = { { NULL } };
+ 
++
++#if PY_MAJOR_VERSION >= 3
++static PyModuleDef xc_module = {
++    PyModuleDef_HEAD_INIT,
++    PKG,     /* name */
++    NULL,   /* docstring */
++    -1,     /* size of per-interpreter state, -1 means the module use global
++               variables */
++    xc_methods
++};
++#endif
++
++#if PY_MAJOR_VERSION >= 3
++#define INITERROR return NULL
++PyMODINIT_FUNC PyInit_xc(void)
++#else
++#define INITERROR return
+ PyMODINIT_FUNC initxc(void)
++#endif
+ {
+     PyObject *m;
+ 
+     if (PyType_Ready(&PyXcType) < 0)
+-        return;
++        INITERROR;
+ 
++#if PY_MAJOR_VERSION >= 3
++    m = PyModule_Create(&xc_module);
++#else
+     m = Py_InitModule(PKG, xc_methods);
++#endif
+ 
+     if (m == NULL)
+-      return;
++        INITERROR;
+ 
+     xc_error_obj = PyErr_NewException(PKG ".Error", PyExc_RuntimeError, NULL);
+     if (xc_error_obj == NULL) {
+         Py_DECREF(m);
+-        return;
++        INITERROR;
+     }
+     zero = PyLongOrInt_FromLong(0);
+ 
+@@ -2732,6 +2758,9 @@ PyMODINIT_FUNC initxc(void)
+     PyModule_AddIntConstant(m, "XEN_SCHEDULER_CREDIT", XEN_SCHEDULER_CREDIT);
+     PyModule_AddIntConstant(m, "XEN_SCHEDULER_CREDIT2", XEN_SCHEDULER_CREDIT2);
+ 
++#if PY_MAJOR_VERSION >= 3
++    return m;
++#endif
+ }
+ 
+ 
+diff --git a/tools/python/xen/lowlevel/xs/xs.c b/tools/python/xen/lowlevel/xs/xs.c
+index b37daa9..aba5a20 100644
+--- a/tools/python/xen/lowlevel/xs/xs.c
++++ b/tools/python/xen/lowlevel/xs/xs.c
+@@ -946,7 +946,11 @@ static void xshandle_dealloc(XsHandle *self)
+ }
+ 
+ static PyTypeObject xshandle_type = {
++#if PY_MAJOR_VERSION >= 3
++    .ob_base = { PyObject_HEAD_INIT(NULL) },
++#else
+     PyObject_HEAD_INIT(NULL)
++#endif
+     .tp_name = PKG "." CLS,
+     .tp_basicsize = sizeof(XsHandle),
+     .tp_itemsize = 0,
+@@ -960,22 +964,43 @@ static PyTypeObject xshandle_type = {
+ 
+ static PyMethodDef xs_methods[] = { { NULL } };
+ 
++#if PY_MAJOR_VERSION >= 3
++static PyModuleDef xs_module = {
++    PyModuleDef_HEAD_INIT,
++    PKG,     /* name */
++    NULL,   /* docstring */
++    -1,     /* size of per-interpreter state, -1 means the module use global
++               variables */
++    xs_methods
++};
++#endif
++
++#if PY_MAJOR_VERSION >= 3
++#define INITERROR return NULL
++PyMODINIT_FUNC PyInit_xs(void)
++#else
++#define INITERROR return
+ PyMODINIT_FUNC initxs(void)
++#endif
+ {
+     PyObject* m;
+ 
+     if (PyType_Ready(&xshandle_type) < 0)
+-        return;
++        INITERROR;
+ 
++#if PY_MAJOR_VERSION >= 3
++    m = PyModule_Create(&xs_module);
++#else
+     m = Py_InitModule(PKG, xs_methods);
++#endif
+ 
+     if (m == NULL)
+-      return;
++        INITERROR;
+ 
+     xs_error = PyErr_NewException(PKG ".Error", PyExc_RuntimeError, NULL);
+     if (xs_error == NULL) {
+         Py_DECREF(m);
+-        return;
++        INITERROR;
+     }
+ 
+     Py_INCREF(&xshandle_type);
+@@ -983,6 +1008,9 @@ PyMODINIT_FUNC initxs(void)
+ 
+     Py_INCREF(xs_error);
+     PyModule_AddObject(m, "Error", xs_error);
++#if PY_MAJOR_VERSION >= 3
++    return m;
++#endif
+ }
+ 
+ 
+-- 
+2.7.4
+
