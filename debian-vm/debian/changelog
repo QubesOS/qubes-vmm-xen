@@ -1,3 +1,16 @@
+xen (2001:4.6.4-26) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Update Debian changelog for version 4.6.4-25
+
+  [ unman ]
+  * Fix Depends for trusty build
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA 212
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 27 Mar 2017 14:08:06 +0200
+
 xen (2001:4.6.4-25) unstable; urgency=medium
 
   * version 4.6.4-25
