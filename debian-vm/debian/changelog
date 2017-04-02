@@ -1,3 +1,23 @@
+xen (2001:4.8.0-2) unstable; urgency=medium
+
+  * debian: fix dependencies for libxen-dev
+  * debian: add missing libxenvchan.h to libxen-dev
+  * debian: remove duplicated libxenstore3.0.so
+  * Update /boot/efi/EFI/qubes/xen.efi on install/update
+  * Really update /boot/efi/EFI/qubes/xen.efi
+  * Stubdom fixes for PCI passthrough
+  * Update gui-agent in stubdomain
+  * travis: drop debootstrap workaround
+  * Apply XSA 195 patch
+  * version 4.7.1-2
+  * version 4.8.0-1
+  * Add python3 bindings
+  * debian: update libxengnttab soname
+  * debian: fix packaging for 4.8
+  * travis: update for Qubes 4.0 build
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 02 Apr 2017 19:29:21 +0200
+
 xen (2001:4.7.0-2) wheezy; urgency=medium
 
   [ WetwareLabs ]
