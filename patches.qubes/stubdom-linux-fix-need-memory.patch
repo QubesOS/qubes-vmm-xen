@@ -1,7 +1,7 @@
 TODO: upstream?
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -5074,7 +5074,7 @@ int libxl_domain_need_memory(libxl_ctx *
+@@ -4493,7 +4493,7 @@ int libxl_domain_need_memory(libxl_ctx *
          if (libxl_defbool_val(b_info->device_model_stubdomain)) {
              switch (b_info->stubdomain_version) {
              case LIBXL_STUBDOMAIN_VERSION_MINIOS:
@@ -10,7 +10,7 @@ TODO: upstream?
                  break;
              case LIBXL_STUBDOMAIN_VERSION_LINUX:
                  *need_memkb += LIBXL_LINUX_STUBDOM_MEM * 1024;
-@@ -5082,6 +5082,7 @@ int libxl_domain_need_memory(libxl_ctx *
+@@ -4501,6 +4501,7 @@ int libxl_domain_need_memory(libxl_ctx *
              default:
                  abort();
              }

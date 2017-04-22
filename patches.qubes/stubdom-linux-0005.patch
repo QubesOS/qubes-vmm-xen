@@ -25,9 +25,9 @@ HW42:
 
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -20,15 +20,26 @@
- #include "libxl_internal.h"
- #include <xen/hvm/e820.h>
+@@ -24,15 +24,26 @@
+ #include <sys/types.h>
+ #include <pwd.h>
  
 -static const char *libxl_tapif_script(libxl__gc *gc)
 +static const char *libxl_tapif_script(libxl__gc *gc,
@@ -38,7 +38,7 @@ HW42:
 +        return libxl__sprintf(gc, "/etc/qemu-ifup");
      return libxl__strdup(gc, "no");
  #else
-     return libxl__sprintf(gc, "%s/qemu-ifup", libxl__xen_script_dir_path());
+     return GCSPRINTF("%s/qemu-ifup", libxl__xen_script_dir_path());
  #endif
  }
  
@@ -52,8 +52,8 @@ HW42:
 +
  const char *libxl__device_model_savefile(libxl__gc *gc, uint32_t domid)
  {
-     return libxl__sprintf(gc, "/var/lib/xen/qemu-save.%d", domid);
-@@ -610,8 +621,8 @@ static int libxl__build_device_model_arg
+     return GCSPRINTF(LIBXL_DEVICE_MODEL_SAVE_FILE".%d", domid);
+@@ -615,8 +626,8 @@ static int libxl__build_device_model_arg
                                        "tap,vlan=%d,ifname=%s,bridge=%s,"
                                        "script=%s,downscript=%s",
                                        nics[i].devid, ifname, nics[i].bridge,
@@ -64,21 +64,21 @@ HW42:
                                    NULL);
                  ioemu_nics++;
              }
-@@ -738,6 +749,7 @@ static int libxl__build_device_model_arg
-     int i, connection, devid;
+@@ -927,6 +938,7 @@ static int libxl__build_device_model_arg
      uint64_t ram_size;
      const char *path, *chardev;
+     char *user = NULL;
 +    bool is_stubdom = libxl_defbool_val(b_info->device_model_stubdomain);
  
      dm_args = flexarray_make(gc, 16, 1);
      dm_envs = flexarray_make(gc, 16, 1);
-@@ -748,24 +760,27 @@ static int libxl__build_device_model_arg
+@@ -937,24 +949,27 @@ static int libxl__build_device_model_arg
                        "-xen-domid",
-                       libxl__sprintf(gc, "%d", guest_domid), NULL);
+                       GCSPRINTF("%d", guest_domid), NULL);
  
 -    flexarray_append(dm_args, "-chardev");
 -    flexarray_append(dm_args,
--                     libxl__sprintf(gc, "socket,id=libxl-cmd,"
+-                     GCSPRINTF("socket,id=libxl-cmd,"
 -                                    "path=%s/qmp-libxl-%d,server,nowait",
 -                                    libxl__run_dir_path(), guest_domid));
 -
@@ -88,36 +88,36 @@ HW42:
 -
 -    flexarray_append(dm_args, "-chardev");
 -    flexarray_append(dm_args,
--                     libxl__sprintf(gc, "socket,id=libxenstat-cmd,"
+-                     GCSPRINTF("socket,id=libxenstat-cmd,"
 -                                    "path=%s/qmp-libxenstat-%d,server,nowait",
 -                                    libxl__run_dir_path(), guest_domid));
 +    /* There is currently no way to access the QMP socket in the stubdom */
 +    if (!is_stubdom) {
 +        flexarray_append(dm_args, "-chardev");
 +        flexarray_append(dm_args,
-+                         libxl__sprintf(gc, "socket,id=libxl-cmd,"
++                         GCSPRINTF("socket,id=libxl-cmd,"
 +                                        "path=%s/qmp-libxl-%d,server,nowait",
 +                                        libxl__run_dir_path(), guest_domid));
 +
 +        flexarray_append(dm_args, "-no-shutdown");
 +        flexarray_append(dm_args, "-mon");
 +        flexarray_append(dm_args, "chardev=libxl-cmd,mode=control");
-+
-+        flexarray_append(dm_args, "-chardev");
-+        flexarray_append(dm_args,
-+                         libxl__sprintf(gc, "socket,id=libxenstat-cmd,"
-+                                        "path=%s/qmp-libxenstat-%d,server,nowait",
-+                                        libxl__run_dir_path(), guest_domid));
  
 -    flexarray_append(dm_args, "-mon");
 -    flexarray_append(dm_args, "chardev=libxenstat-cmd,mode=control");
++        flexarray_append(dm_args, "-chardev");
++        flexarray_append(dm_args,
++                         GCSPRINTF("socket,id=libxenstat-cmd,"
++                                        "path=%s/qmp-libxenstat-%d,server,nowait",
++                                        libxl__run_dir_path(), guest_domid));
++
 +        flexarray_append(dm_args, "-mon");
 +        flexarray_append(dm_args, "chardev=libxenstat-cmd,mode=control");
 +    }
  
      for (i = 0; i < guest_config->num_channels; i++) {
          connection = guest_config->channels[i].connection;
-@@ -803,7 +818,7 @@ static int libxl__build_device_model_arg
+@@ -998,7 +1013,7 @@ static int libxl__build_device_model_arg
          flexarray_vappend(dm_args, "-name", c_info->name, NULL);
      }
  
@@ -126,7 +126,7 @@ HW42:
          char *vncarg = NULL;
  
          flexarray_append(dm_args, "-vnc");
-@@ -842,7 +857,7 @@ static int libxl__build_device_model_arg
+@@ -1036,7 +1051,7 @@ static int libxl__build_device_model_arg
          }
  
          flexarray_append(dm_args, vncarg);
@@ -135,7 +135,7 @@ HW42:
          /*
           * Ensure that by default no vnc server is created.
           */
-@@ -854,7 +869,7 @@ static int libxl__build_device_model_arg
+@@ -1048,7 +1063,7 @@ static int libxl__build_device_model_arg
       */
      flexarray_append_pair(dm_args, "-display", "none");
  
@@ -144,7 +144,7 @@ HW42:
          flexarray_append(dm_args, "-sdl");
          if (sdl->display)
              flexarray_append_pair(dm_envs, "DISPLAY", sdl->display);
-@@ -885,10 +900,19 @@ static int libxl__build_device_model_arg
+@@ -1079,10 +1094,19 @@ static int libxl__build_device_model_arg
                  return ERROR_INVAL;
              }
              if (b_info->u.hvm.serial) {
@@ -166,7 +166,7 @@ HW42:
                  for (p = b_info->u.hvm.serial_list;
                       *p;
                       p++) {
-@@ -903,7 +927,7 @@ static int libxl__build_device_model_arg
+@@ -1097,7 +1121,7 @@ static int libxl__build_device_model_arg
              flexarray_append(dm_args, "-nographic");
          }
  
@@ -175,72 +175,51 @@ HW42:
              const libxl_spice_info *spice = &b_info->u.hvm.spice;
              char *spiceoptions = dm_spice_options(gc, spice);
              if (!spiceoptions)
-@@ -1039,8 +1063,8 @@ static int libxl__build_device_model_arg
-                                           "type=tap,id=net%d,ifname=%s,"
-                                           "script=%s,downscript=%s",
-                                           nics[i].devid, ifname,
--                                          libxl_tapif_script(gc),
--                                          libxl_tapif_script(gc)));
-+                                          libxl_tapif_script(gc, b_info),
-+                                          libxl_tapif_downscript(gc, b_info)));
+@@ -1236,8 +1260,8 @@ static int libxl__build_device_model_arg
+                                  GCSPRINTF("type=tap,id=net%d,ifname=%s,"
+                                            "script=%s,downscript=%s",
+                                            nics[i].devid, ifname,
+-                                           libxl_tapif_script(gc),
+-                                           libxl_tapif_script(gc)));
++                                           libxl_tapif_script(gc, b_info),
++                                           libxl_tapif_downscript(gc, b_info)));
                  ioemu_nics++;
              }
          }
-@@ -1130,16 +1154,15 @@ static int libxl__build_device_model_arg
-                     drive = libxl__sprintf
-                         (gc, "if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,id=ide-%i",
-                          disk, disks[i].readwrite ? "off" : "on", dev_number);
-+                else if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
-+                    drive = libxl__sprintf
-+                        (gc, "file=%s%c,if=ide,index=%d,readonly=%s,media=cdrom,cache=writeback,format=%s,id=ide-%i",
-+                         "/dev/xvd", 'a' + disk, disk, disks[i].readwrite ? "off" : "on", "host_device", dev_number);
-                 else
-                     drive = libxl__sprintf
-                         (gc, "file=%s,if=ide,index=%d,readonly=%s,media=cdrom,format=%s,cache=writeback,id=ide-%i",
-                          disks[i].pdev_path, disk, disks[i].readwrite ? "off" : "on", format, dev_number);
+@@ -1391,9 +1415,15 @@ static int libxl__build_device_model_arg
+                          "if=ide,index=%d,readonly=on,media=cdrom,id=ide-%i",
+                          disk, dev_number);
+ 
+-                if (target_path)
+-                    drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
+-                                           drive, target_path, format);
++                if (target_path) {
++                    if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++                        drive = libxl__sprintf(gc, "%s,file=/dev/xvd%c,format=host_device",
++                                               drive, 'a' + disk);
++                    } else {
++                        drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
++                                               drive, target_path, format);
++                    }
++                }
              } else {
--                if (!disks[i].readwrite) {
--                    LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "qemu-xen doesn't support read-only disk drivers");
--                    return ERROR_INVAL;
--                }
--
-                 if (disks[i].format == LIBXL_DISK_FORMAT_EMPTY) {
-                     LIBXL__LOG(ctx, LIBXL__LOG_WARNING, "cannot support"
-                                " empty disk format for %s", disks[i].vdev);
-@@ -1160,29 +1183,9 @@ static int libxl__build_device_model_arg
-                     pdev_path = disks[i].pdev_path;
+                 /*
+                  * Explicit sd disks are passed through as is.
+@@ -1411,7 +1441,12 @@ static int libxl__build_device_model_arg
+                     colo_mode = LIBXL__COLO_NONE;
                  }
  
--                /*
--                 * Explicit sd disks are passed through as is.
--                 *
--                 * For other disks we translate devices 0..3 into
--                 * hd[a-d] and ignore the rest.
--                 */
--                if (strncmp(disks[i].vdev, "sd", 2) == 0)
--                    drive = libxl__sprintf
--                        (gc, "file=%s,if=scsi,bus=0,unit=%d,format=%s,cache=writeback",
--                         pdev_path, disk, format);
--                else if (disk < 6 && b_info->u.hvm.hdtype == LIBXL_HDTYPE_AHCI) {
--                    flexarray_vappend(dm_args, "-drive",
--                        GCSPRINTF("file=%s,if=none,id=ahcidisk-%d,format=%s,cache=writeback",
--                        pdev_path, disk, format),
--                        "-device", GCSPRINTF("ide-hd,bus=ahci0.%d,unit=0,drive=ahcidisk-%d",
--                        disk, disk), NULL);
--                    continue;
--                } else if (disk < 4)
--                    drive = libxl__sprintf
--                        (gc, "file=%s,if=ide,index=%d,media=disk,format=%s,cache=writeback",
--                         pdev_path, disk, format);
--                else
--                    continue; /* Do not emulate this disk */
-+                drive = libxl__sprintf
-+                    (gc, "file=/dev/xvd%c,if=scsi,bus=0,unit=%d,format=host_device,cache=writeback,readonly=%s",
-+                     'a' + disk, disk, disks[i].readwrite ? "off" : "on");
-             }
- 
-             flexarray_append(dm_args, "-drive");
-@@ -1212,7 +1215,7 @@ static int libxl__build_device_model_arg
+-                if (strncmp(disks[i].vdev, "sd", 2) == 0) {
++                if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++                    // Always use SCSI disk in linux stubdoms.
++                    drive = libxl__sprintf
++                        (gc, "file=/dev/xvd%c,if=scsi,bus=0,unit=%d,format=host_device,cache=writeback,readonly=%s",
++                         'a' + disk, disk, disks[i].readwrite ? "off" : "on");
++                } else if (strncmp(disks[i].vdev, "sd", 2) == 0) {
+                     if (colo_mode == LIBXL__COLO_SECONDARY) {
+                         drive = libxl__sprintf
+                             (gc, "if=none,driver=%s,file=%s,id=%s",
+@@ -1519,7 +1554,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)
@@ -248,8 +227,8 @@ HW42:
 +/* dm_state_fd may be NULL iff caller knows we are using stubdom
   * and therefore will be passing a filename rather than a fd. */
  {
-     libxl_ctx *ctx = libxl__gc_owner(gc);
-@@ -1224,8 +1227,10 @@ static int libxl__build_device_model_arg
+     switch (guest_config->b_info.device_model_version) {
+@@ -1529,8 +1564,10 @@ static int libxl__build_device_model_arg
                                                    args, envs,
                                                    state);
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -262,7 +241,7 @@ HW42:
          return libxl__build_device_model_args_new(gc, dm,
                                                    guest_domid, guest_config,
                                                    args, envs,
-@@ -1282,7 +1287,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
+@@ -1587,7 +1624,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
  
  static int libxl__write_stub_dmargs(libxl__gc *gc,
                                      int dm_domid, int guest_domid,
@@ -271,7 +250,7 @@ HW42:
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
      int i;
-@@ -1310,7 +1315,9 @@ static int libxl__write_stub_dmargs(libx
+@@ -1615,7 +1652,9 @@ static int libxl__write_stub_dmargs(libx
      i = 1;
      dmargs[0] = '\0';
      while (args[i] != NULL) {

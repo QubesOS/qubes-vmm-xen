@@ -1,6 +1,6 @@
 --- a/tools/libxl/libxl_pci.c
 +++ b/tools/libxl/libxl_pci.c
-@@ -893,6 +893,40 @@ static int qemu_pci_add_xenstore(libxl__
+@@ -998,6 +998,40 @@ static int qemu_pci_add_xenstore(libxl__
      return rc;
  }
  
@@ -11,7 +11,7 @@
 +    char *path;
 +    char *vdevfn = NULL;
 +
-+    path = libxl__device_model_xs_path(gc, dm_domid, domid, "/new-pci-vdevfn");
++    path = DEVICE_MODEL_XS_PATH(gc, dm_domid, domid, "/new-pci-vdevfn");
 +
 +    for (int i = 0; i < 40; i += 1) {
 +        vdevfn = libxl__xs_read(gc, XBT_NULL, path);
@@ -41,7 +41,7 @@
  static int do_pci_add(libxl__gc *gc, uint32_t domid, libxl_device_pci *pcidev, int starting)
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
-@@ -902,6 +936,7 @@ static int do_pci_add(libxl__gc *gc, uin
+@@ -1007,6 +1041,7 @@ static int do_pci_add(libxl__gc *gc, uin
      unsigned long long start, end, flags, size;
      int irq, i, rc, hvm = 0;
      uint32_t flag = XEN_DOMCTL_DEV_RDM_RELAXED;
@@ -49,7 +49,7 @@
  
      if (type == LIBXL_DOMAIN_TYPE_INVALID)
          return ERROR_FAIL;
-@@ -917,7 +952,15 @@ static int do_pci_add(libxl__gc *gc, uin
+@@ -1022,7 +1057,15 @@ static int do_pci_add(libxl__gc *gc, uin
                  rc = qemu_pci_add_xenstore(gc, domid, pcidev);
                  break;
              case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -66,7 +66,7 @@
                  break;
              default:
                  return ERROR_INVAL;
-@@ -1265,7 +1308,14 @@ static int do_pci_remove(libxl__gc *gc,
+@@ -1408,7 +1451,14 @@ static int do_pci_remove(libxl__gc *gc,
              rc = qemu_pci_remove_xenstore(gc, domid, pcidev, force);
              break;
          case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:

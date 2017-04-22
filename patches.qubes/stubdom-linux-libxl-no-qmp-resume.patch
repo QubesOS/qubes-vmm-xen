@@ -1,6 +1,6 @@
 --- a/tools/libxl/libxl_dom_suspend.c
 +++ b/tools/libxl/libxl_dom_suspend.c
-@@ -377,10 +377,10 @@ int libxl__domain_resume_device_model(li
+@@ -428,10 +428,10 @@ int libxl__domain_resume_device_model(li
  {
      const char *path, *state;
  
@@ -10,10 +10,10 @@
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL: {
 -        uint32_t dm_domid = libxl_get_stubdom_id(CTX, domid);
 -
-         path = libxl__device_model_xs_path(gc, dm_domid, domid, "/state");
+         path = DEVICE_MODEL_XS_PATH(gc, dm_domid, domid, "/state");
          state = libxl__xs_read(gc, XBT_NULL, path);
          if (state != NULL && !strcmp(state, "paused")) {
-@@ -391,6 +391,10 @@ int libxl__domain_resume_device_model(li
+@@ -442,6 +442,10 @@ int libxl__domain_resume_device_model(li
          break;
      }
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:

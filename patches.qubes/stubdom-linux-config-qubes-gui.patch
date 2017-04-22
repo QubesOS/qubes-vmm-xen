@@ -1,6 +1,6 @@
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -354,6 +354,8 @@ int libxl__domain_build_info_setdefault(
+@@ -384,6 +384,8 @@ int libxl__domain_build_info_setdefault(
              libxl_defbool_setdefault(&b_info->u.hvm.sdl.opengl, false);
          }
  
@@ -11,9 +11,9 @@
                                       false);
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -1076,6 +1076,10 @@ static int libxl__build_device_model_arg
-         if (libxl_defbool_val(b_info->u.hvm.gfx_passthru)) {
-             flexarray_append(dm_args, "-gfx_passthru");
+@@ -1270,6 +1270,10 @@ static int libxl__build_device_model_arg
+             flexarray_append(dm_args, "-net");
+             flexarray_append(dm_args, "none");
          }
 +
 +        if (libxl_defbool_val(b_info->u.hvm.qubes_gui)) {
@@ -24,7 +24,7 @@
              flexarray_append(dm_args, "-nographic");
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
-@@ -512,6 +512,8 @@ libxl_domain_build_info = Struct("domain
+@@ -556,6 +556,8 @@ libxl_domain_build_info = Struct("domain
                                         ("serial_list",      libxl_string_list),
                                         ("rdm", libxl_rdm_reserve),
                                         ("rdm_mem_boundary_memkb", MemKB),
@@ -35,7 +35,7 @@
                                        ("slack_memkb", MemKB),
 --- a/tools/libxl/xl_cmdimpl.c
 +++ b/tools/libxl/xl_cmdimpl.c
-@@ -2355,6 +2355,8 @@ skip_vfb:
+@@ -2503,6 +2503,8 @@ skip_usbdev:
  
              b_info->u.hvm.vendor_device = d;
          }

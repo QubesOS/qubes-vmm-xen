@@ -1,6 +1,6 @@
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -5072,16 +5072,7 @@ int libxl_domain_need_memory(libxl_ctx *
+@@ -4491,16 +4491,7 @@ int libxl_domain_need_memory(libxl_ctx *
      case LIBXL_DOMAIN_TYPE_HVM:
          *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
          if (libxl_defbool_val(b_info->device_model_stubdomain)) {
@@ -20,7 +20,7 @@
          break;
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -206,6 +206,19 @@ int libxl__domain_build_info_setdefault(
+@@ -226,6 +226,19 @@ int libxl__domain_build_info_setdefault(
      if (b_info->target_memkb == LIBXL_MEMKB_DEFAULT)
          b_info->target_memkb = b_info->max_memkb;
  
@@ -42,7 +42,7 @@
      libxl_defbool_setdefault(&b_info->localtime, false);
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -1446,16 +1446,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
+@@ -1752,16 +1752,7 @@ void libxl__spawn_stub_dm(libxl__egc *eg
      libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
  
      dm_config->b_info.max_vcpus = 1;
@@ -62,7 +62,7 @@
  
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
-@@ -449,6 +449,8 @@ libxl_domain_build_info = Struct("domain
+@@ -487,6 +487,8 @@ libxl_domain_build_info = Struct("domain
      #  parameters for all type of scheduler
      ("sched_params",     libxl_domain_sched_params),
  

@@ -21,18 +21,16 @@ Signed-off-by: Eric Shelton <eshelton@pobox.com>
  tools/libxl/libxl_types.idl |  7 +++++++
  2 files changed, 36 insertions(+), 5 deletions(-)
 
-diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
-index ba3a80a..08f79d5 100644
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -145,12 +145,36 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -159,12 +159,36 @@ int libxl__domain_build_info_setdefault(
      }
  
      if (b_info->type == LIBXL_DOMAIN_TYPE_HVM &&
 -        b_info->device_model_version !=
 -            LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL &&
          libxl_defbool_val(b_info->device_model_stubdomain)) {
--        LIBXL__LOG(CTX, XTL_ERROR,
+-        LOG(ERROR,
 -            "device model stubdomains require \"qemu-xen-traditional\"");
 -        return ERROR_INVAL;
 +        if (!b_info->stubdomain_version) {
@@ -50,15 +48,15 @@ index ba3a80a..08f79d5 100644
 +        switch (b_info->device_model_version) {
 +        case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL:
 +            if (b_info->stubdomain_version != LIBXL_STUBDOMAIN_VERSION_MINIOS) {
-+                LIBXL__LOG(CTX, XTL_ERROR,
-+                  "\"qemu-xen-traditional\" require \"minios\" as stubdomain");
++                LOG(ERROR,
++                    "\"qemu-xen-traditional\" require \"minios\" as stubdomain");
 +                return ERROR_INVAL;
 +            }
 +            break;
 +        case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
 +            if (b_info->stubdomain_version != LIBXL_STUBDOMAIN_VERSION_LINUX) {
-+                LIBXL__LOG(CTX, XTL_ERROR,
-+                           "\"qemu-xen\" require \"linux\" as stubdomain");
++                LOG(ERROR,
++                    "\"qemu-xen\" require \"linux\" as stubdomain");
 +                return ERROR_INVAL;
 +            }
 +            break;
@@ -67,12 +65,10 @@ index ba3a80a..08f79d5 100644
      }
  
      if (!b_info->max_vcpus)
-diff --git a/tools/libxl/libxl_types.idl b/tools/libxl/libxl_types.idl
-index 502a148..f15a34b 100644
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
-@@ -100,6 +100,12 @@ libxl_device_model_version = Enumeration("device_model_version", [
-     (2, "QEMU_XEN"),             # Upstream based qemu-xen device model
+@@ -101,6 +101,12 @@ libxl_device_model_version = Enumeration
+     (3, "NONE"),                 # No device model
      ])
  
 +# Give the kernel running in the stub-domain
@@ -84,7 +80,7 @@ index 502a148..f15a34b 100644
  libxl_console_type = Enumeration("console_type", [
      (0, "UNKNOWN"),
      (1, "SERIAL"),
-@@ -428,6 +434,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
+@@ -464,6 +470,7 @@ libxl_domain_build_info = Struct("domain
      
      ("device_model_version", libxl_device_model_version),
      ("device_model_stubdomain", libxl_defbool),
@@ -92,6 +88,3 @@ index 502a148..f15a34b 100644
      # if you set device_model you must set device_model_version too
      ("device_model",     string),
      ("device_model_ssidref", uint32),
--- 
-2.9.3
-

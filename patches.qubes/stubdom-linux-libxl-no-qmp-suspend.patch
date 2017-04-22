@@ -1,15 +1,15 @@
 --- a/tools/libxl/libxl_dom_suspend.c
 +++ b/tools/libxl/libxl_dom_suspend.c
-@@ -28,6 +28,8 @@ int libxl__domain_suspend_device_model(l
-     uint32_t const domid = dss->domid;
-     const char *const filename = dss->dm_savefile;
+@@ -75,6 +75,8 @@ int libxl__domain_suspend_device_model(l
+     uint32_t const domid = dsps->domid;
+     const char *const filename = dsps->dm_savefile;
  
 +    uint32_t dm_domid;
 +
      switch (libxl__device_model_version_running(gc, domid)) {
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL: {
          LOG(DEBUG, "Saving device model state to %s", filename);
-@@ -36,6 +38,11 @@ int libxl__domain_suspend_device_model(l
+@@ -83,6 +85,11 @@ int libxl__domain_suspend_device_model(l
          break;
      }
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
