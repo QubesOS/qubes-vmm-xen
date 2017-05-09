@@ -1,0 +1,46 @@
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -384,6 +384,8 @@ int libxl__domain_build_info_setdefault(
+             libxl_defbool_setdefault(&b_info->u.hvm.sdl.opengl, false);
+         }
+ 
++        libxl_defbool_setdefault(&b_info->u.hvm.qubes_gui, false);
++
+         if (libxl_defbool_val(b_info->u.hvm.spice.enable)) {
+             libxl_defbool_setdefault(&b_info->u.hvm.spice.disable_ticketing,
+                                      false);
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1270,6 +1270,10 @@ static int libxl__build_device_model_arg
+             flexarray_append(dm_args, "-net");
+             flexarray_append(dm_args, "none");
+         }
++
++        if (libxl_defbool_val(b_info->u.hvm.qubes_gui)) {
++            flexarray_append_pair(dm_args, "-display", "qubes-gui");
++        }
+     } else {
+         if (!sdl && !vnc) {
+             flexarray_append(dm_args, "-nographic");
+--- a/tools/libxl/libxl_types.idl
++++ b/tools/libxl/libxl_types.idl
+@@ -556,6 +556,8 @@ libxl_domain_build_info = Struct("domain
+                                        ("serial_list",      libxl_string_list),
+                                        ("rdm", libxl_rdm_reserve),
+                                        ("rdm_mem_boundary_memkb", MemKB),
++
++                                       ("qubes_gui", libxl_defbool),
+                                        ])),
+                  ("pv", Struct(None, [("kernel", string),
+                                       ("slack_memkb", MemKB),
+--- a/tools/libxl/xl_cmdimpl.c
++++ b/tools/libxl/xl_cmdimpl.c
+@@ -2503,6 +2503,8 @@ skip_usbdev:
+ 
+             b_info->u.hvm.vendor_device = d;
+         }
++
++        xlu_cfg_get_defbool (config, "qubes_gui", &b_info->u.hvm.qubes_gui, 0);
+     }
+ 
+     if (!xlu_cfg_get_string (config, "gic_version", &buf, 1)) {

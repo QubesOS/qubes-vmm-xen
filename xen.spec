@@ -146,6 +146,8 @@ Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
 BuildRequires: systemd-devel
+# BIOS for HVMs
+Requires: seabios-bin
 
 %description
 This package contains the XenD daemon and xm command line
