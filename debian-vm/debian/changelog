@@ -1,3 +1,47 @@
+xen (2001:4.8.1-2) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Drop unneeded patches from series-vm.conf
+
+  [ unman ]
+  * Fix Depends for trusty build
+
+  [ HW42 ]
+  * stubdom-linux: import Eric's/Anthony's patches 4..6
+  * stubdom-linux: rebase patches ontop of xen-4.6.1 + qubes patches
+  * stubdom-linux: libxl changes require a soname bump
+  * stubdom-linux: stubdom qemu has no vnc support
+  * stubdom-linux: make device resume a no-op for now
+  * stubdom-img: use more consitent names for rootfs/kernel
+  * stubdom-linux: use initramfs
+  * stubdom-linux: fix QEMU disk args
+  * stubdom-linux: fix QEMU args for cdroms
+  * stubdom-linux: hide read-only disk from QEMU
+  * stubdom-linux: pass downscript to QEMU
+  * stubdom-linux: disable qmp call in pci add
+  * stubdom-linux: handle PCI passthrough
+  * stubdom-linux: add libxl option for QEMU qubes-gui
+  * stubdom-linux: add extra memory for the requested video mem
+  * stubdom-linux: add libxl option for stubdom memory size
+  * stubdom-linux: disable QEMU stop via qmp when suspending
+  * stubdom-linux: merge fixes into original linux-stubdom patches
+  * stubdom-linux: pass-through all disks as scsi disks
+  * stubdom-linux: don't initialize qmp
+  * stubdom-linux: port stubdom patches to Xen 4.8.0
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA-213, XSA-214, XSA-215
+  * Update URL to Xen releases
+
+  [ Olivier MEDOC ]
+  * libxl: Fix compilation Warnings causing build failure when building
+    with glibc-2.25
+
+  [ Marek Marczykowski-Górecki ]
+  * version 4.8.1
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 13 May 2017 03:11:50 +0200
+
 xen (2001:4.8.0-2) unstable; urgency=medium
 
   * debian: fix dependencies for libxen-dev

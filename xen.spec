@@ -29,7 +29,7 @@
 %define with_python3 1
 
 # Hypervisor ABI
-%define hv_abi  4.7
+%define hv_abi  4.8
 
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
