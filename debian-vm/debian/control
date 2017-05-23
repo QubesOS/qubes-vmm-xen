@@ -41,6 +41,7 @@ X-Qubes-Build-Depends-jessie:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-
 X-Qubes-Build-Depends-stretch:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
 X-Qubes-Build-Depends-trusty: libsystemd-daemon-dev,libsystemd-daemon-dev:amd64,libpython2.7-dev
 X-Qubes-Build-Depends-xenial:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
+X-Qubes-Build-Depends-zesty:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
 Standards-Version: 3.9.5
 Homepage: http://www.qubes-os.org
 Vcs-Git: git://git.qubes-os.org/marmarek/vmm-xen-debian.git
