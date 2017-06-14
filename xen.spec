@@ -345,6 +345,7 @@ export XEN_VENDORVERSION="-%{release}"
 export CFLAGS_EXTRA="$RPM_OPT_FLAGS"
 export PATH="/usr/bin:$PATH"
 export KCONFIG_CONFIG=%{SOURCE3}
+cp -f %{SOURCE3} xen/.config
 export XEN_CONFIG_EXPERT=y
 autoreconf
 make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
