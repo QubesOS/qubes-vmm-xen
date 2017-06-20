@@ -1,3 +1,14 @@
+xen (2001:4.6.5-28) unstable; urgency=medium
+
+  [ Olivier MEDOC ]
+  * libxl: Fix compilation Warnings causing build failure when building
+    with glibc-2.25
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA216-224
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 20 Jun 2017 03:15:53 +0200
+
 xen (2001:4.6.5-27) unstable; urgency=medium
 
   * Update debian/changelog
