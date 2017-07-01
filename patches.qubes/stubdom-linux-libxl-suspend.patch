@@ -1,0 +1,81 @@
+--- a/tools/libxl/libxl_dom_suspend.c
++++ b/tools/libxl/libxl_dom_suspend.c
+@@ -75,6 +75,8 @@ int libxl__domain_suspend_device_model(l
+     uint32_t const domid = dsps->domid;
+     const char *const filename = dsps->dm_savefile;
+ 
++    uint32_t dm_domid;
++
+     switch (libxl__device_model_version_running(gc, domid)) {
+     case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL: {
+         LOG(DEBUG, "Saving device model state to %s", filename);
+@@ -83,6 +85,19 @@ int libxl__domain_suspend_device_model(l
+         break;
+     }
+     case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
++        dm_domid = libxl_get_stubdom_id(CTX, domid);
++        if (dm_domid != 0 &&
++            libxl__stubdomain_version_running(gc, dm_domid) ==
++            LIBXL_STUBDOMAIN_VERSION_LINUX) {
++            ret = xc_domain_pause(CTX->xch, dm_domid);
++            if (ret < 0) {
++                LOGE(ERROR, "xc_domain_pause failed for domain %d (dm for %d)",
++                     dm_domid, domid);
++                return ERROR_FAIL;
++            }
++            return 0;
++        }
++
+         if (libxl__qmp_stop(gc, domid))
+             return ERROR_FAIL;
+         /* Save DM state into filename */
+@@ -428,10 +443,10 @@ int libxl__domain_resume_device_model(li
+ {
+     const char *path, *state;
+ 
++    uint32_t dm_domid = libxl_get_stubdom_id(CTX, domid);
++
+     switch (libxl__device_model_version_running(gc, domid)) {
+     case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL: {
+-        uint32_t dm_domid = libxl_get_stubdom_id(CTX, domid);
+-
+         path = DEVICE_MODEL_XS_PATH(gc, dm_domid, domid, "/state");
+         state = libxl__xs_read(gc, XBT_NULL, path);
+         if (state != NULL && !strcmp(state, "paused")) {
+@@ -442,6 +457,36 @@ int libxl__domain_resume_device_model(li
+         break;
+     }
+     case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
++        if (dm_domid != 0 && libxl__stubdomain_version_running(gc, dm_domid) ==
++            LIBXL_STUBDOMAIN_VERSION_LINUX) {
++            xc_domaininfo_t dm_info;
++            int ret = xc_domain_getinfolist(CTX->xch, dm_domid, 1, &dm_info);
++            if (ret < 0) {
++                LOGE(ERROR,
++                     "unable to check for status of domain %d", dm_domid);
++                return ERROR_FAIL;
++            }
++
++            if (!(ret == 1 && dm_info.domain == dm_domid)) {
++                LOGE(ERROR,
++                     "domain %d has been destroyed while trying to resume",
++                     dm_domid);
++                return ERROR_FAIL;
++            }
++
++            if (!(dm_info.flags & XEN_DOMINF_paused))
++                return 0;
++
++            ret = xc_domain_unpause(CTX->xch, dm_domid);
++            if (ret < 0) {
++                LOGE(ERROR,
++                     "xc_domain_unpause failed for domain %d (dm for %d)",
++                     dm_domid, domid);
++                return ERROR_FAIL;
++            }
++            return 0;
++        }
++
+         if (libxl__qmp_resume(gc, domid))
+             return ERROR_FAIL;
+         break;
