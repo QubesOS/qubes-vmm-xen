@@ -39,7 +39,7 @@ HW42:
      } else {
          switch (libxl__domain_type(gc, domid_vm)) {
          case LIBXL_DOMAIN_TYPE_HVM:
-@@ -4481,8 +4490,18 @@ int libxl_domain_need_memory(libxl_ctx *
+@@ -4489,8 +4498,18 @@ int libxl_domain_need_memory(libxl_ctx *
      switch (b_info->type) {
      case LIBXL_DOMAIN_TYPE_HVM:
          *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
@@ -186,7 +186,7 @@ HW42:
 +                        libxl__sprintf(gc, "%s/hvmloader/bios",
 +                                       libxl__xs_get_dompath(gc, guest_domid)),
 +                        "%s",
-+                        libxl_bios_type_to_string(LIBXL_BIOS_TYPE_SEABIOS));
++                        libxl_bios_type_to_string(guest_config->b_info.u.hvm.bios));
 +    }
      ret = xc_domain_set_target(ctx->xch, dm_domid, guest_domid);
      if (ret<0) {

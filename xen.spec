@@ -148,6 +148,7 @@ BuildRequires: systemd
 BuildRequires: systemd-devel
 # BIOS for HVMs
 Requires: seabios-bin
+BuildRequires: edk2-ovmf
 
 %description
 This package contains the XenD daemon and xm command line
@@ -356,6 +357,7 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --libdir=%{_libdir} \
     --libexecdir=/usr/lib \
     --with-system-seabios=%{seabiosloc} \
+    --with-system-ovmf=/usr/lib/xen/boot/ovmf.bin \
     --enable-vtpm-stubdom \
     --enable-vtpmmgr-stubdom \
     --with-extra-qemuu-configure-args="--disable-spice"
@@ -407,6 +409,9 @@ mkdir -p %{buildroot}/usr/bin
 ln -s ../lib/%{name}/bin/qemu-img %{buildroot}/usr/bin/
 ln -s ../lib/%{name}/bin/qemu-io  %{buildroot}/usr/bin/
 ln -s ../lib/%{name}/bin/qemu-nbd %{buildroot}/usr/bin/
+
+# "build" combined OVMF image based on system package
+cat /usr/share/edk2/ovmf/OVMF_{VARS,CODE}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
 
 ############ debug packaging: list files ############
 
@@ -807,6 +812,7 @@ rm -rf %{buildroot}
 # HVM loader is always in /usr/lib regardless of multilib
 /usr/lib/xen/boot/hvmloader
 /usr/lib/xen/boot/ioemu-stubdom.gz
+/usr/lib/xen/boot/ovmf.bin
 %endif
 
 %files qemu-tools
