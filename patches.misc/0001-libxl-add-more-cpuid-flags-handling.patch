@@ -1,0 +1,138 @@
+From 90b2a267c19cc2505f44b7c488a76f21a40e1e63 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 30 Jun 2017 15:16:56 +0200
+Subject: [PATCH] libxl: add more cpuid flags handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+This is result of parsing cpu_map.xml from libvirt.
+The most important part is handling leaf 0x00000007, but while at it add
+other bits too.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ docs/man/xl.cfg.pod.5.in  | 21 +++++++++++++--------
+ tools/libxl/libxl_cpuid.c | 40 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+), 8 deletions(-)
+
+diff --git a/docs/man/xl.cfg.pod.5.in b/docs/man/xl.cfg.pod.5.in
+index 38084c7..ff32035 100644
+--- a/docs/man/xl.cfg.pod.5.in
++++ b/docs/man/xl.cfg.pod.5.in
+@@ -1464,14 +1464,19 @@ apicidsize brandid clflush family localapicid maxleaf maxhvleaf model nc
+ proccount procpkg stepping
+ 
+ List of keys taking a character:
+-3dnow 3dnowext 3dnowprefetch abm acpi aes altmovcr8 apic avx clfsh cmov
+-cmplegacy cmpxchg16 cmpxchg8 cntxid dca de ds dscpl dtes64 est extapic f16c
+-ffxsr fma4 fpu fxsr htt hypervisor ia64 ibs lahfsahf lm lwp mca mce misalignsse
+-mmx mmxext monitor movbe msr mtrr nodeid nx osvw osxsave pae page1gb pat pbe
+-pclmulqdq pdcm pge popcnt pse pse36 psn rdtscp skinit smx ss sse sse2 sse3
+-sse4_1 sse4_2 sse4a ssse3 svm svm_decode svm_lbrv svm_npt svm_nrips
+-svm_pausefilt svm_tscrate svm_vmcbclean syscall sysenter tbm tm tm2 topoext tsc
+-vme vmx wdt x2apic xop xsave xtpr
++3dnow 3dnowext 3dnowprefetch abm acpi adx aes altmovcr8 apic arat avx avx2
++avx512-4fmaps avx512-4vnniw avx512bw avx512cd avx512dq avx512er avx512f
++avx512ifma avx512pf avx512vbmi avx512vl bmi1 bmi2 clflushopt clfsh clwb cmov
++cmplegacy cmpxchg16 cmpxchg8 cmt cntxid dca de ds dscpl dtes64 erms est extapic
++f16c ffxsr fma fma4 fpu fsgsbase fxsr hle htt hypervisor ia64 ibs invpcid
++invtsc lahfsahf lm lwp mca mce misalignsse mmx mmxext monitor movbe mpx msr
++mtrr nodeid nx ospke osvw osxsave pae page1gb pat pbe pcid pclmulqdq pdcm
++perfctr_core perfctr_nb pge pku popcnt pse pse36 psn rdrand rdseed rdtscp rtm
++sha skinit smap smep smx ss sse sse2 sse3 sse4.1 sse4.2 sse4_1 sse4_2 sse4a
++ssse3 svm svm_decode svm_lbrv svm_npt svm_nrips svm_pausefilt svm_tscrate
++svm_vmcbclean syscall sysenter tbm tm tm2 topoext tsc tsc-deadline tsc_adjust
++umip vme vmx wdt x2apic xop xsave xtpr
++
+ 
+ The xend syntax is a list of values in the form of
+ 'leafnum:register=bitstring,register=bitstring'
+diff --git a/tools/libxl/libxl_cpuid.c b/tools/libxl/libxl_cpuid.c
+index 24591e2..fda8bf6 100644
+--- a/tools/libxl/libxl_cpuid.c
++++ b/tools/libxl/libxl_cpuid.c
+@@ -100,11 +100,13 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"clflush",      0x00000001, NA, CPUID_REG_EBX,  8,  8},
+         {"brandid",      0x00000001, NA, CPUID_REG_EBX,  0,  8},
+         {"hypervisor",   0x00000001, NA, CPUID_REG_ECX, 31,  1},
++        {"rdrand",       0x00000001, NA, CPUID_REG_ECX, 30,  1},
+         {"f16c",         0x00000001, NA, CPUID_REG_ECX, 29,  1},
+         {"avx",          0x00000001, NA, CPUID_REG_ECX, 28,  1},
+         {"osxsave",      0x00000001, NA, CPUID_REG_ECX, 27,  1},
+         {"xsave",        0x00000001, NA, CPUID_REG_ECX, 26,  1},
+         {"aes",          0x00000001, NA, CPUID_REG_ECX, 25,  1},
++        {"tsc-deadline", 0x00000001, NA, CPUID_REG_ECX, 24,  1},
+         {"popcnt",       0x00000001, NA, CPUID_REG_ECX, 23,  1},
+         {"movbe",        0x00000001, NA, CPUID_REG_ECX, 22,  1},
+         {"x2apic",       0x00000001, NA, CPUID_REG_ECX, 21,  1},
+@@ -114,9 +116,11 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"sse4.1",       0x00000001, NA, CPUID_REG_ECX, 19,  1},
+         {"sse4_1",       0x00000001, NA, CPUID_REG_ECX, 19,  1},
+         {"dca",          0x00000001, NA, CPUID_REG_ECX, 18,  1},
++        {"pcid",         0x00000001, NA, CPUID_REG_ECX, 17,  1},
+         {"pdcm",         0x00000001, NA, CPUID_REG_ECX, 15,  1},
+         {"xtpr",         0x00000001, NA, CPUID_REG_ECX, 14,  1},
+         {"cmpxchg16",    0x00000001, NA, CPUID_REG_ECX, 13,  1},
++        {"fma",          0x00000001, NA, CPUID_REG_ECX, 12,  1},
+         {"cntxid",       0x00000001, NA, CPUID_REG_ECX, 10,  1},
+         {"ssse3",        0x00000001, NA, CPUID_REG_ECX,  9,  1},
+         {"tm2",          0x00000001, NA, CPUID_REG_ECX,  8,  1},
+@@ -158,6 +162,41 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"de",           0x00000001, NA, CPUID_REG_EDX,  2,  1},
+         {"vme",          0x00000001, NA, CPUID_REG_EDX,  1,  1},
+         {"fpu",          0x00000001, NA, CPUID_REG_EDX,  0,  1},
++        {"arat",         0x00000006, NA, CPUID_REG_EAX,  2,  1},
++        {"avx512vl",     0x00000007,  0, CPUID_REG_EBX, 31,  1},
++        {"avx512bw",     0x00000007,  0, CPUID_REG_EBX, 30,  1},
++        {"sha",          0x00000007,  0, CPUID_REG_EBX, 29,  1},
++        {"avx512cd",     0x00000007,  0, CPUID_REG_EBX, 28,  1},
++        {"avx512er",     0x00000007,  0, CPUID_REG_EBX, 27,  1},
++        {"avx512pf",     0x00000007,  0, CPUID_REG_EBX, 26,  1},
++        {"clwb",         0x00000007,  0, CPUID_REG_EBX, 24,  1},
++        {"clflushopt",   0x00000007,  0, CPUID_REG_EBX, 23,  1},
++        {"avx512ifma",   0x00000007,  0, CPUID_REG_EBX, 21,  1},
++        {"smap",         0x00000007,  0, CPUID_REG_EBX, 20,  1},
++        {"adx",          0x00000007,  0, CPUID_REG_EBX, 19,  1},
++        {"rdseed",       0x00000007,  0, CPUID_REG_EBX, 18,  1},
++        {"avx512dq",     0x00000007,  0, CPUID_REG_EBX, 17,  1},
++        {"avx512f",      0x00000007,  0, CPUID_REG_EBX, 16,  1},
++        {"mpx",          0x00000007,  0, CPUID_REG_EBX, 14,  1},
++        {"cmt",          0x00000007,  0, CPUID_REG_EBX, 12,  1},
++        {"rtm",          0x00000007,  0, CPUID_REG_EBX, 11,  1},
++        {"invpcid",      0x00000007,  0, CPUID_REG_EBX, 10,  1},
++        {"erms",         0x00000007,  0, CPUID_REG_EBX,  9,  1},
++        {"bmi2",         0x00000007,  0, CPUID_REG_EBX,  8,  1},
++        {"smep",         0x00000007,  0, CPUID_REG_EBX,  7,  1},
++        {"avx2",         0x00000007,  0, CPUID_REG_EBX,  5,  1},
++        {"hle",          0x00000007,  0, CPUID_REG_EBX,  4,  1},
++        {"bmi1",         0x00000007,  0, CPUID_REG_EBX,  3,  1},
++        {"tsc_adjust",   0x00000007,  0, CPUID_REG_EBX,  1,  1},
++        {"fsgsbase",     0x00000007,  0, CPUID_REG_EBX,  0,  1},
++        {"ospke",        0x00000007,  0, CPUID_REG_ECX,  4,  1},
++        {"pku",          0x00000007,  0, CPUID_REG_ECX,  3,  1},
++        {"umip",         0x00000007,  0, CPUID_REG_ECX,  2,  1},
++        {"avx512vbmi",   0x00000007,  0, CPUID_REG_ECX,  1,  1},
++        {"avx512-4fmaps",0x00000007,  0, CPUID_REG_EDX,  3,  1},
++        {"avx512-4vnniw",0x00000007,  0, CPUID_REG_EDX,  2,  1},
++        {"perfctr_nb",   0x80000001, NA, CPUID_REG_ECX, 24,  1},
++        {"perfctr_core", 0x80000001, NA, CPUID_REG_ECX, 23,  1},
+         {"topoext",      0x80000001, NA, CPUID_REG_ECX, 22,  1},
+         {"tbm",          0x80000001, NA, CPUID_REG_ECX, 21,  1},
+         {"nodeid",       0x80000001, NA, CPUID_REG_ECX, 19,  1},
+@@ -187,6 +226,7 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"nx",           0x80000001, NA, CPUID_REG_EDX, 20,  1},
+         {"syscall",      0x80000001, NA, CPUID_REG_EDX, 11,  1},
+         {"procpkg",      0x00000004,  0, CPUID_REG_EAX, 26,  6},
++        {"invtsc",       0x80000007, NA, CPUID_REG_EDX,  8,  1},
+         {"apicidsize",   0x80000008, NA, CPUID_REG_ECX, 12,  4},
+         {"nc",           0x80000008, NA, CPUID_REG_ECX,  0,  8},
+         {"svm_npt",      0x8000000a, NA, CPUID_REG_EDX,  0,  1},
+-- 
+2.7.5
+
