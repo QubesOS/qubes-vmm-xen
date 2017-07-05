@@ -1,0 +1,19 @@
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -2530,6 +2530,16 @@ int libxl__dm_check_start(libxl__gc *gc,
+ {
+     int rc;
+ 
++    /*
++     * Qubes workaround: Don't require a qemu running in dom0. If the domain
++     * has PV drivers hotpluging still works.
++     */
++    uint32_t dm_domid = libxl_get_stubdom_id(CTX, domid);
++    if (dm_domid != 0 &&
++        libxl__stubdomain_version_running(gc, dm_domid) ==
++        LIBXL_STUBDOMAIN_VERSION_LINUX)
++        return 0;
++
+     if (libxl__dm_active(gc, domid))
+         return 0;
+ 
