@@ -1,3 +1,14 @@
+xen (2001:4.6.6-28) unstable; urgency=medium
+
+  [ unman ]
+  * Enable build for Zesty
+
+  [ Marek Marczykowski-Górecki ]
+  * Update download url for Xen
+  * version 4.6.6-28
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 29 Jul 2017 14:15:47 +0200
+
 xen (2001:4.6.5-28) unstable; urgency=medium
 
   [ Olivier MEDOC ]
