@@ -1,0 +1,112 @@
+From 1b38b91c3390a8f97d10f323ef91e1ed16e1cd4d Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 1 Aug 2017 21:03:35 +0100
+Subject: [PATCH] gnttab: don't use possibly unbounded tail calls
+
+There is no guarantee that the compiler would actually translate them
+to branches instead of calls, so only ones with a known recursion limit
+are okay:
+- __release_grant_for_copy() can call itself only once, as
+  __acquire_grant_for_copy() won't permit use of multi-level transitive
+  grants,
+- __acquire_grant_for_copy() is fine to call itself with the last
+  argument false, as that prevents further recursion,
+- __acquire_grant_for_copy() must not call itself to recover from an
+  observed change to the active entry's pin count
+
+This is XSA-226.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/common/grant_table.c | 34 +++++++++++++++++++++-------------
+ 1 file changed, 21 insertions(+), 13 deletions(-)
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index 20230fb..10f2f6a 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -2072,8 +2072,10 @@ __release_grant_for_copy(
+ 
+     if ( td != rd )
+     {
+-        /* Recursive calls, but they're tail calls, so it's
+-           okay. */
++        /*
++         * Recursive calls, but they're bounded (acquire permits only a single
++         * level of transitivity), so it's okay.
++         */
+         if ( released_write )
+             __release_grant_for_copy(td, trans_gref, 0);
+         else if ( released_read )
+@@ -2224,10 +2226,11 @@ __acquire_grant_for_copy(
+                 return rc;
+             }
+ 
+-            /* We dropped the lock, so we have to check that nobody
+-               else tried to pin (or, for that matter, unpin) the
+-               reference in *this* domain.  If they did, just give up
+-               and try again. */
++            /*
++             * We dropped the lock, so we have to check that nobody else tried
++             * to pin (or, for that matter, unpin) the reference in *this*
++             * domain.  If they did, just give up and tell the caller to retry.
++             */
+             if ( act->pin != old_pin )
+             {
+                 __fixup_status_for_copy_pin(act, status);
+@@ -2235,9 +2238,7 @@ __acquire_grant_for_copy(
+                 active_entry_release(act);
+                 read_unlock(&rgt->lock);
+                 put_page(*page);
+-                return __acquire_grant_for_copy(rd, gref, ldom, readonly,
+-                                                frame, page, page_off, length,
+-                                                allow_transitive);
++                return ERESTART;
+             }
+ 
+             /* The actual remote remote grant may or may not be a
+@@ -2543,7 +2544,7 @@ static int gnttab_copy_one(const struct gnttab_copy *op,
+     {
+         gnttab_copy_release_buf(src);
+         rc = gnttab_copy_claim_buf(op, &op->source, src, GNTCOPY_source_gref);
+-        if ( rc < 0 )
++        if ( rc )
+             goto out;
+     }
+ 
+@@ -2553,7 +2554,7 @@ static int gnttab_copy_one(const struct gnttab_copy *op,
+     {
+         gnttab_copy_release_buf(dest);
+         rc = gnttab_copy_claim_buf(op, &op->dest, dest, GNTCOPY_dest_gref);
+-        if ( rc < 0 )
++        if ( rc )
+             goto out;
+     }
+ 
+@@ -2585,13 +2586,20 @@ static long gnttab_copy(
+             break;
+         }
+ 
+-        op.status = gnttab_copy_one(&op, &dest, &src);
+-        if ( op.status != GNTST_okay )
++        rc = gnttab_copy_one(&op, &dest, &src);
++        if ( rc > 0 )
++        {
++            rc = i;
++            break;
++        }
++        if ( rc != GNTST_okay )
+         {
+             gnttab_copy_release_buf(&src);
+             gnttab_copy_release_buf(&dest);
+         }
+ 
++        op.status = rc;
++        rc = 0;
+         if ( unlikely(__copy_field_to_guest(uop, &op, status)) )
+         {
+             rc = -EFAULT;
+-- 
+2.1.4
+
