@@ -186,21 +186,25 @@ HW42:
                  ioemu_nics++;
              }
          }
-@@ -1391,9 +1415,15 @@ static int libxl__build_device_model_arg
-                          "if=ide,index=%d,readonly=on,media=cdrom,id=ide-%i",
-                          disk, dev_number);
+@@ -1388,12 +1412,17 @@ static int libxl__build_device_model_arg
+
+             if (disks[i].is_cdrom) {
+                 drive = libxl__sprintf(gc,
+-                         "if=ide,index=%d,readonly=on,media=cdrom,id=ide-%i",
+-                         disk, dev_number);
++                         "if=ide,readonly=on,media=cdrom,id=ide-%i",
++                         dev_number);
  
 -                if (target_path)
 -                    drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
 -                                           drive, target_path, format);
-+                if (target_path) {
-+                    if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++                if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
++                    if (disks[i].format != LIBXL_DISK_FORMAT_EMPTY)
 +                        drive = libxl__sprintf(gc, "%s,file=/dev/xvd%c,format=host_device",
 +                                               drive, 'a' + disk);
-+                    } else {
-+                        drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
-+                                               drive, target_path, format);
-+                    }
++                } else if (target_path) {
++                    drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
++                                           drive, target_path, format);
 +                }
              } else {
                  /*

@@ -1,0 +1,36 @@
+From e8bc7a422c9a886cc3f37169d96903161e11b784 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 30 Aug 2017 01:55:01 +0200
+Subject: [PATCH] libxl: don't try to resolve local disk path with stubdomain
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+When device model is running in stubdomain, there is no sense in
+resolving disk path in dom0. In stubdomain, it will always be either
+/dev/xvd*, or appropriate FD in mini-os.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index ad366a8..b9dbf5f 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1352,7 +1352,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+                         disks[i].vdev);
+                     continue;
+                 }
+-            } else {
++            } else if (!libxl_defbool_val(b_info->device_model_stubdomain)) {
+                 if (format == NULL) {
+                     LOG(WARN,
+                         "Unable to determine disk image format: %s\n"
+-- 
+2.9.5
+
