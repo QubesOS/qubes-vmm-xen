@@ -1,0 +1,18 @@
+gcc7 generates a call to __udivmoddi4
+
+Adapted from https://www.mail-archive.com/xen-devel@lists.xen.org/msg112593.html (Olaf Hering <olaf@aepfle.de>)
+
+Signed-off-by: Frédéric Pierret
+
+--- a/extras/mini-os/Makefile
++++ b/extras/mini-os/Makefile
+@@ -194,7 +194,7 @@
+ endif
+ 
+ $(OBJ_DIR)/$(TARGET): $(OBJS) $(APP_O) arch_lib
+-	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) -o $@.o
++	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) $$(gcc -print-libgcc-file-name $(CFLAGS)) -o $@.o
+ 	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
+ 	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
+ 	gzip -f -9 -c $@ >$@.gz
+
