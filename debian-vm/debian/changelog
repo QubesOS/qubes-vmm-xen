@@ -1,3 +1,9 @@
+xen (2001:4.8.2-2) unstable; urgency=medium
+
+  * Apply XSA 231-234 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 12 Sep 2017 04:44:26 +0200
+
 xen (2001:4.8.2-1) unstable; urgency=medium
 
   * libxl: make it possible to start HVM with linux-based stubdom and
