@@ -1,3 +1,9 @@
+xen (2001:4.8.2-3) unstable; urgency=medium
+
+  * Load xen-privcmd module at boot
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 15 Sep 2017 15:46:18 +0200
+
 xen (2001:4.8.2-2) unstable; urgency=medium
 
   * Apply XSA 231-234 patches
