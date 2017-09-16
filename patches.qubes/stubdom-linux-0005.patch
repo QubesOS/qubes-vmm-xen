@@ -64,7 +64,11 @@ HW42:
                                    NULL);
                  ioemu_nics++;
              }
-@@ -927,6 +938,7 @@ static int libxl__build_device_model_arg
+@@ -924,9 +935,11 @@ static int libxl__build_device_model_arg
+     char *machinearg;
+     flexarray_t *dm_args, *dm_envs;
+     int i, connection, devid, ret;
++    int stubdom_scsi_disks = 0;
      uint64_t ram_size;
      const char *path, *chardev;
      char *user = NULL;
@@ -72,7 +76,7 @@ HW42:
  
      dm_args = flexarray_make(gc, 16, 1);
      dm_envs = flexarray_make(gc, 16, 1);
-@@ -937,24 +949,27 @@ static int libxl__build_device_model_arg
+@@ -937,24 +950,27 @@ static int libxl__build_device_model_arg
                        "-xen-domid",
                        GCSPRINTF("%d", guest_domid), NULL);
  
@@ -117,7 +121,7 @@ HW42:
  
      for (i = 0; i < guest_config->num_channels; i++) {
          connection = guest_config->channels[i].connection;
-@@ -998,7 +1013,7 @@ static int libxl__build_device_model_arg
+@@ -998,7 +1014,7 @@ static int libxl__build_device_model_arg
          flexarray_vappend(dm_args, "-name", c_info->name, NULL);
      }
  
@@ -126,7 +130,7 @@ HW42:
          char *vncarg = NULL;
  
          flexarray_append(dm_args, "-vnc");
-@@ -1036,7 +1051,7 @@ static int libxl__build_device_model_arg
+@@ -1036,7 +1052,7 @@ static int libxl__build_device_model_arg
          }
  
          flexarray_append(dm_args, vncarg);
@@ -135,7 +139,7 @@ HW42:
          /*
           * Ensure that by default no vnc server is created.
           */
-@@ -1048,7 +1063,7 @@ static int libxl__build_device_model_arg
+@@ -1048,7 +1064,7 @@ static int libxl__build_device_model_arg
       */
      flexarray_append_pair(dm_args, "-display", "none");
  
@@ -144,7 +148,7 @@ HW42:
          flexarray_append(dm_args, "-sdl");
          if (sdl->display)
              flexarray_append_pair(dm_envs, "DISPLAY", sdl->display);
-@@ -1079,10 +1094,19 @@ static int libxl__build_device_model_arg
+@@ -1079,10 +1095,19 @@ static int libxl__build_device_model_arg
                  return ERROR_INVAL;
              }
              if (b_info->u.hvm.serial) {
@@ -166,7 +170,7 @@ HW42:
                  for (p = b_info->u.hvm.serial_list;
                       *p;
                       p++) {
-@@ -1097,7 +1121,7 @@ static int libxl__build_device_model_arg
+@@ -1097,7 +1122,7 @@ static int libxl__build_device_model_arg
              flexarray_append(dm_args, "-nographic");
          }
  
@@ -175,7 +179,7 @@ HW42:
              const libxl_spice_info *spice = &b_info->u.hvm.spice;
              char *spiceoptions = dm_spice_options(gc, spice);
              if (!spiceoptions)
-@@ -1236,8 +1260,8 @@ static int libxl__build_device_model_arg
+@@ -1236,8 +1261,8 @@ static int libxl__build_device_model_arg
                                   GCSPRINTF("type=tap,id=net%d,ifname=%s,"
                                             "script=%s,downscript=%s",
                                             nics[i].devid, ifname,
@@ -186,8 +190,17 @@ HW42:
                  ioemu_nics++;
              }
          }
-@@ -1388,12 +1412,17 @@ static int libxl__build_device_model_arg
-
+@@ -1322,6 +1347,8 @@ static int libxl__build_device_model_arg
+     if (b_info->type == LIBXL_DOMAIN_TYPE_HVM) {
+         if (b_info->u.hvm.hdtype == LIBXL_HDTYPE_AHCI)
+             flexarray_append_pair(dm_args, "-device", "ahci,id=ahci0");
++        if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
++            flexarray_append_pair(dm_args, "-device", "mptsas1068,id=scsi0");
+         for (i = 0; i < num_disks; i++) {
+             int disk, part;
+             int dev_number =
+@@ -1388,12 +1415,17 @@ static int libxl__build_device_model_arg
+ 
              if (disks[i].is_cdrom) {
                  drive = libxl__sprintf(gc,
 -                         "if=ide,index=%d,readonly=on,media=cdrom,id=ide-%i",
@@ -196,34 +209,50 @@ HW42:
 +                         dev_number);
  
 -                if (target_path)
--                    drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
--                                           drive, target_path, format);
 +                if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
 +                    if (disks[i].format != LIBXL_DISK_FORMAT_EMPTY)
 +                        drive = libxl__sprintf(gc, "%s,file=/dev/xvd%c,format=host_device",
 +                                               drive, 'a' + disk);
 +                } else if (target_path) {
-+                    drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
-+                                           drive, target_path, format);
+                     drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
+                                            drive, target_path, format);
 +                }
              } else {
                  /*
                   * Explicit sd disks are passed through as is.
-@@ -1411,7 +1441,12 @@ static int libxl__build_device_model_arg
+@@ -1411,7 +1443,30 @@ static int libxl__build_device_model_arg
                      colo_mode = LIBXL__COLO_NONE;
                  }
  
 -                if (strncmp(disks[i].vdev, "sd", 2) == 0) {
 +                if (b_info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {
-+                    // Always use SCSI disk in linux stubdoms.
-+                    drive = libxl__sprintf
-+                        (gc, "file=/dev/xvd%c,if=scsi,bus=0,unit=%d,format=host_device,cache=writeback,readonly=%s",
-+                         'a' + disk, disk, disks[i].readwrite ? "off" : "on");
++                    /*
++                     * Always use SCSI disks in linux stubdoms.
++                     */
++
++                    /*
++                     * mptsas1068 supports only 8 disks. So don't try to
++                     * emulate more.
++                     */
++                    stubdom_scsi_disks++;
++                    if (stubdom_scsi_disks > 8)
++                        continue;
++
++                    /*
++                     * We assign locally generated WWNs since the Linux and
++                     * the FreeBSD mptsas1068 driver don't work otherwise.
++                     */
++                    flexarray_vappend(dm_args, "-drive",
++                        GCSPRINTF("file=/dev/xvd%c,if=none,id=disk%d,format=host_device,cache=writeback,readonly=%s",
++                        'a' + disk, disk, disks[i].readwrite ? "off" : "on"),
++                        "-device", GCSPRINTF("scsi-hd,bus=scsi0.0,drive=disk%d,wwn=0x%lx",
++                        disk, 0x3525400051756265 + disk), NULL);
++                    continue;
 +                } else if (strncmp(disks[i].vdev, "sd", 2) == 0) {
                      if (colo_mode == LIBXL__COLO_SECONDARY) {
                          drive = libxl__sprintf
                              (gc, "if=none,driver=%s,file=%s,id=%s",
-@@ -1519,7 +1554,7 @@ static int libxl__build_device_model_arg
+@@ -1519,7 +1574,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)
@@ -232,7 +261,7 @@ HW42:
   * and therefore will be passing a filename rather than a fd. */
  {
      switch (guest_config->b_info.device_model_version) {
-@@ -1529,8 +1564,10 @@ static int libxl__build_device_model_arg
+@@ -1529,8 +1584,10 @@ static int libxl__build_device_model_arg
                                                    args, envs,
                                                    state);
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -245,7 +274,7 @@ HW42:
          return libxl__build_device_model_args_new(gc, dm,
                                                    guest_domid, guest_config,
                                                    args, envs,
-@@ -1587,7 +1624,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
+@@ -1587,7 +1644,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
  
  static int libxl__write_stub_dmargs(libxl__gc *gc,
                                      int dm_domid, int guest_domid,
@@ -254,7 +283,7 @@ HW42:
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
      int i;
-@@ -1615,7 +1652,9 @@ static int libxl__write_stub_dmargs(libx
+@@ -1615,7 +1672,9 @@ static int libxl__write_stub_dmargs(libx
      i = 1;
      dmargs[0] = '\0';
      while (args[i] != NULL) {
