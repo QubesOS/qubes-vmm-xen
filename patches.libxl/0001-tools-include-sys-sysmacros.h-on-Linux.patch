@@ -17,6 +17,7 @@ kernel header anyway.
 
 Signed-off-by: Olaf Hering <olaf@aepfle.de>
 Acked-by: Wei Liu <wei.liu2@citrix.com>
+Signed-off-by: Frédéric Pierret (Epitre) <frederic.epitre@orange.fr>
 ---
  tools/blktap2/control/tap-ctl-allocate.c | 1 +
  tools/libxl/libxl_osdeps.h               | 1 +
@@ -38,14 +39,14 @@ diff --git a/tools/libxl/libxl_osdeps.h b/tools/libxl/libxl_osdeps.h
 index d9661c9..1837c01 100644
 --- a/tools/libxl/libxl_osdeps.h
 +++ b/tools/libxl/libxl_osdeps.h
-@@ -34,6 +34,7 @@
+@@ -39,6 +39,7 @@
  #define SYSFS_PCI_DEV          "/sys/bus/pci/devices"
  #define SYSFS_PCIBACK_DRIVER   "/sys/bus/pci/drivers/pciback"
  #define NETBACK_NIC_NAME       "vif%u.%d"
 +#include <sys/sysmacros.h>
  #include <pty.h>
+ #include <uuid/uuid.h>
  #elif defined(__sun__)
- #include <stropts.h>
 -- 
 2.5.5
 
