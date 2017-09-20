@@ -1,0 +1,51 @@
+From d755ba7fc0e44a284150f8b2826ce93686200058 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Tue, 16 Apr 2013 23:27:41 +0200
+Subject: [PATCH] libxl: do not call default block script
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski <marmarek@invisiblethingslab.com>
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl.c       | 8 +++++---
+ tools/libxl/libxl_linux.c | 5 ++---
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 11d94ff..74a2421 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -2093,9 +2093,11 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
+                 flexarray_append(back, "params");
+                 flexarray_append(back, dev);
+ 
+-                script = libxl__abs_path(gc, disk->script?: "block",
+-                                         libxl__xen_script_dir_path());
+-                flexarray_append_pair(back, "script", script);
++                if (disk->script) {
++                    script = libxl__abs_path(gc, disk->script?: "block",
++                            libxl__xen_script_dir_path());
++                    flexarray_append_pair(back, "script", script);
++                }
+ 
+                 /* If the user did not supply a block script then we
+                  * write the physical-device node ourselves.
+diff --git a/tools/libxl/libxl_linux.c b/tools/libxl/libxl_linux.c
+index 115332a..923a1d0 100644
+--- a/tools/libxl/libxl_linux.c
++++ b/tools/libxl/libxl_linux.c
+@@ -334,9 +334,8 @@ static int libxl__hotplug_disk(libxl__gc *gc, libxl__device *dev,
+     script = libxl__xs_read(gc, XBT_NULL,
+                             GCSPRINTF("%s/%s", be_path, "script"));
+     if (!script) {
+-        LOGEV(ERROR, errno, "unable to read script from %s", be_path);
+-        rc = ERROR_FAIL;
+-        goto error;
++        LOG(INFO, "no script for %s", be_path);
++        return 0;
+     }
+ 
+     *env = get_hotplug_env(gc, script, dev);
+-- 
+1.8.1.4
+

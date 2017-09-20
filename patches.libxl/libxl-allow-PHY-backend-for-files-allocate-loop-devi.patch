@@ -19,6 +19,9 @@ Changes in v2:
 Change in v3:
  - set loopdev info
 
+Changes in v3:
+ - update for Xen 4.8
+
 Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
@@ -37,7 +40,7 @@ index 2d29ad2..e5672e5 100644
                  if (!disk->script &&
                      disk->backend_domid == LIBXL_TOOLSTACK_DOMID) {
                      int major, minor;
--                    libxl__device_physdisk_major_minor(dev, &major, &minor);
+-                    if (!libxl__device_physdisk_major_minor(dev, &major, &minor))
 +                    char *node;
 +
 +                    node = libxl__loopdev_setup(gc, dev);
@@ -46,41 +49,41 @@ index 2d29ad2..e5672e5 100644
 +                        goto out;
 +                    }
 +                    if (node != dev) {
-+                        flexarray_append_pair(back, "node", node);
++                        flexarray_append_pair(back, "physical-device-path", node);
 +                    }
 +
-+                    libxl__device_physdisk_major_minor(node, &major, &minor);
-                     flexarray_append_pair(back, "physical-device",
-                             libxl__sprintf(gc, "%x:%x", major, minor));
++                    if (!libxl__device_physdisk_major_minor(node, &major, &minor))
+                         flexarray_append_pair(back, "physical-device",
+                                               GCSPRINTF("%x:%x", major, minor));
                  }
 diff --git a/tools/libxl/libxl_device.c b/tools/libxl/libxl_device.c
 index ba7d100..6b2517b 100644
 --- a/tools/libxl/libxl_device.c
 +++ b/tools/libxl/libxl_device.c
 @@ -954,6 +954,7 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
- {
      STATE_AO_GC(aodev->ao);
+     libxl__async_exec_state *aes = &aodev->aes;
      char *be_path = libxl__device_backend_path(gc, aodev->dev);
 +    char *node;
      char **args = NULL, **env = NULL;
      int rc = 0;
-     int hotplug;
+     int hotplug, nullfd = -1;
 @@ -997,6 +998,15 @@ static void device_hotplug(libxl__egc *egc, libxl__ao_device *aodev)
      switch (hotplug) {
      case 0:
          /* no hotplug script to execute */
 +        if (!aodev->num_exec && aodev->action == LIBXL__DEVICE_ACTION_REMOVE) {
 +            /* check if we have loop device allocated - if so, try to release it */
-+            node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/node", be_path));
++            node = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("%s/physical-device-path", be_path));
 +            if (node) {
 +                /* ignore errors: if device is already released - no problem, if
 +                 * EBUSY - can be shared */
 +                libxl__loopdev_cleanup(gc, node);
 +            }
 +        }
+         LOG(DEBUG, "No hotplug script to execute");
          goto out;
      case 1:
-         /* execute hotplug script */
 diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
 index 9d17586..8634f71 100644
 --- a/tools/libxl/libxl_internal.h
@@ -113,12 +116,11 @@ index ea5d8c1..a0bf8d8 100644
   
  int libxl__try_phy_backend(mode_t st_mode)
  {
--    if (!S_ISBLK(st_mode)) {
-+    if (!S_ISBLK(st_mode) && !S_ISREG(st_mode)) {
-         return 0;
+     if (S_ISBLK(st_mode) || S_ISREG(st_mode)) {
+         return 1;
      }
  
-     return 1;
+     return 0;
  }
  
 +char *libxl__loopdev_setup(libxl__gc *gc, char *filename) {
@@ -256,9 +258,9 @@ index ea5d8c1..a0bf8d8 100644
 +}
 +
 +
- #define EXT_SHIFT 28
- #define EXTENDED (1<<EXT_SHIFT)
- #define VDEV_IS_EXTENDED(dev) ((dev)&(EXTENDED))
+ char *libxl__devid_to_localdev(libxl__gc *gc, int devid)
+ {
+     return libxl__devid_to_vdev(gc, devid);
 diff --git a/tools/libxl/libxl_netbsd.c b/tools/libxl/libxl_netbsd.c
 index 898e160..1e71572 100644
 --- a/tools/libxl/libxl_netbsd.c
