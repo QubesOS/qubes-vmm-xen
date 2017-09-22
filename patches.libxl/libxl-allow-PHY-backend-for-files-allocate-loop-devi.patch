@@ -157,7 +157,7 @@ index ea5d8c1..a0bf8d8 100644
 +    dir_fd = dirfd(sysblock);
 +
 +    while ((d = readdir(sysblock))) {
-+        char name[256];
++        char name[300];
 +        struct stat buf;
 +
 +        if (strcmp(d->d_name, ".") == 0
