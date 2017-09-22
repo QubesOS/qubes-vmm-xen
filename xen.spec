@@ -105,8 +105,8 @@ BuildRequires: pciutils-devel
 BuildRequires: libuuid-devel
 # iasl needed to build hvmloader
 BuildRequires: iasl
-# build using Fedora seabios and ipxe packages for roms
-BuildRequires: seabios-bin ipxe-roms-qemu
+# build using Fedora's ipxe package for roms
+BuildRequires: ipxe-roms-qemu
 # modern compressed kernels
 BuildRequires: bzip2-devel xz-devel
 # libfsimage
@@ -147,7 +147,6 @@ Requires(postun): systemd
 BuildRequires: systemd
 BuildRequires: systemd-devel
 # BIOS for HVMs
-Requires: seabios-bin
 BuildRequires: edk2-ovmf
 
 %description
@@ -337,11 +336,6 @@ patch -d tools/qemu-xen-traditional -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
 %define efi_flags LD_EFI=/usr/x86_64-w64-mingw32/bin/ld EFI_VENDOR=qubes
 mkdir -p dist/install/boot/efi/efi/qubes
 %endif
-%if %(test -f /usr/share/seabios/bios-256k.bin && echo 1|| echo 0)
-%define seabiosloc /usr/share/seabios/bios-256k.bin
-%else
-%define seabiosloc /usr/share/seabios/bios.bin
-%endif
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS_EXTRA="$RPM_OPT_FLAGS"
 export PATH="/usr/bin:$PATH"
@@ -356,7 +350,7 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --prefix=%{_prefix} \
     --libdir=%{_libdir} \
     --libexecdir=/usr/lib \
-    --with-system-seabios=%{seabiosloc} \
+    --with-system-seabios=/usr/lib/xen/boot/seabios-256k.bin \
     --with-system-ovmf=/usr/lib/xen/boot/ovmf.bin \
     --enable-vtpm-stubdom \
     --enable-vtpmmgr-stubdom \
