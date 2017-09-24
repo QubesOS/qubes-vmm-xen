@@ -1,3 +1,14 @@
+xen (2001:4.6.6-31) unstable; urgency=medium
+
+  [ Frederic Pierret (Epitre) ]
+  * Fix GCC7 warnings/errors
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: switch to Qubes 3.2, add fc25 and fc26 build targets
+  * debian: add build deps tag for buster
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 24 Sep 2017 03:24:42 +0200
+
 xen (2001:4.6.6-30) unstable; urgency=medium
 
   * Apply XSA 231-234 patches
