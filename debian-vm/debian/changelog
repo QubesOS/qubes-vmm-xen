@@ -1,3 +1,23 @@
+xen (2001:4.8.2-4) unstable; urgency=medium
+
+  [ Frederic Pierret (Epitre) ]
+  * Fix GCC7 warnings/errors
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA 231-234 patches
+  * version 4.8.2-2
+  * travis: build for fc26
+  * Restore in-libxl handling trivial cases for block backend
+
+  [ HW42 ]
+  * stubdom-linux: Use mptsas1068 scsi controller
+  * hvm: Use our SeaBIOS build
+
+  [ Marek Marczykowski-Górecki ]
+  * Fix gcc 7 compile warning
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 26 Sep 2017 03:06:13 +0200
+
 xen (2001:4.8.2-3) unstable; urgency=medium
 
   * Load xen-privcmd module at boot
