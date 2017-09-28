@@ -151,7 +151,11 @@ Requires(postun): systemd
 BuildRequires: systemd
 BuildRequires: systemd-devel
 # BIOS for HVMs
+%if 0%{?rhel} >= 7
+BuildRequires: OVMF
+%else
 BuildRequires: edk2-ovmf
+%endif
 
 %description
 This package contains the XenD daemon and xm command line
@@ -422,7 +426,11 @@ ln -s ../lib/%{name}/bin/qemu-io  %{buildroot}/usr/bin/
 ln -s ../lib/%{name}/bin/qemu-nbd %{buildroot}/usr/bin/
 
 # "build" combined OVMF image based on system package
+%if 0%{?rhel} >=7
+cat /usr/share/OVMF/OVMF_{VARS,CODE.secboot}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
+%else
 cat /usr/share/edk2/ovmf/OVMF_{VARS,CODE}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
+%endif
 
 ############ debug packaging: list files ############
 
