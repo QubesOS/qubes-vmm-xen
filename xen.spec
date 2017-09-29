@@ -78,7 +78,11 @@ BuildRequires: libX11-devel ghostscript texlive-latex
 BuildRequires: python2-devel
 %endif
 %if %with_python3
+%if 0%{?rhel} >= 7
+BuildRequires: python34-devel
+%else
 BuildRequires: python3-devel
+%endif
 %endif
 %if 0%fedora >= 18
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
@@ -147,7 +151,11 @@ Requires(postun): systemd
 BuildRequires: systemd
 BuildRequires: systemd-devel
 # BIOS for HVMs
+%if 0%{?rhel} >= 7
+BuildRequires: OVMF
+%else
 BuildRequires: edk2-ovmf
+%endif
 
 %description
 This package contains the XenD daemon and xm command line
@@ -169,6 +177,18 @@ and xen.lowlevel.xc modules.
 %endif
 
 %if %with_python3
+%if 0%{?rhel} >= 7
+%package -n python34-%{name}
+Summary: Python3 bindings for Xen tools
+Group: Development/Libraries
+Requires: xen-libs = %{version}-%{release}
+Requires: python34
+%{?python_provide:%python_provide python34-%{name}}
+
+%description -n python34-%{name}
+This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
+and xen.lowlevel.xc modules.
+%else
 %package -n python3-%{name}
 Summary: Python3 bindings for Xen tools
 Group: Development/Libraries
@@ -179,6 +199,7 @@ Requires: python3
 %description -n python3-%{name}
 This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
 and xen.lowlevel.xc modules.
+%endif
 
 %endif
 
@@ -405,7 +426,11 @@ ln -s ../lib/%{name}/bin/qemu-io  %{buildroot}/usr/bin/
 ln -s ../lib/%{name}/bin/qemu-nbd %{buildroot}/usr/bin/
 
 # "build" combined OVMF image based on system package
+%if 0%{?rhel} >=7
+cat /usr/share/OVMF/OVMF_{VARS,CODE.secboot}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
+%else
 cat /usr/share/edk2/ovmf/OVMF_{VARS,CODE}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
+%endif
 
 ############ debug packaging: list files ############
 
@@ -587,7 +612,11 @@ rm -rf %{buildroot}
 %{python_sitearch}/%{name}
 %{python_sitearch}/xen-*.egg-info
 
+%if 0%{?rhel} >= 7
+%files -n python34-%{name}
+%else
 %files -n python3-%{name}
+%endif
 %{python3_sitearch}/%{name}
 %{python3_sitearch}/xen-*.egg-info
 
