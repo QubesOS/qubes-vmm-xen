@@ -39,6 +39,7 @@ X-Python-Version: 2.7
 X-Qubes-Build-Depends-wheezy: libsystemd-dev,libsystemd-dev:amd64,python-dev
 X-Qubes-Build-Depends-jessie:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
 X-Qubes-Build-Depends-stretch:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
+X-Qubes-Build-Depends-buster:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
 X-Qubes-Build-Depends-trusty: libsystemd-daemon-dev,libsystemd-daemon-dev:amd64,libpython2.7-dev
 X-Qubes-Build-Depends-xenial:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
 X-Qubes-Build-Depends-zesty:  libsystemd-dev,libsystemd-dev:amd64,libpython2.7-dev
