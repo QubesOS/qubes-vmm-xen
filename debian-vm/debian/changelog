@@ -1,3 +1,14 @@
+xen (2001:4.8.2-5) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * debian: add dependency tag for buster
+
+  [ Frédéric Pierret ]
+  * Fix CentOS dependencies: python3
+  * Fix CentOS dependencies: OVMF
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 29 Sep 2017 22:48:20 +0200
+
 xen (2001:4.8.2-4) unstable; urgency=medium
 
   [ Frederic Pierret (Epitre) ]
