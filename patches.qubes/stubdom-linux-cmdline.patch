@@ -1,0 +1,50 @@
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -152,7 +152,8 @@ int libxl__domain_build_info_setdefault(
+         /* Check HVM direct boot parameters, we should honour ->ramdisk and
+          * ->cmdline iff ->kernel is set.
+          */
+-        if (!b_info->kernel && (b_info->ramdisk || b_info->cmdline)) {
++        if (!b_info->kernel && (b_info->ramdisk || (b_info->cmdline &&
++            !libxl_defbool_val(b_info->device_model_stubdomain)))) {
+             LOG(ERROR, "direct boot parameters specified but kernel missing");
+             return ERROR_INVAL;
+         }
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1654,6 +1654,7 @@ static int libxl__write_stub_dmargs(libx
+     int i;
+     char *vm_path;
+     char *dmargs, *path;
++    const char arg_sep = linux_stubdom ? '\x1b' : ' ';
+     int dmargs_size;
+     struct xs_permissions roperm[2];
+     xs_transaction_t t;
+@@ -1665,7 +1666,7 @@ static int libxl__write_stub_dmargs(libx
+ 
+     vm_path = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("/local/domain/%d/vm", guest_domid));
+ 
+-    i = 0;
++    i = 1;
+     dmargs_size = 0;
+     while (args[i] != NULL) {
+         dmargs_size = dmargs_size + strlen(args[i]) + 1;
+@@ -1676,11 +1677,14 @@ static int libxl__write_stub_dmargs(libx
+     i = 1;
+     dmargs[0] = '\0';
+     while (args[i] != NULL) {
+-        if (linux_stubdom ||
+-            (strcmp(args[i], "-sdl") &&
+-             strcmp(args[i], "-M") && strcmp(args[i], "xenfv"))) {
+-            strcat(dmargs, " ");
++        if (!strchr(args[i], arg_sep) &&
++            (linux_stubdom ||
++             (strcmp(args[i], "-sdl") &&
++              strcmp(args[i], "-M") && strcmp(args[i], "xenfv")))) {
+             strcat(dmargs, args[i]);
++            if (args[i + 1] != NULL) {
++                strncat(dmargs, &arg_sep, 1);
++            }
+         }
+         i++;
+     }
