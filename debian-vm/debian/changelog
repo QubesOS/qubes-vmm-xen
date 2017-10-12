@@ -1,3 +1,9 @@
+xen (2001:4.8.2-6) unstable; urgency=medium
+
+  * Apply XSA 237-244 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 12 Oct 2017 12:50:16 +0200
+
 xen (2001:4.8.2-5) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
