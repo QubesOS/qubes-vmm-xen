@@ -1,3 +1,12 @@
+xen (2001:4.8.2-7) unstable; urgency=medium
+
+  [ HW42 ]
+  * stubdom: grant stubdom access to msi irq
+  * stubdom: set 'allow_msi_enable' for stubdoms
+  * stubdom-minios: re-add MSI capabilities in pci config
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 13 Oct 2017 00:52:46 +0200
+
 xen (2001:4.8.2-6) unstable; urgency=medium
 
   * Apply XSA 237-244 patches
