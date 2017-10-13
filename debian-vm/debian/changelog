@@ -1,3 +1,9 @@
+xen (2001:4.6.6-33) unstable; urgency=medium
+
+  * Workaround for qemu-xen build failure on Fedora 26
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 13 Oct 2017 22:56:39 +0200
+
 xen (2001:4.6.6-32) unstable; urgency=medium
 
   * Apply XSA 237-244 patches
