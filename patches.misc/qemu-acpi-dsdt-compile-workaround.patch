@@ -1,0 +1,17 @@
+Force iasl output generation (-f), even if errors are found. Since Qubes OS do
+not use this part of qemu-xen (in this version, only qemu-xen-traditional is
+used, and only in stubdomain), it does not affect any actual VM.
+
+diff --git a/hw/i386/Makefile.objs b/hw/i386/Makefile.objs
+index 9d419ad..d7bcb9b 100644
+--- a/tools/qemu-xen/hw/i386/Makefile.objs
++++ b/tools/qemu-xen/hw/i386/Makefile.objs
+@@ -22,7 +22,7 @@ ifdef IASL
+ hw/i386/%.hex: $(SRC_PATH)/hw/i386/%.dsl $(SRC_PATH)/scripts/acpi_extract_preprocess.py $(SRC_PATH)/scripts/acpi_extract.py
+ 	$(call quiet-command, $(CPP) -x c -P $(QEMU_DGFLAGS) $(QEMU_INCLUDES) $< -o $*.dsl.i.orig, "  CPP $(TARGET_DIR)$*.dsl.i.orig")
+ 	$(call quiet-command, $(PYTHON) $(SRC_PATH)/scripts/acpi_extract_preprocess.py $*.dsl.i.orig > $*.dsl.i, "  ACPI_PREPROCESS $(TARGET_DIR)$*.dsl.i")
+-	$(call quiet-command, $(IASL) $(call iasl-option,$(IASL),-Pn,) -vs -l -tc -p $* $*.dsl.i $(if $(V), , > /dev/null) 2>&1 ,"  IASL $(TARGET_DIR)$*.dsl.i")
++	$(call quiet-command, $(IASL) $(call iasl-option,$(IASL),-Pn,) -vs -l -f -tc -p $* $*.dsl.i $(if $(V), , > /dev/null) 2>&1 ,"  IASL $(TARGET_DIR)$*.dsl.i")
+ 	$(call quiet-command, $(PYTHON) $(SRC_PATH)/scripts/acpi_extract.py $*.lst > $*.off, "  ACPI_EXTRACT $(TARGET_DIR)$*.off")
+ 	$(call quiet-command, cat $*.off > $@, "  CAT $(TARGET_DIR)$@")
+ else
