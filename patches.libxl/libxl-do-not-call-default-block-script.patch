@@ -22,7 +22,7 @@ index 11d94ff..74a2421 100644
 -                script = libxl__abs_path(gc, disk->script?: "block",
 -                                         libxl__xen_script_dir_path());
 -                flexarray_append_pair(back, "script", script);
-+                if (disk->script) {
++                if (disk->script || disk->backend_domid != LIBXL_TOOLSTACK_DOMID) {
 +                    script = libxl__abs_path(gc, disk->script?: "block",
 +                            libxl__xen_script_dir_path());
 +                    flexarray_append_pair(back, "script", script);
