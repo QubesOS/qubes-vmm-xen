@@ -1,3 +1,9 @@
+xen (2001:4.6.6-34) wheezy; urgency=medium
+
+  * Apply XSA 236 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 24 Oct 2017 16:37:09 +0200
+
 xen (2001:4.6.6-33) unstable; urgency=medium
 
   * Workaround for qemu-xen build failure on Fedora 26
