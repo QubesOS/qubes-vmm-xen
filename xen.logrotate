@@ -4,5 +4,6 @@
     notifempty
     missingok
     copytruncate
+    su root qubes
 }
 
