@@ -692,6 +692,7 @@ rm -rf %{buildroot}
 %if %build_efi
 /boot/efi/EFI/qubes/*.efi
 %endif
+/usr/lib/debug/xen*
 %endif
 
 %files doc
