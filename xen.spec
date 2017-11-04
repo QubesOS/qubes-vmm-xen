@@ -545,7 +545,13 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 %postun qubes-vm
 %systemd_postun
 
-%post libs -p /sbin/ldconfig
+%post libs
+
+/sbin/ldconfig
+
+# reload libxl library
+systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
+
 %postun libs -p /sbin/ldconfig
 
 %if %build_hyp
