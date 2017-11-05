@@ -1,3 +1,18 @@
+xen (2001:4.8.2-10) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Fix logrotate configuration
+
+  [ HW42 ]
+  * stubdom-linux: Pass cmdline to stubdom via xenstore
+  * xenstore-client: Add option for raw in-/output
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: force upgrading together with xen-hvm-stubdom-linux
+  * rpm: restart libvirtd to reload libxl library
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 05 Nov 2017 02:06:11 +0100
+
 xen (2001:4.8.2-9) wheezy; urgency=medium
 
   * Apply XSA 236 patch
