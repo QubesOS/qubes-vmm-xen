@@ -101,6 +101,8 @@ package() {
   rm -rf $pkgdir/etc/sysconfig
   rm -rf $pkgdir/etc/rc.d/init.d
 
+  rm -r "$pkgdir/var/run"
+
   ############ fixup files in /etc ############
 
   # udev
