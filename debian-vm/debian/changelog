@@ -1,3 +1,9 @@
+xen (2001:4.6.6-35) wheezy; urgency=medium
+
+  * Apply XSA-246 and XSA-247
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 28 Nov 2017 13:17:20 +0100
+
 xen (2001:4.6.6-34) wheezy; urgency=medium
 
   * Apply XSA 236 patch
