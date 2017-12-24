@@ -1,0 +1,36 @@
+From 668e4edf92fcf7cb929eed221059a3eeb02722c3 Mon Sep 17 00:00:00 2001
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Sat, 29 Oct 2016 18:22:38 +0100
+Subject: [PATCH] stubdom: make GMP aware that it's being cross-compiled
+
+Append --build and --host flags to GMP's configure script so that it
+knows it is being cross-compiled.
+
+This should fix the issue that GMP doesn't compile with gcc 6, because
+configure script won't try to test the host environment anymore.
+
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Acked-by: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Release-acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ stubdom/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/stubdom/Makefile b/stubdom/Makefile
+index 0252bcc..dd52121 100644
+--- a/stubdom/Makefile
++++ b/stubdom/Makefile
+@@ -171,7 +171,7 @@ gmp-$(XEN_TARGET_ARCH): gmp-$(GMP_VERSION).tar.bz2 $(NEWLIB_STAMPFILE)
+ 	rm $@ -rf || :
+ 	mv gmp-$(GMP_VERSION) $@
+ 	#patch -d $@ -p0 < gmp.patch
+-	cd $@; CPPFLAGS="-isystem $(CROSS_PREFIX)/$(GNU_TARGET_ARCH)-xen-elf/include $(TARGET_CPPFLAGS)" CFLAGS="$(TARGET_CFLAGS)" CC=$(CC) $(GMPEXT) ./configure --disable-shared --enable-static --disable-fft --without-readline --prefix=$(CROSS_PREFIX)/$(GNU_TARGET_ARCH)-xen-elf
++	cd $@; CPPFLAGS="-isystem $(CROSS_PREFIX)/$(GNU_TARGET_ARCH)-xen-elf/include $(TARGET_CPPFLAGS)" CFLAGS="$(TARGET_CFLAGS)" CC=$(CC) $(GMPEXT) ./configure --disable-shared --enable-static --disable-fft --without-readline --prefix=$(CROSS_PREFIX)/$(GNU_TARGET_ARCH)-xen-elf --build=`gcc -dumpmachine` --host=$(GNU_TARGET_ARCH)-xen-elf
+ 	sed -i 's/#define HAVE_OBSTACK_VPRINTF 1/\/\/#define HAVE_OBSTACK_VPRINTF 1/' $@/config.h
+ 	touch $@
+ 
+-- 
+2.1.4
+
