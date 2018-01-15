@@ -10,7 +10,7 @@ CONFIG_ARCH_DEFCONFIG="arch/x86/configs/x86_64_defconfig"
 # Architecture Features
 #
 CONFIG_NR_CPUS=256
-# CONFIG_SHADOW_PAGING is not set
+CONFIG_SHADOW_PAGING=y
 # CONFIG_BIGMEM is not set
 # CONFIG_HVM_FEP is not set
 CONFIG_TBOOT=y
