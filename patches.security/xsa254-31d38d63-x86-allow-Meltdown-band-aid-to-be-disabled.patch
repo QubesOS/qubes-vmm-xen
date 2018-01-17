@@ -76,7 +76,7 @@ index 69e1ab6294..303c551cda 100644
                      if ( !rc )
 -                        sync_guest = true;
 +                        sync_guest = this_cpu(root_pgt);
-                     break;
+                 break;
                  case PGT_writable_page:
                      perfc_incr(writable_mmu_updates);
 diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c

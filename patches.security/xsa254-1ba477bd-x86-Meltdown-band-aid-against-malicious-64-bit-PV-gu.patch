@@ -83,7 +83,7 @@ index c22455d238..69e1ab6294 100644
                                        cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
 +                    if ( !rc )
 +                        sync_guest = true;
-                     break;
+                 break;
                  case PGT_writable_page:
                      perfc_incr(writable_mmu_updates);
 @@ -4111,6 +4114,20 @@ long do_mmu_update(

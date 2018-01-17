@@ -185,8 +185,8 @@ index a9b028267c..df4ac81c72 100644
 +    printk("r15: %016lx   cr0: %016lx   cr4: %016lx\n",
 +           regs->r15, crs[0], crs[4]);
      printk("cr3: %016lx   cr2: %016lx\n", crs[3], crs[2]);
-     printk("fsb: %016lx   gsb: %016lx   gss: %016lx\n",
-            crs[5], crs[6], crs[7]);
+     printk("ds: %04x   es: %04x   fs: %04x   gs: %04x   "
+            "ss: %04x   cs: %04x\n",
 diff --git a/xen/arch/x86/x86_emulate.c b/xen/arch/x86/x86_emulate.c
 index f52f543955..c1e2d54104 100644
 --- a/xen/arch/x86/x86_emulate.c
