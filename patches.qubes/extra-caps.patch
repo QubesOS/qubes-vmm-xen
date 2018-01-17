@@ -1,0 +1,15 @@
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -1679,6 +1679,12 @@ void arch_get_xen_caps(xen_capabilities_
+         snprintf(s, sizeof(s), "hvm-%d.%d-x86_64 ", major, minor);
+         safe_strcat(*info, s);
+     }
++
++    /* Qubes specific hack to expose PVH and HAP capabilities */
++    if (hvm_funcs.hap_supported)
++        safe_strcat(*info, "qubes-hap ");
++    if (hvm_funcs.pvh_supported)
++        safe_strcat(*info, "qubes-pvh ");
+ }
+ 
+ int __hwdom_init xen_in_range(unsigned long mfn)
