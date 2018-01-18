@@ -1,0 +1,44 @@
+From 96edb111dde9ad7698a6fc2eaf2e49db507b0ed4 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Fri, 6 Oct 2017 14:51:59 +0100
+Subject: [PATCH] libxc: panic when trying to create a PVH guest without kernel
+ support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Previously when trying to boot a PV capable but not PVH capable kernel
+inside of a PVH container xc_dom_guest_type would succeed and return a
+PV guest type, which would lead to failures later on in the build
+process.
+
+Instead provide a clear error message when trying to create a PVH
+guest using a kernel that doesn't support PVH.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+---
+ tools/libxc/xc_dom_elfloader.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/tools/libxc/xc_dom_elfloader.c b/tools/libxc/xc_dom_elfloader.c
+index 62d421a5e3..568d7f370c 100644
+--- a/tools/libxc/xc_dom_elfloader.c
++++ b/tools/libxc/xc_dom_elfloader.c
+@@ -59,6 +59,13 @@ static char *xc_dom_guest_type(struct xc_dom_image *dom,
+     if ( dom->container_type == XC_DOM_HVM_CONTAINER &&
+          dom->parms.phys_entry != UNSET_ADDR32 )
+         return "hvm-3.0-x86_32";
++    if ( dom->container_type == XC_DOM_HVM_CONTAINER )
++    {
++        xc_dom_panic(dom->xch, XC_INVALID_KERNEL,
++                     "%s: image not capable of booting inside a HVM container",
++                     __FUNCTION__);
++        return "xen-3.0-unknown";
++    }
+ 
+     switch ( machine )
+     {
+-- 
+2.15.1
+
