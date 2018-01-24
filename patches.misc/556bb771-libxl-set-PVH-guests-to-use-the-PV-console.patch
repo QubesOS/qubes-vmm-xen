@@ -1,0 +1,33 @@
+From 0a8f2bf4720ede09be84dbcca286ee01eb4bca13 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 9 Jan 2018 12:18:48 +0000
+Subject: [PATCH 23/37] libxl: set PVH guests to use the PV console
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+Ported over move to libxl_console.c
+
+(cherry picked from commit 556bb7712f0ccd965009ccb9298d2b2b9b3b85db)
+---
+ tools/libxl/libxl.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 003f377a1b..1dfb85b961 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -1859,6 +1859,7 @@ static int libxl__primary_console_find(libxl_ctx *ctx, uint32_t domid_vm,
+             *cons_num = 0;
+             *type = LIBXL_CONSOLE_TYPE_SERIAL;
+             break;
++        case LIBXL_DOMAIN_TYPE_PVH:
+         case LIBXL_DOMAIN_TYPE_PV:
+             *domid = domid_vm;
+             *cons_num = 0;
+-- 
+2.15.1
+

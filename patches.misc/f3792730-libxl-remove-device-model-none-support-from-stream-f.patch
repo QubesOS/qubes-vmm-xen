@@ -1,0 +1,90 @@
+From 8eac047803933784e2e61726336d1209c4b846c4 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 9 Jan 2018 14:59:06 +0000
+Subject: [PATCH 32/37] libxl: remove device model "none" support from stream
+ functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Remove the usage of device model "none" in the migration stream
+related functions.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+(cherry picked from commit f37927305c95a9eb2250e8fe585e20a5af303016)
+---
+ tools/libxl/libxl_stream_read.c  |  6 ++----
+ tools/libxl/libxl_stream_write.c | 11 ++---------
+ 2 files changed, 4 insertions(+), 13 deletions(-)
+
+diff --git a/tools/libxl/libxl_stream_read.c b/tools/libxl/libxl_stream_read.c
+index 89c2f216e9..2e04e3ecdf 100644
+--- a/tools/libxl/libxl_stream_read.c
++++ b/tools/libxl/libxl_stream_read.c
+@@ -584,8 +584,7 @@ static bool process_record(libxl__egc *egc,
+         break;
+ 
+     case REC_TYPE_EMULATOR_XENSTORE_DATA:
+-        if (dcs->guest_config->b_info.device_model_version ==
+-            LIBXL_DEVICE_MODEL_VERSION_NONE) {
++        if (dcs->guest_config->b_info.type != LIBXL_DOMAIN_TYPE_HVM) {
+             rc = ERROR_FAIL;
+             LOG(ERROR,
+                 "Received a xenstore emulator record when none was expected");
+@@ -613,8 +612,7 @@ static bool process_record(libxl__egc *egc,
+         break;
+ 
+     case REC_TYPE_EMULATOR_CONTEXT:
+-        if (dcs->guest_config->b_info.device_model_version ==
+-            LIBXL_DEVICE_MODEL_VERSION_NONE) {
++        if (dcs->guest_config->b_info.type != LIBXL_DOMAIN_TYPE_HVM) {
+             rc = ERROR_FAIL;
+             LOG(ERROR,
+                 "Received an emulator context record when none was expected");
+diff --git a/tools/libxl/libxl_stream_write.c b/tools/libxl/libxl_stream_write.c
+index aba554b5d0..d676fd6249 100644
+--- a/tools/libxl/libxl_stream_write.c
++++ b/tools/libxl/libxl_stream_write.c
+@@ -181,7 +181,6 @@ static void setup_emulator_write(libxl__egc *egc,
+                                  sws_record_done_cb cb)
+ {
+     assert(stream->emu_sub_hdr.id != EMULATOR_UNKNOWN);
+-    assert(stream->device_model_version != LIBXL_DEVICE_MODEL_VERSION_NONE);
+     setup_generic_write(egc, stream, what, hdr, emu_hdr, body, cb);
+ }
+ 
+@@ -261,10 +260,6 @@ void libxl__stream_write_start(libxl__egc *egc,
+             stream->emu_sub_hdr.id = EMULATOR_QEMU_UPSTREAM;
+             break;
+ 
+-        case LIBXL_DEVICE_MODEL_VERSION_NONE:
+-            stream->emu_sub_hdr.id = EMULATOR_UNKNOWN;
+-            break;
+-
+         default:
+             rc = ERROR_FAIL;
+             LOG(ERROR, "Unknown emulator for HVM domain");
+@@ -395,7 +390,7 @@ static void write_emulator_xenstore_record(libxl__egc *egc,
+     char *buf = NULL;
+     uint32_t len = 0;
+ 
+-    if (stream->device_model_version == LIBXL_DEVICE_MODEL_VERSION_NONE) {
++    if (dss->type != LIBXL_DOMAIN_TYPE_HVM) {
+         emulator_xenstore_record_done(egc, stream);
+         return;
+     }
+@@ -449,9 +444,7 @@ static void write_emulator_context_record(libxl__egc *egc,
+     struct stat st;
+     int rc;
+ 
+-    assert(dss->type == LIBXL_DOMAIN_TYPE_HVM);
+-
+-    if (stream->device_model_version == LIBXL_DEVICE_MODEL_VERSION_NONE) {
++    if (dss->type != LIBXL_DOMAIN_TYPE_HVM) {
+         emulator_context_record_done(egc, stream);
+         return;
+     }
+-- 
+2.15.1
+

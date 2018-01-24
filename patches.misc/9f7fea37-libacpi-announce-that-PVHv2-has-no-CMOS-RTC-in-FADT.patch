@@ -1,0 +1,82 @@
+From 6234e12978931037e749b368063efdbd0da6daed Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 2 Jan 2018 12:29:55 +0000
+Subject: [PATCH 08/37] libacpi: announce that PVHv2 has no CMOS RTC in FADT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+At the moment this flag is unconditionally set for PVHv2 domains. Note that
+using this boot flag requires that the FADT table revision is at least 5.
+
+Reported-by: Jan Beulich <jbeulich@suse.com>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 9f7fea37606769f1e2c91b1f9653ce32d8ea7ea1)
+---
+ tools/firmware/hvmloader/util.c | 2 +-
+ tools/libacpi/acpi2_0.h         | 1 +
+ tools/libacpi/build.c           | 9 +++++++++
+ tools/libacpi/libacpi.h         | 1 +
+ 4 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/tools/firmware/hvmloader/util.c b/tools/firmware/hvmloader/util.c
+index f2bec517fa..03cfb795d3 100644
+--- a/tools/firmware/hvmloader/util.c
++++ b/tools/firmware/hvmloader/util.c
+@@ -951,7 +951,7 @@ void hvmloader_acpi_build_tables(struct acpi_config *config,
+     config->table_flags |= (ACPI_HAS_TCPA | ACPI_HAS_IOAPIC |
+                             ACPI_HAS_WAET | ACPI_HAS_PMTIMER |
+                             ACPI_HAS_BUTTONS | ACPI_HAS_VGA |
+-                            ACPI_HAS_8042);
++                            ACPI_HAS_8042 | ACPI_HAS_CMOS_RTC);
+     config->acpi_revision = 4;
+ 
+     config->tis_hdr = (uint16_t *)ACPI_TIS_HDR_ADDRESS;
+diff --git a/tools/libacpi/acpi2_0.h b/tools/libacpi/acpi2_0.h
+index 571519732f..2619ba32db 100644
+--- a/tools/libacpi/acpi2_0.h
++++ b/tools/libacpi/acpi2_0.h
+@@ -233,6 +233,7 @@ struct acpi_fadt {
+ #define ACPI_FADT_LEGACY_DEVICES    (1 << 0)
+ #define ACPI_FADT_8042              (1 << 1)
+ #define ACPI_FADT_NO_VGA            (1 << 2)
++#define ACPI_FADT_NO_CMOS_RTC       (1 << 5)
+ 
+ /*
+  * FADT Fixed Feature Flags.
+diff --git a/tools/libacpi/build.c b/tools/libacpi/build.c
+index 6bd50b3d05..a02ffbf43c 100644
+--- a/tools/libacpi/build.c
++++ b/tools/libacpi/build.c
+@@ -613,6 +613,15 @@ int acpi_build_tables(struct acpi_ctxt *ctxt, struct acpi_config *config)
+         fadt->iapc_boot_arch |= ACPI_FADT_NO_VGA;
+     if ( config->table_flags & ACPI_HAS_8042 )
+         fadt->iapc_boot_arch |= ACPI_FADT_8042;
++    if ( !(config->table_flags & ACPI_HAS_CMOS_RTC) )
++    {
++        if ( fadt->header.revision < 5 )
++        {
++            printf("ACPI_FADT_NO_CMOS_RTC requires FADT revision 5\n");
++            return -1;
++        }
++        fadt->iapc_boot_arch |= ACPI_FADT_NO_CMOS_RTC;
++    }
+     set_checksum(fadt, offsetof(struct acpi_header, checksum), fadt_size);
+ 
+     nr_secondaries = construct_secondary_tables(ctxt, secondary_tables,
+diff --git a/tools/libacpi/libacpi.h b/tools/libacpi/libacpi.h
+index dbc6c8bd7a..67bd67fa0a 100644
+--- a/tools/libacpi/libacpi.h
++++ b/tools/libacpi/libacpi.h
+@@ -34,6 +34,7 @@
+ #define ACPI_HAS_BUTTONS     (1<<11)
+ #define ACPI_HAS_VGA         (1<<12)
+ #define ACPI_HAS_8042        (1<<13)
++#define ACPI_HAS_CMOS_RTC    (1<<14)
+ 
+ struct xen_vmemrange;
+ struct acpi_numa {
+-- 
+2.15.1
+

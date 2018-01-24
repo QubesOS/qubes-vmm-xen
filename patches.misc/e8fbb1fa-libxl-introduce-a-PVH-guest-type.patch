@@ -1,0 +1,336 @@
+From d95be7a692840e54cea626c0b4405ce71e1ae5c3 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 9 Jan 2018 12:07:51 +0000
+Subject: [PATCH 21/37] libxl: introduce a PVH guest type
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The new guest type is introduced to the libxl IDL. libxl__domain_make
+is also modified to save the guest type, and libxl__domain_type is
+expanded to fetch that information when detecting guest type.
+
+This is required because the hypervisor only differentiates between PV
+and HVM guests, so libxl needs some extra information in order to
+differentiate between a HVM and a PVH guest.
+
+The new PVH guest type and its options are documented on the xl.cfg
+man page.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+Xen 4.8 backport: pvh struct contains copies of the fields that in
+4.10 were added to the main libxl_domain_build_info, and the accessor
+macros are updated to be use them when appropriate.
+
+(cherry picked from commit e8fbb1fa0ba6f8a812619b696c1976d7fda3bd7e)
+---
+ docs/man/xl.cfg.pod.5.in    | 121 ++++++++++++++++++++++++++++++++++++++++++++
+ tools/libxl/libxl.h         |   4 ++
+ tools/libxl/libxl_create.c  |  21 ++++++--
+ tools/libxl/libxl_dom.c     |  28 ++++++++--
+ tools/libxl/libxl_types.idl |   7 +++
+ 5 files changed, 173 insertions(+), 8 deletions(-)
+
+diff --git a/docs/man/xl.cfg.pod.5.in b/docs/man/xl.cfg.pod.5.in
+index 5c6e8e7d45..cbabe2738e 100644
+--- a/docs/man/xl.cfg.pod.5.in
++++ b/docs/man/xl.cfg.pod.5.in
+@@ -80,6 +80,12 @@ single host must be unique.
+ Specifies that this is to be a PV domain, suitable for hosting Xen-aware
+ guest operating systems. This is the default.
+ 
++=item B<type="pvh">
++
++Specifies that this is to be an PVH domain. That is a lightweight HVM-like
++guest without a device model and without many of the emulated devices
++available to HVM guests. Note that this mode requires a PVH aware kernel.
++
+ =item B<type="hvm">
+ 
+ Specifies that this is to be an HVM domain. That is, a fully virtualised
+@@ -495,6 +501,11 @@ Load the specified file as firmware for the guest.
+ 
+ =back
+ 
++=head4 PVH guest options
++
++Currently there's no firmware available for PVH guests, they should be
++booted using the B<Direct Kernel Boot> method or the B<bootloader> option.
++
+ =head3 Other Options
+ 
+ =over 4
+@@ -1974,6 +1985,116 @@ See F<docs/misc/pci-device-reservations.txt> for more information.
+ 
+ =back
+ 
++=head2 PVH Guest Specific Options
++
++=over 4
++
++=item B<nestedhvm=BOOLEAN>
++
++Enable or disables guest access to hardware virtualisation features,
++e.g. it allows a guest Operating System to also function as a hypervisor.
++You may want this option if you want to run another hypervisor (including
++another copy of Xen) within a Xen guest or to support a guest Operating
++System which uses hardware virtualisation extensions (e.g. Windows XP
++compatibility mode on more modern Windows OS).
++
++This option is disabled by default.
++
++=item B<apic=BOOLEAN>
++
++Enable the local APIC emulation for the guest. The local APIC information
++will be exposed to the guest in the ACPI tables. This option is enabled by
++default.
++
++=item B<bootloader="PROGRAM">
++
++Run C<PROGRAM> to find the kernel image and ramdisk to use.  Normally
++C<PROGRAM> would be C<pygrub>, which is an emulation of
++grub/grub2/syslinux. Either B<kernel> or B<bootloader> must be specified
++for PV guests.
++
++=item B<bootloader_args=[ "ARG", "ARG", ...]>
++
++Append B<ARG>s to the arguments to the B<bootloader>
++program. Alternatively if the argument is a simple string then it will
++be split into words at whitespace B<(this second option is deprecated)>.
++
++=item B<timer_mode="MODE">
++
++Specifies the mode for Virtual Timers. The valid values are as follows:
++
++=over 4
++
++=item B<delay_for_missed_ticks>
++
++Delay for missed ticks. Do not advance a vCPU's time beyond the
++correct delivery time for interrupts that have been missed due to
++preemption. Deliver missed interrupts when the vCPU is rescheduled and
++advance the vCPU's virtual time stepwise for each one.
++
++=item B<no_delay_for_missed_ticks>
++
++No delay for missed ticks. As above, missed interrupts are delivered,
++but guest time always tracks wallclock (i.e., real) time while doing
++so.
++
++=item B<no_missed_ticks_pending>
++
++No missed interrupts are held pending. Instead, to ensure ticks are
++delivered at some non-zero rate, if we detect missed ticks then the
++internal tick alarm is not disabled if the vCPU is preempted during
++the next tick period.
++
++=item B<one_missed_tick_pending>
++
++One missed tick pending. Missed interrupts are collapsed
++together and delivered as one 'late tick'.  Guest time always tracks
++wallclock (i.e., real) time.
++
++=back
++
++=back
++
++=head3 Paging
++
++The following options control the mechanisms used to virtualise guest
++memory.  The defaults are selected to give the best results for the
++common cases so you should normally leave these options
++unspecified.
++
++=over 4
++
++=item B<hap=BOOLEAN>
++
++Turns "hardware assisted paging" (the use of the hardware nested page
++table feature) on or off.  This feature is called EPT (Extended Page
++Tables) by Intel and NPT (Nested Page Tables) or RVI (Rapid
++Virtualisation Indexing) by AMD. If turned
++off, Xen will run the guest in "shadow page table" mode where the
++guest's page table updates and/or TLB flushes etc. will be emulated.
++Use of HAP is the default when available.
++
++=item B<oos=BOOLEAN>
++
++Turns "out of sync pagetables" on or off.  When running in shadow page
++table mode, the guest's page table updates may be deferred as
++specified in the Intel/AMD architecture manuals.  However, this may
++expose unexpected bugs in the guest, or find bugs in Xen, so it is
++possible to disable this feature.  Use of out of sync page tables,
++when Xen thinks it appropriate, is the default.
++
++=item B<shadow_memory=MBYTES>
++
++Number of megabytes to set aside for shadowing guest pagetable pages
++(effectively acting as a cache of translated pages) or to use for HAP
++state. By default this is 1MB per guest vCPU plus 8KB per MB of guest
++RAM. You should not normally need to adjust this value. However, if you
++are not using hardware assisted paging (i.e. you are using shadow
++mode) and your guest workload consists of a very large number of
++similar processes then increasing this value may improve performance.
++
++=back
++
+ =head2 Device-Model Options
+ 
+ The following options control the selection of the device-model.  This
+diff --git a/tools/libxl/libxl.h b/tools/libxl/libxl.h
+index 0064db94af..2c939a18b1 100644
+--- a/tools/libxl/libxl.h
++++ b/tools/libxl/libxl.h
+@@ -361,18 +361,22 @@
+ 
+ #define LIBXL_BUILDINFO_ACCESS_PVH_PV(b_info, field_name)               \
+   ((b_info)->type == LIBXL_DOMAIN_TYPE_PV  ? &(b_info)->u.pv .field_name : \
++   (b_info)->type == LIBXL_DOMAIN_TYPE_PVH ? &(b_info)->u.pvh.field_name : \
+    (abort(), (typeof(&(b_info)->u.pv. field_name))0))
+ 
+ #define LIBXL_BUILDINFO_ACCESS_PVH_HVM(b_info, field_name)              \
+   ((b_info)->type == LIBXL_DOMAIN_TYPE_HVM ? &(b_info)->u.hvm.field_name : \
++   (b_info)->type == LIBXL_DOMAIN_TYPE_PVH ? &(b_info)->u.pvh.field_name : \
+    (abort(), (typeof(&(b_info)->u.hvm.field_name))0))
+ 
+ #define LIBXL_BUILDINFO_ACCESS_PVH_PV_OK(b_info, field_name)    \
+   ((b_info)->type == LIBXL_DOMAIN_TYPE_PV  ? 1 :               \
++   (b_info)->type == LIBXL_DOMAIN_TYPE_PVH ? 1 :               \
+    0)
+ 
+ #define LIBXL_BUILDINFO_ACCESS_PVH_HVM_OK(b_info, field_name)   \
+   ((b_info)->type == LIBXL_DOMAIN_TYPE_HVM ? 1 :               \
++   (b_info)->type == LIBXL_DOMAIN_TYPE_PVH ? 1 :               \
+    0)
+ 
+ #define LIBXL_BUILDINFO_SUBFIELD_PVH  UNAVAILABLE_BECAUSE_NO_PVH_SUPPORT_XEN_TOO_OLD
+diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
+index 5811007e44..50d3de640d 100644
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -306,11 +306,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+             break;
+         }
+ 
+-        if (libxl__timer_mode_is_default(U_HVM_F(b_info,timer_mode)))
+-            *U_HVM_F(b_info,timer_mode) = LIBXL_TIMER_MODE_NO_DELAY_FOR_MISSED_TICKS;
+-
+         libxl_defbool_setdefault(&b_info->u.hvm.pae,                true);
+-        libxl_defbool_setdefault(U_HVM_F(b_info,apic),              true);
+         libxl_defbool_setdefault(&b_info->u.hvm.acpi,               true);
+         libxl_defbool_setdefault(&b_info->u.hvm.acpi_s3,            true);
+         libxl_defbool_setdefault(&b_info->u.hvm.acpi_s4,            true);
+@@ -318,7 +314,6 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+         libxl_defbool_setdefault(&b_info->u.hvm.viridian,           false);
+         libxl_defbool_setdefault(&b_info->u.hvm.hpet,               true);
+         libxl_defbool_setdefault(&b_info->u.hvm.vpt_align,          true);
+-        libxl_defbool_setdefault(U_HVM_F(b_info,nested_hvm),        false);
+         libxl_defbool_setdefault(&b_info->u.hvm.altp2m,             false);
+         libxl_defbool_setdefault(&b_info->u.hvm.usb,                false);
+         libxl_defbool_setdefault(&b_info->u.hvm.xen_platform_pci,   true);
+@@ -406,6 +401,16 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+             libxl_domain_type_to_string(b_info->type));
+         return ERROR_INVAL;
+     }
++
++    /* Configuration fields shared between PVH and HVM. */
++    if (b_info->type != LIBXL_DOMAIN_TYPE_PV) {
++        if (libxl__timer_mode_is_default(U_HVM_F(b_info, timer_mode)))
++            *U_HVM_F(b_info,timer_mode) = LIBXL_TIMER_MODE_NO_DELAY_FOR_MISSED_TICKS;
++
++        libxl_defbool_setdefault(U_HVM_F(b_info, apic),             true);
++        libxl_defbool_setdefault(U_HVM_F(b_info, nested_hvm),       false);
++    }
++
+     return 0;
+ }
+ 
+@@ -511,6 +516,7 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
+ {
+     libxl_ctx *ctx = libxl__gc_owner(gc);
+     int flags, ret, rc, nb_vm;
++    const char *dom_type;
+     char *uuid_string;
+     char *dom_path, *vm_path, *libxl_path;
+     struct xs_permissions roperm[2];
+@@ -709,6 +715,11 @@ retry_transaction:
+ 
+     xs_write(ctx->xsh, t, GCSPRINTF("%s/control/platform-feature-multiprocessor-suspend", dom_path), "1", 1);
+     xs_write(ctx->xsh, t, GCSPRINTF("%s/control/platform-feature-xs_reset_watches", dom_path), "1", 1);
++
++    dom_type = libxl_domain_type_to_string(info->type);
++    xs_write(ctx->xsh, t, GCSPRINTF("%s/type", libxl_path), dom_type,
++             strlen(dom_type));
++
+     if (!xs_transaction_end(ctx->xsh, t, 0)) {
+         if (errno == EAGAIN) {
+             t = 0;
+diff --git a/tools/libxl/libxl_dom.c b/tools/libxl/libxl_dom.c
+index 30b53fa64f..50ffad4802 100644
+--- a/tools/libxl/libxl_dom.c
++++ b/tools/libxl/libxl_dom.c
+@@ -38,9 +38,31 @@ libxl_domain_type libxl__domain_type(libxl__gc *gc, uint32_t domid)
+         LOG(ERROR, "unable to get domain type for domid=%"PRIu32, domid);
+         return LIBXL_DOMAIN_TYPE_INVALID;
+     }
+-    if (info.flags & XEN_DOMINF_hvm_guest)
+-        return LIBXL_DOMAIN_TYPE_HVM;
+-    else
++    if (info.flags & XEN_DOMINF_hvm_guest) {
++        const char *type_path = GCSPRINTF("%s/type",
++                                          libxl__xs_libxl_path(gc, domid));
++        const char *type;
++        libxl_domain_type t;
++        int rc;
++
++        rc = libxl__xs_read_mandatory(gc, XBT_NULL, type_path, &type);
++        if (rc) {
++            LOG(WARN,
++            "unable to get domain type for domid=%"PRIu32", assuming HVM",
++                domid);
++            return LIBXL_DOMAIN_TYPE_HVM;
++        }
++
++        rc = libxl_domain_type_from_string(type, &t);
++        if (rc) {
++            LOG(WARN,
++            "unable to get domain type for domid=%"PRIu32", assuming HVM",
++                domid);
++            return LIBXL_DOMAIN_TYPE_HVM;
++        }
++
++        return t;
++    } else
+         return LIBXL_DOMAIN_TYPE_PV;
+ }
+ 
+diff --git a/tools/libxl/libxl_types.idl b/tools/libxl/libxl_types.idl
+index 094303f151..1e9621c76f 100644
+--- a/tools/libxl/libxl_types.idl
++++ b/tools/libxl/libxl_types.idl
+@@ -75,6 +75,7 @@ libxl_domain_type = Enumeration("domain_type", [
+     (-1, "INVALID"),
+     (1, "HVM"),
+     (2, "PV"),
++    (3, "PVH"),
+     ], init_val = "LIBXL_DOMAIN_TYPE_INVALID")
+ 
+ libxl_rdm_reserve_strategy = Enumeration("rdm_reserve_strategy", [
+@@ -561,6 +562,12 @@ libxl_domain_build_info = Struct("domain_build_info",[
+                                       # Use host's E820 for PCI passthrough.
+                                       ("e820_host", libxl_defbool),
+                                       ])),
++                 ("pvh", Struct(None, [("bootloader",       string),
++                                       ("bootloader_args",  libxl_string_list),
++                                       ("timer_mode",       libxl_timer_mode),
++                                       ("nested_hvm",       libxl_defbool),
++                                       ("apic",             libxl_defbool),
++                                       ])),
+                  ("invalid", None),
+                  ], keyvar_init_val = "LIBXL_DOMAIN_TYPE_INVALID")),
+ 
+-- 
+2.15.1
+

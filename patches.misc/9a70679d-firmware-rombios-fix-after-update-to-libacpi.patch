@@ -1,0 +1,47 @@
+From db44d9c733441e621aecc55768be39a221f210cf Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 2 Jan 2018 12:30:24 +0000
+Subject: [PATCH 09/37] firmware/rombios: fix after update to libacpi
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fix a build breakage after the libacpi changes, this is due to rombios using the
+libacpi headers in order to parse the ACPI tables.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reported-by: Razvan Cojocaru <rcojocaru@bitdefender.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+(cherry picked from commit 9a70679dd3107b5fd267b750809dd5417c50c59f)
+---
+ tools/firmware/rombios/32bit/util.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tools/firmware/rombios/32bit/util.c b/tools/firmware/rombios/32bit/util.c
+index e473e89431..6c1c480514 100644
+--- a/tools/firmware/rombios/32bit/util.c
++++ b/tools/firmware/rombios/32bit/util.c
+@@ -438,7 +438,7 @@ uint32_t get_s3_waking_vector(void)
+ {
+     struct acpi_20_rsdp *rsdp = find_rsdp();
+     struct acpi_20_xsdt *xsdt;
+-    struct acpi_20_fadt *fadt;
++    struct acpi_fadt *fadt;
+     struct acpi_20_facs *facs;
+     uint32_t vector;
+ 
+@@ -449,8 +449,8 @@ uint32_t get_s3_waking_vector(void)
+     if (!xsdt)
+         return 0;
+ 
+-    fadt = (struct acpi_20_fadt *)(long)xsdt->entry[0];
+-    if (!fadt || (fadt->header.signature != ACPI_2_0_FADT_SIGNATURE))
++    fadt = (struct acpi_fadt *)(long)xsdt->entry[0];
++    if (!fadt || (fadt->header.signature != ACPI_FADT_SIGNATURE))
+         return 0;
+ 
+     facs = (struct acpi_20_facs *)(long)fadt->x_firmware_ctrl;
+-- 
+2.15.1
+

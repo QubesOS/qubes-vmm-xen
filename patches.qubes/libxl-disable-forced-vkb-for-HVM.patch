@@ -16,7 +16,7 @@ diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
 index 18b064e..a5fd815 100644
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -1017,7 +1017,6 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
+@@ -1356,17 +1356,12 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
      {
          libxl__device_console console;
          libxl__device device;
@@ -24,9 +24,8 @@ index 18b064e..a5fd815 100644
  
          init_console_info(gc, &console, 0);
          console.backend_domid = state->console_domid;
-@@ -1350,10 +1350,6 @@
-             return;
-         }
+         libxl__device_console_add(gc, domid, &console, state, &device);
+         libxl__device_console_dispose(&console);
  
 -        libxl_device_vkb_init(&vkb);
 -        libxl__device_vkb_add(gc, domid, &vkb);
