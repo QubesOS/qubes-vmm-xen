@@ -1,3 +1,17 @@
+xen (2001:4.8.2-12) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * Allow setting DISTFILES_MIRROR in the builder.conf
+
+  [ Simon Gaiser ]
+  * Backport elfloader fix to detect non PVH capable kernels
+  * Improve elfloader patch to error out immediately
+
+  [ Marek Marczykowski-Górecki ]
+  * Add "stage 1" PTI patches against Meltdown
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 25 Jan 2018 20:55:18 +0100
+
 xen (2001:4.8.2-11) wheezy; urgency=medium
 
   [ Frédéric Pierret ]
