@@ -19,18 +19,6 @@ Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
  stubdom/Makefile        | 14 ++++++++++++++
  3 files changed, 20 insertions(+)
 
-diff --git a/.gitignore b/.gitignore
-index 6753368..d7787ff 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -128,6 +128,7 @@
- stubdom/polarssl-*
- stubdom/stubdompath.sh
- stubdom/tpm_emulator-*
-+stubdom/libvchan-*
- stubdom/vtpm/vtpm_manager.h
- stubdom/xenstore
- stubdom/zlib-*
 diff --git a/extras/mini-os/Config.mk b/extras/mini-os/Config.mk
 index 658c159..e4f7a61 100644
 --- a/extras/mini-os/Config.mk
