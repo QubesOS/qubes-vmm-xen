@@ -2,8 +2,8 @@ usr/lib/*/libxenctrl.so.4.8
 usr/lib/*/libxenctrl.so.4.8.0
 usr/lib/*/libxenguest.so.4.8
 usr/lib/*/libxenguest.so.4.8.0
-usr/lib/*/libxenlight.so.4.8
-usr/lib/*/libxenlight.so.4.8.0
+usr/lib/*/libxenlight.so.4.8.1
+usr/lib/*/libxenlight.so.4.8.1.0
 usr/lib/*/libxenvchan.so.4.8
 usr/lib/*/libxenvchan.so.4.8.0
 usr/lib/*/libxlutil.so.4.8
