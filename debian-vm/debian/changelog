@@ -1,3 +1,18 @@
+xen (2001:4.8.3-1) unstable; urgency=medium
+
+  [ Simon Gaiser ]
+  * Add upstream backports for PVH
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: conflict with too old libvirt
+  * travis: build also for buster
+  * Fix debian-quilt handling empty lines
+  * Do not patch .gitignore
+  * Fix one libxl patch
+  * Sync series-debian-vm.conf with series.conf
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 26 Jan 2018 20:53:40 +0100
+
 xen (2001:4.8.2-12) unstable; urgency=medium
 
   [ Frédéric Pierret ]
