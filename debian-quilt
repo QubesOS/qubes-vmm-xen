@@ -24,7 +24,7 @@ touch "${PATCH_DIR}/series"
 
 while read patch_file
 do
-    if [ -e "${DIR}/${patch_file}" ]; then
+    if [ -f "${DIR}/${patch_file}" ]; then
         echo -e "${patch_file##*/}" >> "${PATCH_DIR}/series"
         cp "${DIR}/${patch_file}" "${PATCH_DIR}"
     fi
