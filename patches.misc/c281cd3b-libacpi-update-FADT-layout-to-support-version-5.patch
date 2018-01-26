@@ -1,0 +1,202 @@
+From 0a4b1d413f5e233375ced9a13292218b8096e082 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 2 Jan 2018 12:29:48 +0000
+Subject: [PATCH 07/37] libacpi: update FADT layout to support version 5
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Update the structure of the FADT table to version 5, and use that version for
+PVHv2 guests. Note that HVM guests will continue to use FADT 4. In order to do
+this, add a new field to acpi_config that contains the ACPI revision to use by
+libacpi. Note that currently this only applies to the FADT.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit c281cd3b9b796f4825e9193bba360137f124add7)
+---
+ tools/firmware/hvmloader/util.c |  1 +
+ tools/libacpi/acpi2_0.h         |  8 +++++---
+ tools/libacpi/build.c           | 35 ++++++++++++++++++++++++++++-------
+ tools/libacpi/libacpi.h         |  1 +
+ tools/libacpi/static_tables.c   |  6 ++----
+ tools/libxl/libxl_x86_acpi.c    |  1 +
+ 6 files changed, 38 insertions(+), 14 deletions(-)
+
+diff --git a/tools/firmware/hvmloader/util.c b/tools/firmware/hvmloader/util.c
+index c05de53888..f2bec517fa 100644
+--- a/tools/firmware/hvmloader/util.c
++++ b/tools/firmware/hvmloader/util.c
+@@ -952,6 +952,7 @@ void hvmloader_acpi_build_tables(struct acpi_config *config,
+                             ACPI_HAS_WAET | ACPI_HAS_PMTIMER |
+                             ACPI_HAS_BUTTONS | ACPI_HAS_VGA |
+                             ACPI_HAS_8042);
++    config->acpi_revision = 4;
+ 
+     config->tis_hdr = (uint16_t *)ACPI_TIS_HDR_ADDRESS;
+ 
+diff --git a/tools/libacpi/acpi2_0.h b/tools/libacpi/acpi2_0.h
+index 500f95eea7..571519732f 100644
+--- a/tools/libacpi/acpi2_0.h
++++ b/tools/libacpi/acpi2_0.h
+@@ -169,7 +169,7 @@ struct acpi_10_fadt {
+ /*
+  * Fixed ACPI Description Table Structure (FADT).
+  */
+-struct acpi_20_fadt {
++struct acpi_fadt {
+     struct acpi_header header;
+     uint32_t firmware_ctrl;
+     uint32_t dsdt;
+@@ -222,6 +222,9 @@ struct acpi_20_fadt {
+     struct acpi_20_generic_address x_pm_tmr_blk;
+     struct acpi_20_generic_address x_gpe0_blk;
+     struct acpi_20_generic_address x_gpe1_blk;
++    /* Only available starting from FADT revision 5. */
++    struct acpi_20_generic_address sleep_control;
++    struct acpi_20_generic_address sleep_status;
+ };
+ 
+ /*
+@@ -422,7 +425,7 @@ struct acpi_20_slit {
+  */
+ #define ACPI_2_0_RSDP_SIGNATURE ASCII64('R','S','D',' ','P','T','R',' ')
+ #define ACPI_2_0_FACS_SIGNATURE ASCII32('F','A','C','S')
+-#define ACPI_2_0_FADT_SIGNATURE ASCII32('F','A','C','P')
++#define ACPI_FADT_SIGNATURE     ASCII32('F','A','C','P')
+ #define ACPI_2_0_MADT_SIGNATURE ASCII32('A','P','I','C')
+ #define ACPI_2_0_RSDT_SIGNATURE ASCII32('R','S','D','T')
+ #define ACPI_2_0_XSDT_SIGNATURE ASCII32('X','S','D','T')
+@@ -436,7 +439,6 @@ struct acpi_20_slit {
+  * Table revision numbers.
+  */
+ #define ACPI_2_0_RSDP_REVISION 0x02
+-#define ACPI_2_0_FADT_REVISION 0x04
+ #define ACPI_2_0_MADT_REVISION 0x02
+ #define ACPI_2_0_RSDT_REVISION 0x01
+ #define ACPI_2_0_XSDT_REVISION 0x01
+diff --git a/tools/libacpi/build.c b/tools/libacpi/build.c
+index 2bdfaab376..6bd50b3d05 100644
+--- a/tools/libacpi/build.c
++++ b/tools/libacpi/build.c
+@@ -33,7 +33,7 @@
+ extern struct acpi_20_rsdp Rsdp;
+ extern struct acpi_20_rsdt Rsdt;
+ extern struct acpi_20_xsdt Xsdt;
+-extern struct acpi_20_fadt Fadt;
++extern struct acpi_fadt Fadt;
+ extern struct acpi_20_facs Facs;
+ extern struct acpi_20_waet Waet;
+ 
+@@ -503,12 +503,13 @@ int acpi_build_tables(struct acpi_ctxt *ctxt, struct acpi_config *config)
+     struct acpi_20_rsdp *rsdp;
+     struct acpi_20_rsdt *rsdt;
+     struct acpi_20_xsdt *xsdt;
+-    struct acpi_20_fadt *fadt;
++    struct acpi_fadt    *fadt;
+     struct acpi_10_fadt *fadt_10;
+     struct acpi_20_facs *facs;
+     unsigned char       *dsdt;
+     unsigned long        secondary_tables[ACPI_MAX_SECONDARY_TABLES];
+     int                  nr_secondaries, i;
++    unsigned int         fadt_size;
+ 
+     acpi_info = (struct acpi_info *)config->infop;
+     memset(acpi_info, 0, sizeof(*acpi_info));
+@@ -572,7 +573,23 @@ int acpi_build_tables(struct acpi_ctxt *ctxt, struct acpi_config *config)
+                  offsetof(struct acpi_header, checksum),
+                  sizeof(struct acpi_10_fadt));
+ 
+-    fadt = ctxt->mem_ops.alloc(ctxt, sizeof(struct acpi_20_fadt), 16);
++    switch ( config->acpi_revision )
++    {
++    case 4:
++        /*
++         * NB: we can use offsetof because there's no padding between
++         * x_gpe1_blk and sleep_control.
++         */
++        fadt_size = offsetof(struct acpi_fadt, sleep_control);
++        break;
++    case 5:
++        fadt_size = sizeof(*fadt);
++        break;
++    default:
++        printf("ACPI revision %u not supported\n", config->acpi_revision);
++        return -1;
++    }
++    fadt = ctxt->mem_ops.alloc(ctxt, fadt_size, 16);
+     if (!fadt) goto oom;
+     if ( !(config->table_flags & ACPI_HAS_PMTIMER) )
+     {
+@@ -581,7 +598,13 @@ int acpi_build_tables(struct acpi_ctxt *ctxt, struct acpi_config *config)
+     }
+     if ( !(config->table_flags & ACPI_HAS_BUTTONS) )
+         Fadt.flags |= (ACPI_PWR_BUTTON | ACPI_SLP_BUTTON);
+-    memcpy(fadt, &Fadt, sizeof(struct acpi_20_fadt));
++    memcpy(fadt, &Fadt, fadt_size);
++    /*
++     * For both ACPI 4 and 5 the revision of the FADT matches the ACPI
++     * revision.
++     */
++    fadt->header.revision = config->acpi_revision;
++    fadt->header.length = fadt_size;
+     fadt->dsdt   = ctxt->mem_ops.v2p(ctxt, dsdt);
+     fadt->x_dsdt = ctxt->mem_ops.v2p(ctxt, dsdt);
+     fadt->firmware_ctrl   = ctxt->mem_ops.v2p(ctxt, facs);
+@@ -590,9 +613,7 @@ int acpi_build_tables(struct acpi_ctxt *ctxt, struct acpi_config *config)
+         fadt->iapc_boot_arch |= ACPI_FADT_NO_VGA;
+     if ( config->table_flags & ACPI_HAS_8042 )
+         fadt->iapc_boot_arch |= ACPI_FADT_8042;
+-    set_checksum(fadt,
+-                 offsetof(struct acpi_header, checksum),
+-                 sizeof(struct acpi_20_fadt));
++    set_checksum(fadt, offsetof(struct acpi_header, checksum), fadt_size);
+ 
+     nr_secondaries = construct_secondary_tables(ctxt, secondary_tables,
+                  config, acpi_info);
+diff --git a/tools/libacpi/libacpi.h b/tools/libacpi/libacpi.h
+index db2d7b28f1..dbc6c8bd7a 100644
+--- a/tools/libacpi/libacpi.h
++++ b/tools/libacpi/libacpi.h
+@@ -63,6 +63,7 @@ struct acpi_config {
+     uint64_t pci_hi_start, pci_hi_len;
+ 
+     uint32_t table_flags;
++    uint8_t acpi_revision;
+ 
+     uint64_t vm_gid[2];
+     unsigned long vm_gid_addr; /* OUT parameter */
+diff --git a/tools/libacpi/static_tables.c b/tools/libacpi/static_tables.c
+index 1f6247d9d0..13946aaef3 100644
+--- a/tools/libacpi/static_tables.c
++++ b/tools/libacpi/static_tables.c
+@@ -38,11 +38,9 @@ struct acpi_20_facs Facs = {
+ #define ACPI_PM_TMR_BLK_BIT_WIDTH           0x20
+ #define ACPI_PM_TMR_BLK_BIT_OFFSET          0x00
+ 
+-struct acpi_20_fadt Fadt = {
++struct acpi_fadt Fadt = {
+     .header = {
+-        .signature    = ACPI_2_0_FADT_SIGNATURE,
+-        .length       = sizeof(struct acpi_20_fadt),
+-        .revision     = ACPI_2_0_FADT_REVISION,
++        .signature    = ACPI_FADT_SIGNATURE,
+         .oem_id       = ACPI_OEM_ID, 
+         .oem_table_id = ACPI_OEM_TABLE_ID,
+         .oem_revision = ACPI_OEM_REVISION,
+diff --git a/tools/libxl/libxl_x86_acpi.c b/tools/libxl/libxl_x86_acpi.c
+index b441adf7a4..173188f73e 100644
+--- a/tools/libxl/libxl_x86_acpi.c
++++ b/tools/libxl/libxl_x86_acpi.c
+@@ -151,6 +151,7 @@ static int init_acpi_config(libxl__gc *gc,
+ 
+     config->lapic_base_address = LAPIC_BASE_ADDRESS;
+     config->lapic_id = acpi_lapic_id;
++    config->acpi_revision = 5;
+ 
+     rc = 0;
+ out:
+-- 
+2.15.1
+

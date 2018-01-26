@@ -1,0 +1,53 @@
+From daaaf413c9762630f3b21dc8d767947806c45a4f Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 9 Jan 2018 15:12:15 +0000
+Subject: [PATCH 35/37] xl: add PVH as a guest type
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+And remove device model "none".
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+Ported over xl_cmdimpl.c -> xl_parse.c movement
+
+(cherry picked from commit 0f1d3c784e059b924e315316a0948f5ceb5c34c1)
+---
+ tools/libxl/xl_cmdimpl.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libxl/xl_cmdimpl.c b/tools/libxl/xl_cmdimpl.c
+index 0490048179..c2e6952fd2 100644
+--- a/tools/libxl/xl_cmdimpl.c
++++ b/tools/libxl/xl_cmdimpl.c
+@@ -1373,6 +1373,8 @@ static void parse_config_data(const char *config_source,
+             c_info->type = LIBXL_DOMAIN_TYPE_HVM;
+         else if (!strncmp(buf, "pv", strlen(buf)))
+             c_info->type = LIBXL_DOMAIN_TYPE_PV;
++        else if (!strncmp(buf, "pvh", strlen(buf)))
++            c_info->type = LIBXL_DOMAIN_TYPE_PVH;
+         else {
+             fprintf(stderr, "Invalid domain type %s.\n", buf);
+             exit(1);
+@@ -1799,6 +1801,7 @@ static void parse_config_data(const char *config_source,
+         }
+ 
+         break;
++    case LIBXL_DOMAIN_TYPE_PVH:
+     case LIBXL_DOMAIN_TYPE_PV:
+     {
+         /*
+@@ -2408,8 +2411,6 @@ skip_usbdev:
+         } else if (!strcmp(buf, "qemu-xen")) {
+             b_info->device_model_version
+                 = LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN;
+-        } else if (!strcmp(buf, "none")) {
+-            b_info->device_model_version = LIBXL_DEVICE_MODEL_VERSION_NONE;
+         } else {
+             fprintf(stderr,
+                     "Unknown device_model_version \"%s\" specified\n", buf);
+-- 
+2.15.1
+

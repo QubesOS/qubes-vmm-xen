@@ -68,7 +68,7 @@ Signed-off-by: Eric Shelton <eshelton@pobox.com>
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
 @@ -101,6 +101,12 @@ libxl_device_model_version = Enumeration
-     (3, "NONE"),                 # No device model
+     (2, "QEMU_XEN"),             # Upstream based qemu-xen device model
      ])
  
 +# Give the kernel running in the stub-domain

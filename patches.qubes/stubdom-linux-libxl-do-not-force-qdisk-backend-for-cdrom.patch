@@ -21,15 +21,13 @@ diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
 index 814aa02..5cca657 100644
 --- a/tools/libxl/libxl.c
 +++ b/tools/libxl/libxl.c
-@@ -2084,19 +2084,6 @@ int libxl__device_disk_setdefault(libxl__gc *gc, libxl_device_disk *disk,
+@@ -2095,17 +2095,6 @@ int libxl__device_disk_setdefault(libxl__gc *gc, libxl_device_disk *disk,
      rc = libxl__resolve_domid(gc, disk->backend_domname, &disk->backend_domid);
      if (rc < 0) return rc;
  
 -    /* Force Qdisk backend for CDROM devices of guests with a device model. */
 -    if (disk->is_cdrom != 0 &&
--        libxl__domain_type(gc, domid) == LIBXL_DOMAIN_TYPE_HVM &&
--        libxl__device_model_version_running(gc, domid) !=
--        LIBXL_DEVICE_MODEL_VERSION_NONE) {
+-        libxl__domain_type(gc, domid) == LIBXL_DOMAIN_TYPE_HVM) {
 -        if (!(disk->backend == LIBXL_DISK_BACKEND_QDISK ||
 -              disk->backend == LIBXL_DISK_BACKEND_UNKNOWN)) {
 -            LOG(ERROR, "Backend for CD devices on HVM guests must be Qdisk");

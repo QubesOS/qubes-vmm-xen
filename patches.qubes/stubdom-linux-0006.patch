@@ -39,8 +39,8 @@ HW42:
      } else {
          switch (libxl__domain_type(gc, domid_vm)) {
          case LIBXL_DOMAIN_TYPE_HVM:
-@@ -4489,8 +4498,18 @@ int libxl_domain_need_memory(libxl_ctx *
-     switch (b_info->type) {
+@@ -4509,8 +4518,18 @@ int libxl_domain_need_memory(libxl_ctx *
+     case LIBXL_DOMAIN_TYPE_PVH:
      case LIBXL_DOMAIN_TYPE_HVM:
          *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
 -        if (libxl_defbool_val(b_info->device_model_stubdomain))

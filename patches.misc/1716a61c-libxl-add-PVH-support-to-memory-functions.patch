@@ -1,0 +1,33 @@
+From 2a46dc7fa6b12675e6f48952565f8b6a9c39b0c2 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 9 Jan 2018 14:53:02 +0000
+Subject: [PATCH 30/37] libxl: add PVH support to memory functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+Ported ovet libxl.c -> libxl_mem.c split
+
+(cherry picked from commit 1716a61ca27640a249d7a07f897c5e05115ca57f)
+---
+ tools/libxl/libxl.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index 0fb89042ee..7d0a3bbee9 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -4447,6 +4447,7 @@ int libxl_domain_need_memory(libxl_ctx *ctx,
+ 
+     *need_memkb = b_info->target_memkb;
+     switch (b_info->type) {
++    case LIBXL_DOMAIN_TYPE_PVH:
+     case LIBXL_DOMAIN_TYPE_HVM:
+         *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
+         if (libxl_defbool_val(b_info->device_model_stubdomain))
+-- 
+2.15.1
+

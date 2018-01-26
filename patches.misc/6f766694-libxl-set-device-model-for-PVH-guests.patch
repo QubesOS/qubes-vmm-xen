@@ -1,0 +1,41 @@
+From 09177e33f994a7b261c40ffc74df164d4f94b3ab Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 9 Jan 2018 14:16:58 +0000
+Subject: [PATCH 26/37] libxl: set device model for PVH guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+PVH guests use the same device model selection as PV guests, because
+PVH guests only use the device model for the PV backends.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+(cherry picked from commit 6f766694341248692fe2a41d17ddabeb1fbe15f3)
+---
+ tools/libxl/libxl_dm.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index ad366a8cd3..5306623649 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -648,6 +648,7 @@ static int libxl__build_device_model_args_old(libxl__gc *gc,
+         flexarray_append(dm_args, b_info->extra[i]);
+     flexarray_append(dm_args, "-M");
+     switch (b_info->type) {
++    case LIBXL_DOMAIN_TYPE_PVH:
+     case LIBXL_DOMAIN_TYPE_PV:
+         flexarray_append(dm_args, "xenpv");
+         for (i = 0; b_info->extra_pv && b_info->extra_pv[i] != NULL; i++)
+@@ -1263,6 +1264,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+ 
+     flexarray_append(dm_args, "-machine");
+     switch (b_info->type) {
++    case LIBXL_DOMAIN_TYPE_PVH:
+     case LIBXL_DOMAIN_TYPE_PV:
+         flexarray_append(dm_args, "xenpv");
+         for (i = 0; b_info->extra_pv && b_info->extra_pv[i] != NULL; i++)
+-- 
+2.15.1
+

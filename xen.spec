@@ -213,6 +213,8 @@ Provides: xen-libs = %{version}-%{release}
 Obsoletes: xen-qubes-vm-libs < %{epoch}:%{version}-%{release}
 # qemu parameters format changed
 Conflicts: xen-hvm-stubdom-linux < 1.0.4
+# pvh definition syntax change
+Conflicts: libvirt-daemon-driver-libxl < 3.3.0-7
 
 %description libs
 This package contains the libraries needed to run applications
