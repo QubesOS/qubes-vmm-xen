@@ -1,7 +1,7 @@
 sudo: required
 dist: trusty
-language: generic
-install: git clone https://github.com/QubesOS/qubes-builder ~/qubes-builder
+language: minimal
+install: git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
 script: ~/qubes-builder/scripts/travis-build
 # keep the log under 4MB limit
 env:
@@ -11,3 +11,4 @@ env:
  - DISTS_VM=fc26 USE_QUBES_REPO_VERSION=4.0 VERBOSE=0
  - DISTS_VM=jessie USE_QUBES_REPO_VERSION=4.0
  - DISTS_VM=stretch USE_QUBES_REPO_VERSION=4.0
+ - DISTS_VM=buster USE_QUBES_REPO_VERSION=4.0
