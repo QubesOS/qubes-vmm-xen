@@ -60,7 +60,7 @@ index d38d0c7..ef3c79f 100644
  int libxl_domain_suspend(libxl_ctx *ctx, uint32_t domid, int fd, int flags,
                           const libxl_asyncop_how *ao_how)
  {
-@@ -946,25 +953,40 @@
+@@ -946,25 +953,38 @@
          goto out_err;
      }
  
@@ -107,10 +107,8 @@ index d38d0c7..ef3c79f 100644
 +        dsps->ao = ao;
 +        dsps->domid = domid;
 +        dsps->type = type;
-+        dsps->guest_evtchn.port = -1;
-+        dsps->guest_evtchn_lockfd = -1;
-+        dsps->guest_responded = 0;
-+        /* TODO: setup dss->guest_evtchn.port ? */
++        rc = libxl__domain_suspend_init(egc, dsps, type);
++        if (rc) goto out_err;
 +        dsps->callback_common_done = domain_suspend_empty_cb;
 +        libxl__domain_suspend(egc, dsps);
 +    }
