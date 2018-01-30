@@ -1,3 +1,11 @@
+xen (2001:4.8.3-2) unstable; urgency=medium
+
+  * libxl: workaround for backend domain shutdown without detaching
+    device
+  * libxl: init guest_evtchn and other structures for domain suspend
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 30 Jan 2018 01:24:03 +0100
+
 xen (2001:4.8.3-1) unstable; urgency=medium
 
   [ Simon Gaiser ]
