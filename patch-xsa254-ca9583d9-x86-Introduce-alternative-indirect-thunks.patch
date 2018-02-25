@@ -1,0 +1,217 @@
+From ca9583d9e705aaa74da121e920ebf77d9f7995b2 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 8 Feb 2018 12:49:07 +0100
+Subject: [PATCH] x86: Introduce alternative indirect thunks
+
+Depending on hardware and microcode availability, we will want to replace
+IND_THUNK_REPOLINE with other implementations.
+
+For AMD hardware, choose IND_THUNK_LFENCE in preference to retpoline if lfence
+is known to be (or was successfully made) dispatch serialising.
+
+This is part of XSA-254.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 858cba0d4c6b6b45180afcb41561fd6585ad51a3
+master date: 2018-01-16 17:45:50 +0000
+---
+ docs/misc/xen-command-line.markdown | 16 ++++++++
+ xen/arch/x86/indirect-thunk.S       | 17 +++++++--
+ xen/arch/x86/spec_ctrl.c            | 75 +++++++++++++++++++++++++++++++++++--
+ xen/include/asm-x86/cpufeature.h    |  2 +
+ 4 files changed, 104 insertions(+), 6 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index 768d4f5f55..5ecb5eb1f8 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -252,6 +252,22 @@ and not running softirqs. Reduce this if softirqs are not being run frequently
+ enough. Setting this to a high value may cause boot failure, particularly if
+ the NMI watchdog is also enabled.
+ 
++### bti (x86)
++> `= List of [ thunk=retpoline|lfence|jmp ]`
++
++Branch Target Injection controls.  By default, Xen will pick the most
++appropriate BTI mitigations based on compiled in support, loaded microcode,
++and hardware details.
++
++**WARNING: Any use of this option may interfere with heuristics.  Use with
++extreme care.**
++
++If Xen was compiled with INDIRECT_THUNK support, `thunk=` can be used to
++select which of the thunks gets patched into the `__x86_indirect_thunk_%reg`
++locations.  The default thunk is `retpoline` (generally preferred for Intel
++hardware), with the alternatives being `jmp` (a `jmp *%reg` gadget, minimal
++overhead), and `lfence` (an `lfence; jmp *%reg` gadget, preferred for AMD).
++
+ ### xenheap\_megabytes (arm32)
+ > `= <size>`
+ 
+diff --git a/xen/arch/x86/indirect-thunk.S b/xen/arch/x86/indirect-thunk.S
+index 3eaf505d0e..7d34707218 100644
+--- a/xen/arch/x86/indirect-thunk.S
++++ b/xen/arch/x86/indirect-thunk.S
+@@ -21,15 +21,26 @@
+         ret
+ .endm
+ 
++.macro IND_THUNK_LFENCE reg:req
++        lfence
++        jmp *%\reg
++.endm
++
++.macro IND_THUNK_JMP reg:req
++        jmp *%\reg
++.endm
++
+ /*
+- * Build the __x86_indirect_thunk_* symbols.  Currently implement the
+- * retpoline thunk only.
++ * Build the __x86.indirect_thunk.* symbols.  Execution lands on an
++ * alternative patch point which implements one of the above THUNK_*'s
+  */
+ .macro GEN_INDIRECT_THUNK reg:req
+         .section .text.__x86_indirect_thunk_\reg, "ax", @progbits
+ 
+ ENTRY(__x86_indirect_thunk_\reg)
+-        IND_THUNK_RETPOLINE \reg
++        ALTERNATIVE_2 __stringify(IND_THUNK_RETPOLINE \reg),              \
++        __stringify(IND_THUNK_LFENCE \reg), X86_FEATURE_IND_THUNK_LFENCE, \
++        __stringify(IND_THUNK_JMP \reg),    X86_FEATURE_IND_THUNK_JMP
+ .endm
+ 
+ /* Instantiate GEN_INDIRECT_THUNK for each register except %rsp. */
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 256701a43c..d601c028d8 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -16,18 +16,54 @@
+  *
+  * Copyright (c) 2017-2018 Citrix Systems Ltd.
+  */
++#include <xen/errno.h>
+ #include <xen/init.h>
+ #include <xen/lib.h>
+ 
+ #include <asm/processor.h>
+ #include <asm/spec_ctrl.h>
+ 
+-enum ind_thunk {
++static enum ind_thunk {
+     THUNK_DEFAULT, /* Decide which thunk to use at boot time. */
+     THUNK_NONE,    /* Missing compiler support for thunks. */
+ 
+     THUNK_RETPOLINE,
+-};
++    THUNK_LFENCE,
++    THUNK_JMP,
++} opt_thunk __initdata = THUNK_DEFAULT;
++
++static int __init parse_bti(const char *s)
++{
++    const char *ss;
++    int rc = 0;
++
++    do {
++        ss = strchr(s, ',');
++        if ( !ss )
++            ss = strchr(s, '\0');
++
++        if ( !strncmp(s, "thunk=", 6) )
++        {
++            s += 6;
++
++            if ( !strncmp(s, "retpoline", ss - s) )
++                opt_thunk = THUNK_RETPOLINE;
++            else if ( !strncmp(s, "lfence", ss - s) )
++                opt_thunk = THUNK_LFENCE;
++            else if ( !strncmp(s, "jmp", ss - s) )
++                opt_thunk = THUNK_JMP;
++            else
++                rc = -EINVAL;
++        }
++        else
++            rc = -EINVAL;
++
++        s = ss + 1;
++    } while ( *ss );
++
++    return rc;
++}
++custom_param("bti", parse_bti);
+ 
+ static void __init print_details(enum ind_thunk thunk)
+ {
+@@ -40,13 +76,40 @@ static void __init print_details(enum ind_thunk thunk)
+     printk(XENLOG_INFO
+            "BTI mitigations: Thunk %s\n",
+            thunk == THUNK_NONE      ? "N/A" :
+-           thunk == THUNK_RETPOLINE ? "RETPOLINE" : "?");
++           thunk == THUNK_RETPOLINE ? "RETPOLINE" :
++           thunk == THUNK_LFENCE    ? "LFENCE" :
++           thunk == THUNK_JMP       ? "JMP" : "?");
+ }
+ 
+ void __init init_speculation_mitigations(void)
+ {
+     enum ind_thunk thunk = THUNK_DEFAULT;
+ 
++    /*
++     * Has the user specified any custom BTI mitigations?  If so, follow their
++     * instructions exactly and disable all heuristics.
++     */
++    if ( opt_thunk != THUNK_DEFAULT )
++    {
++        thunk = opt_thunk;
++    }
++    else
++    {
++        /*
++         * Evaluate the safest Branch Target Injection mitigations to use.
++         * First, begin with compiler-aided mitigations.
++         */
++        if ( IS_ENABLED(CONFIG_INDIRECT_THUNK) )
++        {
++            /*
++             * AMD's recommended mitigation is to set lfence as being dispatch
++             * serialising, and to use IND_THUNK_LFENCE.
++             */
++            if ( cpu_has_lfence_dispatch )
++                thunk = THUNK_LFENCE;
++        }
++    }
++
+     /*
+      * Supplimentary minor adjustments.  Without compiler support, there are
+      * no thunks.
+@@ -61,6 +124,12 @@ void __init init_speculation_mitigations(void)
+     if ( thunk == THUNK_DEFAULT )
+         thunk = THUNK_RETPOLINE;
+ 
++    /* Apply the chosen settings. */
++    if ( thunk == THUNK_LFENCE )
++        setup_force_cpu_cap(X86_FEATURE_IND_THUNK_LFENCE);
++    else if ( thunk == THUNK_JMP )
++        setup_force_cpu_cap(X86_FEATURE_IND_THUNK_JMP);
++
+     print_details(thunk);
+ }
+ 
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index 5288bbfdd2..4dbcf863e0 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -22,6 +22,8 @@ XEN_CPUFEATURE(XEN_SMAP,        (FSCAPINTS+0)*32+ 11) /* SMAP gets used by Xen i
+ XEN_CPUFEATURE(MSR_PLATFORM_INFO, (FSCAPINTS+0)*32+12) /* PLATFORM_INFO MSR present */
+ XEN_CPUFEATURE(MSR_MISC_FEATURES, (FSCAPINTS+0)*32+13) /* MISC_FEATURES_ENABLES MSR present */
+ XEN_CPUFEATURE(LFENCE_DISPATCH, (FSCAPINTS+0)*32+14) /* lfence set as Dispatch Serialising */
++XEN_CPUFEATURE(IND_THUNK_LFENCE,(FSCAPINTS+0)*32+15) /* Use IND_THUNK_LFENCE */
++XEN_CPUFEATURE(IND_THUNK_JMP,   (FSCAPINTS+0)*32+16) /* Use IND_THUNK_JMP */
+ 
+ #define NCAPINTS (FSCAPINTS + 1) /* N 32-bit words worth of info */
+ 
+-- 
+2.16.1
+

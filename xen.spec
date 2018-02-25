@@ -135,6 +135,49 @@ Patch437: patch-60efd677-xl-Don-t-warn-on-using-deprecated-mode-selection.patch
 
 # Security fixes
 
+# Branch Target Injection (aka Variant 2, Spectre, SP2, CVE-2017-5715)
+# mitigation (from XSA-254)
+Patch501: patch-xsa254-a7cf0a3b-x86-entry-Remove-support-for-partial-cpu_user_regs-f.patch
+Patch502: patch-xsa254-946dd2ee-xen-arm-Introduce-enable-callback-to-enable-a-capabi.patch
+Patch503: patch-xsa254-85990bf5-xen-arm64-Add-missing-MIDR-values-for-Cortex-A72-A73.patch
+Patch504: patch-xsa254-cf0b584c-xen-arm-cpuerrata-Add-MIDR_ALL_VERSIONS.patch
+Patch505: patch-xsa254-44139fed-xen-arm64-Add-skeleton-to-harden-the-branch-predicto.patch
+Patch506: patch-xsa254-6f6786ef-xen-arm64-Implement-branch-predictor-hardening-for-a.patch
+Patch507: patch-xsa254-6082e3ba-xen-arm32-entry-Consolidate-DEFINE_TRAP_ENTRY_-macro.patch
+Patch508: patch-xsa254-a586cbd9-xen-arm32-Add-missing-MIDR-values-for-Cortex-A17-and.patch
+Patch509: patch-xsa254-cf95bba7-xen-arm32-entry-Add-missing-trap_reset-entry.patch
+Patch510: patch-xsa254-7336d0d2-xen-arm32-Add-skeleton-to-harden-branch-predictor-al.patch
+Patch511: patch-xsa254-754345c0-xen-arm32-Invalidate-BTB-on-guest-exit-for-Cortex-A1.patch
+Patch512: patch-xsa254-1105f3a9-xen-arm32-Invalidate-icache-on-guest-exist-for-Corte.patch
+Patch513: patch-xsa254-11875b7d-xen-arm32-entry-Document-the-purpose-of-r11-in-the-t.patch
+Patch514: patch-xsa254-3efcd7fb-x86-alt-Break-out-alternative-asm-into-a-separate-he.patch
+Patch515: patch-xsa254-87cb0e20-x86-alt-Introduce-ALTERNATIVE-_2-macros.patch
+Patch516: patch-xsa254-499391b5-x86-hvm-Rename-update_guest_vendor-callback-to-cpuid.patch
+Patch517: patch-xsa254-17bfbc82-x86-Introduce-a-common-cpuid_policy_updated.patch
+Patch518: patch-xsa254-ef2464c5-x86-entry-Rearrange-RESTORE_ALL-to-restore-register-.patch
+Patch519: patch-xsa254-eadcd831-x86-hvm-Use-SAVE_ALL-to-construct-the-cpu_user_regs-.patch
+Patch520: patch-xsa254-987b08d5-x86-entry-Erase-guest-GPR-state-on-entry-to-Xen.patch
+Patch521: patch-xsa254-5732a8ef-common-wait-Clarifications-to-wait-infrastructure.patch
+Patch522: patch-xsa254-1838e215-x86-Support-compiling-with-indirect-branch-thunks.patch
+Patch523: patch-xsa254-60c50f2b-x86-Support-indirect-thunks-from-assembly-code.patch
+Patch524: patch-xsa254-2eefd926-x86-boot-Report-details-of-speculative-mitigations.patch
+Patch525: patch-xsa254-479b879a-x86-amd-Try-to-set-lfence-as-being-Dispatch-Serialis.patch
+Patch526: patch-xsa254-ca9583d9-x86-Introduce-alternative-indirect-thunks.patch
+Patch527: patch-xsa254-da49e518-x86-feature-Definitions-for-Indirect-Branch-Controls.patch
+Patch528: patch-xsa254-532ccf4f-x86-cmdline-Introduce-a-command-line-option-to-disab.patch
+Patch529: patch-xsa254-c3d195cd-x86-cpuid-Handling-of-IBRS-IBPB-STIBP-and-IBRS-for-g.patch
+Patch530: patch-xsa254-29e7171e-x86-msr-Emulation-of-MSR_-SPEC_CTRL-PRED_CMD-for-gue.patch
+Patch531: patch-xsa254-e6bcb416-x86-migrate-Move-MSR_SPEC_CTRL-on-migrate.patch
+Patch532: patch-xsa254-ff570a3e-x86-hvm-Permit-guests-direct-access-to-MSR_-SPEC_CTR.patch
+Patch533: patch-xsa254-e09a5c29-x86-entry-Organise-the-use-of-MSR_SPEC_CTRL-at-each-.patch
+Patch534: patch-xsa254-86153856-x86-entry-Organise-the-clobbering-of-the-RSB-RAS-on-.patch
+Patch535: patch-xsa254-64c1742b-x86-entry-Avoid-using-alternatives-in-NMI-MC-paths.patch
+Patch536: patch-xsa254-c0bfde68-x86-boot-Calculate-the-most-appropriate-BTI-mitigati.patch
+Patch537: patch-xsa254-fee4689c-x86-ctxt-Issue-a-speculation-barrier-between-vcpu-co.patch
+Patch538: patch-xsa254-76bdfe89-x86-cpuid-Offer-Indirect-Branch-Controls-to-guests.patch
+Patch539: patch-xsa254-99ed7863-x86-idle-Clear-SPEC_CTRL-while-idle.patch
+Patch540: patch-xsa254-5938aa17-x86-PV-correctly-count-MSRs-to-migrate.patch
+
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
 Patch602: patch-xen-xl-create-quiet.patch
