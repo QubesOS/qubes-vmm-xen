@@ -137,7 +137,6 @@ Patch437: patch-60efd677-xl-Don-t-warn-on-using-deprecated-mode-selection.patch
 
 # Branch Target Injection (aka Variant 2, Spectre, SP2, CVE-2017-5715)
 # mitigation (from XSA-254)
-Patch501: patch-xsa254-a7cf0a3b-x86-entry-Remove-support-for-partial-cpu_user_regs-f.patch
 Patch502: patch-xsa254-946dd2ee-xen-arm-Introduce-enable-callback-to-enable-a-capabi.patch
 Patch503: patch-xsa254-85990bf5-xen-arm64-Add-missing-MIDR-values-for-Cortex-A72-A73.patch
 Patch504: patch-xsa254-cf0b584c-xen-arm-cpuerrata-Add-MIDR_ALL_VERSIONS.patch

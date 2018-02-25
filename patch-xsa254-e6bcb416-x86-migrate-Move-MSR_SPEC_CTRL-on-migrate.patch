@@ -26,8 +26,8 @@ index 2b5cab27d2..7b2dddcf2a 100644
                  i = 0;
  
                  vcpu_pause(v);
-@@ -1322,6 +1324,21 @@ long arch_do_domctl(
-                     ++i;
+@@ -1309,6 +1311,21 @@ long arch_do_domctl(
+                     }
                  }
  
 +                domain_cpuid(d, 7, 0, &dummy, &dummy, &dummy, &edx);
@@ -66,19 +66,20 @@ index 2b5cab27d2..7b2dddcf2a 100644
 +                    v->arch.spec_ctrl = msr.value;
 +                    continue;
 +
-                 case MSR_INTEL_MISC_FEATURES_ENABLES:
-                     v->arch.cpuid_faulting = !!(msr.value &
-                                                 MSR_MISC_FEATURES_CPUID_FAULTING);
+                 case MSR_AMD64_DR0_ADDRESS_MASK:
+                     if ( !boot_cpu_has(X86_FEATURE_DBEXT) ||
+                          (msr.value >> 32) )
 diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
 index a7053527f1..e217a09bac 100644
 --- a/xen/arch/x86/hvm/vmx/vmx.c
 +++ b/xen/arch/x86/hvm/vmx/vmx.c
-@@ -787,12 +787,15 @@ static int vmx_load_vmcs_ctxt(struct vcpu *v, struct hvm_hw_cpu *ctxt)
+@@ -786,14 +786,24 @@ static int vmx_load_vmcs_ctxt(struct vcpu *v, struct hvm_hw_cpu *ctxt)
+ 
  static unsigned int __init vmx_init_msr(void)
  {
-     return 1 /* MISC_FEATURES_ENABLES */ +
-+           !!boot_cpu_has(X86_FEATURE_IBRSB) +
-            (cpu_has_mpx && cpu_has_vmx_mpx) +
+-    return (cpu_has_mpx && cpu_has_vmx_mpx) +
++    return !!boot_cpu_has(X86_FEATURE_IBRSB) +
++           (cpu_has_mpx && cpu_has_vmx_mpx) +
             (cpu_has_xsaves && cpu_has_vmx_xsaves);
  }
  
@@ -87,11 +88,6 @@ index a7053527f1..e217a09bac 100644
 +    uint32_t edx, dummy;
 +
      vmx_vmcs_enter(v);
- 
-     if ( v->arch.cpuid_faulting )
-@@ -801,6 +804,13 @@ static void vmx_save_msr(struct vcpu *v, struct hvm_msr *ctxt)
-         ctxt->msr[ctxt->count++].val = MSR_MISC_FEATURES_CPUID_FAULTING;
-     }
  
 +    domain_cpuid(v->domain, 7, 0, &dummy, &dummy, &dummy, &edx);
 +    if ( (edx & cpufeat_mask(X86_FEATURE_IBRSB)) && v->arch.spec_ctrl )
@@ -120,9 +116,9 @@ index a7053527f1..e217a09bac 100644
 +            else
 +                v->arch.spec_ctrl = ctxt->msr[i].val;
 +            break;
-         case MSR_INTEL_MISC_FEATURES_ENABLES:
-             v->arch.cpuid_faulting = !!(ctxt->msr[i].val &
-                                         MSR_MISC_FEATURES_CPUID_FAULTING);
+         case MSR_IA32_BNDCFGS:
+             if ( cpu_has_mpx && cpu_has_vmx_mpx &&
+                  is_canonical_address(ctxt->msr[i].val) &&
 -- 
 2.16.1
 

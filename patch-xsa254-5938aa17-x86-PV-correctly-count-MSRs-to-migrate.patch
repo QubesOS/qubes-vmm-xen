@@ -43,7 +43,7 @@ index 0c9fe39a18..659dc9f4a2 100644
  
                  vcpu_pause(v);
 @@ -1337,9 +1340,7 @@ long arch_do_domctl(
-                     ++i;
+                     }
                  }
  
 -                domain_cpuid(d, 7, 0, &dummy, &dummy, &dummy, &edx);
