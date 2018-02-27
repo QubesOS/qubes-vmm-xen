@@ -1,0 +1,173 @@
+From 4d2154914e3f44bae123dc6a93fbb3f1b39c0fee Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 12:44:17 +0100
+Subject: [PATCH] x86/cmdline: Introduce a command line option to disable
+ IBRS/IBPB, STIBP and IBPB
+
+Instead of gaining yet another top level boolean, introduce a more generic
+cpuid= option.  Also introduce a helper function to parse a generic boolean
+value.
+
+This is part of XSA-254.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+
+xen/cmdline: Fix parse_boolean() for unadorned values
+
+A command line such as "cpuid=no-ibrsb,no-stibp" tickles a bug in
+parse_boolean() because the separating comma fails the NUL case.
+
+Instead, check for slen == nlen which accounts for the boundary (if any)
+passed via the 'e' parameter.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 7850b1c00749df834ea2ad0c1f5d9364c4838795
+master date: 2018-01-16 17:45:50 +0000
+master commit: ac37ec1ddef234eeba6f438c29ff687c64962ebd
+master date: 2018-01-31 10:47:12 +0000
+---
+ docs/misc/xen-command-line.markdown | 12 ++++++++++++
+ xen/arch/x86/setup.c                | 35 +++++++++++++++++++++++++++++++++++
+ xen/common/kernel.c                 | 36 ++++++++++++++++++++++++++++++++++++
+ xen/include/xen/lib.h               |  7 +++++++
+ 4 files changed, 90 insertions(+)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index 4ebf3b7bf5..251180ab1c 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -418,6 +418,18 @@ Indicate where the responsibility for driving power states lies.
+   respectively.
+ * `verbose` option can be included as a string or also as `verbose=<integer>`
+ 
++### cpuid (x86)
++> `= List of comma separated booleans`
++
++This option allows for fine tuning of the facilities Xen will use, after
++accounting for hardware capabilities as enumerated via CPUID.
++
++Currently accepted:
++
++The Speculation Control hardware features `ibrsb`, `stibp`, `ibpb` are used by
++default if avaiable.  They can be ignored, e.g. `no-ibrsb`, at which point Xen
++won't use them itself, and won't offer them to guests.
++
+ ### cpuid\_mask\_cpu (AMD only)
+ > `= fam_0f_rev_c | fam_0f_rev_d | fam_0f_rev_e | fam_0f_rev_f | fam_0f_rev_g | fam_10_rev_b | fam_10_rev_c | fam_11_rev_b`
+ 
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index b0d218c622..e38df11ae3 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -110,6 +110,41 @@ struct cpuinfo_x86 __read_mostly boot_cpu_data = { 0, 0, 0, 0, -1 };
+ 
+ unsigned long __read_mostly mmu_cr4_features = XEN_MINIMAL_CR4;
+ 
++static int __init parse_xen_cpuid(const char *s)
++{
++    const char *ss;
++    int val, rc = 0;
++
++    do {
++        ss = strchr(s, ',');
++        if ( !ss )
++            ss = strchr(s, '\0');
++
++        if ( (val = parse_boolean("ibpb", s, ss)) >= 0 )
++        {
++            if ( !val )
++                setup_clear_cpu_cap(X86_FEATURE_IBPB);
++        }
++        else if ( (val = parse_boolean("ibrsb", s, ss)) >= 0 )
++        {
++            if ( !val )
++                setup_clear_cpu_cap(X86_FEATURE_IBRSB);
++        }
++        else if ( (val = parse_boolean("stibp", s, ss)) >= 0 )
++        {
++            if ( !val )
++                setup_clear_cpu_cap(X86_FEATURE_STIBP);
++        }
++        else
++            rc = -EINVAL;
++
++        s = ss + 1;
++    } while ( *ss );
++
++    return rc;
++}
++custom_param("cpuid", parse_xen_cpuid);
++
+ bool_t __read_mostly acpi_disabled;
+ bool_t __initdata acpi_force;
+ static char __initdata acpi_param[10] = "";
+diff --git a/xen/common/kernel.c b/xen/common/kernel.c
+index 6a3196ae3b..7c01bf22c5 100644
+--- a/xen/common/kernel.c
++++ b/xen/common/kernel.c
+@@ -170,6 +170,42 @@ int __init parse_bool(const char *s)
+     return -1;
+ }
+ 
++int parse_boolean(const char *name, const char *s, const char *e)
++{
++    size_t slen, nlen;
++    int val = !!strncmp(s, "no-", 3);
++
++    if ( !val )
++        s += 3;
++
++    slen = e ? ({ ASSERT(e >= s); e - s; }) : strlen(s);
++    nlen = strlen(name);
++
++    /* Does s now start with name? */
++    if ( slen < nlen || strncmp(s, name, nlen) )
++        return -1;
++
++    /* Exact, unadorned name?  Result depends on the 'no-' prefix. */
++    if ( slen == nlen )
++        return val;
++
++    /* =$SOMETHING?  Defer to the regular boolean parsing. */
++    if ( s[nlen] == '=' )
++    {
++        char buf[8];
++
++        s += nlen + 1;
++        if ( e <= s || e - s >= ARRAY_SIZE(buf) )
++            return -1;
++        memcpy(buf, s, e - s);
++        buf[e - s] = 0;
++        return parse_bool(buf);
++    }
++
++    /* Unrecognised.  Give up. */
++    return -1;
++}
++
+ /**
+  *      print_tainted - return a string to represent the kernel taint state.
+  *
+diff --git a/xen/include/xen/lib.h b/xen/include/xen/lib.h
+index 4258912ed9..94970ec2a6 100644
+--- a/xen/include/xen/lib.h
++++ b/xen/include/xen/lib.h
+@@ -62,6 +62,13 @@ struct domain;
+ void cmdline_parse(const char *cmdline);
+ int parse_bool(const char *s);
+ 
++/**
++ * Given a specific name, parses a string of the form:
++ *   [no-]$NAME[=...]
++ * returning 0 or 1 for a recognised boolean, or -1 for an error.
++ */
++int parse_boolean(const char *name, const char *s, const char *e);
++
+ /*#define DEBUG_TRACE_DUMP*/
+ #ifdef DEBUG_TRACE_DUMP
+ extern void debugtrace_dump(void);
+-- 
+2.16.1
+

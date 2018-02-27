@@ -1,0 +1,644 @@
+From 0163087ed6175b00966f4ee991d8c424ad7eb59d Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 13:41:31 +0100
+Subject: [PATCH] x86/entry: Organise the use of MSR_SPEC_CTRL at each
+ entry/exit point
+
+We need to be able to either set or clear IBRS in Xen context, as well as
+restore appropriate guest values in guest context.  See the documentation in
+asm-x86/spec_ctrl_asm.h for details.
+
+With the contemporary microcode, writes to %cr3 are slower when SPEC_CTRL.IBRS
+is set.  Therefore, the positioning of SPEC_CTRL_{ENTRY/EXIT}* is important.
+
+Ideally, the IBRS_SET/IBRS_CLEAR hunks might be positioned either side of the
+%cr3 change, but that is rather more complicated to arrange, and could still
+result in a guest controlled value in SPEC_CTRL during the %cr3 change,
+negating the saving if the guest chose to have IBRS set.
+
+Therefore, we optimise for the pre-Skylake case (being far more common in the
+field than Skylake and later, at the moment), where we have a Xen-preferred
+value of IBRS clear when switching %cr3.
+
+There is a semi-unrelated bugfix, where various asm_defn.h macros have a
+hidden dependency on PAGE_SIZE, which results in an assembler error if used in
+a .macro definition.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 5e7962901131186d3514528ed57c7a9901a15a3e
+master date: 2018-01-26 14:10:21 +0000
+---
+ xen/arch/x86/hvm/svm/entry.S        |  10 +-
+ xen/arch/x86/hvm/vmx/entry.S        |  18 +++
+ xen/arch/x86/setup.c                |   1 +
+ xen/arch/x86/smpboot.c              |   2 +
+ xen/arch/x86/x86_64/asm-offsets.c   |   3 +
+ xen/arch/x86/x86_64/compat/entry.S  |  13 +++
+ xen/arch/x86/x86_64/entry.S         |  47 +++++++-
+ xen/include/asm-x86/asm_defns.h     |   3 +
+ xen/include/asm-x86/current.h       |   6 +
+ xen/include/asm-x86/nops.h          |   5 +
+ xen/include/asm-x86/spec_ctrl.h     |   9 ++
+ xen/include/asm-x86/spec_ctrl_asm.h | 224 ++++++++++++++++++++++++++++++++++++
+ 12 files changed, 335 insertions(+), 6 deletions(-)
+ create mode 100644 xen/include/asm-x86/spec_ctrl_asm.h
+
+diff --git a/xen/arch/x86/hvm/svm/entry.S b/xen/arch/x86/hvm/svm/entry.S
+index 442d2d62c6..706bdd301a 100644
+--- a/xen/arch/x86/hvm/svm/entry.S
++++ b/xen/arch/x86/hvm/svm/entry.S
+@@ -78,6 +78,11 @@ UNLIKELY_END(svm_trace)
+         or   $X86_EFLAGS_MBS,%rax
+         mov  %rax,VMCB_rflags(%rcx)
+ 
++        mov VCPU_arch_spec_ctrl(%rbx), %eax
++
++        /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
++        SPEC_CTRL_EXIT_TO_GUEST /* Req: a=spec_ctrl %rsp=regs/cpuinfo, Clob: cd */
++
+         pop  %r15
+         pop  %r14
+         pop  %r13
+@@ -100,8 +105,11 @@ UNLIKELY_END(svm_trace)
+         SAVE_ALL
+ 
+         GET_CURRENT(%rbx)
+-        mov  VCPU_svm_vmcb(%rbx),%rcx
+ 
++        SPEC_CTRL_ENTRY_FROM_VMEXIT /* Req: b=curr %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
++        mov  VCPU_svm_vmcb(%rbx),%rcx
+         movb $0,VCPU_svm_vmcb_in_sync(%rbx)
+         mov  VMCB_rax(%rcx),%rax
+         mov  %rax,UREGS_rax(%rsp)
+diff --git a/xen/arch/x86/hvm/vmx/entry.S b/xen/arch/x86/hvm/vmx/entry.S
+index 1744615bc6..d43ae26a6b 100644
+--- a/xen/arch/x86/hvm/vmx/entry.S
++++ b/xen/arch/x86/hvm/vmx/entry.S
+@@ -37,6 +37,9 @@ ENTRY(vmx_asm_vmexit_handler)
+         movb $1,VCPU_vmx_launched(%rbx)
+         mov  %rax,VCPU_hvm_guest_cr2(%rbx)
+ 
++        SPEC_CTRL_ENTRY_FROM_VMEXIT /* Req: b=curr %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         mov  %rsp,%rdi
+         call vmx_vmexit_handler
+ 
+@@ -65,6 +68,12 @@ UNLIKELY_END(realmode)
+ 
+         mov  %rsp,%rdi
+         call vmx_vmenter_helper
++
++        mov VCPU_arch_spec_ctrl(%rbx), %eax
++
++        /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
++        SPEC_CTRL_EXIT_TO_GUEST /* Req: a=spec_ctrl %rsp=regs/cpuinfo, Clob: cd */
++
+         mov  VCPU_hvm_guest_cr2(%rbx),%rax
+ 
+         pop  %r15
+@@ -96,6 +105,15 @@ UNLIKELY_END(realmode)
+ .Lvmx_vmentry_fail:
+         sti
+         SAVE_ALL
++
++        /*
++         * PV variant needed here as no guest code has executed (so
++         * MSR_SPEC_CTRL can't have changed value), and NMIs/MCEs are liable
++         * to hit (in which case the HVM variant might corrupt things).
++         */
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         call vmx_vmentry_failure
+         ud2
+ 
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index e38df11ae3..54fd3f33be 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -624,6 +624,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+     set_processor_id(0);
+     set_current((struct vcpu *)0xfffff000); /* debug sanity. */
+     idle_vcpu[0] = current;
++    init_shadow_spec_ctrl_state();
+ 
+     percpu_init_areas();
+ 
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 5e5c3528dc..db59aca78a 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -41,6 +41,7 @@
+ #include <asm/flushtlb.h>
+ #include <asm/msr.h>
+ #include <asm/mtrr.h>
++#include <asm/spec_ctrl.h>
+ #include <asm/time.h>
+ #include <asm/tboot.h>
+ #include <mach_apic.h>
+@@ -334,6 +335,7 @@ void start_secondary(void *unused)
+     this_cpu(curr_vcpu) = idle_vcpu[cpu];
+     if ( cpu_has_efer )
+         rdmsrl(MSR_EFER, this_cpu(efer));
++    init_shadow_spec_ctrl_state();
+ 
+     /*
+      * Just as during early bootstrap, it is convenient here to disable
+diff --git a/xen/arch/x86/x86_64/asm-offsets.c b/xen/arch/x86/x86_64/asm-offsets.c
+index 39fd348c81..b2edf4480c 100644
+--- a/xen/arch/x86/x86_64/asm-offsets.c
++++ b/xen/arch/x86/x86_64/asm-offsets.c
+@@ -87,6 +87,7 @@ void __dummy__(void)
+     OFFSET(VCPU_kernel_sp, struct vcpu, arch.pv_vcpu.kernel_sp);
+     OFFSET(VCPU_kernel_ss, struct vcpu, arch.pv_vcpu.kernel_ss);
+     OFFSET(VCPU_guest_context_flags, struct vcpu, arch.vgc_flags);
++    OFFSET(VCPU_arch_spec_ctrl, struct vcpu, arch.spec_ctrl);
+     OFFSET(VCPU_nmi_pending, struct vcpu, nmi_pending);
+     OFFSET(VCPU_mce_pending, struct vcpu, mce_pending);
+     OFFSET(VCPU_nmi_old_mask, struct vcpu, nmi_state.old_mask);
+@@ -138,6 +139,8 @@ void __dummy__(void)
+     OFFSET(CPUINFO_cr4, struct cpu_info, cr4);
+     OFFSET(CPUINFO_xen_cr3, struct cpu_info, xen_cr3);
+     OFFSET(CPUINFO_pv_cr3, struct cpu_info, pv_cr3);
++    OFFSET(CPUINFO_shadow_spec_ctrl, struct cpu_info, shadow_spec_ctrl);
++    OFFSET(CPUINFO_use_shadow_spec_ctrl, struct cpu_info, use_shadow_spec_ctrl);
+     DEFINE(CPUINFO_sizeof, sizeof(struct cpu_info));
+     BLANK();
+ 
+diff --git a/xen/arch/x86/x86_64/compat/entry.S b/xen/arch/x86/x86_64/compat/entry.S
+index 9c875e57ad..bc1f509672 100644
+--- a/xen/arch/x86/x86_64/compat/entry.S
++++ b/xen/arch/x86/x86_64/compat/entry.S
+@@ -17,6 +17,10 @@ ENTRY(compat_hypercall)
+         pushq $0
+         movl  $TRAP_syscall, 4(%rsp)
+         SAVE_ALL compat=1 /* DPL1 gate, restricted to 32bit PV guests only. */
++
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         CR4_PV32_RESTORE
+ 
+         cmpb  $0,untrusted_msi(%rip)
+@@ -212,6 +216,12 @@ ENTRY(compat_restore_all_guest)
+         .popsection
+         or    $X86_EFLAGS_IF,%r11
+         mov   %r11d,UREGS_eflags(%rsp)
++
++        mov VCPU_arch_spec_ctrl(%rbx), %eax
++
++        /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
++        SPEC_CTRL_EXIT_TO_GUEST /* Req: a=spec_ctrl %rsp=regs/cpuinfo, Clob: cd */
++
+         RESTORE_ALL adj=8 compat=1
+ .Lft0:  iretq
+ 
+@@ -302,6 +312,9 @@ ENTRY(cstar_enter)
+         movl  $TRAP_syscall, 4(%rsp)
+         SAVE_ALL
+ 
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+         neg   %rcx
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 008e22d4f0..59568c87b5 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -37,6 +37,9 @@ ENTRY(switch_to_kernel)
+ restore_all_guest:
+         ASSERT_INTERRUPTS_DISABLED
+ 
++        /* Stash guest SPEC_CTRL value while we can read struct vcpu. */
++        mov   VCPU_arch_spec_ctrl(%rbx), %r15d
++
+         /* Copy guest mappings and switch to per-CPU root page table. */
+         mov   %cr3, %r9
+         GET_STACK_BASE(%rdx)
+@@ -64,6 +67,12 @@ restore_all_guest:
+         write_cr3 rax, rdi, rsi
+ .Lrag_keep_cr3:
+ 
++        /* Restore stashed SPEC_CTRL value. */
++        mov   %r15d, %eax
++
++        /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
++        SPEC_CTRL_EXIT_TO_GUEST /* Req: a=spec_ctrl %rsp=regs/cpuinfo, Clob: cd */
++
+         RESTORE_ALL
+         testw $TRAP_syscall,4(%rsp)
+         jz    iret_exit_to_guest
+@@ -132,9 +141,9 @@ restore_all_xen:
+          * Check whether we need to switch to the per-CPU page tables, in
+          * case we return to late PV exit code (from an NMI or #MC).
+          */
+-        GET_STACK_BASE(%rax)
+-        mov   STACK_CPUINFO_FIELD(xen_cr3)(%rax), %rdx
+-        mov   STACK_CPUINFO_FIELD(pv_cr3)(%rax), %rax
++        GET_STACK_BASE(%rbx)
++        mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rdx
++        mov   STACK_CPUINFO_FIELD(pv_cr3)(%rbx), %rax
+         test  %rdx, %rdx
+         /*
+          * Ideally the condition would be "nsz", but such doesn't exist,
+@@ -144,6 +153,9 @@ UNLIKELY_START(g, exit_cr3)
+         write_cr3 rax, rdi, rsi
+ UNLIKELY_END(exit_cr3)
+ 
++        /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
++        SPEC_CTRL_EXIT_TO_XEN /* Req: %rbx=end, Clob: acd */
++
+         RESTORE_ALL adj=8
+         iretq
+ 
+@@ -174,6 +186,9 @@ ENTRY(lstar_enter)
+         movl  $TRAP_syscall, 4(%rsp)
+         SAVE_ALL
+ 
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+         neg   %rcx
+@@ -334,6 +349,9 @@ GLOBAL(sysenter_eflags_saved)
+         movl  $TRAP_syscall, 4(%rsp)
+         SAVE_ALL
+ 
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+         neg   %rcx
+@@ -380,6 +398,9 @@ ENTRY(int80_direct_trap)
+         movl  $0x80, 4(%rsp)
+         SAVE_ALL
+ 
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+         neg   %rcx
+@@ -561,6 +582,10 @@ ENTRY(common_interrupt)
+         SAVE_ALL CLAC
+ 
+         GET_STACK_BASE(%r14)
++
++        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+         mov   %rcx, %r15
+         neg   %rcx
+@@ -599,6 +624,10 @@ GLOBAL(handle_exception)
+         SAVE_ALL CLAC
+ 
+         GET_STACK_BASE(%r14)
++
++        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+         mov   %rcx, %r15
+         neg   %rcx
+@@ -791,8 +820,12 @@ ENTRY(double_fault)
+         /* Set AC to reduce chance of further SMAP faults */
+         SAVE_ALL STAC
+ 
+-        GET_STACK_BASE(%rbx)
+-        mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rbx
++        GET_STACK_BASE(%r14)
++
++        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
++        mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rbx
+         test  %rbx, %rbx
+         jz    .Ldblf_cr3_okay
+         jns   .Ldblf_cr3_load
+@@ -821,6 +854,10 @@ handle_ist_exception:
+         SAVE_ALL CLAC
+ 
+         GET_STACK_BASE(%r14)
++
++        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, Clob: acd */
++        /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
++
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+         mov   %rcx, %r15
+         neg   %rcx
+diff --git a/xen/include/asm-x86/asm_defns.h b/xen/include/asm-x86/asm_defns.h
+index 1d6920ca4d..1f68181616 100644
+--- a/xen/include/asm-x86/asm_defns.h
++++ b/xen/include/asm-x86/asm_defns.h
+@@ -7,6 +7,7 @@
+ #include <asm/asm-offsets.h>
+ #endif
+ #include <asm/bug.h>
++#include <asm/page.h>
+ #include <asm/processor.h>
+ #include <asm/percpu.h>
+ #include <xen/stringify.h>
+@@ -329,4 +330,6 @@ static always_inline void stac(void)
+ #define REX64_PREFIX "rex64/"
+ #endif
+ 
++#include <asm/spec_ctrl_asm.h>
++
+ #endif /* __X86_ASM_DEFNS_H__ */
+diff --git a/xen/include/asm-x86/current.h b/xen/include/asm-x86/current.h
+index db272e8854..8f59379e7d 100644
+--- a/xen/include/asm-x86/current.h
++++ b/xen/include/asm-x86/current.h
+@@ -54,6 +54,12 @@ struct cpu_info {
+      */
+     unsigned long xen_cr3;
+     unsigned long pv_cr3;
++
++    /* See asm-x86/spec_ctrl_asm.h for usage. */
++    unsigned int shadow_spec_ctrl;
++    bool_t       use_shadow_spec_ctrl;
++
++    unsigned long __pad;
+     /* get_stack_bottom() must be 16-byte aligned */
+ };
+ 
+diff --git a/xen/include/asm-x86/nops.h b/xen/include/asm-x86/nops.h
+index 05f916230f..a993000f59 100644
+--- a/xen/include/asm-x86/nops.h
++++ b/xen/include/asm-x86/nops.h
+@@ -61,6 +61,11 @@
+ #define ASM_NOP7 _ASM_MK_NOP(K8_NOP7)
+ #define ASM_NOP8 _ASM_MK_NOP(K8_NOP8)
+ 
++#define ASM_NOP21 ASM_NOP8; ASM_NOP8; ASM_NOP5
++#define ASM_NOP23 ASM_NOP8; ASM_NOP8; ASM_NOP7
++#define ASM_NOP24 ASM_NOP8; ASM_NOP8; ASM_NOP8
++#define ASM_NOP32 ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP8
++
+ #define ASM_NOP_MAX 8
+ 
+ #endif /* __X86_ASM_NOPS_H__ */
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index e088a551da..b451250282 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -20,8 +20,17 @@
+ #ifndef __X86_SPEC_CTRL_H__
+ #define __X86_SPEC_CTRL_H__
+ 
++#include <asm/current.h>
++
+ void init_speculation_mitigations(void);
+ 
++static inline void init_shadow_spec_ctrl_state(void)
++{
++    struct cpu_info *info = get_cpu_info();
++
++    info->shadow_spec_ctrl = info->use_shadow_spec_ctrl = 0;
++}
++
+ #endif /* !__X86_SPEC_CTRL_H__ */
+ 
+ /*
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+new file mode 100644
+index 0000000000..e53ec87278
+--- /dev/null
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -0,0 +1,224 @@
++/******************************************************************************
++ * include/asm-x86/spec_ctrl.h
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; If not, see <http://www.gnu.org/licenses/>.
++ *
++ * Copyright (c) 2017-2018 Citrix Systems Ltd.
++ */
++
++#ifndef __X86_SPEC_CTRL_ASM_H__
++#define __X86_SPEC_CTRL_ASM_H__
++
++#ifdef __ASSEMBLY__
++#include <asm/msr-index.h>
++
++/*
++ * Saving and restoring MSR_SPEC_CTRL state is a little tricky.
++ *
++ * We want the guests choice of SPEC_CTRL while in guest context, and Xen's
++ * choice (set or clear, depending on the hardware) while running in Xen
++ * context.  Therefore, a simplistic algorithm is:
++ *
++ *  - Set/clear IBRS on entry to Xen
++ *  - Set the guests' choice on exit to guest
++ *  - Leave SPEC_CTRL unchanged on exit to xen
++ *
++ * There are two complicating factors:
++ *  1) HVM guests can have direct access to the MSR, so it can change
++ *     behind Xen's back.
++ *  2) An NMI or MCE can interrupt at any point, including early in the entry
++ *     path, or late in the exit path after restoring the guest value.  This
++ *     will corrupt the guest value.
++ *
++ * Factor 1 is dealt with by relying on NMIs/MCEs being blocked immediately
++ * after VMEXIT.  The VMEXIT-specific code reads MSR_SPEC_CTRL and updates
++ * current before loading Xen's MSR_SPEC_CTRL setting.
++ *
++ * Factor 2 is harder.  We maintain a shadow_spec_ctrl value, and
++ * use_shadow_spec_ctrl boolean per cpu.  The synchronous use is:
++ *
++ *  1) Store guest value in shadow_spec_ctrl
++ *  2) Set use_shadow_spec_ctrl boolean
++ *  3) Load guest value into MSR_SPEC_CTRL
++ *  4) Exit to guest
++ *  5) Entry from guest
++ *  6) Clear use_shadow_spec_ctrl boolean
++ *  7) Load Xen's value into MSR_SPEC_CTRL
++ *
++ * The asynchronous use for interrupts/exceptions is:
++ *  -  Set/clear IBRS on entry to Xen
++ *  -  On exit to Xen, check use_shadow_spec_ctrl
++ *  -  If set, load shadow_spec_ctrl
++ *
++ * Therefore, an interrupt/exception which hits the synchronous path between
++ * steps 2 and 6 will restore the shadow value rather than leaving Xen's value
++ * loaded and corrupting the value used in guest context.
++ *
++ * The following ASM fragments implement this algorithm.  See their local
++ * comments for further details.
++ *  - SPEC_CTRL_ENTRY_FROM_VMEXIT
++ *  - SPEC_CTRL_ENTRY_FROM_PV
++ *  - SPEC_CTRL_ENTRY_FROM_INTR
++ *  - SPEC_CTRL_EXIT_TO_XEN
++ *  - SPEC_CTRL_EXIT_TO_GUEST
++ */
++
++.macro DO_SPEC_CTRL_ENTRY_FROM_VMEXIT ibrs_val:req
++/*
++ * Requires %rbx=current, %rsp=regs/cpuinfo
++ * Clobbers %rax, %rcx, %rdx
++ *
++ * The common case is that a guest has direct access to MSR_SPEC_CTRL, at
++ * which point we need to save the guest value before setting IBRS for Xen.
++ * Unilaterally saving the guest value is shorter and faster than checking.
++ */
++    mov $MSR_SPEC_CTRL, %ecx
++    rdmsr
++
++    /* Stash the value from hardware. */
++    mov %eax, VCPU_arch_spec_ctrl(%rbx)
++    xor %edx, %edx
++
++    /* Clear SPEC_CTRL shadowing *before* loading Xen's value. */
++    movb %dl, CPUINFO_use_shadow_spec_ctrl(%rsp)
++
++    /* Load Xen's intended value. */
++    mov $\ibrs_val, %eax
++    wrmsr
++.endm
++
++.macro DO_SPEC_CTRL_ENTRY maybexen:req ibrs_val:req
++/*
++ * Requires %rsp=regs (also cpuinfo if !maybexen)
++ * Requires %r14=stack_end (if maybexen)
++ * Clobbers %rax, %rcx, %rdx
++ *
++ * PV guests can't update MSR_SPEC_CTRL behind Xen's back, so no need to read
++ * it back.  Entries from guest context need to clear SPEC_CTRL shadowing,
++ * while entries from Xen must leave shadowing in its current state.
++ */
++    mov $MSR_SPEC_CTRL, %ecx
++    xor %edx, %edx
++
++    /*
++     * Clear SPEC_CTRL shadowing *before* loading Xen's value.  If entering
++     * from a possibly-xen context, %rsp doesn't necessarily alias the cpuinfo
++     * block so calculate the position directly.
++     */
++    .if \maybexen
++        /* Branchless `if ( !xen ) clear_shadowing` */
++        testb $3, UREGS_cs(%rsp)
++        setz %al
++        and %al, STACK_CPUINFO_FIELD(use_shadow_spec_ctrl)(%r14)
++    .else
++        movb %dl, CPUINFO_use_shadow_spec_ctrl(%rsp)
++    .endif
++
++    /* Load Xen's intended value. */
++    mov $\ibrs_val, %eax
++    wrmsr
++.endm
++
++.macro DO_SPEC_CTRL_EXIT_TO_XEN
++/*
++ * Requires %rbx=stack_end
++ * Clobbers %rax, %rcx, %rdx
++ *
++ * When returning to Xen context, look to see whether SPEC_CTRL shadowing is
++ * in effect, and reload the shadow value.  This covers race conditions which
++ * exist with an NMI/MCE/etc hitting late in the return-to-guest path.
++ */
++    xor %edx, %edx
++
++    cmpb %dl, STACK_CPUINFO_FIELD(use_shadow_spec_ctrl)(%rbx)
++    je .L\@_skip
++
++    mov STACK_CPUINFO_FIELD(shadow_spec_ctrl)(%rbx), %eax
++    mov $MSR_SPEC_CTRL, %ecx
++    wrmsr
++
++.L\@_skip:
++.endm
++
++.macro DO_SPEC_CTRL_EXIT_TO_GUEST
++/*
++ * Requires %eax=spec_ctrl, %rsp=regs/cpuinfo
++ * Clobbers %rcx, %rdx
++ *
++ * When returning to guest context, set up SPEC_CTRL shadowing and load the
++ * guest value.
++ */
++    /* Set up shadow value *before* enabling shadowing. */
++    mov %eax, CPUINFO_shadow_spec_ctrl(%rsp)
++
++    /* Set SPEC_CTRL shadowing *before* loading the guest value. */
++    movb $1, CPUINFO_use_shadow_spec_ctrl(%rsp)
++
++    mov $MSR_SPEC_CTRL, %ecx
++    xor %edx, %edx
++    wrmsr
++.endm
++
++/* Use after a VMEXIT from an HVM guest. */
++#define SPEC_CTRL_ENTRY_FROM_VMEXIT                                     \
++    ALTERNATIVE_2 __stringify(ASM_NOP32),                               \
++        __stringify(DO_SPEC_CTRL_ENTRY_FROM_VMEXIT                      \
++                    ibrs_val=SPEC_CTRL_IBRS),                           \
++        X86_FEATURE_XEN_IBRS_SET,                                       \
++        __stringify(DO_SPEC_CTRL_ENTRY_FROM_VMEXIT                      \
++                    ibrs_val=0),                                        \
++        X86_FEATURE_XEN_IBRS_CLEAR
++
++/* Use after an entry from PV context (syscall/sysenter/int80/int82/etc). */
++#define SPEC_CTRL_ENTRY_FROM_PV                                         \
++    ALTERNATIVE_2 __stringify(ASM_NOP21),                               \
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0                       \
++                    ibrs_val=SPEC_CTRL_IBRS),                           \
++        X86_FEATURE_XEN_IBRS_SET,                                       \
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0 ibrs_val=0),          \
++        X86_FEATURE_XEN_IBRS_CLEAR
++
++/* Use in interrupt/exception context.  May interrupt Xen or PV context. */
++#define SPEC_CTRL_ENTRY_FROM_INTR                                       \
++    ALTERNATIVE_2 __stringify(ASM_NOP32),                               \
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1                       \
++                    ibrs_val=SPEC_CTRL_IBRS),                           \
++        X86_FEATURE_XEN_IBRS_SET,                                       \
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1 ibrs_val=0),          \
++        X86_FEATURE_XEN_IBRS_CLEAR
++
++/* Use when exiting to Xen context. */
++#define SPEC_CTRL_EXIT_TO_XEN                                           \
++    ALTERNATIVE_2 __stringify(ASM_NOP23),                               \
++        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_XEN_IBRS_SET,             \
++        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_XEN_IBRS_CLEAR
++
++/* Use when exiting to guest context. */
++#define SPEC_CTRL_EXIT_TO_GUEST                                         \
++    ALTERNATIVE_2 __stringify(ASM_NOP24),                               \
++        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_XEN_IBRS_SET,           \
++        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_XEN_IBRS_CLEAR
++
++#endif /* __ASSEMBLY__ */
++#endif /* !__X86_SPEC_CTRL_ASM_H__ */
++
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * tab-width: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+-- 
+2.16.1
+

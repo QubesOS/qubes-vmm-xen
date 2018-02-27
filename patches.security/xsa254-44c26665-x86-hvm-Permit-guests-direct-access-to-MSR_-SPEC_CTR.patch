@@ -1,0 +1,102 @@
+From 44c2666589fefc13049edc874c7ef063823bad90 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 13:40:38 +0100
+Subject: [PATCH] x86/hvm: Permit guests direct access to
+ MSR_{SPEC_CTRL,PRED_CMD}
+
+For performance reasons, HVM guests should have direct access to these MSRs
+when possible.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+master commit: 5a2fe171144ebcc908ea1fca45058d6010f6a286
+master date: 2018-01-26 14:10:21 +0000
+---
+ xen/arch/x86/hvm/svm/svm.c      | 13 +++++++++++++
+ xen/arch/x86/hvm/vmx/vmcs.c     | 30 ++++++++++++++++++++++++++++++
+ xen/include/asm-x86/processor.h |  2 ++
+ 3 files changed, 45 insertions(+)
+
+diff --git a/xen/arch/x86/hvm/svm/svm.c b/xen/arch/x86/hvm/svm/svm.c
+index 7b51542286..d84e150324 100644
+--- a/xen/arch/x86/hvm/svm/svm.c
++++ b/xen/arch/x86/hvm/svm/svm.c
+@@ -1043,6 +1043,19 @@ static void noreturn svm_do_resume(struct vcpu *v)
+     if ( nestedhvm_enabled(v->domain) && nestedhvm_vcpu_in_guestmode(v) )
+         vcpu_guestmode = 1;
+ 
++    if ( !(v->arch.flags & TF_launched) )
++    {
++        uint32_t ebx, dummy;
++
++        /* Give access to MSR_PRED_CMD if the guest has been told about it. */
++        domain_cpuid(v->domain, 0x80000008, 0, &dummy, &ebx, &dummy, &dummy);
++        svm_intercept_msr(v, MSR_PRED_CMD,
++                          ebx & cpufeat_mask(X86_FEATURE_IBPB)
++                          ? MSR_INTERCEPT_NONE : MSR_INTERCEPT_RW);
++
++        v->arch.flags |= TF_launched;
++    }
++
+     if ( !vcpu_guestmode &&
+         unlikely(v->arch.hvm_vcpu.debug_state_latch != debug_state) )
+     {
+diff --git a/xen/arch/x86/hvm/vmx/vmcs.c b/xen/arch/x86/hvm/vmx/vmcs.c
+index b297a91a8f..cf15a62898 100644
+--- a/xen/arch/x86/hvm/vmx/vmcs.c
++++ b/xen/arch/x86/hvm/vmx/vmcs.c
+@@ -1664,6 +1664,36 @@ void vmx_do_resume(struct vcpu *v)
+         hvm_asid_flush_vcpu(v);
+     }
+ 
++    if ( !(v->arch.flags & TF_launched) )
++    {
++        uint32_t _7d0, e8b, dummy;
++
++        domain_cpuid(v->domain, 7, 0, &dummy, &dummy, &dummy, &_7d0);
++        domain_cpuid(v->domain, 0x80000008, 0, &dummy, &e8b, &dummy, &dummy);
++
++        /*
++         * We can safely pass MSR_SPEC_CTRL through to the guest, even if STIBP
++         * isn't enumerated in hardware, as SPEC_CTRL_STIBP is ignored.
++         */
++        if ( _7d0 & cpufeat_mask(X86_FEATURE_IBRSB) )
++            vmx_disable_intercept_for_msr(v, MSR_SPEC_CTRL,
++                                          MSR_TYPE_R | MSR_TYPE_W);
++        else
++            vmx_enable_intercept_for_msr(v, MSR_SPEC_CTRL,
++                                         MSR_TYPE_R | MSR_TYPE_W);
++
++        /* MSR_PRED_CMD is safe to pass through if the guest knows about it. */
++        if ( (_7d0 & cpufeat_mask(X86_FEATURE_IBRSB)) ||
++             (e8b & cpufeat_mask(X86_FEATURE_IBPB)) )
++            vmx_disable_intercept_for_msr(v, MSR_PRED_CMD,
++                                          MSR_TYPE_R | MSR_TYPE_W);
++        else
++            vmx_enable_intercept_for_msr(v, MSR_PRED_CMD,
++                                         MSR_TYPE_R | MSR_TYPE_W);
++
++        v->arch.flags |= TF_launched;
++    }
++
+     debug_state = v->domain->debugger_attached
+                   || v->domain->arch.monitor.software_breakpoint_enabled
+                   || v->domain->arch.monitor.singlestep_enabled;
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 246db8f683..cd8ad52949 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -133,6 +133,8 @@
+ /* 'arch_vcpu' flags values */
+ #define _TF_kernel_mode        0
+ #define TF_kernel_mode         (1<<_TF_kernel_mode)
++#define _TF_launched           1
++#define TF_launched            (1u << _TF_launched)
+ 
+ /* #PF error code values. */
+ #define PFEC_page_present   (_AC(1,U) << 0)
+-- 
+2.16.1
+

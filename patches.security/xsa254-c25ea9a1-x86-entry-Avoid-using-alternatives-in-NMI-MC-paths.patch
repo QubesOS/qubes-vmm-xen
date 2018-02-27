@@ -1,0 +1,218 @@
+From c25ea9a1393c1eb5d6732ec366baa1091db5e7db Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 13:43:00 +0100
+Subject: [PATCH] x86/entry: Avoid using alternatives in NMI/#MC paths
+
+This patch is deliberately arranged to be easy to revert if/when alternatives
+patching becomes NMI/#MC safe.
+
+For safety, there must be a dispatch serialising instruction in (what is
+logically) DO_SPEC_CTRL_ENTRY so that, in the case that Xen needs IBRS set in
+context, an attacker can't speculate around the WRMSR and reach an indirect
+branch within the speculation window.
+
+Using conditionals opens this attack vector up, so the else clause gets an
+LFENCE to force the pipeline to catch up before continuing.  This also covers
+the safety of RSB conditional, as execution it is guaranteed to either hit the
+WRMSR or LFENCE.
+
+One downside of not using alternatives is that there unconditionally an LFENCE
+in the IST path in cases where we are not using the features from IBRS-capable
+microcode.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 3fffaf9c13e9502f09ad4ab1aac3f8b7b9398f6f
+master date: 2018-01-26 14:10:21 +0000
+---
+ xen/arch/x86/spec_ctrl.c            |  8 +++++
+ xen/arch/x86/x86_64/asm-offsets.c   |  1 +
+ xen/arch/x86/x86_64/entry.S         |  6 ++--
+ xen/include/asm-x86/current.h       |  1 +
+ xen/include/asm-x86/spec_ctrl.h     |  1 +
+ xen/include/asm-x86/spec_ctrl_asm.h | 67 +++++++++++++++++++++++++++++++++++++
+ 6 files changed, 81 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index f66a2868fd..3133c7f591 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -20,8 +20,10 @@
+ #include <xen/init.h>
+ #include <xen/lib.h>
+ 
++#include <asm/msr-index.h>
+ #include <asm/processor.h>
+ #include <asm/spec_ctrl.h>
++#include <asm/spec_ctrl_asm.h>
+ 
+ static enum ind_thunk {
+     THUNK_DEFAULT, /* Decide which thunk to use at boot time. */
+@@ -151,6 +153,12 @@ void __init init_speculation_mitigations(void)
+     print_details(thunk);
+ }
+ 
++static void __init __maybe_unused build_assertions(void)
++{
++    /* The optimised assembly relies on this alias. */
++    BUILD_BUG_ON(BTI_IST_IBRS != SPEC_CTRL_IBRS);
++}
++
+ /*
+  * Local variables:
+  * mode: C
+diff --git a/xen/arch/x86/x86_64/asm-offsets.c b/xen/arch/x86/x86_64/asm-offsets.c
+index b2edf4480c..96c5eb4ff0 100644
+--- a/xen/arch/x86/x86_64/asm-offsets.c
++++ b/xen/arch/x86/x86_64/asm-offsets.c
+@@ -141,6 +141,7 @@ void __dummy__(void)
+     OFFSET(CPUINFO_pv_cr3, struct cpu_info, pv_cr3);
+     OFFSET(CPUINFO_shadow_spec_ctrl, struct cpu_info, shadow_spec_ctrl);
+     OFFSET(CPUINFO_use_shadow_spec_ctrl, struct cpu_info, use_shadow_spec_ctrl);
++    OFFSET(CPUINFO_bti_ist_info, struct cpu_info, bti_ist_info);
+     DEFINE(CPUINFO_sizeof, sizeof(struct cpu_info));
+     BLANK();
+ 
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 59568c87b5..72170aa900 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -154,7 +154,7 @@ UNLIKELY_START(g, exit_cr3)
+ UNLIKELY_END(exit_cr3)
+ 
+         /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
+-        SPEC_CTRL_EXIT_TO_XEN /* Req: %rbx=end, Clob: acd */
++        SPEC_CTRL_EXIT_TO_XEN_IST /* Req: %rbx=end, Clob: acd */
+ 
+         RESTORE_ALL adj=8
+         iretq
+@@ -822,7 +822,7 @@ ENTRY(double_fault)
+ 
+         GET_STACK_BASE(%r14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_INTR_IST /* Req: %rsp=regs, %r14=end, Clob: acd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rbx
+@@ -855,7 +855,7 @@ handle_ist_exception:
+ 
+         GET_STACK_BASE(%r14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_INTR_IST /* Req: %rsp=regs, %r14=end, Clob: acd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+diff --git a/xen/include/asm-x86/current.h b/xen/include/asm-x86/current.h
+index 8f59379e7d..461d5f3f48 100644
+--- a/xen/include/asm-x86/current.h
++++ b/xen/include/asm-x86/current.h
+@@ -58,6 +58,7 @@ struct cpu_info {
+     /* See asm-x86/spec_ctrl_asm.h for usage. */
+     unsigned int shadow_spec_ctrl;
+     bool_t       use_shadow_spec_ctrl;
++    uint8_t      bti_ist_info;
+ 
+     unsigned long __pad;
+     /* get_stack_bottom() must be 16-byte aligned */
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index b451250282..c454b02b66 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -29,6 +29,7 @@ static inline void init_shadow_spec_ctrl_state(void)
+     struct cpu_info *info = get_cpu_info();
+ 
+     info->shadow_spec_ctrl = info->use_shadow_spec_ctrl = 0;
++    info->bti_ist_info = 0;
+ }
+ 
+ #endif /* !__X86_SPEC_CTRL_H__ */
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+index b5598ed594..aeafd1859e 100644
+--- a/xen/include/asm-x86/spec_ctrl_asm.h
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -20,6 +20,11 @@
+ #ifndef __X86_SPEC_CTRL_ASM_H__
+ #define __X86_SPEC_CTRL_ASM_H__
+ 
++/* Encoding of the bottom bits in cpuinfo.bti_ist_info */
++#define BTI_IST_IBRS  (1 << 0)
++#define BTI_IST_WRMSR (1 << 1)
++#define BTI_IST_RSB   (1 << 2)
++
+ #ifdef __ASSEMBLY__
+ #include <asm/msr-index.h>
+ 
+@@ -254,6 +259,68 @@
+         DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_XEN_IBRS_SET,           \
+         DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_XEN_IBRS_CLEAR
+ 
++/* TODO: Drop these when the alternatives infrastructure is NMI/#MC safe. */
++.macro SPEC_CTRL_ENTRY_FROM_INTR_IST
++/*
++ * Requires %rsp=regs, %r14=stack_end
++ * Clobbers %rax, %rcx, %rdx
++ *
++ * This is logical merge of DO_OVERWRITE_RSB and DO_SPEC_CTRL_ENTRY
++ * maybexen=1, but with conditionals rather than alternatives.
++ */
++    movzbl STACK_CPUINFO_FIELD(bti_ist_info)(%r14), %eax
++
++    testb $BTI_IST_RSB, %al
++    jz .L\@_skip_rsb
++
++    DO_OVERWRITE_RSB
++
++.L\@_skip_rsb:
++
++    testb $BTI_IST_WRMSR, %al
++    jz .L\@_skip_wrmsr
++
++    xor %edx, %edx
++    testb $3, UREGS_cs(%rsp)
++    setz %dl
++    and %dl, STACK_CPUINFO_FIELD(use_shadow_spec_ctrl)(%r14)
++
++.L\@_entry_from_xen:
++    /*
++     * Load Xen's intended value.  SPEC_CTRL_IBRS vs 0 is encoded in the
++     * bottom bit of bti_ist_info, via a deliberate alias with BTI_IST_IBRS.
++     */
++    mov $MSR_SPEC_CTRL, %ecx
++    and $BTI_IST_IBRS, %eax
++    wrmsr
++
++    /* Opencoded UNLIKELY_START() with no condition. */
++UNLIKELY_DISPATCH_LABEL(\@_serialise):
++    .subsection 1
++    /*
++     * In the case that we might need to set SPEC_CTRL.IBRS for safety, we
++     * need to ensure that an attacker can't poison the `jz .L\@_skip_wrmsr`
++     * to speculate around the WRMSR.  As a result, we need a dispatch
++     * serialising instruction in the else clause.
++     */
++.L\@_skip_wrmsr:
++    lfence
++    UNLIKELY_END(\@_serialise)
++.endm
++
++.macro SPEC_CTRL_EXIT_TO_XEN_IST
++/*
++ * Requires %rbx=stack_end
++ * Clobbers %rax, %rcx, %rdx
++ */
++    testb $BTI_IST_WRMSR, STACK_CPUINFO_FIELD(bti_ist_info)(%rbx)
++    jz .L\@_skip
++
++    DO_SPEC_CTRL_EXIT_TO_XEN
++
++.L\@_skip:
++.endm
++
+ #endif /* __ASSEMBLY__ */
+ #endif /* !__X86_SPEC_CTRL_ASM_H__ */
+ 
+-- 
+2.16.1
+

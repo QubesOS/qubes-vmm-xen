@@ -1,0 +1,237 @@
+From 2613a1bc709ed4b46af36b0bab3200ed9d3c86d0 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 12:43:05 +0100
+Subject: [PATCH] x86: Introduce alternative indirect thunks
+
+Depending on hardware and microcode availability, we will want to replace
+IND_THUNK_REPOLINE with other implementations.
+
+For AMD hardware, choose IND_THUNK_LFENCE in preference to retpoline if lfence
+is known to be (or was successfully made) dispatch serialising.
+
+This is part of XSA-254.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 858cba0d4c6b6b45180afcb41561fd6585ad51a3
+master date: 2018-01-16 17:45:50 +0000
+---
+ docs/misc/xen-command-line.markdown | 16 ++++++++
+ xen/arch/x86/cpu/common.c           |  9 +++++
+ xen/arch/x86/indirect-thunk.S       | 17 +++++++--
+ xen/arch/x86/spec_ctrl.c            | 74 +++++++++++++++++++++++++++++++++++--
+ xen/include/asm-x86/cpufeature.h    |  2 +
+ 5 files changed, 112 insertions(+), 6 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index f12112126f..4ebf3b7bf5 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -244,6 +244,22 @@ and not running softirqs. Reduce this if softirqs are not being run frequently
+ enough. Setting this to a high value may cause boot failure, particularly if
+ the NMI watchdog is also enabled.
+ 
++### bti (x86)
++> `= List of [ thunk=retpoline|lfence|jmp ]`
++
++Branch Target Injection controls.  By default, Xen will pick the most
++appropriate BTI mitigations based on compiled in support, loaded microcode,
++and hardware details.
++
++**WARNING: Any use of this option may interfere with heuristics.  Use with
++extreme care.**
++
++If Xen was compiled with INDIRECT_THUNK support, `thunk=` can be used to
++select which of the thunks gets patched into the `__x86_indirect_thunk_%reg`
++locations.  The default thunk is `retpoline` (generally preferred for Intel
++hardware), with the alternatives being `jmp` (a `jmp *%reg` gadget, minimal
++overhead), and `lfence` (an `lfence; jmp *%reg` gadget, preferred for AMD).
++
+ ### xenheap\_megabytes (arm32)
+ > `= <size>`
+ 
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 5729e2d344..0c1eb5fcdf 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -348,6 +348,15 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 	 * executed, c == &boot_cpu_data.
+ 	 */
+ 	if ( c != &boot_cpu_data ) {
++		/* Inherit certain bits from the boot CPU. */
++		if (test_bit(X86_FEATURE_IND_THUNK_LFENCE,
++		             boot_cpu_data.x86_capability))
++			__set_bit(X86_FEATURE_IND_THUNK_LFENCE,
++			          c->x86_capability);
++		if (test_bit(X86_FEATURE_IND_THUNK_JMP,
++			     boot_cpu_data.x86_capability))
++			__set_bit(X86_FEATURE_IND_THUNK_JMP, c->x86_capability);
++
+ 		/* AND the already accumulated flags with these */
+ 		for ( i = 0 ; i < NCAPINTS ; i++ )
+ 			boot_cpu_data.x86_capability[i] &= c->x86_capability[i];
+diff --git a/xen/arch/x86/indirect-thunk.S b/xen/arch/x86/indirect-thunk.S
+index 3eaf505d0e..7d34707218 100644
+--- a/xen/arch/x86/indirect-thunk.S
++++ b/xen/arch/x86/indirect-thunk.S
+@@ -21,15 +21,26 @@
+         ret
+ .endm
+ 
++.macro IND_THUNK_LFENCE reg:req
++        lfence
++        jmp *%\reg
++.endm
++
++.macro IND_THUNK_JMP reg:req
++        jmp *%\reg
++.endm
++
+ /*
+- * Build the __x86_indirect_thunk_* symbols.  Currently implement the
+- * retpoline thunk only.
++ * Build the __x86.indirect_thunk.* symbols.  Execution lands on an
++ * alternative patch point which implements one of the above THUNK_*'s
+  */
+ .macro GEN_INDIRECT_THUNK reg:req
+         .section .text.__x86_indirect_thunk_\reg, "ax", @progbits
+ 
+ ENTRY(__x86_indirect_thunk_\reg)
+-        IND_THUNK_RETPOLINE \reg
++        ALTERNATIVE_2 __stringify(IND_THUNK_RETPOLINE \reg),              \
++        __stringify(IND_THUNK_LFENCE \reg), X86_FEATURE_IND_THUNK_LFENCE, \
++        __stringify(IND_THUNK_JMP \reg),    X86_FEATURE_IND_THUNK_JMP
+ .endm
+ 
+ /* Instantiate GEN_INDIRECT_THUNK for each register except %rsp. */
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 5903081156..621f4e882b 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -16,18 +16,54 @@
+  *
+  * Copyright (c) 2017-2018 Citrix Systems Ltd.
+  */
++#include <xen/errno.h>
+ #include <xen/init.h>
+ #include <xen/lib.h>
+ 
+ #include <asm/processor.h>
+ #include <asm/spec_ctrl.h>
+ 
+-enum ind_thunk {
++static enum ind_thunk {
+     THUNK_DEFAULT, /* Decide which thunk to use at boot time. */
+     THUNK_NONE,    /* Missing compiler support for thunks. */
+ 
+     THUNK_RETPOLINE,
+-};
++    THUNK_LFENCE,
++    THUNK_JMP,
++} opt_thunk __initdata = THUNK_DEFAULT;
++
++static int __init parse_bti(const char *s)
++{
++    const char *ss;
++    int rc = 0;
++
++    do {
++        ss = strchr(s, ',');
++        if ( !ss )
++            ss = strchr(s, '\0');
++
++        if ( !strncmp(s, "thunk=", 6) )
++        {
++            s += 6;
++
++            if ( !strncmp(s, "retpoline", ss - s) )
++                opt_thunk = THUNK_RETPOLINE;
++            else if ( !strncmp(s, "lfence", ss - s) )
++                opt_thunk = THUNK_LFENCE;
++            else if ( !strncmp(s, "jmp", ss - s) )
++                opt_thunk = THUNK_JMP;
++            else
++                rc = -EINVAL;
++        }
++        else
++            rc = -EINVAL;
++
++        s = ss + 1;
++    } while ( *ss );
++
++    return rc;
++}
++custom_param("bti", parse_bti);
+ 
+ static void __init print_details(enum ind_thunk thunk)
+ {
+@@ -41,13 +77,39 @@ static void __init print_details(enum ind_thunk thunk)
+     printk(XENLOG_INFO
+            "BTI mitigations: Thunk %s\n",
+            thunk == THUNK_NONE      ? "N/A" :
+-           thunk == THUNK_RETPOLINE ? "RETPOLINE" : "?");
++           thunk == THUNK_RETPOLINE ? "RETPOLINE" :
++           thunk == THUNK_LFENCE    ? "LFENCE" :
++           thunk == THUNK_JMP       ? "JMP" : "?");
+ }
+ 
+ void __init init_speculation_mitigations(void)
+ {
+     enum ind_thunk thunk = THUNK_DEFAULT;
+ 
++    /*
++     * Has the user specified any custom BTI mitigations?  If so, follow their
++     * instructions exactly and disable all heuristics.
++     */
++    if ( opt_thunk != THUNK_DEFAULT )
++    {
++        thunk = opt_thunk;
++    }
++    else
++    {
++        /*
++         * Evaluate the safest Branch Target Injection mitigations to use.
++         * First, begin with compiler-aided mitigations.
++         */
++#ifdef CONFIG_INDIRECT_THUNK
++        /*
++         * AMD's recommended mitigation is to set lfence as being dispatch
++         * serialising, and to use IND_THUNK_LFENCE.
++         */
++        if ( cpu_has_lfence_dispatch )
++            thunk = THUNK_LFENCE;
++#endif
++    }
++
+     /*
+      * Supplimentary minor adjustments.  Without compiler support, there are
+      * no thunks.
+@@ -63,6 +125,12 @@ void __init init_speculation_mitigations(void)
+     if ( thunk == THUNK_DEFAULT )
+         thunk = THUNK_RETPOLINE;
+ 
++    /* Apply the chosen settings. */
++    if ( thunk == THUNK_LFENCE )
++        __set_bit(X86_FEATURE_IND_THUNK_LFENCE, boot_cpu_data.x86_capability);
++    else if ( thunk == THUNK_JMP )
++        __set_bit(X86_FEATURE_IND_THUNK_JMP, boot_cpu_data.x86_capability);
++
+     print_details(thunk);
+ }
+ 
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index 0dece34a00..ec9933779f 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -62,6 +62,8 @@
+ /* Other features, Linux-defined mapping, word 3 */
+ /* This range is used for feature bits which conflict or are synthesized */
+ #define X86_FEATURE_LFENCE_DISPATCH (3*32+ 0) /* lfence set as Dispatch Serialising */
++#define X86_FEATURE_IND_THUNK_LFENCE (3*32+ 1) /* Use IND_THUNK_LFENCE */
++#define X86_FEATURE_IND_THUNK_JMP   (3*32+ 2) /* Use IND_THUNK_JMP */
+ #define X86_FEATURE_CONSTANT_TSC (3*32+ 8) /* TSC ticks at a constant rate */
+ #define X86_FEATURE_NONSTOP_TSC	(3*32+ 9) /* TSC does not stop in C states */
+ #define X86_FEATURE_ARAT	(3*32+ 10) /* Always running APIC timer */
+-- 
+2.16.1
+

@@ -1,0 +1,168 @@
+From 56510154bbd21f10080993b7888c1a47a802c3e2 Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@arm.com>
+Date: Wed, 27 Jul 2016 17:37:07 +0100
+Subject: [PATCH] xen/arm: Detect silicon revision and set cap bits accordingly
+
+After each CPU has been started, we iterate through a list of CPU
+errata to detect CPUs which need from hypervisor code patches.
+
+For each bug there is a function which checks if that a particular CPU is
+affected. This needs to be done on every CPU to cover heterogenous
+systems properly.
+
+If a certain erratum has been detected, the capability bit will be set.
+In the case the erratum requires code patching, this will be triggered
+by the call to apply_alternatives.
+
+The code is based on the file arch/arm64/kernel/cpu_errata.c in Linux
+v4.6-rc3.
+
+Signed-off-by: Julien Grall <julien.grall@arm.com>
+Acked-by: Stefano Stabellini <sstabellini@kernel.org>
+Signed-off-by: Stefano Stabellini <sstabellini@kernel.org>
+(cherry picked from commit 8b01f6364f50f3b416105cc5f1ee2ca4f13d43eb)
+---
+ xen/arch/arm/Makefile            |  1 +
+ xen/arch/arm/cpuerrata.c         | 34 ++++++++++++++++++++++++++++++++++
+ xen/arch/arm/setup.c             |  3 +++
+ xen/arch/arm/smpboot.c           |  3 +++
+ xen/include/asm-arm/cpuerrata.h  | 14 ++++++++++++++
+ xen/include/asm-arm/cpufeature.h |  6 ++++++
+ 6 files changed, 61 insertions(+)
+ create mode 100644 xen/arch/arm/cpuerrata.c
+ create mode 100644 xen/include/asm-arm/cpuerrata.h
+
+diff --git a/xen/arch/arm/Makefile b/xen/arch/arm/Makefile
+index 17abfbdb1f..cfce3b0dc6 100644
+--- a/xen/arch/arm/Makefile
++++ b/xen/arch/arm/Makefile
+@@ -5,6 +5,7 @@ subdir-$(arm64) += efi
+ 
+ obj-$(EARLY_PRINTK) += early_printk.o
+ obj-y += cpu.o
++obj-y += cpuerrata.o
+ obj-y += cpufeature.o
+ obj-y += domain.o
+ obj-y += psci.o
+diff --git a/xen/arch/arm/cpuerrata.c b/xen/arch/arm/cpuerrata.c
+new file mode 100644
+index 0000000000..03ae7b496c
+--- /dev/null
++++ b/xen/arch/arm/cpuerrata.c
+@@ -0,0 +1,34 @@
++#include <xen/config.h>
++#include <asm/cpufeature.h>
++#include <asm/cpuerrata.h>
++
++#define MIDR_RANGE(model, min, max)     \
++    .matches = is_affected_midr_range,  \
++    .midr_model = model,                \
++    .midr_range_min = min,              \
++    .midr_range_max = max
++
++static bool_t __maybe_unused
++is_affected_midr_range(const struct arm_cpu_capabilities *entry)
++{
++    return MIDR_IS_CPU_MODEL_RANGE(boot_cpu_data.midr.bits, entry->midr_model,
++                                   entry->midr_range_min,
++                                   entry->midr_range_max);
++}
++
++static const struct arm_cpu_capabilities arm_errata[] = {
++    {},
++};
++
++void check_local_cpu_errata(void)
++{
++    update_cpu_capabilities(arm_errata, "enabled workaround for");
++}
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+diff --git a/xen/arch/arm/setup.c b/xen/arch/arm/setup.c
+index 48f734fff8..e329ac708a 100644
+--- a/xen/arch/arm/setup.c
++++ b/xen/arch/arm/setup.c
+@@ -40,6 +40,7 @@
+ #include <asm/current.h>
+ #include <asm/setup.h>
+ #include <asm/gic.h>
++#include <asm/cpuerrata.h>
+ #include <asm/cpufeature.h>
+ #include <asm/platform.h>
+ #include <asm/procinfo.h>
+@@ -163,6 +164,8 @@ static void __init processor_id(void)
+     }
+ 
+     processor_setup();
++
++    check_local_cpu_errata();
+ }
+ 
+ static void dt_unreserved_regions(paddr_t s, paddr_t e,
+diff --git a/xen/arch/arm/smpboot.c b/xen/arch/arm/smpboot.c
+index a96cda261a..3874b1949f 100644
+--- a/xen/arch/arm/smpboot.c
++++ b/xen/arch/arm/smpboot.c
+@@ -29,6 +29,7 @@
+ #include <xen/timer.h>
+ #include <xen/irq.h>
+ #include <xen/console.h>
++#include <asm/cpuerrata.h>
+ #include <asm/gic.h>
+ #include <asm/psci.h>
+ 
+@@ -304,6 +305,8 @@ void __cpuinit start_secondary(unsigned long boot_phys_offset,
+     local_irq_enable();
+     local_abort_enable();
+ 
++    check_local_cpu_errata();
++
+     printk(XENLOG_DEBUG "CPU %u booted.\n", smp_processor_id());
+ 
+     startup_cpu_idle_loop();
+diff --git a/xen/include/asm-arm/cpuerrata.h b/xen/include/asm-arm/cpuerrata.h
+new file mode 100644
+index 0000000000..c495ee5009
+--- /dev/null
++++ b/xen/include/asm-arm/cpuerrata.h
+@@ -0,0 +1,14 @@
++#ifndef __ARM_CPUERRATA_H__
++#define __ARM_CPUERRATA_H__
++
++void check_local_cpu_errata(void);
++
++#endif /* __ARM_CPUERRATA_H__ */
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+diff --git a/xen/include/asm-arm/cpufeature.h b/xen/include/asm-arm/cpufeature.h
+index be2414c671..fb57295ec5 100644
+--- a/xen/include/asm-arm/cpufeature.h
++++ b/xen/include/asm-arm/cpufeature.h
+@@ -66,6 +66,12 @@ struct arm_cpu_capabilities {
+     const char *desc;
+     u16 capability;
+     bool_t (*matches)(const struct arm_cpu_capabilities *);
++    union {
++        struct {    /* To be used for eratum handling only */
++            u32 midr_model;
++            u32 midr_range_min, midr_range_max;
++        };
++    };
+ };
+ 
+ void update_cpu_capabilities(const struct arm_cpu_capabilities *caps,
+-- 
+2.16.1
+

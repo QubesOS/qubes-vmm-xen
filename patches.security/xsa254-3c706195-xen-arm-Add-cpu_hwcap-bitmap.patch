@@ -1,0 +1,120 @@
+From 3c706195565910b961eb5a7e64f34948deb2a545 Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@arm.com>
+Date: Wed, 22 Jun 2016 12:15:19 +0100
+Subject: [PATCH] xen/arm: Add cpu_hwcap bitmap
+
+This will be used to know if a feature, which Xen cares, is available accross
+all the CPUs.
+
+This code is a light version of arch/arm64/kernel/cpufeature.c from
+Linux v4.6-rc3.
+
+Signed-off-by: Julien Grall <julien.grall@arm.com>
+Reviewed-by: Stefano Stabellini <sstabellini@kernel.org>
+Signed-off-by: Stefano Stabellini <sstabellini@kernel.org>
+(cherry picked from commit bfb489629c0c5f36c60dec879383cbed4080a509)
+
+Conflicts:
+	xen/arch/arm/Makefile
+---
+ xen/arch/arm/Makefile            |  1 +
+ xen/arch/arm/cpufeature.c        | 34 ++++++++++++++++++++++++++++++++++
+ xen/include/asm-arm/cpufeature.h | 29 +++++++++++++++++++++++++++++
+ 3 files changed, 64 insertions(+)
+ create mode 100644 xen/arch/arm/cpufeature.c
+
+diff --git a/xen/arch/arm/Makefile b/xen/arch/arm/Makefile
+index 1ef39f7cdd..17abfbdb1f 100644
+--- a/xen/arch/arm/Makefile
++++ b/xen/arch/arm/Makefile
+@@ -5,6 +5,7 @@ subdir-$(arm64) += efi
+ 
+ obj-$(EARLY_PRINTK) += early_printk.o
+ obj-y += cpu.o
++obj-y += cpufeature.o
+ obj-y += domain.o
+ obj-y += psci.o
+ obj-y += vpsci.o
+diff --git a/xen/arch/arm/cpufeature.c b/xen/arch/arm/cpufeature.c
+new file mode 100644
+index 0000000000..7a1b56b67e
+--- /dev/null
++++ b/xen/arch/arm/cpufeature.c
+@@ -0,0 +1,34 @@
++/*
++ * Contains CPU feature definitions
++ *
++ * Copyright (C) 2015 ARM Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <xen/config.h>
++#include <xen/types.h>
++#include <xen/init.h>
++#include <xen/smp.h>
++#include <asm/cpufeature.h>
++
++DECLARE_BITMAP(cpu_hwcaps, ARM_NCAPS);
++
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+diff --git a/xen/include/asm-arm/cpufeature.h b/xen/include/asm-arm/cpufeature.h
+index 7b519cddc6..2bebad16cd 100644
+--- a/xen/include/asm-arm/cpufeature.h
++++ b/xen/include/asm-arm/cpufeature.h
+@@ -35,6 +35,35 @@
+ #endif
+ #define cpu_has_security  (boot_cpu_feature32(security) > 0)
+ 
++#define ARM_NCAPS           0
++
++#ifndef __ASSEMBLY__
++
++#include <xen/types.h>
++#include <xen/lib.h>
++#include <xen/bitops.h>
++
++extern DECLARE_BITMAP(cpu_hwcaps, ARM_NCAPS);
++
++static inline bool_t cpus_have_cap(unsigned int num)
++{
++    if ( num >= ARM_NCAPS )
++        return 0;
++
++    return test_bit(num, cpu_hwcaps);
++}
++
++static inline void cpus_set_cap(unsigned int num)
++{
++    if (num >= ARM_NCAPS)
++        printk(XENLOG_WARNING "Attempt to set an illegal CPU capability (%d >= %d)\n",
++               num, ARM_NCAPS);
++    else
++        __set_bit(num, cpu_hwcaps);
++}
++
++#endif /* __ASSEMBLY__ */
++
+ #endif
+ /*
+  * Local variables:
+-- 
+2.16.1
+
