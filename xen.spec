@@ -319,6 +319,8 @@ BuildRequires: checkpolicy m4
 # cross compiler for building 64-bit hypervisor on ix86
 BuildRequires: gcc-x86_64-linux-gnu
 %endif
+# gcc with BTI mitigation
+BuildRequires: gcc >= 6.4.1-1.qubes1
 Requires: bridge-utils
 Requires: python-lxml
 Requires: udev >= 059
