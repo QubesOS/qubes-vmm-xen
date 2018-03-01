@@ -1,0 +1,52 @@
+From 11875b7d5706f8aef86d306a43d7fe3b7011aaa2 Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@linaro.org>
+Date: Fri, 2 Feb 2018 14:19:25 +0000
+Subject: [PATCH] xen/arm32: entry: Document the purpose of r11 in the traps
+ handler
+
+It took me a bit of time to understand why __DEFINE_TRAP_ENTRY is
+storing the original stack pointer in r11. It is working in pair with
+return_traps_entry where sp will be restored from r11.
+
+This is fine because per the AAPCS r11 must be preserved by the
+subroutine. So in return_from_trap, r11 will still contain the original
+stack pointer.
+
+Add some documentation in the code to point the 2 sides to each other.
+
+Signed-off-by: Julien Grall <julien.grall@linaro.org>
+Reviewed-by: Stefano Stabellini <sstabellini@kernel.org>
+(cherry picked from commit dd855aa430f2da9b677c145f0c625a82aaa97110)
+---
+ xen/arch/arm/arm32/entry.S | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/xen/arch/arm/arm32/entry.S b/xen/arch/arm/arm32/entry.S
+index 3e48ba18d8..b66705ff50 100644
+--- a/xen/arch/arm/arm32/entry.S
++++ b/xen/arch/arm/arm32/entry.S
+@@ -127,6 +127,10 @@ trap_##trap:                                                            \
+         cpsie iflags;                                                   \
+         adr lr, return_from_trap;                                       \
+         mov r0, sp;                                                     \
++        /*                                                              \
++         * Save the stack pointer in r11. It will be restored after the \
++         * trap has been handled (see return_from_trap).                \
++         */                                                             \
+         mov r11, sp;                                                    \
+         bic sp, #7; /* Align the stack pointer (noop on guest trap) */  \
+         b do_trap_##trap
+@@ -217,6 +221,10 @@ DEFINE_TRAP_ENTRY_NOIRQ(irq)
+ DEFINE_TRAP_ENTRY_NOIRQ(fiq)
+ 
+ return_from_trap:
++        /*
++         * Restore the stack pointer from r11. It was saved on exception
++         * entry (see __DEFINE_TRAP_ENTRY).
++         */
+         mov sp, r11
+ ENTRY(return_to_new_vcpu32)
+         ldr r11, [sp, #UREGS_cpsr]
+-- 
+2.16.1
+
