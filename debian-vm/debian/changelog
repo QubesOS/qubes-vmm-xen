@@ -1,3 +1,24 @@
+xen (2001:4.8.3-3) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * Use %autosetup and prepare spec file for src.rpm
+
+  [ Arjan Schrijver ]
+  * Fix patches path to make Arch Linux PKGBUILD work again
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: drop fc24 and fc25 VM test builds, enable testing repos
+
+  [ Simon Gaiser ]
+  * Add BTI mitigation patches from XSA 254
+  * Adapt BTI patches to apply cleanly
+  * Require gcc with BTI mitigation support
+
+  [ Marek Marczykowski-Górecki ]
+  * Workaround for missing updated libgcc.i686
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 02 Mar 2018 16:46:02 +0100
+
 xen (2001:4.8.3-2) unstable; urgency=medium
 
   * libxl: workaround for backend domain shutdown without detaching
