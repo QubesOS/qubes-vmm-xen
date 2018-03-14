@@ -1,3 +1,17 @@
+xen (2001:4.6.6-37) unstable; urgency=medium
+
+  [ unman ]
+  * Remove zesty and configure for build of artful templates
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: add buster
+
+  [ Simon Gaiser ]
+  * Add BTI mitigation patches from XSA 254
+  * Require gcc with BTI mitigation support
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 14 Mar 2018 14:32:04 +0100
+
 xen (2001:4.6.6-36) unstable; urgency=medium
 
   [ Simon Gaiser ]
