@@ -176,6 +176,9 @@ Patch537: patch-xsa254-fee4689c-x86-ctxt-Issue-a-speculation-barrier-between-vcp
 Patch538: patch-xsa254-76bdfe89-x86-cpuid-Offer-Indirect-Branch-Controls-to-guests.patch
 Patch539: patch-xsa254-99ed7863-x86-idle-Clear-SPEC_CTRL-while-idle.patch
 Patch540: patch-xsa254-5938aa17-x86-PV-correctly-count-MSRs-to-migrate.patch
+# Backport improved early microcode loading to allow usage of BTI related
+# microcode updates without updating the BIOS.
+Patch541: patch-f97838bb-x86-Move-microcode-loading-earlier.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
