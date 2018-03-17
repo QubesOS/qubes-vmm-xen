@@ -35,27 +35,27 @@ diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
 index a1494c33c8..93ead6e5dd 100644
 --- a/xen/arch/x86/Makefile
 +++ b/xen/arch/x86/Makefile
-@@ -40,7 +40,6 @@ obj-y += irq.o
- obj-$(CONFIG_KEXEC) += machine_kexec.o
+@@ -34,7 +34,6 @@ obj-y += ioport_emulate.o
+ obj-y += irq.o
  obj-y += microcode_amd.o
  obj-y += microcode_intel.o
 -# This must come after the vendor specific files.
  obj-y += microcode.o
- obj-y += mm.o x86_64/mm.o
+ obj-y += mm.o
  obj-y += monitor.o
 diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
 index 9c44bbdc28..6c27008d7b 100644
 --- a/xen/arch/x86/cpu/common.c
 +++ b/xen/arch/x86/cpu/common.c
-@@ -252,6 +252,8 @@ static void __init early_cpu_detect(void)
- 		if (hap_paddr_bits > PADDR_BITS)
- 			hap_paddr_bits = PADDR_BITS;
- 	}
+@@ -208,6 +208,8 @@ static void __init early_cpu_detect(void)
+ 	/* Leaf 0x1 capabilities filled in early for Xen. */
+ 	c->x86_capability[0] = cap0;
+ 	c->x86_capability[4] = cap4;
 +
 +	initialize_cpu_data(0);
  }
  
- static void generic_identify(struct cpuinfo_x86 *c)
+ static void __cpuinit generic_identify(struct cpuinfo_x86 *c)
 diff --git a/xen/arch/x86/microcode.c b/xen/arch/x86/microcode.c
 index 30a08064ee..4e7dfcd573 100644
 --- a/xen/arch/x86/microcode.c
@@ -136,7 +136,7 @@ index 30a08064ee..4e7dfcd573 100644
  };
  
 -static int __init microcode_presmp_init(void)
-+int __init early_microcode_update_cpu(bool start_update)
++int __init early_microcode_update_cpu(bool_t start_update)
 +{
 +    int rc = 0;
 +    void *data = NULL;
@@ -216,7 +216,7 @@ index 30a08064ee..4e7dfcd573 100644
 -                    ucode_mod.mod_end = 0;
 -            }
 -        }
-+            rc = early_microcode_update_cpu(true);
++            rc = early_microcode_update_cpu(1);
  
          register_cpu_notifier(&microcode_percpu_nfb);
      }
@@ -260,7 +260,7 @@ diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
 index c3d99e9b54..f7b927858c 100644
 --- a/xen/arch/x86/setup.c
 +++ b/xen/arch/x86/setup.c
-@@ -1461,6 +1461,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+@@ -1338,6 +1338,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
  
      timer_init();
  
@@ -268,12 +268,12 @@ index c3d99e9b54..f7b927858c 100644
 +
      identify_cpu(&boot_cpu_data);
  
-     set_in_cr4(X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT);
+     if ( cpu_has_fxsr )
 diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
 index 82559ed018..50b907b071 100644
 --- a/xen/arch/x86/smpboot.c
 +++ b/xen/arch/x86/smpboot.c
-@@ -83,22 +83,22 @@ static enum cpu_state {
+@@ -82,22 +82,23 @@ static enum cpu_state {
  
  void *stack_base[NR_CPUS];
  
@@ -284,14 +284,14 @@ index 82559ed018..50b907b071 100644
 +
  static void smp_store_cpu_info(int id)
  {
--    struct cpuinfo_x86 *c = cpu_data + id;
+     struct cpuinfo_x86 *c = cpu_data + id;
      unsigned int socket;
  
 -    *c = boot_cpu_data;
 -    if ( id != 0 )
 -    {
 -        identify_cpu(c);
-+    identify_cpu(&cpu_data[id]);
++    identify_cpu(c);
  
 -        socket = cpu_to_socket(id);
 -        if ( !socket_cpumask[socket] )
@@ -305,22 +305,22 @@ index 82559ed018..50b907b071 100644
 +        socket_cpumask[socket] = secondary_socket_cpumask;
 +        secondary_socket_cpumask = NULL;
      }
- }
  
-@@ -332,6 +332,13 @@ void start_secondary(void *unused)
+     /*
+@@ -371,6 +371,13 @@ void start_secondary(void *unused)
  
      cpu_init();
  
 +    initialize_cpu_data(cpu);
 +
 +    if ( system_state <= SYS_STATE_smp_boot )
-+        early_microcode_update_cpu(false);
++        early_microcode_update_cpu(0);
 +    else
 +        microcode_resume_cpu(cpu);
 +
      smp_callin();
  
-     init_percpu_time();
+     setup_secondary_APIC_clock();
 @@ -364,8 +371,6 @@ void start_secondary(void *unused)
      local_irq_enable();
      mtrr_ap_init();
@@ -343,17 +343,17 @@ diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
 index 75632d9ce3..73dd3abd03 100644
 --- a/xen/include/asm-x86/processor.h
 +++ b/xen/include/asm-x86/processor.h
-@@ -563,6 +563,10 @@ int wrmsr_hypervisor_regs(uint32_t idx, uint64_t val);
+@@ -576,6 +576,10 @@ int wrmsr_hypervisor_regs(uint32_t idx, uint64_t val);
  void microcode_set_module(unsigned int);
  int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void), unsigned long len);
  int microcode_resume_cpu(unsigned int cpu);
-+int early_microcode_update_cpu(bool start_update);
++int early_microcode_update_cpu(bool_t start_update);
 +int early_microcode_init(void);
 +int microcode_init_intel(void);
 +int microcode_init_amd(void);
  
  enum get_cpu_vendor {
-     gcv_host,
+    gcv_host_early,
 diff --git a/xen/include/xen/smp.h b/xen/include/xen/smp.h
 index 6febb5605c..c55f57f09e 100644
 --- a/xen/include/xen/smp.h
