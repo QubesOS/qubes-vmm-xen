@@ -1,3 +1,13 @@
+xen (2001:4.8.3-4) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Revert "Workaround for missing updated libgcc.i686"
+
+  [ Simon Gaiser ]
+  * Add upstream patches for improved early microcode loading
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 21 Mar 2018 02:37:22 +0100
+
 xen (2001:4.8.3-3) unstable; urgency=medium
 
   [ Frédéric Pierret ]
