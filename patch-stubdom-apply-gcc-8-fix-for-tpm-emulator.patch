@@ -1,0 +1,75 @@
+Upstream: https://github.com/PeterHuewe/tpm-emulator/pull/30
+
+From 56609fce2420e6f8183f03337b650ff1752e6a19 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 5 Apr 2018 02:27:31 +0200
+Subject: [PATCH] stubdom: apply gcc-8 fix for tpm-emulator
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ stubdom/Makefile             |  1 +
+ stubdom/vtpm-gcc-8-fix.patch | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+)
+ create mode 100644 stubdom/vtpm-gcc-8-fix.patch
+
+diff --git a/stubdom/Makefile b/stubdom/Makefile
+index 7cb62e6c36..69d8893c78 100644
+--- a/stubdom/Makefile
++++ b/stubdom/Makefile
+@@ -229,6 +229,7 @@ tpm_emulator-$(XEN_TARGET_ARCH): tpm_emulator-$(TPMEMU_VERSION).tar.gz
+ 	patch -d $@ -p1 < vtpm-deepquote-anyloc.patch
+ 	patch -d $@ -p1 < vtpm-cmake-Wextra.patch
+ 	patch -d $@ -p1 < vtpm-implicit-fallthrough.patch
++	patch -d $@ -p1 < vtpm-gcc-8-fix.patch
+ 	mkdir $@/build
+ 	cd $@/build; CC=${CC} $(CMAKE) .. -DCMAKE_C_FLAGS:STRING="-std=c99 -DTPM_NO_EXTERN $(TARGET_CPPFLAGS) $(TARGET_CFLAGS) -Wno-declaration-after-statement"
+ 	touch $@
+diff --git a/stubdom/vtpm-gcc-8-fix.patch b/stubdom/vtpm-gcc-8-fix.patch
+new file mode 100644
+index 0000000000..2ea9f751d5
+--- /dev/null
++++ b/stubdom/vtpm-gcc-8-fix.patch
+@@ -0,0 +1,34 @@
++From 910c43273c9f3373f93c2e8b8b0929d89fdcead6 Mon Sep 17 00:00:00 2001
++From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
++ <marmarek@invisiblethingslab.com>
++Date: Thu, 5 Apr 2018 02:09:27 +0200
++Subject: [PATCH] Fix TPM_ChangeAuthAsymFinish
++MIME-Version: 1.0
++Content-Type: text/plain; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++Organization: Invisible Things Lab
++Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
++
++Compare TPM_HMAC structures, not structure and an address of it.
++
++Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
++---
++ tpm/tpm_deprecated.c | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/tpm/tpm_deprecated.c b/tpm/tpm_deprecated.c
++index c362b56..4c49f54 100644
++--- a/tpm/tpm_deprecated.c
+++++ b/tpm/tpm_deprecated.c
++@@ -434,7 +434,7 @@ TPM_RESULT TPM_ChangeAuthAsymFinish(TPM_KEY_HANDLE parentHandle,
++   tpm_hmac_final(&hmac_ctx, b1.digest);
++   /* 6. The TPM SHALL compare b1 with newAuthLink. The TPM SHALL
++         indicate a failure if the values do not match. */
++-  if (memcmp(&b1, &newAuthLink, sizeof(TPM_HMAC))) {
+++  if (memcmp(&b1, newAuthLink, sizeof(TPM_HMAC))) {
++     debug("TPM_ChangeAuthAsymFinish(): newAuthLink value does not match.");
++     return TPM_FAIL;
++   }
++-- 
++2.13.6
++
+-- 
+2.13.6
+

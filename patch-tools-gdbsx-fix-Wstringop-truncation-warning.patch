@@ -1,0 +1,41 @@
+From 16c8859b99c958e97bdea4138453741ee1a4ba4f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 5 Apr 2018 00:31:31 +0200
+Subject: [PATCH] tools/gdbsx: fix -Wstringop-truncation warning
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+gcc-8 complains:
+
+    gx_main.c: In function 'prepare_stop_reply':
+    gx_main.c:385:9: error: 'strncpy' output truncated before terminating nul copying 6 bytes from a string of the same length [-Werror=stringop-truncation]
+             strncpy(buf, "watch:", 6);
+             ^~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since terminating '\0' isn't needed here at all, switch to memcpy.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/debugger/gdbsx/gx/gx_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/debugger/gdbsx/gx/gx_main.c b/tools/debugger/gdbsx/gx/gx_main.c
+index a908c45e1d..6dfa501145 100644
+--- a/tools/debugger/gdbsx/gx/gx_main.c
++++ b/tools/debugger/gdbsx/gx/gx_main.c
+@@ -382,7 +382,7 @@ prepare_stop_reply(enum target_signal sig, char *buf, vcpuid_t vcpu)
+ 
+     /* TBD: check if we stopped because of watchpoint */
+     if (watchpoint_stop()) {
+-        strncpy(buf, "watch:", 6);
++        memcpy(buf, "watch:", 6);
+         buf += 6;
+         /* TBD: **/
+     }
+-- 
+2.13.6
+

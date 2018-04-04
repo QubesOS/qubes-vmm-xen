@@ -1,0 +1,108 @@
+From 3cceb198fb24199f57a8e74ee108d04522e0a17c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 4 Apr 2018 23:06:50 +0200
+Subject: [PATCH] tools/blktap2: fix possible '\0' truncation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+gcc-8 complains:
+
+    tapdisk-vbd.c: In function 'tapdisk_vbd_resume_ring':
+    tapdisk-vbd.c:1671:53: error: 'snprintf' output may be truncated before the last format character [-Werror=format-truncation=]
+       snprintf(params.name, sizeof(params.name) - 1, "%s", message);
+                                                         ^
+    tapdisk-vbd.c:1671:3: note: 'snprintf' output between 1 and 256 bytes into a destination of size 255
+       snprintf(params.name, sizeof(params.name) - 1, "%s", message);
+       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The "- 1" in buffer size should be actually applied to message, to leave
+place for terminating '\0', not the other way around (truncate '\0' even
+if it would fit).
+
+    In function 'tapdisk_control_open_image',
+        inlined from 'tapdisk_control_handle_request' at tapdisk-control.c:660:10:
+    tapdisk-control.c:465:2: error: 'strncpy' specified bound 256 equals destination size [-Werror=stringop-truncation]
+      strncpy(params.name, vbd->name, BLKTAP2_MAX_MESSAGE_LEN);
+      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    In function 'tapdisk_control_create_socket',
+        inlined from 'tapdisk_control_open' at tapdisk-control.c:836:9:
+    tapdisk-control.c:793:2: error: 'strncpy' specified bound 108 equals destination size [-Werror=stringop-truncation]
+      strncpy(saddr.sun_path, td_control.path, sizeof(saddr.sun_path));
+      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    block-qcow.c: In function 'qcow_create':
+    block-qcow.c:1216:5: error: 'strncpy' specified bound 4096 equals destination size [-Werror=stringop-truncation]
+         strncpy(backing_filename, backing_file,
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          sizeof(backing_filename));
+          ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+I those cases, reduce size of copied string and make sure final '\0' is
+added.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/blktap2/drivers/block-qcow.c      | 3 ++-
+ tools/blktap2/drivers/tapdisk-control.c | 5 +++--
+ tools/blktap2/drivers/tapdisk-vbd.c     | 3 ++-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/tools/blktap2/drivers/block-qcow.c b/tools/blktap2/drivers/block-qcow.c
+index b45bcaa077..ae439221ab 100644
+--- a/tools/blktap2/drivers/block-qcow.c
++++ b/tools/blktap2/drivers/block-qcow.c
+@@ -1214,7 +1214,8 @@ int qcow_create(const char *filename, uint64_t total_size,
+ 			if (p && (p - backing_file) >= 2) {
+ 				/* URL like but exclude "c:" like filenames */
+ 				strncpy(backing_filename, backing_file,
+-					sizeof(backing_filename));
++					sizeof(backing_filename) - 1);
++				backing_filename[sizeof(backing_filename) - 1] = '\0';
+ 			} else {
+ 				if (realpath(backing_file, backing_filename) == NULL ||
+ 				    stat(backing_filename, &st) != 0) {
+diff --git a/tools/blktap2/drivers/tapdisk-control.c b/tools/blktap2/drivers/tapdisk-control.c
+index 0b5cf3cdd3..3ca5713063 100644
+--- a/tools/blktap2/drivers/tapdisk-control.c
++++ b/tools/blktap2/drivers/tapdisk-control.c
+@@ -462,7 +462,8 @@ tapdisk_control_open_image(struct tapdisk_control_connection *connection,
+ 
+ 	params.capacity = image.size;
+ 	params.sector_size = image.secsize;
+-	strncpy(params.name, vbd->name, BLKTAP2_MAX_MESSAGE_LEN);
++	strncpy(params.name, vbd->name, BLKTAP2_MAX_MESSAGE_LEN - 1);
++	params.name[BLKTAP2_MAX_MESSAGE_LEN - 1] = '\0';
+ 
+ 	err = ioctl(vbd->ring.fd, BLKTAP2_IOCTL_CREATE_DEVICE, &params);
+ 	if (err && errno != EEXIST) {
+@@ -790,7 +791,7 @@ tapdisk_control_create_socket(char **socket_path)
+ 	}
+ 
+ 	memset(&saddr, 0, sizeof(saddr));
+-	strncpy(saddr.sun_path, td_control.path, sizeof(saddr.sun_path));
++	strncpy(saddr.sun_path, td_control.path, sizeof(saddr.sun_path) - 1);
+ 	saddr.sun_family = AF_UNIX;
+ 
+ 	err = bind(td_control.socket,
+diff --git a/tools/blktap2/drivers/tapdisk-vbd.c b/tools/blktap2/drivers/tapdisk-vbd.c
+index fd4999a5ec..842a427861 100644
+--- a/tools/blktap2/drivers/tapdisk-vbd.c
++++ b/tools/blktap2/drivers/tapdisk-vbd.c
+@@ -1668,7 +1668,8 @@ out:
+ 
+ 		params.sector_size = image.secsize;
+ 		params.capacity    = image.size;
+-		snprintf(params.name, sizeof(params.name) - 1, "%s", message);
++		snprintf(params.name, sizeof(params.name),
++			 "%.*s", (int)sizeof(params.name) - 1, message);
+ 
+ 		ioctl(vbd->ring.fd, BLKTAP2_IOCTL_SET_PARAMS, &params);
+ 		td_flag_clear(vbd->state, TD_VBD_PAUSED);
+-- 
+2.13.6
+

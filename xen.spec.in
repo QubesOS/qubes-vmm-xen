@@ -211,6 +211,16 @@ Patch703: patch-v2-tools-fix-several-format-truncation-warnings-with-GCC-7.patch
 Patch704: patch-stubdom-fix-vtpm-compilation-on-GCC-7.patch
 Patch705: patch-vtpmmgr-make-inline-functions-static.patch
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
+# GCC8 fixes
+Patch707: patch-0001-tools-libxc-fix-strncpy-size.patch
+Patch708: patch-tools-misc-fix-hypothetical-buffer-overflow-in-xen-l.patch
+Patch709: patch-tools-blktap2-fix-hypothetical-buffer-overflow.patch
+Patch710: patch-tools-blktap2-fix-possible-0-truncation.patch
+Patch711: patch-memfd-fix-configure-test.patch
+Patch712: patch-tools-xenpmd-fix-possible-0-truncation.patch
+Patch713: patch-tools-gdbsx-fix-Wstringop-truncation-warning.patch
+Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
+Patch715: patch-stubdom-apply-gcc-8-fix-for-tpm-emulator.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
