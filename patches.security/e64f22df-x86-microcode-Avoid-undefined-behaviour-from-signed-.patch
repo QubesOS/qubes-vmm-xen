@@ -1,0 +1,54 @@
+From e64f22df3c1a0b70031ad6e8c0fc875d27cc5c3c Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 5 Aug 2016 14:26:21 +0100
+Subject: [PATCH] x86/microcode: Avoid undefined behaviour from signed integer
+ overflow
+
+The checksums should be calculated using unsigned 32bit integers, as they are
+intended to overflow and end at 0.  Replace some other signed integers with
+unsigned ones, to avoid mixed-sign comparisons.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Kevin Tian <kevin.tian@intel.com>
+---
+ xen/arch/x86/microcode_intel.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/xen/arch/x86/microcode_intel.c b/xen/arch/x86/microcode_intel.c
+index 6949c25c99..93d9d0f6b7 100644
+--- a/xen/arch/x86/microcode_intel.c
++++ b/xen/arch/x86/microcode_intel.c
+@@ -143,7 +143,8 @@ static int microcode_sanity_check(void *mc)
+     struct extended_sigtable *ext_header = NULL;
+     struct extended_signature *ext_sig;
+     unsigned long total_size, data_size, ext_table_size;
+-    int sum, orig_sum, ext_sigcount = 0, i;
++    unsigned int ext_sigcount = 0, i;
++    uint32_t sum, orig_sum;
+ 
+     total_size = get_totalsize(mc_header);
+     data_size = get_datasize(mc_header);
+@@ -183,8 +184,8 @@ static int microcode_sanity_check(void *mc)
+     /* check extended table checksum */
+     if ( ext_table_size )
+     {
+-        int ext_table_sum = 0;
+-        int *ext_tablep = (int *)ext_header;
++        uint32_t ext_table_sum = 0;
++        uint32_t *ext_tablep = (uint32_t *)ext_header;
+ 
+         i = ext_table_size / DWSIZE;
+         while ( i-- )
+@@ -201,7 +202,7 @@ static int microcode_sanity_check(void *mc)
+     orig_sum = 0;
+     i = (MC_HEADER_SIZE + data_size) / DWSIZE;
+     while ( i-- )
+-        orig_sum += ((int *)mc)[i];
++        orig_sum += ((uint32_t *)mc)[i];
+     if ( orig_sum )
+     {
+         printk(KERN_ERR "microcode: aborting, bad checksum\n");
+-- 
+2.16.2
+
