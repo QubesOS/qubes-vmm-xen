@@ -1,3 +1,24 @@
+xen (2001:4.6.6-38) unstable; urgency=medium
+
+  [ Simon Gaiser ]
+  * Add upstream patches for improved early microcode loading
+  * Backport microcode loading patch to 4.6.6
+  * Add fix for SPEC_CTRL/PRED_CMD in dom0
+  * Fix save/restore when having IBRS/IBPB support
+  * Add some other patches from staging-4.6
+  * Fix resume when using microcode update
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: drop separate check for fc23 vm
+
+  [ Frédéric Pierret ]
+  * Fix GMP cross compilation
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: require patched gcc only for dom0 build
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 15 Apr 2018 04:37:50 +0200
+
 xen (2001:4.6.6-37) unstable; urgency=medium
 
   [ unman ]
