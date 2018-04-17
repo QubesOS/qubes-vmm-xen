@@ -1,0 +1,207 @@
+From 9831752441d81f0cec027bc6d0aaf9aba5bdcbfa Mon Sep 17 00:00:00 2001
+From: Jan Beulich <JBeulich@suse.com>
+Date: Tue, 17 Apr 2018 06:31:58 +0200
+Subject: [PATCH 3/3] x86: check feature flags after resume
+
+Make sure no previously present features are missing after resume (and
+the re-loading of microcode), to avoid later crashes or (likely silent)
+hangs / live locks. This doesn't go beyond checking x86_capability[],
+but this should be good enough for the immediate need of making sure
+that the BIT mitigation MSRs are still available.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/acpi/power.c       |  3 ++
+ xen/arch/x86/cpu/common.c       | 75 ++++++++++++++++++++++++++++-------------
+ xen/arch/x86/smpboot.c          | 18 ++++++++--
+ xen/include/asm-x86/processor.h |  3 ++
+ 4 files changed, 72 insertions(+), 27 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
+index 4b88bcb032..d6435be592 100644
+--- a/xen/arch/x86/acpi/power.c
++++ b/xen/arch/x86/acpi/power.c
+@@ -218,6 +218,9 @@ static int enter_state(u32 state)
+ 
+     microcode_resume_cpu(0);
+ 
++    if ( !recheck_cpu_features(0) )
++        panic("Missing previously available feature(s).");
++
+     ci->bti_ist_info = default_bti_ist_info;
+     asm volatile (ALTERNATIVE(ASM_NOP3, "wrmsr", X86_FEATURE_XEN_IBRS_SET)
+                   :: "a" (SPEC_CTRL_IBRS), "c" (MSR_SPEC_CTRL), "d" (0)
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 0bbfebc7bf..ed1cbc8141 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -281,8 +281,8 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 	c->x86_vendor = X86_VENDOR_UNKNOWN;
+ 	c->cpuid_level = -1;	/* CPUID not detected */
+ 	c->x86_model = c->x86_mask = 0;	/* So far unknown... */
+-	c->x86_vendor_id[0] = '\0'; /* Unset */
+-	c->x86_model_id[0] = '\0';  /* Unset */
++	memset(&c->x86_vendor_id, 0, sizeof(c->x86_vendor_id));
++	memset(&c->x86_model_id, 0, sizeof(c->x86_model_id));
+ 	c->x86_max_cores = 1;
+ 	c->x86_num_siblings = 1;
+ 	c->x86_clflush_size = 0;
+@@ -328,28 +328,6 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 	for (i = 0 ; i < NCAPINTS ; ++i)
+ 		c->x86_capability[i] &= ~cleared_caps[i];
+ 
+-	/* If the model name is still unset, do table lookup. */
+-	if ( !c->x86_model_id[0] ) {
+-		/* Last resort... */
+-		snprintf(c->x86_model_id, sizeof(c->x86_model_id),
+-			"%02x/%02x", c->x86_vendor, c->x86_model);
+-	}
+-
+-	/* Now the feature flags better reflect actual CPU features! */
+-
+-#ifdef NOISY_CAPS
+-	printk(KERN_DEBUG "CPU: After all inits, caps:");
+-	for (i = 0; i < NCAPINTS; i++)
+-		printk(" %08x", c->x86_capability[i]);
+-	printk("\n");
+-#endif
+-
+-	/*
+-	 * On SMP, boot_cpu_data holds the common feature set between
+-	 * all CPUs; so make sure that we indicate which features are
+-	 * common between the CPUs.  The first time this routine gets
+-	 * executed, c == &boot_cpu_data.
+-	 */
+ 	if ( c != &boot_cpu_data ) {
+ 		/* Inherit certain bits from the boot CPU. */
+ 		if (test_bit(X86_FEATURE_IND_THUNK_LFENCE,
+@@ -372,7 +350,34 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 		if (test_bit(X86_FEATURE_RSB_VMEXIT,
+ 		             boot_cpu_data.x86_capability))
+ 			__set_bit(X86_FEATURE_RSB_VMEXIT, c->x86_capability);
++	}
+ 
++	/* If the model name is still unset, do table lookup. */
++	if ( !c->x86_model_id[0] ) {
++		/* Last resort... */
++		snprintf(c->x86_model_id, sizeof(c->x86_model_id),
++			"%02x/%02x", c->x86_vendor, c->x86_model);
++	}
++
++	/* Now the feature flags better reflect actual CPU features! */
++
++#ifdef NOISY_CAPS
++	printk(KERN_DEBUG "CPU: After all inits, caps:");
++	for (i = 0; i < NCAPINTS; i++)
++		printk(" %08x", c->x86_capability[i]);
++	printk("\n");
++#endif
++
++	if (system_state == SYS_STATE_resume)
++		return;
++
++	/*
++	 * On SMP, boot_cpu_data holds the common feature set between
++	 * all CPUs; so make sure that we indicate which features are
++	 * common between the CPUs.  The first time this routine gets
++	 * executed, c == &boot_cpu_data.
++	 */
++	if ( c != &boot_cpu_data ) {
+ 		/* AND the already accumulated flags with these */
+ 		for ( i = 0 ; i < NCAPINTS ; i++ )
+ 			boot_cpu_data.x86_capability[i] &= c->x86_capability[i];
+@@ -710,3 +715,25 @@ const struct x86_cpu_id *x86_match_cpu(const struct x86_cpu_id table[])
+ 	}
+ 	return NULL;
+ }
++
++bool_t recheck_cpu_features(unsigned int cpu)
++{
++    bool_t okay = 1;
++    struct cpuinfo_x86 c;
++    const struct cpuinfo_x86 *bsp = &boot_cpu_data;
++    unsigned int i;
++
++    identify_cpu(&c);
++
++    for ( i = 0; i < NCAPINTS; ++i )
++    {
++        if ( !(~c.x86_capability[i] & bsp->x86_capability[i]) )
++            continue;
++
++        printk(XENLOG_ERR "CPU%u: cap[%2u] is %08x (expected %08x)\n",
++               cpu, i, c.x86_capability[i], bsp->x86_capability[i]);
++        okay = 0;
++    }
++
++    return okay;
++}
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index f6bf41959e..cd2f1e07b6 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -87,12 +87,15 @@ void initialize_cpu_data(unsigned int cpu)
+     cpu_data[cpu] = boot_cpu_data;
+ }
+ 
+-static void smp_store_cpu_info(int id)
++static bool_t smp_store_cpu_info(unsigned int id)
+ {
+     struct cpuinfo_x86 *c = cpu_data + id;
+     unsigned int socket;
+ 
+-    identify_cpu(c);
++    if ( system_state != SYS_STATE_resume )
++        identify_cpu(&cpu_data[id]);
++    else if ( !recheck_cpu_features(id) )
++        return 0;
+ 
+     socket = cpu_to_socket(id);
+     if ( !socket_cpumask[socket] )
+@@ -133,6 +136,8 @@ static void smp_store_cpu_info(int id)
+ 
+  valid_k7:
+     ;
++
++    return 1;
+ }
+ 
+ /*
+@@ -218,12 +223,19 @@ static void smp_callin(void)
+     setup_local_APIC();
+ 
+     /* Save our processor parameters. */
+-    smp_store_cpu_info(cpu);
++    if ( !smp_store_cpu_info(cpu) )
++    {
++        printk("CPU%u: Failed to validate features - not coming back online\n",
++               cpu);
++        cpu_error = -ENXIO;
++        goto halt;
++    }
+ 
+     if ( (rc = hvm_cpu_up()) != 0 )
+     {
+         printk("CPU%d: Failed to initialise HVM. Not coming online.\n", cpu);
+         cpu_error = rc;
++    halt:
+         clear_local_APIC();
+         spin_debug_enable();
+         cpu_exit_clear(cpu);
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 1ad02713ad..fcf9a3bcc6 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -590,6 +590,9 @@ enum get_cpu_vendor {
+ int get_cpu_vendor(const char vendor_id[], enum get_cpu_vendor);
+ void pv_cpuid(struct cpu_user_regs *regs);
+ 
++/* Check that all previously present features are still available. */
++bool_t recheck_cpu_features(unsigned int cpu);
++
+ #endif /* !__ASSEMBLY__ */
+ 
+ #endif /* __ASM_X86_PROCESSOR_H */
+-- 
+2.16.2
+
