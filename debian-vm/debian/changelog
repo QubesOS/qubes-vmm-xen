@@ -1,3 +1,23 @@
+xen (2001:4.8.3-5) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * add NO_ARCHIVE
+  * Create spec.in
+  * spec.in: add changelog placeholder
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply gcc-8 fixes
+  * Update core-vchan-xen submodule
+  * travis: add fc27
+  * rpm: require patched gcc only for dom0 build
+  * rpm: typo fix
+
+  [ Simon Gaiser ]
+  * Add spec_ctrl patches from staging
+  * Fix resume when using microcode update
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 17 Apr 2018 15:58:47 +0200
+
 xen (2001:4.8.3-4) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
