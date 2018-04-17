@@ -1,0 +1,63 @@
+From aab9c207b96688544a2df435b87a2a00a3e9e3e4 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <JBeulich@suse.com>
+Date: Fri, 13 Apr 2018 18:48:57 +0200
+Subject: [PATCH 2/3] x86: suppress BTI mitigations around S3 suspend/resume
+
+NMI and #MC can occur at any time after S3 resume, yet the MSR_SPEC_CTRL
+may become available only once we're reloaded microcode. Make
+SPEC_CTRL_ENTRY_FROM_INTR_IST and DO_SPEC_CTRL_EXIT_TO_XEN no-ops for
+the critical period of time.
+
+Also set the MSR back to its intended value.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/acpi/power.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
+index 9abca61cd6..3d26d4be31 100644
+--- a/xen/arch/x86/acpi/power.c
++++ b/xen/arch/x86/acpi/power.c
+@@ -29,6 +29,7 @@
+ #include <asm/tboot.h>
+ #include <asm/apic.h>
+ #include <asm/io_apic.h>
++#include <asm/spec_ctrl.h>
+ #include <acpi/cpufreq/cpufreq.h>
+ 
+ uint32_t system_reset_counter = 1;
+@@ -164,6 +165,7 @@ static int enter_state(u32 state)
+ {
+     unsigned long flags;
+     int error;
++    struct cpu_info *ci;
+     unsigned long cr4;
+ 
+     if ( (state <= ACPI_STATE_S0) || (state > ACPI_S_STATES_MAX) )
+@@ -211,6 +213,10 @@ static int enter_state(u32 state)
+     else
+         error = 0;
+ 
++    ci = get_cpu_info();
++    ci->use_shadow_spec_ctrl = 0;
++    ci->bti_ist_info = 0;
++
+     ACPI_FLUSH_CPU_CACHE();
+ 
+     switch ( state )
+@@ -249,6 +255,11 @@ static int enter_state(u32 state)
+ 
+     microcode_resume_cpu(0);
+ 
++    ci->bti_ist_info = default_bti_ist_info;
++    asm volatile (ALTERNATIVE(ASM_NOP3, "wrmsr", X86_FEATURE_XEN_IBRS_SET)
++                  :: "a" (SPEC_CTRL_IBRS), "c" (MSR_SPEC_CTRL), "d" (0)
++                  : "memory");
++
+  done:
+     spin_debug_enable();
+     local_irq_restore(flags);
+-- 
+2.16.2
+
