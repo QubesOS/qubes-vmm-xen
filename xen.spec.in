@@ -54,10 +54,10 @@ Source18: tpm_emulator-0.7.4.tar.gz
 Source32: xen.modules-load.conf
 
 # Qubes components for stubdom
-Source33: gui-agent-xen-hvm-stubdom
-Source34: core-vchan-xen
-Source35: stubdom-dhcp
-Source36: gui-common
+Source33: @gui-agent-xen-hvm-stubdom@
+Source34: @core-vchan-xen@
+Source35: @stubdom-dhcp@
+Source36: @gui-common@
 
 # Out-of-tree patches.
 #
@@ -547,16 +547,22 @@ cp -v %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} stubdom
 cp -v %{SOURCE15} %{SOURCE16} %{SOURCE18} stubdom
 
 # qubes specific parts of stubdom
+tar xf %{SOURCE33}
 mkdir tools/qubes-gui/
-cp -a %{SOURCE33}/* tools/qubes-gui/
-cp -a %{SOURCE36}/include/qubes-gui*.h tools/qubes-gui/include/
+cp -a gui-agent-xen-hvm-stubdom/* tools/qubes-gui/
+
+tar xf %{SOURCE36}
+cp -a gui-common/include/qubes-gui*.h tools/qubes-gui/include/
 make -C tools/qubes-gui clean
-cp -a %{SOURCE34}/vchan tools/
+
+tar xf %{SOURCE34}
+cp -a core-vchan-xen/vchan tools/
 make -C tools/vchan -f Makefile.stubdom clean
 sed -e 's/ioemu-qemu-xen/qemu-xen-traditional/g' tools/qubes-gui/gui-agent-qemu/qemu-glue.patch | patch -p1
 
-cp -a %{SOURCE35}/* tools/qemu-xen-traditional/
-patch -d tools/qemu-xen-traditional -p4 < %{SOURCE35}/lwip-dhcp-qemu-glue.patch
+tar xf %{SOURCE35}
+cp -a stubdom-dhcp/* tools/qemu-xen-traditional/
+patch -d tools/qemu-xen-traditional -p4 < stubdom-dhcp/lwip-dhcp-qemu-glue.patch
 
 
 %build
