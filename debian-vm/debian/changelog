@@ -1,3 +1,11 @@
+xen (2001:4.8.3-6) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * Handle sources archives for submodules/subfolders which are needed
+    for Mock build.
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 03 May 2018 13:05:09 +0200
+
 xen (2001:4.8.3-5) unstable; urgency=medium
 
   [ Frédéric Pierret ]
