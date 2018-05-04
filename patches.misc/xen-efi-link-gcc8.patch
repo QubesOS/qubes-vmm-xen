@@ -1,0 +1,14 @@
+Ignore .gnu.build.attributes section when linking EFI binary, to avoid address
+conflicts. This section is placed at the same address, regardless of image
+base, and mkreloc can't handle this.
+
+--- a/xen/arch/x86/xen.lds.S.orig	2018-05-04 04:54:05.840000000 +0200
++++ b/xen/arch/x86/xen.lds.S	2018-05-04 04:54:21.811000000 +0200
+@@ -233,6 +233,7 @@
+ #ifdef EFI
+        *(.comment)
+        *(.comment.*)
++       *(.gnu.build.attributes)
+ #endif
+   }
+ 

@@ -1,0 +1,14 @@
+diff --git a/xen/arch/x86/Rules.mk b/xen/arch/x86/Rules.mk
+index ac585a37ea..ec7a45eaa2 100644
+--- a/xen/arch/x86/Rules.mk
++++ b/xen/arch/x86/Rules.mk
+@@ -43,6 +43,9 @@ endif
+ # Compile with thunk-extern, indirect-branch-register if avaiable.
+ ifneq ($(call cc-option,$(CC),-mindirect-branch-register,n),n)
+ CFLAGS += -mindirect-branch=thunk-extern -mindirect-branch-register
++# -fcf-protection is incompatible with -mindirect-branch=thunk-extern and its
++#  current use in Xen
++CFLAGS += $(call cc-option,$(CC),-fcf-protection=none,)
+ CFLAGS += -DCONFIG_INDIRECT_THUNK
+ export CONFIG_INDIRECT_THUNK=y
+ endif
