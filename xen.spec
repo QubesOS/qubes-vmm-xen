@@ -29,6 +29,9 @@
 # Hypervisor ABI
 %define hv_abi  4.6
 
+# xen-syms-4.6.6 don't have build-id
+%define _missing_build_ids_terminate_build 0
+
 %{!?version: %define version %(cat version)}
 %{!?rel: %define rel %(cat rel)}
 
