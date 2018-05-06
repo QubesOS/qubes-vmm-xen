@@ -1,3 +1,24 @@
+xen (2001:4.6.6-39) unstable; urgency=medium
+
+  [ Simon Gaiser ]
+  * Use upstream suspend fix
+
+  [ Marek Marczykowski-Górecki ]
+  * Update core-vchan-xen submodule
+  * Fix gcc 7 compile warning
+  * Apply gcc-8 fixes
+
+  [ Frédéric Pierret ]
+  * Fix '%files hypervisor' list: files in /usr/lib/debug are not just
+    in efi builds
+
+  [ Marek Marczykowski-Górecki ]
+  * More GCC 8 fixes
+  * travis: add fc27, fc28, centos7
+  * rpm: avoid build failure from missing build-id in xen-syms
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 07 May 2018 01:10:16 +0200
+
 xen (2001:4.6.6-38) unstable; urgency=medium
 
   [ Simon Gaiser ]
