@@ -1,3 +1,10 @@
+xen (2001:4.8.3-7) wheezy; urgency=medium
+
+  * Apply XSA 260-262
+  * Fix context in XSA 260 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 08 May 2018 23:23:59 +0200
+
 xen (2001:4.8.3-6) unstable; urgency=medium
 
   [ Frédéric Pierret ]
