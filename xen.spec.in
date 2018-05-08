@@ -180,6 +180,13 @@ Patch544: patch-x86-correct-ordering-of-operations-during-S3-resume.patch
 Patch545: patch-x86-suppress-BTI-mitigations-around-S3-suspend-resum.patch
 Patch546: patch-x86-check-feature-flags-after-resume.patch
 
+Patch547: patch-xsa260-1.patch
+Patch548: patch-xsa260-2.patch
+Patch549: patch-xsa260-3.patch
+Patch550: patch-xsa260-4.patch
+Patch551: patch-xsa261-4.8.patch
+Patch552: patch-xsa262-4.9.patch
+
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
 Patch602: patch-xen-xl-create-quiet.patch
