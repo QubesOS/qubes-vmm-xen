@@ -1,3 +1,10 @@
+xen (2001:4.6.6-41) unstable; urgency=medium
+
+  * Apply XSA 263 patches
+  * Update prerequisites and fix context in XSA 263
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 22 May 2018 22:03:28 +0200
+
 xen (2001:4.6.6-40) unstable; urgency=medium
 
   * Apply XSA 260-262
