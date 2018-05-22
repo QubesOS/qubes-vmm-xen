@@ -1,0 +1,88 @@
+From ff4a2a18be8965b2182c6e58e09cd6fa143ca47f Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 15 May 2018 16:37:59 +0100
+Subject: [PATCH] x86: Fix "x86: further CPUID handling adjustments"
+
+c/s f9616884e (a backport of c/s 0d703a701 "x86/feature: Definitions for
+Indirect Branch Controls") missed a CPUID adjustment when calculating the raw
+featureset.  This impacts host administrator diagnostics.
+
+Signed-off-by: Sergey Dyasli <sergey.dyasli@citrix.com>
+
+c/s 62b187969 "x86: further CPUID handling adjustments" make some adjustments.
+However, it breaks levelling of guests, making it impossible for the toolstack
+to hide STIBP or IBPB from guests on hardware with up-to-date microcode.
+
+The dom0 issue referenced in the commit message was fixed by the hunk
+adjusting the zeroing alone.  STIBP and IBPB don't need (and indeed, must not
+be for levelling purposes) OR'd into the leaf.
+
+One final item which was missed in backport was the need to ignore the
+toolstack choice of STIBP, and set it equal to IBRSB.  This needs doing after
+the mask has been applied.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/arch/x86/hvm/hvm.c | 8 +++++---
+ xen/arch/x86/traps.c   | 8 +++++---
+ 2 files changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 4ffa30c..7c88023 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -3586,10 +3586,13 @@ void hvm_cpuid(unsigned int input, unsigned int *eax, unsigned int *ebx,
+                      special_features[FEATURESET_7b0]);
+ 
+             *ecx &= hvm_featureset[FEATURESET_7c0];
+-
+-            *edx |= cpufeat_mask(X86_FEATURE_STIBP);
+             *edx &= hvm_featureset[FEATURESET_7d0];
+ 
++            /* Force STIBP equal to IBRSB */
++            *edx &= ~cpufeat_mask(X86_FEATURE_STIBP);
++            if ( *edx & cpufeat_mask(X86_FEATURE_IBRSB) )
++                *edx |= cpufeat_mask(X86_FEATURE_STIBP);
++
+             /* Don't expose HAP-only features to non-hap guests. */
+             if ( !hap_enabled(d) )
+             {
+@@ -3761,7 +3764,6 @@ void hvm_cpuid(unsigned int input, unsigned int *eax, unsigned int *ebx,
+         hvm_cpuid(0x80000001, NULL, NULL, NULL, &_edx);
+         *eax |= (_edx & cpufeat_mask(X86_FEATURE_LM) ? vaddr_bits : 32) << 8;
+ 
+-        *ebx |= cpufeat_mask(X86_FEATURE_IBPB);
+         *ebx &= hvm_featureset[FEATURESET_e8b];
+         break;
+     }
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 508c18e..4a0ad5d 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -1155,10 +1155,13 @@ void pv_cpuid(struct cpu_user_regs *regs)
+                   special_features[FEATURESET_7b0]);
+ 
+             c &= pv_featureset[FEATURESET_7c0];
+-
+-            d |= cpufeat_mask(X86_FEATURE_STIBP);
+             d &= pv_featureset[FEATURESET_7d0];
+ 
++            /* Force STIBP equal to IBRSB */
++            d &= ~cpufeat_mask(X86_FEATURE_STIBP);
++            if ( d & cpufeat_mask(X86_FEATURE_IBRSB) )
++                d |= cpufeat_mask(X86_FEATURE_STIBP);
++
+             if ( !is_pvh_domain(currd) )
+             {
+                 /*
+@@ -1271,7 +1274,6 @@ void pv_cpuid(struct cpu_user_regs *regs)
+ 
+     case 0x80000008:
+         a = paddr_bits | (vaddr_bits << 8);
+-        b |= cpufeat_mask(X86_FEATURE_IBPB);
+         b &= pv_featureset[FEATURESET_e8b];
+         break;
+ 
+-- 
+2.1.4
+

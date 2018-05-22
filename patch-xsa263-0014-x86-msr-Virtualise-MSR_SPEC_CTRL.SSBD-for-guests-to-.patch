@@ -1,0 +1,75 @@
+From 88849195b6e07e2b8cc5b556f588db42b9351456 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 13 Apr 2018 15:42:34 +0000
+Subject: [PATCH] x86/msr: Virtualise MSR_SPEC_CTRL.SSBD for guests to use
+
+Almost all infrastructure is already in place.  Update the reserved bits
+calculation in guest_wrmsr(), and offer SSBD to guests by default.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/domctl.c                       | 3 ++-
+ xen/arch/x86/hvm/hvm.c                      | 3 ++-
+ xen/arch/x86/traps.c                        | 3 ++-
+ xen/include/public/arch-x86/cpufeatureset.h | 2 +-
+ 4 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/xen/arch/x86/domctl.c b/xen/arch/x86/domctl.c
+index 659dc9f..ad5d20b 100644
+--- a/xen/arch/x86/domctl.c
++++ b/xen/arch/x86/domctl.c
+@@ -1389,7 +1389,8 @@ long arch_do_domctl(
+                      * ignored) when STIBP isn't enumerated in hardware.
+                      */
+ 
+-                    if ( msr.value & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP) )
++                    if ( msr.value & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP |
++                                       (boot_cpu_has(X86_FEATURE_SSBD) ? SPEC_CTRL_SSBD : 0)) )
+                         break;
+                     v->arch.spec_ctrl = msr.value;
+                     continue;
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 7c88023..6a95ae9 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -4147,7 +4147,8 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
+          * when STIBP isn't enumerated in hardware.
+          */
+ 
+-        if ( msr_content & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP) )
++        if ( msr_content & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP |
++                             ((edx & cpufeat_mask(X86_FEATURE_SSBD) ? SPEC_CTRL_SSBD : 0))) )
+             goto gp_fault; /* Rsvd bit set? */
+ 
+         v->arch.spec_ctrl = msr_content;
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 4a0ad5d..f8c85e3 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -2752,7 +2752,8 @@ static int priv_op_write_msr(unsigned int reg, uint64_t val,
+          * when STIBP isn't enumerated in hardware.
+          */
+ 
+-        if ( val & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP) )
++        if ( val & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP |
++                     ((edx & cpufeat_mask(X86_FEATURE_SSBD) ? SPEC_CTRL_SSBD : 0))) )
+             break; /* Rsvd bit set? */
+ 
+         curr->arch.spec_ctrl = val;
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 93645bd..70a17f7 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -239,7 +239,7 @@ XEN_CPUFEATURE(IBPB,          8*32+12) /*A  IBPB support only (no IBRS, used by
+ XEN_CPUFEATURE(IBRSB,         9*32+26) /*A  IBRS and IBPB support (used by Intel) */
+ XEN_CPUFEATURE(STIBP,         9*32+27) /*A! STIBP */
+ XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*   IA32_ARCH_CAPABILITIES MSR */
+-XEN_CPUFEATURE(SSBD,          9*32+31) /*   MSR_SPEC_CTRL.SSBD available */
++XEN_CPUFEATURE(SSBD,          9*32+31) /*A  MSR_SPEC_CTRL.SSBD available */
+ 
+ #endif /* XEN_CPUFEATURE */
+ 
+-- 
+2.1.4
+
