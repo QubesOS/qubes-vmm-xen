@@ -1,0 +1,138 @@
+From 74d7f96bc51d7b84afad2351b753000012ec606a Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 17 Apr 2018 14:15:04 +0100
+Subject: [PATCH] x86/spec_ctrl: Split X86_FEATURE_SC_MSR into PV and HVM
+ variants
+
+In order to separately control whether MSR_SPEC_CTRL is virtualised for PV and
+HVM guests, split the feature used to control runtime alternatives into two.
+Xen will use MSR_SPEC_CTRL itself if either of these features are active.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Release-acked-by: Juergen Gross <jgross@suse.com>
+(cherry picked from commit fa9eb09d446a1279f5e861e6b84fa8675dabf148)
+---
+ xen/arch/x86/cpu/common.c           |  7 +++++--
+ xen/arch/x86/spec_ctrl.c            |  6 ++++--
+ xen/include/asm-x86/cpufeature.h    |  5 +++--
+ xen/include/asm-x86/spec_ctrl_asm.h | 12 ++++++------
+ 4 files changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 15e831a..0e8fd2e 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -359,9 +359,12 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 		if (test_bit(X86_FEATURE_IND_THUNK_JMP,
+ 			     boot_cpu_data.x86_capability))
+ 			__set_bit(X86_FEATURE_IND_THUNK_JMP, c->x86_capability);
+-		if (test_bit(X86_FEATURE_SC_MSR,
++		if (test_bit(X86_FEATURE_SC_MSR_PV,
+ 		             boot_cpu_data.x86_capability))
+-			__set_bit(X86_FEATURE_SC_MSR, c->x86_capability);
++			__set_bit(X86_FEATURE_SC_MSR_PV, c->x86_capability);
++		if (test_bit(X86_FEATURE_SC_MSR_HVM,
++		             boot_cpu_data.x86_capability))
++			__set_bit(X86_FEATURE_SC_MSR_HVM, c->x86_capability);
+ 		if (test_bit(X86_FEATURE_SC_RSB_PV,
+ 		             boot_cpu_data.x86_capability))
+ 			__set_bit(X86_FEATURE_SC_RSB_PV, c->x86_capability);
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 778f8e5..fece105 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -114,7 +114,8 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            thunk == THUNK_RETPOLINE ? "RETPOLINE" :
+            thunk == THUNK_LFENCE    ? "LFENCE" :
+            thunk == THUNK_JMP       ? "JMP" : "?",
+-           boot_cpu_has(X86_FEATURE_SC_MSR) ?
++           (boot_cpu_has(X86_FEATURE_SC_MSR_PV) ||
++            boot_cpu_has(X86_FEATURE_SC_MSR_HVM)) ?
+            default_xen_spec_ctrl & SPEC_CTRL_IBRS    ? " IBRS+" :
+                                                        " IBRS-"      : "",
+            opt_ibpb                                  ? " IBPB"       : "",
+@@ -283,7 +284,8 @@ void __init init_speculation_mitigations(void)
+          * need the IBRS entry/exit logic to virtualise IBRS support for
+          * guests.
+          */
+-        __set_bit(X86_FEATURE_SC_MSR, boot_cpu_data.x86_capability);
++        __set_bit(X86_FEATURE_SC_MSR_PV, boot_cpu_data.x86_capability);
++        __set_bit(X86_FEATURE_SC_MSR_HVM, boot_cpu_data.x86_capability);
+ 
+         if ( ibrs )
+             default_xen_spec_ctrl |= SPEC_CTRL_IBRS;
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index d140982..3aaa6c8 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -65,7 +65,8 @@
+ #define X86_FEATURE_IND_THUNK_LFENCE (3*32+ 1) /* Use IND_THUNK_LFENCE */
+ #define X86_FEATURE_IND_THUNK_JMP   (3*32+ 2) /* Use IND_THUNK_JMP */
+ #define X86_FEATURE_XEN_IBPB        (3*32+ 3) /* IBRSB || IBPB */
+-#define X86_FEATURE_SC_MSR          (3*32+ 4) /* MSR_SPEC_CTRL used by Xen */
++#define X86_FEATURE_SC_MSR_PV       (3*32+ 4) /* MSR_SPEC_CTRL used by Xen for PV */
++#define X86_FEATURE_SC_MSR_HVM      (3*32+ 5) /* MSR_SPEC_CTRL used by Xen for HVM */
+ #define X86_FEATURE_SC_RSB_PV       (3*32+ 6) /* RSB overwrite needed for PV */
+ #define X86_FEATURE_SC_RSB_HVM      (3*32+ 7) /* RSB overwrite needed for HVM */
+ #define X86_FEATURE_CONSTANT_TSC (3*32+ 8) /* TSC ticks at a constant rate */
+@@ -76,7 +77,7 @@
+ #define X86_FEATURE_XTOPOLOGY    (3*32+13) /* cpu topology enum extensions */
+ #define X86_FEATURE_CPUID_FAULTING (3*32+14) /* cpuid faulting */
+ #define X86_FEATURE_CLFLUSH_MONITOR (3*32+15) /* clflush reqd with monitor */
+-#define X86_FEATURE_SC_MSR_IDLE     (3*32+16) /* SC_MSR && default_xen_spec_ctrl */
++#define X86_FEATURE_SC_MSR_IDLE     (3*32+16) /* (SC_MSR_PV || SC_MSR_HVM) && default_xen_spec_ctrl */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000001 (ecx), word 4 */
+ #define X86_FEATURE_XMM3	(4*32+ 0) /* Streaming SIMD Extensions-3 */
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+index be5cba3..30077d7 100644
+--- a/xen/include/asm-x86/spec_ctrl_asm.h
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -223,36 +223,36 @@
+     ALTERNATIVE __stringify(ASM_NOP40),                                 \
+         DO_OVERWRITE_RSB, X86_FEATURE_SC_RSB_HVM;                       \
+     ALTERNATIVE __stringify(ASM_NOP33),                                 \
+-        DO_SPEC_CTRL_ENTRY_FROM_HVM, X86_FEATURE_SC_MSR
++        DO_SPEC_CTRL_ENTRY_FROM_HVM, X86_FEATURE_SC_MSR_HVM
+ 
+ /* Use after an entry from PV context (syscall/sysenter/int80/int82/etc). */
+ #define SPEC_CTRL_ENTRY_FROM_PV                                         \
+     ALTERNATIVE __stringify(ASM_NOP40),                                 \
+         DO_OVERWRITE_RSB, X86_FEATURE_SC_RSB_PV;                        \
+     ALTERNATIVE __stringify(ASM_NOP25),                                 \
+-        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0), X86_FEATURE_SC_MSR
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0), X86_FEATURE_SC_MSR_PV
+ 
+ /* Use in interrupt/exception context.  May interrupt Xen or PV context. */
+ #define SPEC_CTRL_ENTRY_FROM_INTR                                       \
+     ALTERNATIVE __stringify(ASM_NOP40),                                 \
+         DO_OVERWRITE_RSB, X86_FEATURE_SC_RSB_PV;                        \
+     ALTERNATIVE __stringify(ASM_NOP39),                                 \
+-        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1), X86_FEATURE_SC_MSR
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1), X86_FEATURE_SC_MSR_PV
+ 
+ /* Use when exiting to Xen context. */
+ #define SPEC_CTRL_EXIT_TO_XEN                                           \
+     ALTERNATIVE __stringify(ASM_NOP23),                                 \
+-        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_SC_MSR
++        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_SC_MSR_PV
+ 
+ /* Use when exiting to PV guest context. */
+ #define SPEC_CTRL_EXIT_TO_PV                                            \
+     ALTERNATIVE __stringify(ASM_NOP24),                                 \
+-        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR
++        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR_PV
+ 
+ /* Use when exiting to HVM guest context. */
+ #define SPEC_CTRL_EXIT_TO_HVM                                           \
+     ALTERNATIVE __stringify(ASM_NOP24),                                 \
+-        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR
++        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR_HVM
+ 
+ /*
+  * Use in IST interrupt/exception context.  May interrupt Xen or PV context.
+-- 
+2.1.4
+

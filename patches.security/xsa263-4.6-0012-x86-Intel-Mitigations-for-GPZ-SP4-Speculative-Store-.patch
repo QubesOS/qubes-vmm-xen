@@ -1,0 +1,181 @@
+From 4b53a786d4df2d99a0ce2d294aeaeb3e7c136a86 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 28 Mar 2018 15:21:39 +0100
+Subject: [PATCH] x86/Intel: Mitigations for GPZ SP4 - Speculative Store Bypass
+
+To combat GPZ SP4 "Speculative Store Bypass", Intel have extended their
+speculative sidechannel mitigations specification as follows:
+
+ * A feature bit to indicate that Speculative Store Bypass Disable is
+   supported.
+ * A new bit in MSR_SPEC_CTRL which, when set, disables memory disambiguation
+   in the pipeline.
+ * A new bit in MSR_ARCH_CAPABILITIES, which will be set in future hardware,
+   indicating that the hardware is not susceptible to Speculative Store Bypass
+   sidechannels.
+
+For contemporary processors, this interface will be implemented via a
+microcode update.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ docs/misc/xen-command-line.markdown | 12 +++++++-----
+ tools/libxl/libxl_cpuid.c           |  1 +
+ xen/arch/x86/setup.c                |  5 +++++
+ xen/arch/x86/spec_ctrl.c            | 15 ++++++++++++---
+ xen/include/asm-x86/cpufeature.h    |  1 +
+ xen/include/asm-x86/msr-index.h     |  2 ++
+ 6 files changed, 28 insertions(+), 8 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index e2f4ae3..3d54baf 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -440,9 +440,10 @@ accounting for hardware capabilities as enumerated via CPUID.
+ 
+ Currently accepted:
+ 
+-The Speculation Control hardware features `ibrsb`, `stibp`, `ibpb` are used by
+-default if avaiable.  They can be ignored, e.g. `no-ibrsb`, at which point Xen
+-won't use them itself, and won't offer them to guests.
++The Speculation Control hardware features `ibrsb`, `stibp`, `ibpb`, `ssbd` are
++used by default if available and applicable.  They can be ignored,
++e.g. `no-ibrsb`, at which point Xen won't use them itself, and won't offer
++them to guests.
+ 
+ ### cpuid\_mask\_cpu (AMD only)
+ > `= fam_0f_rev_c | fam_0f_rev_d | fam_0f_rev_e | fam_0f_rev_f | fam_0f_rev_g | fam_10_rev_b | fam_10_rev_c | fam_11_rev_b`
+@@ -1424,7 +1425,7 @@ protect itself, and Xen's ability to virtualise support for guests to use.
+   respectively.
+ * `msr-sc=` offers control over Xen's support for manipulating MSR\_SPEC\_CTRL
+   on entry and exit.  These blocks are necessary to virtualise support for
+-  guests and if disabled, guests will be unable to use IBRS/STIBP/etc.
++  guests and if disabled, guests will be unable to use IBRS/STIBP/SSBD/etc.
+ * `rsb=` offers control over whether to overwrite the Return Stack Buffer /
+   Return Address Stack on entry to Xen.
+ 
+@@ -1446,7 +1447,8 @@ prediction barriers on vcpu context switches.
+ On hardware supporting SSBD (Speculative Store Bypass Disable), the `ssbd=`
+ option can be used to force or prevent Xen using the feature itself.  On AMD
+ hardware, this is a global option applied at boot, and not virtualised for
+-guest use.
++guest use.  On Intel hardware, the feature is virtualised for guests,
++independently of Xen's choice of setting.
+ 
+ ### sync\_console
+ > `= <boolean>`
+diff --git a/tools/libxl/libxl_cpuid.c b/tools/libxl/libxl_cpuid.c
+index 17e9f0f..6a28fec 100644
+--- a/tools/libxl/libxl_cpuid.c
++++ b/tools/libxl/libxl_cpuid.c
+@@ -160,6 +160,7 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"fpu",          0x00000001, NA, CPUID_REG_EDX,  0,  1},
+         {"ibrsb",        0x00000007,  0, CPUID_REG_EDX, 26,  1},
+         {"stibp",        0x00000007,  0, CPUID_REG_EDX, 27,  1},
++        {"ssbd",         0x00000007,  0, CPUID_REG_EDX, 31,  1},
+         {"topoext",      0x80000001, NA, CPUID_REG_ECX, 22,  1},
+         {"tbm",          0x80000001, NA, CPUID_REG_ECX, 21,  1},
+         {"nodeid",       0x80000001, NA, CPUID_REG_ECX, 19,  1},
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index c3adee5..f3831e0 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -135,6 +135,11 @@ static int __init parse_xen_cpuid(const char *s)
+             if ( !val )
+                 setup_clear_cpu_cap(X86_FEATURE_STIBP);
+         }
++        else if ( (val = parse_boolean("ssbd", s, ss)) >= 0 )
++        {
++            if ( !val )
++                setup_clear_cpu_cap(X86_FEATURE_SSBD);
++        }
+         else
+             rc = -EINVAL;
+ 
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 8df606c..13f72ce 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -192,13 +192,15 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+     printk("Speculative mitigation facilities:\n");
+ 
+     /* Hardware features which pertain to speculative mitigations. */
+-    printk("  Hardware features:%s%s%s%s%s%s\n",
++    printk("  Hardware features:%s%s%s%s%s%s%s%s\n",
+            (_7d0 & cpufeat_mask(X86_FEATURE_IBRSB)) ? " IBRS/IBPB" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_STIBP)) ? " STIBP"     : "",
++           (_7d0 & cpufeat_mask(X86_FEATURE_SSBD))  ? " SSBD"      : "",
+            (e8b  & cpufeat_mask(X86_FEATURE_IBPB))  ? " IBPB"      : "",
+            (caps & ARCH_CAPABILITIES_IBRS_ALL)      ? " IBRS_ALL"  : "",
+            (caps & ARCH_CAPABILITIES_RDCL_NO)       ? " RDCL_NO"   : "",
+-           (caps & ARCH_CAPS_RSBA)                  ? " RSBA"      : "");
++           (caps & ARCH_CAPS_RSBA)                  ? " RSBA"      : "",
++           (caps & ARCH_CAPS_SSB_NO)                ? " SSB_NO"    : "");
+ 
+     /* Compiled-in support which pertains to BTI mitigations. */
+ #ifdef CONFIG_INDIRECT_THUNK
+@@ -206,13 +208,16 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+ #endif
+ 
+     /* Settings for Xen's protection, irrespective of guests. */
+-    printk("  Xen settings: BTI-Thunk %s, SPEC_CTRL: %s, Other:%s\n",
++    printk("  Xen settings: BTI-Thunk %s, SPEC_CTRL: %s%s, Other:%s\n",
+            thunk == THUNK_NONE      ? "N/A" :
+            thunk == THUNK_RETPOLINE ? "RETPOLINE" :
+            thunk == THUNK_LFENCE    ? "LFENCE" :
+            thunk == THUNK_JMP       ? "JMP" : "?",
+            !use_spec_ctrl                            ?  "No" :
+            (default_xen_spec_ctrl & SPEC_CTRL_IBRS)  ?  "IBRS+" :  "IBRS-",
++           !use_spec_ctrl || !boot_cpu_has(X86_FEATURE_SSBD)
++                                                     ? "" :
++           (default_xen_spec_ctrl & SPEC_CTRL_SSBD)  ? " SSBD+" : " SSBD-",
+            opt_ibpb                                  ? " IBPB"  : "");
+ 
+     /*
+@@ -411,6 +416,10 @@ void __init init_speculation_mitigations(void)
+         }
+     }
+ 
++    /* If we have SSBD available, see whether we should use it. */
++    if ( boot_cpu_has(X86_FEATURE_SSBD) && use_spec_ctrl && opt_ssbd )
++        default_xen_spec_ctrl |= SPEC_CTRL_SSBD;
++
+     /*
+      * PV guests can poison the RSB to any virtual address from which
+      * they can execute a call instruction.  This is necessarily outside
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index 22429db..20c6d62 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -171,6 +171,7 @@
+ #define X86_FEATURE_IBRSB	(9*32+26) /* IBRS and IBPB support (used by Intel) */
+ #define X86_FEATURE_STIBP	(9*32+27) /* STIBP */
+ #define X86_FEATURE_ARCH_CAPS	(9*32+29) /* IA32_ARCH_CAPABILITIES MSR */
++#define X86_FEATURE_SSBD	(9*32+31) /* MSR_SPEC_CTRL.SSBD available */
+ 
+ /* An alias of a feature we know is always going to be present. */
+ #define X86_FEATURE_ALWAYS      X86_FEATURE_LM
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index e5845a7..c21801c 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -35,6 +35,7 @@
+ #define MSR_SPEC_CTRL			0x00000048
+ #define SPEC_CTRL_IBRS			(_AC(1, ULL) << 0)
+ #define SPEC_CTRL_STIBP			(_AC(1, ULL) << 1)
++#define SPEC_CTRL_SSBD			(_AC(1, ULL) << 2)
+ 
+ #define MSR_PRED_CMD			0x00000049
+ #define PRED_CMD_IBPB			(_AC(1, ULL) << 0)
+@@ -43,6 +44,7 @@
+ #define ARCH_CAPABILITIES_RDCL_NO	(_AC(1, ULL) << 0)
+ #define ARCH_CAPABILITIES_IBRS_ALL	(_AC(1, ULL) << 1)
+ #define ARCH_CAPS_RSBA			(_AC(1, ULL) << 2)
++#define ARCH_CAPS_SSB_NO		(_AC(1, ULL) << 4)
+ 
+ /* Intel MSRs. Some also available on other CPUs */
+ #define MSR_IA32_PERFCTR0		0x000000c1
+-- 
+2.1.4
+

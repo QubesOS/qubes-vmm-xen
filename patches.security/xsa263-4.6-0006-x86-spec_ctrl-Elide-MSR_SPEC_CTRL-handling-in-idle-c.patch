@@ -1,0 +1,89 @@
+From 0609578b617af3f4a4da8e1c2f5cab1ab20e48e5 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 7 May 2018 14:06:16 +0100
+Subject: [PATCH] x86/spec_ctrl: Elide MSR_SPEC_CTRL handling in idle context
+ when possible
+
+If Xen is virtualising MSR_SPEC_CTRL handling for guests, but using 0 as its
+own MSR_SPEC_CTRL value, spec_ctrl_{enter,exit}_idle() need not write to the
+MSR.
+
+Requested-by: Jan Beulich <JBeulich@suse.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Release-acked-by: Juergen Gross <jgross@suse.com>
+(cherry picked from commit 94df6e8588e35cc2028ccb3fd2921c6e6360605e)
+---
+ xen/arch/x86/cpu/common.c        | 3 +++
+ xen/arch/x86/spec_ctrl.c         | 4 ++++
+ xen/include/asm-x86/cpufeature.h | 1 +
+ xen/include/asm-x86/spec_ctrl.h  | 4 ++--
+ 4 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 1ba1622..15e831a 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -368,6 +368,9 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 		if (test_bit(X86_FEATURE_SC_RSB_HVM,
+ 		             boot_cpu_data.x86_capability))
+ 			__set_bit(X86_FEATURE_SC_RSB_HVM, c->x86_capability);
++		if (test_bit(X86_FEATURE_SC_MSR_IDLE,
++			     boot_cpu_data.x86_capability))
++			__set_bit(X86_FEATURE_SC_MSR_IDLE, c->x86_capability);
+ 
+ 		/* AND the already accumulated flags with these */
+ 		for ( i = 0 ; i < NCAPINTS ; i++ )
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 91e1848..778f8e5 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -324,6 +324,10 @@ void __init init_speculation_mitigations(void)
+     /* (Re)init BSP state now that default_spec_ctrl_flags has been calculated. */
+     init_shadow_spec_ctrl_state();
+ 
++    /* If Xen is using any MSR_SPEC_CTRL settings, adjust the idle path. */
++    if ( default_xen_spec_ctrl )
++        __set_bit(X86_FEATURE_SC_MSR_IDLE, boot_cpu_data.x86_capability);
++
+     print_details(thunk, caps);
+ }
+ 
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index 9c8bca9..d140982 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -76,6 +76,7 @@
+ #define X86_FEATURE_XTOPOLOGY    (3*32+13) /* cpu topology enum extensions */
+ #define X86_FEATURE_CPUID_FAULTING (3*32+14) /* cpuid faulting */
+ #define X86_FEATURE_CLFLUSH_MONITOR (3*32+15) /* clflush reqd with monitor */
++#define X86_FEATURE_SC_MSR_IDLE     (3*32+16) /* SC_MSR && default_xen_spec_ctrl */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000001 (ecx), word 4 */
+ #define X86_FEATURE_XMM3	(4*32+ 0) /* Streaming SIMD Extensions-3 */
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index 6c11562..ec943e1 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -54,7 +54,7 @@ static always_inline void spec_ctrl_enter_idle(struct cpu_info *info)
+     barrier();
+     asm volatile ( ALTERNATIVE(ASM_NOP3, "wrmsr", %c3)
+                    :: "a" (val), "c" (MSR_SPEC_CTRL), "d" (0),
+-                      "i" (X86_FEATURE_SC_MSR)
++                      "i" (X86_FEATURE_SC_MSR_IDLE)
+                    : "memory" );
+ }
+ 
+@@ -71,7 +71,7 @@ static always_inline void spec_ctrl_exit_idle(struct cpu_info *info)
+     barrier();
+     asm volatile ( ALTERNATIVE(ASM_NOP3, "wrmsr", %c3)
+                    :: "a" (val), "c" (MSR_SPEC_CTRL), "d" (0),
+-                      "i" (X86_FEATURE_SC_MSR)
++                      "i" (X86_FEATURE_SC_MSR_IDLE)
+                    : "memory" );
+ }
+ 
+-- 
+2.1.4
+

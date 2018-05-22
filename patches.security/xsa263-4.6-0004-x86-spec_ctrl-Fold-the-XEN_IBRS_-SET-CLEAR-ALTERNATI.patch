@@ -1,0 +1,252 @@
+From 6a922ce2c11e142c9e1e6eae7337ffa0a14a68f6 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 17 Apr 2018 14:15:04 +0100
+Subject: [PATCH] x86/spec_ctrl: Fold the XEN_IBRS_{SET,CLEAR} ALTERNATIVES
+ together
+
+Currently, the SPEC_CTRL_{ENTRY,EXIT}_* macros encode Xen's choice of
+MSR_SPEC_CTRL as an immediate constant, and chooses between IBRS or not by
+doubling up the entire alternative block.
+
+There is now a variable holding Xen's choice of value, so use that and
+simplify the alternatives.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Release-acked-by: Juergen Gross <jgross@suse.com>
+(cherry picked from commit af949407eaba7af71067f23d5866cd0bf1f1144d)
+---
+ xen/arch/x86/cpu/common.c           |  8 ++-----
+ xen/arch/x86/spec_ctrl.c            | 12 +++++-----
+ xen/include/asm-x86/cpufeature.h    |  3 +--
+ xen/include/asm-x86/nops.h          |  6 ++---
+ xen/include/asm-x86/spec_ctrl.h     | 14 +++++++-----
+ xen/include/asm-x86/spec_ctrl_asm.h | 45 +++++++++++++------------------------
+ 6 files changed, 35 insertions(+), 53 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 0d9f525..3da0979 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -359,13 +359,9 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+ 		if (test_bit(X86_FEATURE_IND_THUNK_JMP,
+ 			     boot_cpu_data.x86_capability))
+ 			__set_bit(X86_FEATURE_IND_THUNK_JMP, c->x86_capability);
+-		if (test_bit(X86_FEATURE_XEN_IBRS_SET,
++		if (test_bit(X86_FEATURE_SC_MSR,
+ 		             boot_cpu_data.x86_capability))
+-			__set_bit(X86_FEATURE_XEN_IBRS_SET, c->x86_capability);
+-		if (test_bit(X86_FEATURE_XEN_IBRS_CLEAR,
+-		             boot_cpu_data.x86_capability))
+-			__set_bit(X86_FEATURE_XEN_IBRS_CLEAR,
+-			          c->x86_capability);
++			__set_bit(X86_FEATURE_SC_MSR, c->x86_capability);
+ 		if (test_bit(X86_FEATURE_RSB_NATIVE,
+ 		             boot_cpu_data.x86_capability))
+ 			__set_bit(X86_FEATURE_RSB_NATIVE, c->x86_capability);
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 5387eea..4fcbba2 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -114,8 +114,9 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            thunk == THUNK_RETPOLINE ? "RETPOLINE" :
+            thunk == THUNK_LFENCE    ? "LFENCE" :
+            thunk == THUNK_JMP       ? "JMP" : "?",
+-           boot_cpu_has(X86_FEATURE_XEN_IBRS_SET)    ? " IBRS+" :
+-           boot_cpu_has(X86_FEATURE_XEN_IBRS_CLEAR)  ? " IBRS-"      : "",
++           boot_cpu_has(X86_FEATURE_SC_MSR) ?
++           default_xen_spec_ctrl & SPEC_CTRL_IBRS    ? " IBRS+" :
++                                                       " IBRS-"      : "",
+            opt_ibpb                                  ? " IBPB"       : "",
+            boot_cpu_has(X86_FEATURE_RSB_NATIVE)      ? " RSB_NATIVE" : "",
+            boot_cpu_has(X86_FEATURE_RSB_VMEXIT)      ? " RSB_VMEXIT" : "");
+@@ -282,13 +283,10 @@ void __init init_speculation_mitigations(void)
+          * need the IBRS entry/exit logic to virtualise IBRS support for
+          * guests.
+          */
++        __set_bit(X86_FEATURE_SC_MSR, boot_cpu_data.x86_capability);
++
+         if ( ibrs )
+-        {
+             default_xen_spec_ctrl |= SPEC_CTRL_IBRS;
+-            __set_bit(X86_FEATURE_XEN_IBRS_SET, boot_cpu_data.x86_capability);
+-        }
+-        else
+-            __set_bit(X86_FEATURE_XEN_IBRS_CLEAR, boot_cpu_data.x86_capability);
+ 
+         default_spec_ctrl_flags |= SCF_ist_wrmsr;
+     }
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index 82ad43f..ed4f18c 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -65,8 +65,7 @@
+ #define X86_FEATURE_IND_THUNK_LFENCE (3*32+ 1) /* Use IND_THUNK_LFENCE */
+ #define X86_FEATURE_IND_THUNK_JMP   (3*32+ 2) /* Use IND_THUNK_JMP */
+ #define X86_FEATURE_XEN_IBPB        (3*32+ 3) /* IBRSB || IBPB */
+-#define X86_FEATURE_XEN_IBRS_SET    (3*32+ 4) /* IBRSB && IRBS set in Xen */
+-#define X86_FEATURE_XEN_IBRS_CLEAR  (3*32+ 5) /* IBRSB && IBRS clear in Xen */
++#define X86_FEATURE_SC_MSR          (3*32+ 4) /* MSR_SPEC_CTRL used by Xen */
+ #define X86_FEATURE_RSB_NATIVE      (3*32+ 6) /* RSB overwrite needed for native */
+ #define X86_FEATURE_RSB_VMEXIT      (3*32+ 7) /* RSB overwrite needed for vmexit */
+ #define X86_FEATURE_CONSTANT_TSC (3*32+ 8) /* TSC ticks at a constant rate */
+diff --git a/xen/include/asm-x86/nops.h b/xen/include/asm-x86/nops.h
+index 90a94be..04463b4 100644
+--- a/xen/include/asm-x86/nops.h
++++ b/xen/include/asm-x86/nops.h
+@@ -61,11 +61,11 @@
+ #define ASM_NOP7 _ASM_MK_NOP(K8_NOP7)
+ #define ASM_NOP8 _ASM_MK_NOP(K8_NOP8)
+ 
+-#define ASM_NOP22 ASM_NOP8; ASM_NOP8; ASM_NOP6
+ #define ASM_NOP23 ASM_NOP8; ASM_NOP8; ASM_NOP7
+ #define ASM_NOP24 ASM_NOP8; ASM_NOP8; ASM_NOP8
+-#define ASM_NOP32 ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP8
+-#define ASM_NOP36 ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP4
++#define ASM_NOP25 ASM_NOP8; ASM_NOP8; ASM_NOP7; ASM_NOP2
++#define ASM_NOP33 ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP7; ASM_NOP2
++#define ASM_NOP39 ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP7
+ #define ASM_NOP40 ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP8; ASM_NOP8
+ 
+ #define ASM_NOP_MAX 8
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index 5801f4d..6c11562 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -52,14 +52,16 @@ static always_inline void spec_ctrl_enter_idle(struct cpu_info *info)
+     barrier();
+     info->spec_ctrl_flags |= SCF_use_shadow;
+     barrier();
+-    asm volatile ( ALTERNATIVE(ASM_NOP3, "wrmsr", X86_FEATURE_XEN_IBRS_SET)
+-                   :: "a" (val), "c" (MSR_SPEC_CTRL), "d" (0) : "memory" );
++    asm volatile ( ALTERNATIVE(ASM_NOP3, "wrmsr", %c3)
++                   :: "a" (val), "c" (MSR_SPEC_CTRL), "d" (0),
++                      "i" (X86_FEATURE_SC_MSR)
++                   : "memory" );
+ }
+ 
+ /* WARNING! `ret`, `call *`, `jmp *` not safe before this call. */
+ static always_inline void spec_ctrl_exit_idle(struct cpu_info *info)
+ {
+-    uint32_t val = SPEC_CTRL_IBRS;
++    uint32_t val = info->xen_spec_ctrl;
+ 
+     /*
+      * Disable shadowing before updating the MSR.  There are no SMP issues
+@@ -67,8 +69,10 @@ static always_inline void spec_ctrl_exit_idle(struct cpu_info *info)
+      */
+     info->spec_ctrl_flags &= ~SCF_use_shadow;
+     barrier();
+-    asm volatile ( ALTERNATIVE(ASM_NOP3, "wrmsr", X86_FEATURE_XEN_IBRS_SET)
+-                   :: "a" (val), "c" (MSR_SPEC_CTRL), "d" (0) : "memory" );
++    asm volatile ( ALTERNATIVE(ASM_NOP3, "wrmsr", %c3)
++                   :: "a" (val), "c" (MSR_SPEC_CTRL), "d" (0),
++                      "i" (X86_FEATURE_SC_MSR)
++                   : "memory" );
+ }
+ 
+ #endif /* !__X86_SPEC_CTRL_H__ */
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+index 9e68c07..ab47508 100644
+--- a/xen/include/asm-x86/spec_ctrl_asm.h
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -117,7 +117,7 @@
+     mov %\tmp, %rsp                 /* Restore old %rsp */
+ .endm
+ 
+-.macro DO_SPEC_CTRL_ENTRY_FROM_VMEXIT ibrs_val:req
++.macro DO_SPEC_CTRL_ENTRY_FROM_VMEXIT
+ /*
+  * Requires %rbx=current, %rsp=regs/cpuinfo
+  * Clobbers %rax, %rcx, %rdx
+@@ -137,11 +137,11 @@
+     andb $~SCF_use_shadow, CPUINFO_spec_ctrl_flags(%rsp)
+ 
+     /* Load Xen's intended value. */
+-    mov $\ibrs_val, %eax
++    movzbl CPUINFO_xen_spec_ctrl(%rsp), %eax
+     wrmsr
+ .endm
+ 
+-.macro DO_SPEC_CTRL_ENTRY maybexen:req ibrs_val:req
++.macro DO_SPEC_CTRL_ENTRY maybexen:req
+ /*
+  * Requires %rsp=regs (also cpuinfo if !maybexen)
+  * Requires %r14=stack_end (if maybexen)
+@@ -166,12 +166,12 @@
+         setnz %al
+         not %eax
+         and %al, STACK_CPUINFO_FIELD(spec_ctrl_flags)(%r14)
++        movzbl STACK_CPUINFO_FIELD(xen_spec_ctrl)(%r14), %eax
+     .else
+         andb $~SCF_use_shadow, CPUINFO_spec_ctrl_flags(%rsp)
++        movzbl CPUINFO_xen_spec_ctrl(%rsp), %eax
+     .endif
+ 
+-    /* Load Xen's intended value. */
+-    mov $\ibrs_val, %eax
+     wrmsr
+ .endm
+ 
+@@ -219,47 +219,32 @@
+ #define SPEC_CTRL_ENTRY_FROM_VMEXIT                                     \
+     ALTERNATIVE __stringify(ASM_NOP40),                                 \
+         DO_OVERWRITE_RSB, X86_FEATURE_RSB_VMEXIT;                       \
+-    ALTERNATIVE_2 __stringify(ASM_NOP32),                               \
+-        __stringify(DO_SPEC_CTRL_ENTRY_FROM_VMEXIT                      \
+-                    ibrs_val=SPEC_CTRL_IBRS),                           \
+-        X86_FEATURE_XEN_IBRS_SET,                                       \
+-        __stringify(DO_SPEC_CTRL_ENTRY_FROM_VMEXIT                      \
+-                    ibrs_val=0),                                        \
+-        X86_FEATURE_XEN_IBRS_CLEAR
++    ALTERNATIVE __stringify(ASM_NOP33),                                 \
++        DO_SPEC_CTRL_ENTRY_FROM_VMEXIT, X86_FEATURE_SC_MSR
+ 
+ /* Use after an entry from PV context (syscall/sysenter/int80/int82/etc). */
+ #define SPEC_CTRL_ENTRY_FROM_PV                                         \
+     ALTERNATIVE __stringify(ASM_NOP40),                                 \
+         DO_OVERWRITE_RSB, X86_FEATURE_RSB_NATIVE;                       \
+-    ALTERNATIVE_2 __stringify(ASM_NOP22),                               \
+-        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0                       \
+-                    ibrs_val=SPEC_CTRL_IBRS),                           \
+-        X86_FEATURE_XEN_IBRS_SET,                                       \
+-        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0 ibrs_val=0),          \
+-        X86_FEATURE_XEN_IBRS_CLEAR
++    ALTERNATIVE __stringify(ASM_NOP25),                                 \
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=0), X86_FEATURE_SC_MSR
+ 
+ /* Use in interrupt/exception context.  May interrupt Xen or PV context. */
+ #define SPEC_CTRL_ENTRY_FROM_INTR                                       \
+     ALTERNATIVE __stringify(ASM_NOP40),                                 \
+         DO_OVERWRITE_RSB, X86_FEATURE_RSB_NATIVE;                       \
+-    ALTERNATIVE_2 __stringify(ASM_NOP36),                               \
+-        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1                       \
+-                    ibrs_val=SPEC_CTRL_IBRS),                           \
+-        X86_FEATURE_XEN_IBRS_SET,                                       \
+-        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1 ibrs_val=0),          \
+-        X86_FEATURE_XEN_IBRS_CLEAR
++    ALTERNATIVE __stringify(ASM_NOP39),                                 \
++        __stringify(DO_SPEC_CTRL_ENTRY maybexen=1), X86_FEATURE_SC_MSR
+ 
+ /* Use when exiting to Xen context. */
+ #define SPEC_CTRL_EXIT_TO_XEN                                           \
+-    ALTERNATIVE_2 __stringify(ASM_NOP23),                               \
+-        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_XEN_IBRS_SET,             \
+-        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_XEN_IBRS_CLEAR
++    ALTERNATIVE __stringify(ASM_NOP23),                                 \
++        DO_SPEC_CTRL_EXIT_TO_XEN, X86_FEATURE_SC_MSR
+ 
+ /* Use when exiting to guest context. */
+ #define SPEC_CTRL_EXIT_TO_GUEST                                         \
+-    ALTERNATIVE_2 __stringify(ASM_NOP24),                               \
+-        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_XEN_IBRS_SET,           \
+-        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_XEN_IBRS_CLEAR
++    ALTERNATIVE __stringify(ASM_NOP24),                                 \
++        DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR
+ 
+ /* TODO: Drop these when the alternatives infrastructure is NMI/#MC safe. */
+ .macro SPEC_CTRL_ENTRY_FROM_INTR_IST
+-- 
+2.1.4
+
