@@ -186,6 +186,26 @@ Patch549: patch-xsa260-3.patch
 Patch550: patch-xsa260-4.patch
 Patch551: patch-xsa261-4.8.patch
 Patch552: patch-xsa262-4.9.patch
+# prerequisites for XSA 263
+Patch553: patch-x86-reduce-Meltdown-band-aid-IPI-overhead.patch
+Patch554: patch-x86-further-CPUID-handling-adjustments.patch
+Patch555: patch-x86-log-XPTI-enabled-status.patch
+Patch556: patch-x86-disable-XPTI-when-RDCL_NO.patch
+Patch557: patch-x86-spec_ctrl-Updates-to-retpoline-safety-decision-m.patch
+Patch558: patch-xsa263-0001-x86-Fix-x86-further-CPUID-handling-adjustments.patch
+Patch559: patch-xsa263-0002-x86-spec_ctrl-Read-MSR_ARCH_CAPABILITIES-only-once.patch
+Patch560: patch-xsa263-0003-x86-spec_ctrl-Express-Xen-s-choice-of-MSR_SPEC_CTRL-.patch
+Patch561: patch-xsa263-0004-x86-spec_ctrl-Merge-bti_ist_info-and-use_shadow_spec.patch
+Patch562: patch-xsa263-0005-x86-spec_ctrl-Fold-the-XEN_IBRS_-SET-CLEAR-ALTERNATI.patch
+Patch563: patch-xsa263-0006-x86-spec_ctrl-Rename-bits-of-infrastructure-to-avoid.patch
+Patch564: patch-xsa263-0007-x86-spec_ctrl-Elide-MSR_SPEC_CTRL-handling-in-idle-c.patch
+Patch565: patch-xsa263-0008-x86-spec_ctrl-Split-X86_FEATURE_SC_MSR-into-PV-and-H.patch
+Patch566: patch-xsa263-0009-x86-spec_ctrl-Explicitly-set-Xen-s-default-MSR_SPEC_.patch
+Patch567: patch-xsa263-0010-x86-cpuid-Improvements-to-guest-policies-for-specula.patch
+Patch568: patch-xsa263-0011-x86-spec_ctrl-Introduce-a-new-spec-ctrl-command-line.patch
+Patch569: patch-xsa263-0012-x86-AMD-Mitigations-for-GPZ-SP4-Speculative-Store-By.patch
+Patch570: patch-xsa263-0013-x86-Intel-Mitigations-for-GPZ-SP4-Speculative-Store-.patch
+Patch571: patch-xsa263-0014-x86-msr-Virtualise-MSR_SPEC_CTRL.SSBD-for-guests-to-.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
