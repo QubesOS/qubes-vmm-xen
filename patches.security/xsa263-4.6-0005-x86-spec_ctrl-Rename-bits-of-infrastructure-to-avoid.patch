@@ -50,9 +50,9 @@ index 3da0979..1ba1622 100644
  		             boot_cpu_data.x86_capability))
 -			__set_bit(X86_FEATURE_RSB_VMEXIT, c->x86_capability);
 +			__set_bit(X86_FEATURE_SC_RSB_HVM, c->x86_capability);
+ 	}
  
- 		/* AND the already accumulated flags with these */
- 		for ( i = 0 ; i < NCAPINTS ; i++ )
+ 	/* If the model name is still unset, do table lookup. */
 diff --git a/xen/arch/x86/hvm/svm/entry.S b/xen/arch/x86/hvm/svm/entry.S
 index 706bdd3..6426452 100644
 --- a/xen/arch/x86/hvm/svm/entry.S

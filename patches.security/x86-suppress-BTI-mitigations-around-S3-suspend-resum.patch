@@ -1,7 +1,10 @@
-From df2f8e181e0a2b79953e5b75fca3926904bc2761 Mon Sep 17 00:00:00 2001
-From: Jan Beulich <JBeulich@suse.com>
-Date: Tue, 17 Apr 2018 02:35:51 +0200
-Subject: [PATCH 2/3] x86: suppress BTI mitigations around S3 suspend/resume
+From c4333f586f8595c6afdf7ec4a1847443dbb5c55b Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Fri, 18 May 2018 13:30:30 +0200
+Subject: [PATCH] x86: suppress BTI mitigations around S3 suspend/resume
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 NMI and #MC can occur at any time after S3 resume, yet the MSR_SPEC_CTRL
 may become available only once we're reloaded microcode. Make
@@ -11,12 +14,26 @@ the critical period of time.
 Also set the MSR back to its intended value.
 
 Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+
+x86: Use spec_ctrl_{enter,exit}_idle() in the S3/S5 path
+
+The main purpose of this patch is to avoid opencoding the recovery logic at
+the end, but also has the positive side effect of relaxing the SPEC_CTRL
+mitigations when working to shut the final CPU down.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 710a8ebf2bc111a34bba04d1c85b6d07ed3d9389
+master date: 2018-04-16 14:09:55 +0200
+master commit: ef3ab46493f650b7e5cca2b2578a99ca0cbff195
+master date: 2018-04-19 10:55:59 +0100
 ---
  xen/arch/x86/acpi/power.c | 11 +++++++++++
  1 file changed, 11 insertions(+)
 
 diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
-index a66049109e..4b88bcb032 100644
+index a66049109e..87cc09ee46 100644
 --- a/xen/arch/x86/acpi/power.c
 +++ b/xen/arch/x86/acpi/power.c
 @@ -29,6 +29,7 @@
@@ -35,29 +52,29 @@ index a66049109e..4b88bcb032 100644
      unsigned long cr4;
  
      if ( (state <= ACPI_STATE_S0) || (state > ACPI_S_STATES_MAX) )
-@@ -173,6 +175,10 @@ static int enter_state(u32 state)
+@@ -173,6 +175,11 @@ static int enter_state(u32 state)
          goto done;
      }
  
 +    ci = get_cpu_info();
-+    ci->use_shadow_spec_ctrl = 0;
++    spec_ctrl_enter_idle(ci);
++    /* Avoid NMI/#MC using MSR_SPEC_CTRL until we've reloaded microcode. */
 +    ci->bti_ist_info = 0;
 +
      ACPI_FLUSH_CPU_CACHE();
  
      switch ( state )
-@@ -212,6 +218,11 @@ static int enter_state(u32 state)
+@@ -212,6 +219,10 @@ static int enter_state(u32 state)
  
      microcode_resume_cpu(0);
  
++    /* Re-enabled default NMI/#MC use of MSR_SPEC_CTRL. */
 +    ci->bti_ist_info = default_bti_ist_info;
-+    asm volatile (ALTERNATIVE(ASM_NOP3, "wrmsr", X86_FEATURE_XEN_IBRS_SET)
-+                  :: "a" (SPEC_CTRL_IBRS), "c" (MSR_SPEC_CTRL), "d" (0)
-+                  : "memory");
++    spec_ctrl_exit_idle(ci);
 +
   done:
      spin_debug_enable();
      local_irq_restore(flags);
 -- 
-2.16.2
+2.13.6
 

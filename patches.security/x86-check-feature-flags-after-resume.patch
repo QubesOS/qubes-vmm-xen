@@ -28,9 +28,9 @@ index 4b88bcb032..d6435be592 100644
 +    if ( !recheck_cpu_features(0) )
 +        panic("Missing previously available feature(s).");
 +
+     /* Re-enabled default NMI/#MC use of MSR_SPEC_CTRL. */
      ci->bti_ist_info = default_bti_ist_info;
-     asm volatile (ALTERNATIVE(ASM_NOP3, "wrmsr", X86_FEATURE_XEN_IBRS_SET)
-                   :: "a" (SPEC_CTRL_IBRS), "c" (MSR_SPEC_CTRL), "d" (0)
+     spec_ctrl_exit_idle(ci);
 diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
 index 0bbfebc7bf..ed1cbc8141 100644
 --- a/xen/arch/x86/cpu/common.c

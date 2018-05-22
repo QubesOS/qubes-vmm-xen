@@ -32,9 +32,9 @@ index 1ba1622..15e831a 100644
 +		if (test_bit(X86_FEATURE_SC_MSR_IDLE,
 +			     boot_cpu_data.x86_capability))
 +			__set_bit(X86_FEATURE_SC_MSR_IDLE, c->x86_capability);
+ 	}
  
- 		/* AND the already accumulated flags with these */
- 		for ( i = 0 ; i < NCAPINTS ; i++ )
+ 	/* If the model name is still unset, do table lookup. */
 diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
 index 91e1848..778f8e5 100644
 --- a/xen/arch/x86/spec_ctrl.c
