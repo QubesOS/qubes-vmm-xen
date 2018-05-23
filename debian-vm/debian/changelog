@@ -1,3 +1,12 @@
+xen (2001:4.8.3-8) unstable; urgency=medium
+
+  * Add/update prerequisites for XSA 263
+  * Apply XSA 263 patches
+  * travis: add Fedora 28 and Cent OS 7
+  * Fix build on Debian buster
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 23 May 2018 16:20:18 +0200
+
 xen (2001:4.8.3-7) wheezy; urgency=medium
 
   * Apply XSA 260-262
