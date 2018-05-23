@@ -88,6 +88,7 @@ Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 # Backports
 Patch301: patch-0001-libxl-add-more-cpuid-flags-handling.patch
 Patch302: patch-libxc-panic-when-trying-to-create-a-PVH-guest-withou.patch
+Patch303: patch-libacpi-fixes-for-iasl-20180427.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
