@@ -74,7 +74,7 @@ Source103: patches.qubes
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
 BuildRequires: libX11-devel python-devel ghostscript texlive-latex
-%if 0%fedora >= 18
+%if 0%{?fedora} >= 18
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
 %endif
 BuildRequires: ncurses-devel gtk2-devel libaio-devel
