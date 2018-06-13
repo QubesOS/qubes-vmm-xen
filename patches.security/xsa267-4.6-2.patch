@@ -66,7 +66,7 @@ index 7900acd..8368972 100644
 @@ -44,6 +44,7 @@ static enum ind_thunk {
  static int8_t __initdata opt_ibrs = -1;
  bool_t __read_mostly opt_ibpb = 1;
- bool_t __read_mostly opt_ssbd = 0;
+ bool_t __read_mostly opt_ssbd;
 +int8_t __read_mostly opt_eager_fpu = -1;
  
  bool_t __initdata bsp_delay_spec_ctrl;
@@ -109,9 +109,9 @@ index 7900acd..8368972 100644
 -           boot_cpu_has(X86_FEATURE_SC_RSB_HVM)      ? " RSB"           : "");
 +           boot_cpu_has(X86_FEATURE_SC_RSB_HVM)      ? " RSB"           : "",
 +           opt_eager_fpu                             ? " EAGER_FPU"     : "");
+ }
  
-     printk("  XPTI (64-bit PV only): Dom0 %s, DomU %s\n",
-            opt_xpti & OPT_XPTI_DOM0 ? "enabled" : "disabled",
+ /* Calculate whether Retpoline is known-safe on this CPU. */
 @@ -322,6 +330,82 @@ static bool_t __init __maybe_unused retpoline_safe(uint64_t caps)
      }
  }
@@ -192,9 +192,9 @@ index 7900acd..8368972 100644
 +    }
 +}
 +
- #define OPT_XPTI_DEFAULT  0xff
- uint8_t __read_mostly opt_xpti = OPT_XPTI_DEFAULT;
- 
+ void __init init_speculation_mitigations(void)
+ {
+     enum ind_thunk thunk = THUNK_DEFAULT;
 @@ -511,6 +595,10 @@ void __init init_speculation_mitigations(void)
      if ( !boot_cpu_has(X86_FEATURE_IBRSB) && !boot_cpu_has(X86_FEATURE_IBPB) )
          opt_ibpb = 0;
