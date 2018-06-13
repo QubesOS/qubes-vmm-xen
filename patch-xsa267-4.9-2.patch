@@ -110,8 +110,8 @@ index 8077000..ada4aac 100644
 +           boot_cpu_has(X86_FEATURE_SC_RSB_HVM)      ? " RSB"           : "",
 +           opt_eager_fpu                             ? " EAGER_FPU"     : "");
  
-     printk("  XPTI (64-bit PV only): Dom0 %s, DomU %s\n",
-            opt_xpti & OPT_XPTI_DOM0 ? "enabled" : "disabled",
+     printk("XPTI: %s\n",
+            boot_cpu_has(X86_FEATURE_NO_XPTI) ? "disabled" : "enabled");
 @@ -321,6 +329,82 @@ static bool __init retpoline_safe(uint64_t caps)
      }
  }
@@ -192,9 +192,9 @@ index 8077000..ada4aac 100644
 +    }
 +}
 +
- #define OPT_XPTI_DEFAULT  0xff
- uint8_t __read_mostly opt_xpti = OPT_XPTI_DEFAULT;
- 
+ void __init init_speculation_mitigations(void)
+ {
+     enum ind_thunk thunk = THUNK_DEFAULT;
 @@ -519,6 +603,10 @@ void __init init_speculation_mitigations(void)
      if ( !boot_cpu_has(X86_FEATURE_IBRSB) && !boot_cpu_has(X86_FEATURE_IBPB) )
          opt_ibpb = false;
