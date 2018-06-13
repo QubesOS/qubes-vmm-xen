@@ -207,6 +207,8 @@ Patch568: patch-xsa263-0011-x86-spec_ctrl-Introduce-a-new-spec-ctrl-command-line
 Patch569: patch-xsa263-0012-x86-AMD-Mitigations-for-GPZ-SP4-Speculative-Store-By.patch
 Patch570: patch-xsa263-0013-x86-Intel-Mitigations-for-GPZ-SP4-Speculative-Store-.patch
 Patch571: patch-xsa263-0014-x86-msr-Virtualise-MSR_SPEC_CTRL.SSBD-for-guests-to-.patch
+Patch572: patch-xsa267-4.9-1.patch
+Patch573: patch-xsa267-4.9-2.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
