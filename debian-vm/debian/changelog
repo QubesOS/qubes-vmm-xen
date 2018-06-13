@@ -1,3 +1,14 @@
+xen (2001:4.8.3-9) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * Fix %if for CentOS
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA-267 patches
+  * Update context of XSA-267 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 13 Jun 2018 23:25:21 +0200
+
 xen (2001:4.8.3-8) unstable; urgency=medium
 
   * Add/update prerequisites for XSA 263
