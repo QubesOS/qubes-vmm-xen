@@ -1,3 +1,11 @@
+xen (2001:4.6.6-42) unstable; urgency=medium
+
+  * rpm: Fix condition syntax
+  * Apply XSA-267 patches
+  * Update context of XSA-267 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 14 Jun 2018 00:21:18 +0200
+
 xen (2001:4.6.6-41) unstable; urgency=medium
 
   * Apply XSA 263 patches
