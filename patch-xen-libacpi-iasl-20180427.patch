@@ -1,0 +1,24 @@
+X-Git-Url: https://xenbits.xen.org/gitweb/?p=xen.git;a=blobdiff_plain;f=tools%2Flibacpi%2FMakefile;h=c17f3924cc39474234831af7794115337e685c83;hp=a47a658a255f2a2b4b2f04842f913211cfe9543c;hb=858dbaaeda33b05c1ac80aea0ba9a03924e09005;hpb=92938e5d149669033aecdfb3d1396948d49d1887
+
+diff --git a/tools/libacpi/Makefile b/tools/libacpi/Makefile
+index a47a658a25..c17f3924cc 100644
+--- a/tools/libacpi/Makefile
++++ b/tools/libacpi/Makefile
+@@ -43,7 +43,7 @@ all: $(C_SRC) $(H_SRC)
+ 
+ $(H_SRC): $(ACPI_BUILD_DIR)/%.h: %.asl iasl
+ 	iasl -vs -p $(ACPI_BUILD_DIR)/$*.$(TMP_SUFFIX) -tc $<
+-	sed -e 's/AmlCode/$*/g' $(ACPI_BUILD_DIR)/$*.hex >$@
++	sed -e 's/AmlCode/$*/g' -e 's/_aml_code//g' $(ACPI_BUILD_DIR)/$*.hex >$@
+ 	rm -f $(addprefix $(ACPI_BUILD_DIR)/, $*.aml $*.hex)
+  
+ $(MK_DSDT): mk_dsdt.c
+@@ -76,7 +76,7 @@ $(ACPI_BUILD_DIR)/dsdt_anycpu_arm.asl: $(MK_DSDT)
+ 
+ $(C_SRC): $(ACPI_BUILD_DIR)/%.c: iasl $(ACPI_BUILD_DIR)/%.asl
+ 	iasl -vs -p $(ACPI_BUILD_DIR)/$*.$(TMP_SUFFIX) -tc $(ACPI_BUILD_DIR)/$*.asl
+-	sed -e 's/AmlCode/$*/g' $(ACPI_BUILD_DIR)/$*.hex > $@.$(TMP_SUFFIX)
++	sed -e 's/AmlCode/$*/g' -e 's/_aml_code//g' $(ACPI_BUILD_DIR)/$*.hex > $@.$(TMP_SUFFIX)
+ 	echo "int $*_len=sizeof($*);" >> $@.$(TMP_SUFFIX)
+ 	mv -f $@.$(TMP_SUFFIX) $@
+ 	rm -f $(addprefix $(ACPI_BUILD_DIR)/, $*.aml $*.hex)
