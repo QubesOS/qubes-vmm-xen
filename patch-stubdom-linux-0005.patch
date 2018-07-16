@@ -251,7 +251,7 @@ HW42:
 +                } else if (strncmp(disks[i].vdev, "sd", 2) == 0) {
                      if (colo_mode == LIBXL__COLO_SECONDARY) {
                          drive = libxl__sprintf
-                             (gc, "if=none,driver=%s,file=%s,id=%s",
+                             (gc, "if=none,driver=%s,file=%s,id=%s,readonly=%s",
 @@ -1519,7 +1574,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,

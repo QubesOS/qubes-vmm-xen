@@ -1,3 +1,10 @@
+xen (2001:4.8.4-1) --release; urgency=medium
+
+  * travis: Add Archlinux build
+  * version 4.8.4-1
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 16 Jul 2018 16:27:26 +0200
+
 xen (2001:4.8.3-9) unstable; urgency=medium
 
   [ Frédéric Pierret ]

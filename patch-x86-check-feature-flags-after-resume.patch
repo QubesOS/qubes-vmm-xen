@@ -30,7 +30,7 @@ index 3d26d4be31..e8fb3f6f31 100644
 +        panic("Missing previously available feature(s).");
 +
      /* Re-enabled default NMI/#MC use of MSR_SPEC_CTRL. */
-     ci->bti_ist_info = default_bti_ist_info;
+     ci->spec_ctrl_flags |= (default_spec_ctrl_flags & SCF_ist_wrmsr);
      spec_ctrl_exit_idle(ci);
 diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
 index 7e7cc739fd..5750d26216 100644
