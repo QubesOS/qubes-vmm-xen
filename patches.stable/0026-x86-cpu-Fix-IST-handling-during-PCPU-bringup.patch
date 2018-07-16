@@ -1,0 +1,66 @@
+From aad5a67587b493e2478e1e46f71404c3dd41a937 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 12 Oct 2017 15:41:57 +0200
+Subject: x86/cpu: Fix IST handling during PCPU bringup
+
+Clear IST references in newly allocated IDTs.  Nothing good will come of
+having them set before the TSS is suitably constructed (although the chances
+of the CPU surviving such an IST interrupt/exception is extremely slim).
+
+Uniformly set the IST references after the TSS is in place.  This fixes an
+issue on AMD hardware, where onlining a PCPU while PCPU0 is in HVM context
+will cause IST_NONE to be copied into the new IDT, making that PCPU vulnerable
+to privilege escalation from PV guests until it subsequently schedules an HVM
+guest.
+
+This is XSA-244.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: cc08c73c8c1f5ba5ed0f8274548db6725e1c3157
+master date: 2017-10-12 14:50:31 +0200
+---
+ xen/arch/x86/cpu/common.c | 5 +++++
+ xen/arch/x86/smpboot.c    | 3 +++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 528c283f65..5729e2d344 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -558,6 +558,7 @@ void __init early_cpu_init(void)
+  * - Sets up TSS with stack pointers, including ISTs
+  * - Inserts TSS selector into regular and compat GDTs
+  * - Loads GDT, IDT, TR then null LDT
++ * - Sets up IST references in the IDT
+  */
+ void __cpuinit load_system_tables(void)
+ {
+@@ -604,6 +605,10 @@ void __cpuinit load_system_tables(void)
+ 	asm volatile ("lidt %0"  : : "m"  (idtr) );
+ 	asm volatile ("ltr  %w0" : : "rm" (TSS_ENTRY << 3) );
+ 	asm volatile ("lldt %w0" : : "rm" (0) );
++
++	set_ist(&idt_tables[cpu][TRAP_double_fault],  IST_DF);
++	set_ist(&idt_tables[cpu][TRAP_nmi],	      IST_NMI);
++	set_ist(&idt_tables[cpu][TRAP_machine_check], IST_MCE);
+ }
+ 
+ /*
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 094699286f..91c8d789f5 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -749,6 +749,9 @@ static int cpu_smpboot_alloc(unsigned int cpu)
+     if ( idt_tables[cpu] == NULL )
+         goto oom;
+     memcpy(idt_tables[cpu], idt_table, IDT_ENTRIES * sizeof(idt_entry_t));
++    set_ist(&idt_tables[cpu][TRAP_double_fault],  IST_NONE);
++    set_ist(&idt_tables[cpu][TRAP_nmi],           IST_NONE);
++    set_ist(&idt_tables[cpu][TRAP_machine_check], IST_NONE);
+ 
+     for ( stub_page = 0, i = cpu & ~(STUBS_PER_PAGE - 1);
+           i < nr_cpu_ids && i <= (cpu | (STUBS_PER_PAGE - 1)); ++i )
+-- 
+2.13.6
+

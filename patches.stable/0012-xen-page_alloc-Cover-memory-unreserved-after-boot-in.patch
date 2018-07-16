@@ -1,0 +1,54 @@
+From 9079e0d98e148d243f6d3ef4fcb80fd6033ba645 Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@arm.com>
+Date: Fri, 6 Oct 2017 15:19:33 +0200
+Subject: xen/page_alloc: Cover memory unreserved after boot in
+ first_valid_mfn
+
+On Arm, some regions (e.g Initramfs, Dom0 Kernel...) are marked as
+reserved until the hardware domain is built and they are copied into its
+memory. Therefore, they will not be added in the boot allocator via
+init_boot_pages.
+
+Instead, init_xenheap_pages will be called once the region are not used
+anymore.
+
+Update first_valid_mfn in both init_heap_pages and init_boot_pages
+(already exist) to cover all the cases.
+
+This is XSA-245.
+
+Signed-off-by: Julien Grall <julien.grall@arm.com>
+[Adjust comment, added locking around first_valid_mfn update]
+Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Acked-by: Stefano Stabellini <sstabellini@kernel.org>
+Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+master commit: ec6d9023e1f54cdccbf2e4c63cf947f1be2b1e8e
+master date: 2017-09-29 13:22:52 -0700
+---
+ xen/common/page_alloc.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/xen/common/page_alloc.c b/xen/common/page_alloc.c
+index eb342a5639..629fbc97a5 100644
+--- a/xen/common/page_alloc.c
++++ b/xen/common/page_alloc.c
+@@ -1191,6 +1191,16 @@ static void init_heap_pages(
+ {
+     unsigned long i;
+ 
++    /*
++     * Some pages may not go through the boot allocator (e.g reserved
++     * memory at boot but released just after --- kernel, initramfs,
++     * etc.).
++     * Update first_valid_mfn to ensure those regions are covered.
++     */
++    spin_lock(&heap_lock);
++    first_valid_mfn = min_t(unsigned long, page_to_mfn(pg), first_valid_mfn);
++    spin_unlock(&heap_lock);
++
+     for ( i = 0; i < nr_pages; i++ )
+     {
+         unsigned int nid = phys_to_nid(page_to_maddr(pg+i));
+-- 
+2.13.6
+

@@ -1,0 +1,41 @@
+From 927aca70011f83c44294f90275c18a0b3f7d7169 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 25 Apr 2018 14:52:52 +0200
+Subject: x86: fix slow int80 path after XPTI additions
+
+For the int80 slow path to jump to handle_exception_saved, %r14 needs to
+be set up suitably for XPTI purposes. This is because of the difference
+in nature between the int80 path (which is synchronous WRT guest
+actions) and the exception path which is potentially asynchronous.
+
+This is XSA-259.
+
+Reported-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: 5a5c368faf45ced8a8c6235f4fbf5cdb38ec939f
+master date: 2018-04-25 14:39:41 +0200
+---
+ xen/arch/x86/x86_64/entry.S | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 59d3347d3c..0d0eeb0d10 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -442,6 +442,12 @@ int80_slow_path:
+         movl  $TRAP_gp_fault,UREGS_entry_vector(%rsp)
+         /* A GPF wouldn't have incremented the instruction pointer. */
+         subq  $2,UREGS_rip(%rsp)
++        /*
++         * While we've cleared xen_cr3 above already, normal exception handling
++         * code has logic to restore the original value from %r15. Therefore we
++         * need to set up %r14 here, while %r15 is required to still be zero.
++         */
++        GET_STACK_BASE(%r14)
+         jmp   handle_exception_saved
+ 
+ /* CREATE A BASIC EXCEPTION FRAME ON GUEST OS STACK:                     */
+-- 
+2.13.6
+

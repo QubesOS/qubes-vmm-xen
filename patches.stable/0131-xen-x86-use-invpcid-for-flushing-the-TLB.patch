@@ -1,0 +1,274 @@
+From cb0230a637290748f9c60c7aeb3e1f804e969859 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 26 Apr 2018 13:33:13 +0200
+Subject: xen/x86: use invpcid for flushing the TLB
+
+If possible use the INVPCID instruction for flushing the TLB instead of
+toggling cr4.pge for that purpose.
+
+While at it remove the dependency on cr4.pge being required for mtrr
+loading, as this will be required later anyway.
+
+Add a command line option "invpcid" for controlling the use of
+INVPCID (default to true).
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ docs/misc/xen-command-line.markdown |  9 +++++++
+ xen/arch/x86/cpu/mtrr/generic.c     | 47 ++++++++++++++++++++-----------------
+ xen/arch/x86/flushtlb.c             | 29 +++++++++++++++--------
+ xen/arch/x86/setup.c                |  8 +++++++
+ xen/include/asm-x86/invpcid.h       |  2 ++
+ 5 files changed, 63 insertions(+), 32 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index e81edf045a..39c535ed17 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1173,6 +1173,15 @@ Because responsibility for APIC setup is shared between Xen and the
+ domain 0 kernel this option is automatically propagated to the domain
+ 0 command line.
+ 
++### invpcid (x86)
++> `= <boolean>`
++
++> Default: `true`
++
++By default, Xen will use the INVPCID instruction for TLB management if
++it is available.  This option can be used to cause Xen to fall back to
++older mechanisms, which are generally slower.
++
+ ### noirqbalance
+ > `= <boolean>`
+ 
+diff --git a/xen/arch/x86/cpu/mtrr/generic.c b/xen/arch/x86/cpu/mtrr/generic.c
+index ea0efe2f2e..2a79cfcf2e 100644
+--- a/xen/arch/x86/cpu/mtrr/generic.c
++++ b/xen/arch/x86/cpu/mtrr/generic.c
+@@ -4,6 +4,7 @@
+ #include <xen/init.h>
+ #include <xen/mm.h>
+ #include <asm/flushtlb.h>
++#include <asm/invpcid.h>
+ #include <asm/io.h>
+ #include <asm/mtrr.h>
+ #include <asm/msr.h>
+@@ -391,7 +392,6 @@ static unsigned long set_mtrr_state(void)
+ }
+ 
+ 
+-static unsigned long cr4 = 0;
+ static DEFINE_SPINLOCK(set_atomicity_lock);
+ 
+ /*
+@@ -401,9 +401,9 @@ static DEFINE_SPINLOCK(set_atomicity_lock);
+  * has been called.
+  */
+ 
+-static void prepare_set(void)
++static bool_t prepare_set(void)
+ {
+-	unsigned long cr0;
++	unsigned long cr0, cr4;
+ 
+ 	/*  Note that this is not ideal, since the cache is only flushed/disabled
+ 	   for this CPU while the MTRRs are changed, but changing this requires
+@@ -416,36 +416,38 @@ static void prepare_set(void)
+ 	write_cr0(cr0);
+ 	wbinvd();
+ 
+-	/*  Save value of CR4 and clear Page Global Enable (bit 7)  */
+-	if ( cpu_has_pge ) {
+-		cr4 = read_cr4();
++	cr4 = read_cr4();
++	if (cr4 & X86_CR4_PGE)
+ 		write_cr4(cr4 & ~X86_CR4_PGE);
+-	}
+-
+-	/* Flush all TLBs via a mov %cr3, %reg; mov %reg, %cr3 */
+-	flush_tlb_local();
++	else if (use_invpcid)
++		invpcid_flush_all();
++	else
++		write_cr3(read_cr3());
+ 
+ 	/*  Save MTRR state */
+ 	rdmsrl(MSR_MTRRdefType, deftype);
+ 
+ 	/*  Disable MTRRs, and set the default type to uncached  */
+ 	mtrr_wrmsr(MSR_MTRRdefType, deftype & ~0xcff);
++
++	return cr4 & X86_CR4_PGE;
+ }
+ 
+-static void post_set(void)
++static void post_set(bool_t pge)
+ {
+-	/*  Flush TLBs (no need to flush caches - they are disabled)  */
+-	flush_tlb_local();
+-
+ 	/* Intel (P6) standard MTRRs */
+ 	mtrr_wrmsr(MSR_MTRRdefType, deftype);
+ 		
+ 	/*  Enable caches  */
+ 	write_cr0(read_cr0() & 0xbfffffff);
+ 
+-	/*  Restore value of CR4  */
+-	if ( cpu_has_pge )
+-		write_cr4(cr4);
++	if (pge)
++		write_cr4(read_cr4() | X86_CR4_PGE);
++	else if (use_invpcid)
++		invpcid_flush_all();
++	else
++		write_cr3(read_cr3());
++
+ 	spin_unlock(&set_atomicity_lock);
+ }
+ 
+@@ -453,14 +455,15 @@ static void generic_set_all(void)
+ {
+ 	unsigned long mask, count;
+ 	unsigned long flags;
++	bool_t pge;
+ 
+ 	local_irq_save(flags);
+-	prepare_set();
++	pge = prepare_set();
+ 
+ 	/* Actually set the state */
+ 	mask = set_mtrr_state();
+ 
+-	post_set();
++	post_set(pge);
+ 	local_irq_restore(flags);
+ 
+ 	/*  Use the atomic bitops to update the global mask  */
+@@ -469,7 +472,6 @@ static void generic_set_all(void)
+ 			set_bit(count, &smp_changes_mask);
+ 		mask >>= 1;
+ 	}
+-	
+ }
+ 
+ static void generic_set_mtrr(unsigned int reg, unsigned long base,
+@@ -486,11 +488,12 @@ static void generic_set_mtrr(unsigned int reg, unsigned long base,
+ {
+ 	unsigned long flags;
+ 	struct mtrr_var_range *vr;
++	bool_t pge;
+ 
+ 	vr = &mtrr_state.var_ranges[reg];
+ 
+ 	local_irq_save(flags);
+-	prepare_set();
++	pge = prepare_set();
+ 
+ 	if (size == 0) {
+ 		/* The invalid bit is kept in the mask, so we simply clear the
+@@ -511,7 +514,7 @@ static void generic_set_mtrr(unsigned int reg, unsigned long base,
+ 		mtrr_wrmsr(MSR_IA32_MTRR_PHYSMASK(reg), vr->mask);
+ 	}
+ 
+-	post_set();
++	post_set(pge);
+ 	local_irq_restore(flags);
+ }
+ 
+diff --git a/xen/arch/x86/flushtlb.c b/xen/arch/x86/flushtlb.c
+index d9941f4249..92cfb6bcb2 100644
+--- a/xen/arch/x86/flushtlb.c
++++ b/xen/arch/x86/flushtlb.c
+@@ -12,6 +12,7 @@
+ #include <xen/smp.h>
+ #include <xen/softirq.h>
+ #include <asm/flushtlb.h>
++#include <asm/invpcid.h>
+ #include <asm/page.h>
+ 
+ /* Debug builds: Wrap frequently to stress-test the wrap logic. */
+@@ -73,6 +74,23 @@ static void post_flush(u32 t)
+     this_cpu(tlbflush_time) = t;
+ }
+ 
++static void do_tlb_flush(void)
++{
++    u32 t = pre_flush();
++
++    if ( use_invpcid )
++        invpcid_flush_all();
++    else
++    {
++        unsigned long cr4 = read_cr4();
++
++        write_cr4(cr4 ^ X86_CR4_PGE);
++        write_cr4(cr4);
++    }
++
++    post_flush(t);
++}
++
+ void switch_cr3(unsigned long cr3)
+ {
+     unsigned long flags, cr4;
+@@ -116,16 +134,7 @@ void flush_area_local(const void *va, unsigned int flags)
+                            : : "m" (*(const char *)(va)) : "memory" );
+         }
+         else
+-        {
+-            u32 t = pre_flush();
+-            unsigned long cr4 = read_cr4();
+-
+-            write_cr4(cr4 & ~X86_CR4_PGE);
+-            barrier();
+-            write_cr4(cr4);
+-
+-            post_flush(t);
+-        }
++            do_tlb_flush();
+     }
+ 
+     if ( flags & FLUSH_CACHE )
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index f3831e0575..8adba9d19c 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -68,6 +68,11 @@ invbool_param("smep", disable_smep);
+ static bool_t __initdata disable_smap;
+ invbool_param("smap", disable_smap);
+ 
++/* opt_invpcid: If false, don't use INVPCID instruction even if available. */
++static bool_t __initdata opt_invpcid = 1;
++boolean_param("invpcid", opt_invpcid);
++bool_t __read_mostly use_invpcid;
++
+ unsigned long __read_mostly cr4_pv32_mask;
+ 
+ /* Boot dom0 in pvh mode */
+@@ -1367,6 +1372,9 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+     if ( cpu_has_fsgsbase )
+         set_in_cr4(X86_CR4_FSGSBASE);
+ 
++    if ( opt_invpcid && cpu_has_invpcid )
++        use_invpcid = 1;
++
+     init_speculation_mitigations();
+ 
+     init_idle_domain();
+diff --git a/xen/include/asm-x86/invpcid.h b/xen/include/asm-x86/invpcid.h
+index b46624a865..586beb7ab9 100644
+--- a/xen/include/asm-x86/invpcid.h
++++ b/xen/include/asm-x86/invpcid.h
+@@ -3,6 +3,8 @@
+ 
+ #include <xen/types.h>
+ 
++extern bool_t use_invpcid;
++
+ #define INVPCID_TYPE_INDIV_ADDR      0
+ #define INVPCID_TYPE_SINGLE_CTXT     1
+ #define INVPCID_TYPE_ALL_INCL_GLOBAL 2
+-- 
+2.13.6
+

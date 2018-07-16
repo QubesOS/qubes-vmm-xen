@@ -29,7 +29,7 @@ index 4b88bcb032..d6435be592 100644
 +        panic("Missing previously available feature(s).");
 +
      /* Re-enabled default NMI/#MC use of MSR_SPEC_CTRL. */
-     ci->bti_ist_info = default_bti_ist_info;
+     ci->spec_ctrl_flags |= (default_spec_ctrl_flags & SCF_ist_wrmsr);
      spec_ctrl_exit_idle(ci);
 diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
 index 0bbfebc7bf..ed1cbc8141 100644
@@ -76,9 +76,9 @@ index 0bbfebc7bf..ed1cbc8141 100644
  		/* Inherit certain bits from the boot CPU. */
  		if (test_bit(X86_FEATURE_IND_THUNK_LFENCE,
 @@ -372,7 +350,34 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
- 		if (test_bit(X86_FEATURE_RSB_VMEXIT,
+ 		if (test_bit(X86_FEATURE_NO_XPTI,
  		             boot_cpu_data.x86_capability))
- 			__set_bit(X86_FEATURE_RSB_VMEXIT, c->x86_capability);
+ 			__set_bit(X86_FEATURE_NO_XPTI, c->x86_capability);
 +	}
  
 +	/* If the model name is still unset, do table lookup. */
@@ -150,7 +150,7 @@ index f6bf41959e..cd2f1e07b6 100644
      struct cpuinfo_x86 *c = cpu_data + id;
      unsigned int socket;
  
--    identify_cpu(c);
+-    identify_cpu(&cpu_data[id]);
 +    if ( system_state != SYS_STATE_resume )
 +        identify_cpu(&cpu_data[id]);
 +    else if ( !recheck_cpu_features(id) )

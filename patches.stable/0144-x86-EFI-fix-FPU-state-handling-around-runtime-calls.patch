@@ -1,0 +1,89 @@
+From ba7d0117ab535280e2b6821aa6d323053ac6b266 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 28 Jun 2018 12:27:34 +0200
+Subject: x86/EFI: fix FPU state handling around runtime calls
+
+There are two issues.  First, the nonlazy xstates were never restored
+after returning from the runtime call.
+
+Secondly, with the fully_eager_fpu mitigation for XSA-267 / LazyFPU, the
+unilateral stts() is no longer correct, and hits an assertion later when
+a lazy state restore tries to occur for a fully eager vcpu.
+
+Fix both of these issues by calling vcpu_restore_fpu_eager().  As EFI
+runtime services can be used in the idle context, the idle assertion
+needs to move until after the fully_eager_fpu check.
+
+Introduce a "curr" local variable and replace other uses of "current"
+at the same time.
+
+Reported-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Tested-by: Juergen Gross <jgross@suse.com>
+---
+ xen/arch/x86/i387.c      | 6 ++++--
+ xen/common/efi/runtime.c | 8 +++++---
+ 2 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/xen/arch/x86/i387.c b/xen/arch/x86/i387.c
+index 873eab8d2d..28edfce67f 100644
+--- a/xen/arch/x86/i387.c
++++ b/xen/arch/x86/i387.c
+@@ -214,10 +214,10 @@ static inline void fpu_fsave(struct vcpu *v)
+ /* Restore FPU state whenever VCPU is schduled in. */
+ void vcpu_restore_fpu_eager(struct vcpu *v)
+ {
+-    ASSERT(!is_idle_vcpu(v));
+-    
+     if ( v->arch.fully_eager_fpu )
+     {
++        ASSERT(!is_idle_vcpu(v));
++    
+         /* Avoid recursion */
+         clts();
+ 
+@@ -236,6 +236,8 @@ void vcpu_restore_fpu_eager(struct vcpu *v)
+     /* save the nonlazy extended state which is not tracked by CR0.TS bit */
+     else if ( v->arch.nonlazy_xstate_used )
+     {
++        ASSERT(!is_idle_vcpu(v));
++    
+         /* Avoid recursion */
+         clts();        
+         fpu_xrstor(v, XSTATE_NONLAZY);
+diff --git a/xen/common/efi/runtime.c b/xen/common/efi/runtime.c
+index 22b2c6c509..309b13a70f 100644
+--- a/xen/common/efi/runtime.c
++++ b/xen/common/efi/runtime.c
+@@ -111,14 +111,16 @@ struct efi_rs_state efi_rs_enter(void)
+ 
+ void efi_rs_leave(struct efi_rs_state *state)
+ {
++    struct vcpu *curr = current;
++
+     if ( !state->cr3 )
+         return;
+     switch_cr3_cr4(state->cr3, read_cr4());
+-    if ( is_pv_vcpu(current) && !is_idle_vcpu(current) )
++    if ( is_pv_vcpu(curr) && !is_idle_vcpu(curr) )
+     {
+         struct desc_ptr gdt_desc = {
+             .limit = LAST_RESERVED_GDT_BYTE,
+-            .base  = GDT_VIRT_START(current)
++            .base  = GDT_VIRT_START(curr)
+         };
+ 
+         asm volatile ( "lgdt %0" : : "m" (gdt_desc) );
+@@ -126,7 +128,7 @@ void efi_rs_leave(struct efi_rs_state *state)
+     irq_exit();
+     efi_rs_on_cpu = NR_CPUS;
+     spin_unlock(&efi_rs_lock);
+-    stts();
++    vcpu_restore_fpu_eager(curr);
+ }
+ 
+ bool_t efi_rs_using_pgtables(void)
+-- 
+2.13.6
+

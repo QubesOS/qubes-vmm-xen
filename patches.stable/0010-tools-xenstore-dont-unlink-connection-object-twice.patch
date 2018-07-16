@@ -1,0 +1,64 @@
+From 22b6dfab75c901cd70d382e1880941b02de7534f Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Tue, 12 Sep 2017 15:14:15 +0200
+Subject: tools/xenstore: dont unlink connection object twice
+
+A connection object of a domain with associated stubdom has two
+parents: the domain and the stubdom. When cleaning up the list of
+active domains in domain_cleanup() make sure not to unlink the
+connection twice from the same domain. This could happen when the
+domain and its stubdom are being destroyed at the same time leading
+to the domain loop being entered twice.
+
+Additionally don't use talloc_free() in this case as it will remove
+a random parent link, leading eventually to a memory leak. Use
+talloc_unlink() instead specifying the context from which the
+connection object should be removed.
+
+This is CVE-2017-14317 / XSA-233.
+
+Reported-by: Eric Chanudet <chanudete@ainfosec.com>
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Ian Jackson <ian.jackson@eu.citrix.com>
+master commit: 562a1c0f7ef3fbf3c122c3dfa4f2ad9dd51da9fe
+master date: 2017-09-12 14:44:56 +0200
+---
+ tools/xenstore/xenstored_domain.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_domain.c b/tools/xenstore/xenstored_domain.c
+index e7a73f147c..16aa0b7fc2 100644
+--- a/tools/xenstore/xenstored_domain.c
++++ b/tools/xenstore/xenstored_domain.c
+@@ -220,10 +220,11 @@ static int destroy_domain(void *_domain)
+ static void domain_cleanup(void)
+ {
+ 	xc_dominfo_t dominfo;
+-	struct domain *domain, *tmp;
++	struct domain *domain;
+ 	int notify = 0;
+ 
+-	list_for_each_entry_safe(domain, tmp, &domains, list) {
++ again:
++	list_for_each_entry(domain, &domains, list) {
+ 		if (xc_domain_getinfo(*xc_handle, domain->domid, 1,
+ 				      &dominfo) == 1 &&
+ 		    dominfo.domid == domain->domid) {
+@@ -235,8 +236,12 @@ static void domain_cleanup(void)
+ 			if (!dominfo.dying)
+ 				continue;
+ 		}
+-		talloc_free(domain->conn);
+-		notify = 0; /* destroy_domain() fires the watch */
++		if (domain->conn) {
++			talloc_unlink(talloc_autofree_context(), domain->conn);
++			domain->conn = NULL;
++			notify = 0; /* destroy_domain() fires the watch */
++			goto again;
++		}
+ 	}
+ 
+ 	if (notify)
+-- 
+2.13.6
+

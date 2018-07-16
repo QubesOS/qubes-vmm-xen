@@ -1,0 +1,65 @@
+From e0353b455ce8af495c8fe379d6c6832cb7f87651 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 12 Oct 2017 15:37:57 +0200
+Subject: x86/HVM: prefill partially used variable on emulation
+ paths
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Certain handlers ignore the access size (vioapic_write() being the
+example this was found with), perhaps leading to subsequent reads
+seeing data that wasn't actually written by the guest. For
+consistency and extra safety also do this on the read path of
+hvm_process_io_intercept(), even if this doesn't directly affect what
+guests get to see, as we've supposedly already dealt with read handlers
+leaving data completely unitialized.
+
+This is XSA-239.
+
+Reported-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+master commit: 0d4732ac29b63063764c29fa3bd8946daf67d6f3
+master date: 2017-10-12 14:43:26 +0200
+---
+ xen/arch/x86/hvm/emulate.c   | 2 +-
+ xen/arch/x86/hvm/intercept.c | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/emulate.c b/xen/arch/x86/hvm/emulate.c
+index e230549c25..af14e2f697 100644
+--- a/xen/arch/x86/hvm/emulate.c
++++ b/xen/arch/x86/hvm/emulate.c
+@@ -106,7 +106,7 @@ static int hvmemul_do_io(
+         .count = *reps,
+         .dir = dir,
+         .df = df,
+-        .data = data,
++        .data = data_is_addr ? data : 0,
+         .data_is_ptr = data_is_addr, /* ioreq_t field name is misleading */
+         .state = STATE_IOREQ_READY,
+     };
+diff --git a/xen/arch/x86/hvm/intercept.c b/xen/arch/x86/hvm/intercept.c
+index 3a7a7dd33a..d4ecf659ac 100644
+--- a/xen/arch/x86/hvm/intercept.c
++++ b/xen/arch/x86/hvm/intercept.c
+@@ -128,6 +128,7 @@ int hvm_process_io_intercept(const struct hvm_io_handler *handler,
+             addr = (p->type == IOREQ_TYPE_COPY) ?
+                    p->addr + step * i :
+                    p->addr;
++            data = 0;
+             rc = ops->read(handler, addr, p->size, &data);
+             if ( rc != X86EMUL_OKAY )
+                 break;
+@@ -164,6 +165,7 @@ int hvm_process_io_intercept(const struct hvm_io_handler *handler,
+         {
+             if ( p->data_is_ptr )
+             {
++                data = 0;
+                 switch ( hvm_copy_from_guest_phys(&data, p->data + step * i,
+                                                   p->size) )
+                 {
+-- 
+2.13.6
+

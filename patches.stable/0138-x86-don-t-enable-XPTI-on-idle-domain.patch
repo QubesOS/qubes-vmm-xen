@@ -1,0 +1,30 @@
+From 61a9fc5e56ecf59be951af2cc55d15a113e92333 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 30 May 2018 13:38:03 +0200
+Subject: x86: don't enable XPTI on idle domain
+
+While the involved code (in pv_domain_initialise()) sits behind an
+!is_idle_domain() check already in 4.10, we need to add one here.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/arch/x86/domain.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 3fa8fc4811..0eb377a2f2 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -742,7 +742,7 @@ int arch_domain_create(struct domain *d, unsigned int domcr_flags,
+         if ( (rc = hvm_domain_initialise(d)) != 0 )
+             goto fail;
+     }
+-    else
++    else if ( !is_idle_domain(d) )
+     {
+         /* 64-bit PV guest by default. */
+         d->arch.is_32bit_pv = d->arch.has_32bit_shinfo = 0;
+-- 
+2.13.6
+

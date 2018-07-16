@@ -1,0 +1,105 @@
+From b7b7c4df2d251b1feba217939ea0b618094a48c2 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 28 Jun 2018 12:27:56 +0200
+Subject: x86/EFI: further correct FPU state handling around
+ runtime calls
+
+We must not leave a vCPU with CR0.TS clear when it is not in fully eager
+mode and has not touched non-lazy state. Instead of adding a 3rd
+invocation of stts() to vcpu_restore_fpu_eager(), consolidate all of
+them into a single one done at the end of the function.
+
+Rename the function at the same time to better reflect its purpose, as
+the patches touches all of its occurences anyway.
+
+The new function parameter is not really well named, but
+"need_stts_if_not_fully_eager" seemed excessive to me.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+---
+ xen/arch/x86/domain.c      |  2 +-
+ xen/arch/x86/i387.c        | 10 ++++++----
+ xen/common/efi/runtime.c   |  2 +-
+ xen/include/asm-x86/i387.h |  2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 0eb377a2f2..2b798bb1d0 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -1703,7 +1703,7 @@ static void __context_switch(void)
+             if ( xcr0 != get_xcr0() && !set_xcr0(xcr0) )
+                 BUG();
+         }
+-        vcpu_restore_fpu_eager(n);
++        vcpu_restore_fpu_nonlazy(n, 0);
+         n->arch.ctxt_switch_to(n);
+     }
+ 
+diff --git a/xen/arch/x86/i387.c b/xen/arch/x86/i387.c
+index 28edfce67f..e2f5cca440 100644
+--- a/xen/arch/x86/i387.c
++++ b/xen/arch/x86/i387.c
+@@ -212,7 +212,7 @@ static inline void fpu_fsave(struct vcpu *v)
+ /*       VCPU FPU Functions    */
+ /*******************************/
+ /* Restore FPU state whenever VCPU is schduled in. */
+-void vcpu_restore_fpu_eager(struct vcpu *v)
++void vcpu_restore_fpu_nonlazy(struct vcpu *v, bool_t need_stts)
+ {
+     if ( v->arch.fully_eager_fpu )
+     {
+@@ -230,8 +230,7 @@ void vcpu_restore_fpu_eager(struct vcpu *v)
+         v->fpu_dirtied = 1;
+ 
+         /* Xen doesn't need TS set, but the guest might. */
+-        if ( is_pv_vcpu(v) && (v->arch.pv_vcpu.ctrlreg[0] & X86_CR0_TS) )
+-            stts();
++        need_stts = is_pv_vcpu(v) && (v->arch.pv_vcpu.ctrlreg[0] & X86_CR0_TS);
+     }
+     /* save the nonlazy extended state which is not tracked by CR0.TS bit */
+     else if ( v->arch.nonlazy_xstate_used )
+@@ -241,8 +240,11 @@ void vcpu_restore_fpu_eager(struct vcpu *v)
+         /* Avoid recursion */
+         clts();        
+         fpu_xrstor(v, XSTATE_NONLAZY);
+-        stts();
++        need_stts = 1;
+     }
++
++    if ( need_stts )
++        stts();
+ }
+ 
+ /* 
+diff --git a/xen/common/efi/runtime.c b/xen/common/efi/runtime.c
+index 309b13a70f..75f119315a 100644
+--- a/xen/common/efi/runtime.c
++++ b/xen/common/efi/runtime.c
+@@ -128,7 +128,7 @@ void efi_rs_leave(struct efi_rs_state *state)
+     irq_exit();
+     efi_rs_on_cpu = NR_CPUS;
+     spin_unlock(&efi_rs_lock);
+-    vcpu_restore_fpu_eager(curr);
++    vcpu_restore_fpu_nonlazy(curr, 1);
+ }
+ 
+ bool_t efi_rs_using_pgtables(void)
+diff --git a/xen/include/asm-x86/i387.h b/xen/include/asm-x86/i387.h
+index 150a09e41f..64e277e656 100644
+--- a/xen/include/asm-x86/i387.h
++++ b/xen/include/asm-x86/i387.h
+@@ -35,7 +35,7 @@ struct ix87_state {
+     } r[8];
+ };
+ 
+-void vcpu_restore_fpu_eager(struct vcpu *v);
++void vcpu_restore_fpu_nonlazy(struct vcpu *v, bool_t need_stts);
+ void vcpu_restore_fpu_lazy(struct vcpu *v);
+ void vcpu_save_fpu(struct vcpu *v);
+ void save_fpu_enable(void);
+-- 
+2.13.6
+

@@ -1,0 +1,113 @@
+From a54480404a72e2b6c28b41a654d9bd7551e77fe6 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 28 Jun 2018 12:26:54 +0200
+Subject: x86: Refine checks in #DB handler for faulting
+ conditions
+
+One of the fix for XSA-260 (c/s 75d6828bc2 "x86/traps: Fix handling of #DB
+exceptions in hypervisor context") added some safety checks to help avoid
+livelocks of #DB faults.
+
+While a General Detect #DB exception does have fault semantics, hardware
+clears %dr7.gd on entry to the handler, meaning that it is actually safe to
+return to.  Furthermore, %dr6.gd is guest controlled and sticky (never cleared
+by hardware).  A malicious PV guest can therefore trigger the fatal_trap() and
+crash Xen.
+
+Instruction breakpoints are more tricky.  The breakpoint match bits in %dr6
+are not sticky, but the Intel manual warns that they may be set for
+non-enabled breakpoints, so add a breakpoint enabled check.
+
+Beyond that, because of the restriction on the linear addresses PV guests can
+set, and the fault (rather than trap) nature of instruction breakpoints
+(i.e. can't be deferred by a MovSS shadow), there should be no way to
+encounter an instruction breakpoint in Xen context.  However, for extra
+robustness, deal with this situation by clearing the breakpoint configuration,
+rather than crashing.
+
+This is XSA-265
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/traps.c | 42 ++++++++++++++++++++++++++++++------------
+ 1 file changed, 30 insertions(+), 12 deletions(-)
+
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index f80e1f8b61..598a7a7151 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -3708,6 +3708,13 @@ void do_debug(struct cpu_user_regs *regs)
+ 
+     if ( !guest_mode(regs) )
+     {
++        /*
++         * !!! WARNING !!!
++         *
++         * %dr6 is mostly guest controlled at this point.  Any decsions base
++         * on its value must be crosschecked with non-guest controlled state.
++         */
++
+         if ( regs->eflags & X86_EFLAGS_TF )
+         {
+             /* In SYSENTER entry path we can't zap TF until EFLAGS is saved. */
+@@ -3729,33 +3736,44 @@ void do_debug(struct cpu_user_regs *regs)
+          * Check for fault conditions.  General Detect, and instruction
+          * breakpoints are faults rather than traps, at which point attempting
+          * to ignore and continue will result in a livelock.
++         *
++         * However, on entering the #DB handler, hardware clears %dr7.gd for
++         * us (as confirmed by the earlier %dr6 accesses succeeding), meaning
++         * that a real General Detect exception is restartable.
++         *
++         * PV guests are not permitted to point %dr{0..3} at Xen linear
++         * addresses, and Instruction Breakpoints (being faults) don't get
++         * delayed by a MovSS shadow, so we should never encounter one in
++         * hypervisor context.
++         *
++         * If however we do, safety measures need to be enacted.  Use a big
++         * hammer and clear all debug settings.
+          */
+-        if ( dr6 & DR_GENERAL_DETECT )
+-        {
+-            printk(XENLOG_ERR "Hit General Detect in Xen context\n");
+-            fatal_trap(regs);
+-        }
+-
+         if ( dr6 & (DR_TRAP3 | DR_TRAP2 | DR_TRAP1 | DR_TRAP0) )
+         {
+-            unsigned int bp, dr7 = read_debugreg(7) >> DR_CONTROL_SHIFT;
++            unsigned int bp, dr7 = read_debugreg(7);
+ 
+             for ( bp = 0; bp < 4; ++bp )
+             {
+                 if ( (dr6 & (1u << bp)) && /* Breakpoint triggered? */
+-                     ((dr7 & (3u << (bp * DR_CONTROL_SIZE))) == 0) /* Insn? */ )
++                     (dr7 & (3u << (bp * DR_ENABLE_SIZE))) && /* Enabled? */
++                     ((dr7 & (3u << ((bp * DR_CONTROL_SIZE) + /* Insn? */
++                                     DR_CONTROL_SHIFT))) == DR_RW_EXECUTE) )
+                 {
++                    ASSERT_UNREACHABLE();
++
+                     printk(XENLOG_ERR
+                            "Hit instruction breakpoint in Xen context\n");
+-                    fatal_trap(regs);
++                    write_debugreg(7, 0);
++                    break;
+                 }
+             }
+         }
+ 
+         /*
+-         * Whatever caused this #DB should be a trap.  Note it and continue.
+-         * Guests can trigger this in certain corner cases, so ensure the
+-         * message is ratelimited.
++         * Whatever caused this #DB should be restartable by this point.  Note
++         * it and continue.  Guests can trigger this in certain corner cases,
++         * so ensure the message is ratelimited.
+          */
+         gprintk(XENLOG_WARNING,
+                 "Hit #DB in Xen context: %04x:%p [%ps], stk %04x:%p, dr6 %lx\n",
+-- 
+2.13.6
+

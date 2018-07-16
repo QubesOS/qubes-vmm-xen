@@ -1,0 +1,65 @@
+From 331a1af09bafd77d9e25c415e089ba921e51b456 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 23 Jan 2018 10:43:39 +0100
+Subject: x86: move invocations of hvm_flush_guest_tlbs()
+
+Their need is not tied to the actual flushing of TLBs, but the ticking
+of the TLB clock. Make this more obvious by folding the two invocations
+into a single one in pre_flush().
+
+Also defer the latching of CR4 in write_cr3() until after pre_flush()
+(and hence implicitly until after IRQs are off), making operation
+sequence the same in both cases (eliminating the theoretical risk of
+pre_flush() altering CR4). This then also improves register allocation,
+as the compiler doesn't need to use a callee-saved register for "cr4"
+anymore.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/arch/x86/flushtlb.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/xen/arch/x86/flushtlb.c b/xen/arch/x86/flushtlb.c
+index e2a5524964..7d5a81576f 100644
+--- a/xen/arch/x86/flushtlb.c
++++ b/xen/arch/x86/flushtlb.c
+@@ -50,6 +50,8 @@ static u32 pre_flush(void)
+         raise_softirq(NEW_TLBFLUSH_CLOCK_PERIOD_SOFTIRQ);
+ 
+  skip_clocktick:
++    hvm_flush_guest_tlbs();
++
+     return t2;
+ }
+ 
+@@ -72,15 +74,14 @@ static void post_flush(u32 t)
+ 
+ void write_cr3(unsigned long cr3)
+ {
+-    unsigned long flags, cr4 = read_cr4();
++    unsigned long flags, cr4;
+     u32 t;
+ 
+     /* This non-reentrant function is sometimes called in interrupt context. */
+     local_irq_save(flags);
+ 
+     t = pre_flush();
+-
+-    hvm_flush_guest_tlbs();
++    cr4 = read_cr4();
+ 
+     write_cr4(cr4 & ~X86_CR4_PGE);
+     asm volatile ( "mov %0, %%cr3" : : "r" (cr3) : "memory" );
+@@ -118,8 +119,6 @@ void flush_area_local(const void *va, unsigned int flags)
+             u32 t = pre_flush();
+             unsigned long cr4 = read_cr4();
+ 
+-            hvm_flush_guest_tlbs();
+-
+             write_cr4(cr4 & ~X86_CR4_PGE);
+             barrier();
+             write_cr4(cr4);
+-- 
+2.13.6
+

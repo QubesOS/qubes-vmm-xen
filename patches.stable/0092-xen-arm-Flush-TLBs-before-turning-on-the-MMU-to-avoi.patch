@@ -1,0 +1,58 @@
+From cf03d32726e4bca7b6160f920b4218d330c4fc2b Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@arm.com>
+Date: Tue, 27 Feb 2018 11:15:57 +0000
+Subject: xen/arm: Flush TLBs before turning on the MMU to
+ avoid stale entries
+
+We don't know what is the state of the TLBs when booting Xen. To avoid
+stale entries, it is necessary to flush the TLBs before turning on the
+MMU.
+
+Reported-by: Iain Hunter <iain@hunterembedded.co.uk>
+Signed-off-by: Julien Grall <julien.gralL@arm.com>
+Acked-by: Stefano Stabellini <sstabellini@kernel.org>
+(cherry picked from commit 1c473c42199a8f4d70533c202e1c57ecd1dad35b)
+---
+ xen/arch/arm/arm32/head.S | 7 +++++++
+ xen/arch/arm/arm64/head.S | 7 +++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/xen/arch/arm/arm32/head.S b/xen/arch/arm/arm32/head.S
+index e1f29bdebc..d90db3fe56 100644
+--- a/xen/arch/arm/arm32/head.S
++++ b/xen/arch/arm/arm32/head.S
+@@ -349,6 +349,13 @@ virtphys_clash:
+ 1:
+         PRINT("- Turning on paging -\r\n")
+ 
++        /*
++         * The state of the TLBs is unknown before turning on the MMU.
++         * Flush them to avoid stale one.
++         */
++        mcr   CP32(r0, TLBIALLH)     /* Flush hypervisor TLBs */
++        dsb   nsh
++
+         ldr   r1, =paging            /* Explicit vaddr, not RIP-relative */
+         mrc   CP32(r0, HSCTLR)
+         orr   r0, r0, #(SCTLR_M|SCTLR_C) /* Enable MMU and D-cache */
+diff --git a/xen/arch/arm/arm64/head.S b/xen/arch/arm/arm64/head.S
+index d5831f22b0..85f46f5e78 100644
+--- a/xen/arch/arm/arm64/head.S
++++ b/xen/arch/arm/arm64/head.S
+@@ -505,6 +505,13 @@ virtphys_clash:
+ 1:
+         PRINT("- Turning on paging -\r\n")
+ 
++        /*
++         * The state of the TLBs is unknown before turning on the MMU.
++         * Flush them to avoid stale one.
++         */
++        tlbi  alle2                  /* Flush hypervisor TLBs */
++        dsb   nsh
++
+         ldr   x1, =paging            /* Explicit vaddr, not RIP-relative */
+         mrs   x0, SCTLR_EL2
+         orr   x0, x0, #SCTLR_M       /* Enable MMU */
+-- 
+2.13.6
+

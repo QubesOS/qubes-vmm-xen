@@ -1,0 +1,63 @@
+From 3d6970d3f504e26bacb820f678ff52770e2826e1 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Fri, 18 May 2018 13:30:05 +0200
+Subject: x86: correct ordering of operations during S3 resume
+
+Microcode loading needs to happen before re-enabling interrupts, in case
+only updated microcode allows the use of e.g. the SPEC_{CTRL,CMD} MSRs.
+Otoh it doesn't need to happen at all when we didn't suspend in the
+first place. It needs to happen before spin_debug_enable() though, as it
+acquires a lock and hence would otherwise make
+common/spinlock.c:check_lock() unhappy. As micrcode loading can be
+pretty verbose, also make sure it only runs after console_end_sync().
+
+cpufreq_add_cpu() doesn't need calling on the only "goto enable_cpu"
+path, which sits ahead of cpufreq_del_cpu().
+
+Reported-by: Simon Gaiser <simon@invisiblethingslab.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: cb2a4a449dfd50af309a333aa805835015fbc8c8
+master date: 2018-04-16 14:08:30 +0200
+---
+ xen/arch/x86/acpi/power.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
+index f41f0de1bc..a66049109e 100644
+--- a/xen/arch/x86/acpi/power.c
++++ b/xen/arch/x86/acpi/power.c
+@@ -169,6 +169,7 @@ static int enter_state(u32 state)
+     {
+         printk(XENLOG_ERR "Some devices failed to power down.");
+         system_state = SYS_STATE_resume;
++        console_end_sync();
+         goto done;
+     }
+ 
+@@ -207,17 +208,19 @@ static int enter_state(u32 state)
+     if ( (state == ACPI_STATE_S3) && error )
+         tboot_s3_error(error);
+ 
++    console_end_sync();
++
++    microcode_resume_cpu(0);
++
+  done:
+     spin_debug_enable();
+     local_irq_restore(flags);
+-    console_end_sync();
+     acpi_sleep_post(state);
+     if ( hvm_cpu_up() )
+         BUG();
++    cpufreq_add_cpu(0);
+ 
+  enable_cpu:
+-    cpufreq_add_cpu(0);
+-    microcode_resume_cpu(0);
+     rcu_barrier();
+     mtrr_aps_sync_begin();
+     enable_nonboot_cpus();
+-- 
+2.13.6
+

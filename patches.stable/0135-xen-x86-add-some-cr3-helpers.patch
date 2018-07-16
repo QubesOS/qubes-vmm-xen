@@ -1,0 +1,81 @@
+From 237236a47185b1fc5c93dd5930302290151c80e2 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 26 Apr 2018 13:33:17 +0200
+Subject: xen/x86: add some cr3 helpers
+
+Add some helper macros to access the address and pcid parts of cr3.
+
+Use those helpers where appropriate.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/debug.c            |  2 +-
+ xen/arch/x86/domain_page.c      |  2 +-
+ xen/include/asm-x86/processor.h | 17 +++++++++++++++++
+ 3 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/debug.c b/xen/arch/x86/debug.c
+index 58cae22766..b929d60a86 100644
+--- a/xen/arch/x86/debug.c
++++ b/xen/arch/x86/debug.c
+@@ -99,7 +99,7 @@ dbg_pv_va2mfn(dbgva_t vaddr, struct domain *dp, uint64_t pgd3val)
+     l2_pgentry_t l2e, *l2t;
+     l1_pgentry_t l1e, *l1t;
+     unsigned long cr3 = (pgd3val ? pgd3val : dp->vcpu[0]->arch.cr3);
+-    unsigned long mfn = cr3 >> PAGE_SHIFT;
++    unsigned long mfn = paddr_to_pfn(cr3_pa(cr3));
+ 
+     DBGP2("vaddr:%lx domid:%d cr3:%lx pgd3:%lx\n", vaddr, dp->domain_id, 
+           cr3, pgd3val);
+diff --git a/xen/arch/x86/domain_page.c b/xen/arch/x86/domain_page.c
+index d86f8feed6..28f5a5cc85 100644
+--- a/xen/arch/x86/domain_page.c
++++ b/xen/arch/x86/domain_page.c
+@@ -50,7 +50,7 @@ static inline struct vcpu *mapcache_current_vcpu(void)
+         if ( (v = idle_vcpu[smp_processor_id()]) == current )
+             sync_local_execstate();
+         /* We must now be running on the idle page table. */
+-        ASSERT(read_cr3() == __pa(idle_pg_table));
++        ASSERT(cr3_pa(read_cr3()) == __pa(idle_pg_table));
+     }
+ 
+     return v;
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 6f3e65bd95..82e3fb2144 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -69,6 +69,13 @@
+ #define X86_CR0_PG              0x80000000 /* Paging                   (RW) */
+ 
+ /*
++ * Intel CPU flags in CR3
++ */
++#define X86_CR3_NOFLUSH    (_AC(1, ULL) << 63)
++#define X86_CR3_ADDR_MASK  (PAGE_MASK & PADDR_MASK)
++#define X86_CR3_PCID_MASK  _AC(0x0fff, ULL) /* Mask for PCID */
++
++/*
+  * Intel CPU features in CR4
+  */
+ #define X86_CR4_VME        0x00000001 /* enable vm86 extensions */
+@@ -334,6 +341,16 @@ static inline void write_cr3(unsigned long val)
+     asm volatile ( "mov %0, %%cr3" : : "r" (val) : "memory" );
+ }
+ 
++static inline unsigned long cr3_pa(unsigned long cr3)
++{
++    return cr3 & X86_CR3_ADDR_MASK;
++}
++
++static inline unsigned long cr3_pcid(unsigned long cr3)
++{
++    return cr3 & X86_CR3_PCID_MASK;
++}
++
+ static inline unsigned long read_cr4(void)
+ {
+     return get_cpu_info()->cr4;
+-- 
+2.13.6
+

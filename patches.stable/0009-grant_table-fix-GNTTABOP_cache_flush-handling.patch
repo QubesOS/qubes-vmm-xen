@@ -1,0 +1,35 @@
+From a8cd2315c9e09e316c3ef9f41867fa8381ea74ad Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 12 Sep 2017 15:13:36 +0200
+Subject: grant_table: fix GNTTABOP_cache_flush handling
+
+Don't fall over a NULL grant_table pointer when the owner of the domain
+is a system domain (DOMID_{XEN,IO} etc).
+
+This is CVE-2017-14318 / XSA-232.
+
+Reported-by: Matthew Daley <mattd@bugfuzz.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: c3d830b244998b3686e2eb64db95996be5eb5e5c
+master date: 2017-09-12 14:44:11 +0200
+---
+ xen/common/grant_table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index 800c5fa625..6755728361 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -3017,7 +3017,7 @@ static int __gnttab_cache_flush(gnttab_cache_flush_t *cflush,
+ 
+     page = mfn_to_page(mfn);
+     owner = page_get_owner_and_reference(page);
+-    if ( !owner )
++    if ( !owner || !owner->grant_table )
+     {
+         rcu_unlock_domain(d);
+         return -EPERM;
+-- 
+2.13.6
+

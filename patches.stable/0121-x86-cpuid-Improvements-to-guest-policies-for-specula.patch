@@ -1,0 +1,73 @@
+From 0d3904fd43610b5fd931c068667f4b5d9be6c9bb Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 29 May 2018 11:06:56 +0200
+Subject: x86/cpuid: Improvements to guest policies for
+ speculative sidechannel features
+
+If Xen isn't virtualising MSR_SPEC_CTRL for guests, IBRSB shouldn't be
+advertised.  It is not currently possible to express this via the existing
+command line options, but such an ability will be introduced.
+
+Another useful option in some usecases is to offer IBPB without IBRS.  When a
+guest kernel is known to be compatible (uses retpoline and knows about the AMD
+IBPB feature bit), an administrator with pre-Skylake hardware may wish to hide
+IBRS.  This allows the VM to have full protection, without Xen or the VM
+needing to touch MSR_SPEC_CTRL, which can reduce the overhead of Spectre
+mitigations.
+
+Break the logic common to both PV and HVM CPUID calculations into a common
+helper, to avoid duplication.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: cb06b308ec71b23f37a44f5e2351fe2cae0306e9
+master date: 2018-05-16 12:19:10 +0100
+---
+ xen/arch/x86/hvm/hvm.c | 3 +++
+ xen/arch/x86/traps.c   | 8 +++++++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 78f44c5f66..67f75b9ff0 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -4624,6 +4624,9 @@ void hvm_cpuid(unsigned int input, unsigned int *eax, unsigned int *ebx,
+ 
+         if ( count == 0 )
+         {
++            if ( !boot_cpu_has(X86_FEATURE_SC_MSR_HVM) )
++                *edx &= ~cpufeat_mask(X86_FEATURE_IBRSB);
++
+             /*
+              * Override STIBP to match IBRS.  Guests can safely use STIBP
+              * functionality on non-HT hardware, but can't necesserily protect
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index c23f4c0edb..1e71c05b28 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -879,6 +879,9 @@ void pv_cpuid(struct cpu_user_regs *regs)
+         case 0x00000007:
+             if ( regs->_ecx == 0 )
+             {
++                if ( !boot_cpu_has(X86_FEATURE_SC_MSR_PV) )
++                    d &= ~cpufeat_mask(X86_FEATURE_IBRSB);
++
+                 /*
+                  * Override STIBP to match IBRS.  Guests can safely use STIBP
+                  * functionality on non-HT hardware, but can't necesserily protect
+@@ -966,7 +969,10 @@ void pv_cpuid(struct cpu_user_regs *regs)
+                   cpufeat_mask(X86_FEATURE_ADX)  |
+                   cpufeat_mask(X86_FEATURE_FSGSBASE));
+ 
+-            d &= cpufeat_mask(X86_FEATURE_IBRSB);
++            if ( boot_cpu_has(X86_FEATURE_SC_MSR_PV) )
++                d &= cpufeat_mask(X86_FEATURE_IBRSB);
++            else
++                d = 0;
+ 
+             /* Override STIBP to match IBRS (see above). */
+             if ( d & cpufeat_mask(X86_FEATURE_IBRSB) )
+-- 
+2.13.6
+

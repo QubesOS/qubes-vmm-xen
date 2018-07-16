@@ -1,0 +1,66 @@
+From aa5a889c6f3a6c42dc959313582581cb09ce7285 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 26 Apr 2018 13:33:16 +0200
+Subject: xen/x86: convert pv_guest_cr4_to_real_cr4() to a
+ function
+
+pv_guest_cr4_to_real_cr4() is becoming more and more complex. Convert
+it from a macro to an ordinary function.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/mm.c            | 14 ++++++++++++++
+ xen/include/asm-x86/domain.h | 11 ++---------
+ 2 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 12f5c6010d..7c2558d13c 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -486,6 +486,20 @@ void make_cr3(struct vcpu *v, unsigned long mfn)
+     v->arch.cr3 = mfn << PAGE_SHIFT;
+ }
+ 
++unsigned long pv_guest_cr4_to_real_cr4(const struct vcpu *v)
++{
++    const struct domain *d = v->domain;
++    unsigned long cr4;
++
++    cr4 = v->arch.pv_vcpu.ctrlreg[4] & ~X86_CR4_DE;
++    cr4 |= mmu_cr4_features & (X86_CR4_PSE | X86_CR4_SMEP | X86_CR4_SMAP |
++                               X86_CR4_OSXSAVE | X86_CR4_FSGSBASE);
++    cr4 |= d->arch.pv_domain.xpti  ? 0 : X86_CR4_PGE;
++    cr4 |= d->arch.vtsc ? X86_CR4_TSD : 0;
++
++    return cr4;
++}
++
+ void write_ptbase(struct vcpu *v)
+ {
+     struct cpu_info *cpu_info = get_cpu_info();
+diff --git a/xen/include/asm-x86/domain.h b/xen/include/asm-x86/domain.h
+index 9dd9c3ec23..1f754aa6cf 100644
+--- a/xen/include/asm-x86/domain.h
++++ b/xen/include/asm-x86/domain.h
+@@ -590,15 +590,8 @@ void vcpu_show_registers(const struct vcpu *);
+ unsigned long pv_guest_cr4_fixup(const struct vcpu *, unsigned long guest_cr4);
+ 
+ /* Convert between guest-visible and real CR4 values. */
+-#define pv_guest_cr4_to_real_cr4(v)                         \
+-    (((v)->arch.pv_vcpu.ctrlreg[4]                          \
+-      | (mmu_cr4_features                                   \
+-         & (X86_CR4_PSE | X86_CR4_SMEP |                    \
+-            X86_CR4_SMAP | X86_CR4_OSXSAVE |                \
+-            X86_CR4_FSGSBASE))                              \
+-      | ((v)->domain->arch.pv_domain.xpti ? 0 : X86_CR4_PGE) \
+-      | ((v)->domain->arch.vtsc ? X86_CR4_TSD : 0))         \
+-     & ~X86_CR4_DE)
++unsigned long pv_guest_cr4_to_real_cr4(const struct vcpu *v);
++
+ #define real_cr4_to_pv_guest_cr4(c)                         \
+     ((c) & ~(X86_CR4_PGE | X86_CR4_PSE | X86_CR4_TSD |      \
+              X86_CR4_OSXSAVE | X86_CR4_SMEP |               \
+-- 
+2.13.6
+

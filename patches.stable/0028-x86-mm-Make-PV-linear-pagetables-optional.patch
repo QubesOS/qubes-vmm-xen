@@ -1,0 +1,83 @@
+From be63d665b848a58c540ee6a75effeaf678e4ccf5 Mon Sep 17 00:00:00 2001
+From: George Dunlap <george.dunlap@citrix.com>
+Date: Thu, 16 Nov 2017 12:13:11 +0100
+Subject: x86/mm: Make PV linear pagetables optional
+
+Allowing pagetables to point to other pagetables of the same level
+(often called 'linear pagetables') has been included in Xen since its
+inception; but recently it has been the source of a number of subtle
+reference-counting bugs.
+
+It is not used by Linux or MiniOS; but it is used by NetBSD and Novell
+Netware.  There are significant numbers of people who are never going
+to use the feature, along with significant numbers who need the
+feature.
+
+Reported-by: Jann Horn <jannh@google.com>
+Signed-off-by: George Dunlap <george.dunlap@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ docs/misc/xen-command-line.markdown | 19 +++++++++++++++++++
+ xen/arch/x86/mm.c                   |  9 +++++++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index d99a20a44b..500c1246d9 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1231,6 +1231,25 @@ The following resources are available:
+   the cache allocation.
+   * `cat` instructs Xen to enable/disable Cache Allocation Technology.
+   * `cos_max` indicates the max value for COS ID.
++	
++### pv-linear-pt
++> `= <boolean>`
++
++> Default: `true`
++
++Only available if Xen is compiled with CONFIG\_PV\_LINEAR\_PT support
++enabled.
++
++Allow PV guests to have pagetable entries pointing to other pagetables
++of the same level (i.e., allowing L2 PTEs to point to other L2 pages).
++This technique is often called "linear pagetables", and is sometimes
++used to allow operating systems a simple way to consistently map the
++current process's pagetables into its own virtual address space.
++
++Linux and MiniOS don't use this technique.  NetBSD and Novell Netware
++do; there may be other custom operating systems which do.  If you're
++certain you don't plan on having PV guests which use this feature,
++turning it off can reduce the attack surface.
+ 
+ ### reboot
+ > `= t[riple] | k[bd] | a[cpi] | p[ci] | P[ower] | e[fi] | n[o] [, [w]arm | [c]old]`
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 7ae3c33c25..f897eb6708 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -727,6 +727,9 @@ static void dec_linear_uses(struct page_info *pg)
+  *     frame if it is mapped by a different root table. This is sufficient and
+  *     also necessary to allow validation of a root table mapping itself.
+  */
++static bool_t __read_mostly opt_pv_linear_pt = 1;
++boolean_param("pv-linear-pt", opt_pv_linear_pt);
++
+ #define define_get_linear_pagetable(level)                                  \
+ static int                                                                  \
+ get_##level##_linear_pagetable(                                             \
+@@ -736,6 +739,12 @@ get_##level##_linear_pagetable(                                             \
+     struct page_info *page;                                                 \
+     unsigned long pfn;                                                      \
+                                                                             \
++    if ( !opt_pv_linear_pt )                                                \
++    {                                                                       \
++        MEM_LOG("Attempt to create linear p.t. (feature disabled)\n");      \
++        return 0;                                                           \
++    }                                                                       \
++                                                                            \
+     if ( (level##e_get_flags(pde) & _PAGE_RW) )                             \
+     {                                                                       \
+         MEM_LOG("Attempt to create linear p.t. with write perms");          \
+-- 
+2.13.6
+

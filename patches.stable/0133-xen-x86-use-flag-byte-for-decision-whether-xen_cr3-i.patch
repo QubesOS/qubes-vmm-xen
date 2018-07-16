@@ -1,0 +1,324 @@
+From 3e3c11b0a0a5d6c579fa1d702f3ae3f61409e4e0 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 26 Apr 2018 13:33:15 +0200
+Subject: xen/x86: use flag byte for decision whether xen_cr3
+ is valid
+
+Today cpu_info->xen_cr3 is either 0 to indicate %cr3 doesn't need to
+be switched on entry to Xen, or negative for keeping the value while
+indicating not to restore %cr3, or positive in case %cr3 is to be
+restored.
+
+Switch to use a flag byte instead of a negative xen_cr3 value in order
+to allow %cr3 values with the high bit set in case we want to keep TLB
+entries when using the PCID feature.
+
+This reduces the number of branches in interrupt handling and results
+in better performance (e.g. parallel make of the Xen hypervisor on my
+system was using about 3% less system time).
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/domain.c              |  1 +
+ xen/arch/x86/mm.c                  |  3 +-
+ xen/arch/x86/smpboot.c             |  2 ++
+ xen/arch/x86/x86_64/asm-offsets.c  |  1 +
+ xen/arch/x86/x86_64/compat/entry.S |  5 ++-
+ xen/arch/x86/x86_64/entry.S        | 63 ++++++++++++++++----------------------
+ xen/include/asm-x86/current.h      | 12 +++++---
+ 7 files changed, 43 insertions(+), 44 deletions(-)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 91a0e1897c..d0cf15da54 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -1671,6 +1671,7 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
+ 
+     ASSERT(local_irq_is_enabled());
+ 
++    get_cpu_info()->use_pv_cr3 = 0;
+     get_cpu_info()->xen_cr3 = 0;
+ 
+     cpumask_copy(&dirty_mask, next->vcpu_dirty_cpumask);
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 303df66174..12f5c6010d 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -503,7 +503,8 @@ void write_ptbase(struct vcpu *v)
+     }
+     else
+     {
+-        /* Make sure to clear xen_cr3 before pv_cr3. */
++        /* Make sure to clear use_pv_cr3 and xen_cr3 before pv_cr3. */
++        cpu_info->use_pv_cr3 = 0;
+         cpu_info->xen_cr3 = 0;
+         /* switch_cr3_cr4() serializes. */
+         switch_cr3_cr4(v->arch.cr3, new_cr4);
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 9dfbe1e74d..57ccd0febe 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -356,6 +356,7 @@ void start_secondary(void *unused)
+      */
+     spin_debug_disable();
+ 
++    get_cpu_info()->use_pv_cr3 = 0;
+     get_cpu_info()->xen_cr3 = 0;
+     get_cpu_info()->pv_cr3 = 0;
+ 
+@@ -1103,6 +1104,7 @@ void __init smp_prepare_boot_cpu(void)
+     cpumask_set_cpu(smp_processor_id(), &cpu_online_map);
+     cpumask_set_cpu(smp_processor_id(), &cpu_present_map);
+ 
++    get_cpu_info()->use_pv_cr3 = 0;
+     get_cpu_info()->xen_cr3 = 0;
+     get_cpu_info()->pv_cr3 = 0;
+ }
+diff --git a/xen/arch/x86/x86_64/asm-offsets.c b/xen/arch/x86/x86_64/asm-offsets.c
+index b72611f0d2..3c37dab5f0 100644
+--- a/xen/arch/x86/x86_64/asm-offsets.c
++++ b/xen/arch/x86/x86_64/asm-offsets.c
+@@ -143,6 +143,7 @@ void __dummy__(void)
+     OFFSET(CPUINFO_xen_spec_ctrl, struct cpu_info, xen_spec_ctrl);
+     OFFSET(CPUINFO_spec_ctrl_flags, struct cpu_info, spec_ctrl_flags);
+     OFFSET(CPUINFO_root_pgt_changed, struct cpu_info, root_pgt_changed);
++    OFFSET(CPUINFO_use_pv_cr3, struct cpu_info, use_pv_cr3);
+     DEFINE(CPUINFO_sizeof, sizeof(struct cpu_info));
+     BLANK();
+ 
+diff --git a/xen/arch/x86/x86_64/compat/entry.S b/xen/arch/x86/x86_64/compat/entry.S
+index 6a48fc50b7..3f8fdda535 100644
+--- a/xen/arch/x86/x86_64/compat/entry.S
++++ b/xen/arch/x86/x86_64/compat/entry.S
+@@ -323,10 +323,9 @@ ENTRY(cstar_enter)
+ 
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .Lcstar_cr3_okay
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+-        neg   %rcx
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%rbx)
+         write_cr3 rcx, rdi, rsi
+         movq  $0, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+ .Lcstar_cr3_okay:
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index ad2c4b8fa5..f25f9838e2 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -69,6 +69,7 @@ restore_all_guest:
+         rep movsq
+ .Lrag_copy_done:
+         mov   %r9, STACK_CPUINFO_FIELD(xen_cr3)(%rdx)
++        movb  $1, STACK_CPUINFO_FIELD(use_pv_cr3)(%rdx)
+         write_cr3 rax, rdi, rsi
+ .Lrag_keep_cr3:
+ 
+@@ -147,14 +148,9 @@ restore_all_xen:
+          * case we return to late PV exit code (from an NMI or #MC).
+          */
+         GET_STACK_BASE(%rbx)
+-        mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rdx
++        cmpb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%rbx)
++UNLIKELY_START(ne, exit_cr3)
+         mov   STACK_CPUINFO_FIELD(pv_cr3)(%rbx), %rax
+-        test  %rdx, %rdx
+-        /*
+-         * Ideally the condition would be "nsz", but such doesn't exist,
+-         * so "g" will have to do.
+-         */
+-UNLIKELY_START(g, exit_cr3)
+         write_cr3 rax, rdi, rsi
+ UNLIKELY_END(exit_cr3)
+ 
+@@ -196,10 +192,9 @@ ENTRY(lstar_enter)
+ 
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .Llstar_cr3_okay
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+-        neg   %rcx
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%rbx)
+         write_cr3 rcx, r11, r12
+         movq  $0, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+ .Llstar_cr3_okay:
+@@ -375,10 +370,9 @@ GLOBAL(sysenter_eflags_saved)
+ 
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .Lsyse_cr3_okay
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+-        neg   %rcx
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%rbx)
+         write_cr3 rcx, rdi, rsi
+         movq  $0, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+ .Lsyse_cr3_okay:
+@@ -424,10 +418,9 @@ ENTRY(int80_direct_trap)
+ 
+         GET_STACK_BASE(%rbx)
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%rbx), %rcx
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .Lint80_cr3_okay
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+-        neg   %rcx
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%rbx)
+         write_cr3 rcx, rdi, rsi
+         movq  $0, STACK_CPUINFO_FIELD(xen_cr3)(%rbx)
+ .Lint80_cr3_okay:
+@@ -614,24 +607,24 @@ ENTRY(common_interrupt)
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
++        mov   STACK_CPUINFO_FIELD(use_pv_cr3)(%r14), %bl
+         mov   %rcx, %r15
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .Lintr_cr3_okay
+-        jns   .Lintr_cr3_load
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+-        neg   %rcx
+-.Lintr_cr3_load:
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         write_cr3 rcx, rdi, rsi
+         xor   %ecx, %ecx
+         mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+         testb $3, UREGS_cs(%rsp)
+         cmovnz %rcx, %r15
++        cmovnz %rcx, %rbx
+ .Lintr_cr3_okay:
+ 
+         CR4_PV32_RESTORE
+         movq %rsp,%rdi
+         callq do_IRQ
+         mov   %r15, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
++        mov   %bl, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         jmp ret_from_intr
+ 
+ /* No special register assumptions. */
+@@ -656,18 +649,17 @@ GLOBAL(handle_exception)
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
++        mov   STACK_CPUINFO_FIELD(use_pv_cr3)(%r14), %r13b
+         mov   %rcx, %r15
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .Lxcpt_cr3_okay
+-        jns   .Lxcpt_cr3_load
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+-        neg   %rcx
+-.Lxcpt_cr3_load:
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         write_cr3 rcx, rdi, rsi
+         xor   %ecx, %ecx
+         mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+         testb $3, UREGS_cs(%rsp)
+         cmovnz %rcx, %r15
++        cmovnz %rcx, %r13
+ .Lxcpt_cr3_okay:
+ 
+ handle_exception_saved:
+@@ -736,6 +728,7 @@ handle_exception_saved:
+         mov   (%rdx, %rax, 8), %rdx
+         INDIRECT_CALL %rdx
+         mov   %r15, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
++        mov   %r13b, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         testb $3,UREGS_cs(%rsp)
+         jz    restore_all_xen
+         movq  VCPU_domain(%rbx),%rax
+@@ -763,6 +756,7 @@ exception_with_ints_disabled:
+ 1:      movq  UREGS_error_code(%rsp),%rax # ec/ev
+         movq  %rax,UREGS_kernel_sizeof(%rsp)
+         mov   %r15, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
++        mov   %r13b, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         jmp   restore_all_xen           # return to fixup code
+ 
+ /* No special register assumptions. */
+@@ -847,12 +841,9 @@ ENTRY(double_fault)
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rbx
+-        neg   %rbx
++        test  %rbx, %rbx
+         jz    .Ldblf_cr3_okay
+-        jns   .Ldblf_cr3_load
+-        mov   %rbx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+-        neg   %rbx
+-.Ldblf_cr3_load:
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         write_cr3 rbx, rdi, rsi
+         movq $0, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+ .Ldblf_cr3_okay:
+@@ -882,13 +873,11 @@ handle_ist_exception:
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
++        mov   STACK_CPUINFO_FIELD(use_pv_cr3)(%r14), %bl
+         mov   %rcx, %r15
+-        neg   %rcx
++        test  %rcx, %rcx
+         jz    .List_cr3_okay
+-        jns   .List_cr3_load
+-        mov   %rcx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+-        neg   %rcx
+-.List_cr3_load:
++        movb  $0, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         write_cr3 rcx, rdi, rsi
+         movq  $0, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+ .List_cr3_okay:
+@@ -901,6 +890,7 @@ handle_ist_exception:
+          * and copy the context to stack bottom.
+          */
+         xor   %r15, %r15
++        xor   %ebx, %ebx
+         GET_CPUINFO_FIELD(guest_cpu_user_regs,%rdi)
+         movq  %rsp,%rsi
+         movl  $UREGS_kernel_sizeof/8,%ecx
+@@ -912,6 +902,7 @@ handle_ist_exception:
+         mov   (%rdx, %rax, 8), %rdx
+         INDIRECT_CALL %rdx
+         mov   %r15, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
++        mov   %bl, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
+         cmpb  $TRAP_nmi,UREGS_entry_vector(%rsp)
+         jne   ret_from_intr
+ 
+diff --git a/xen/include/asm-x86/current.h b/xen/include/asm-x86/current.h
+index c8c89e90f5..4e2ec202c3 100644
+--- a/xen/include/asm-x86/current.h
++++ b/xen/include/asm-x86/current.h
+@@ -48,10 +48,7 @@ struct cpu_info {
+      * context is being entered. A value of zero indicates no setting of CR3
+      * is to be performed.
+      * The former is the value to restore when re-entering Xen, if any. IOW
+-     * its value being zero means there's nothing to restore. However, its
+-     * value can also be negative, indicating to the exit-to-Xen code that
+-     * restoring is not necessary, but allowing any nested entry code paths
+-     * to still know the value to put back into CR3.
++     * its value being zero means there's nothing to restore.
+      */
+     unsigned long xen_cr3;
+     unsigned long pv_cr3;
+@@ -69,6 +66,13 @@ struct cpu_info {
+      */
+     bool_t       root_pgt_changed;
+ 
++    /*
++     * use_pv_cr3 is set in case the value of pv_cr3 is to be written into
++     * CR3 when returning from an interrupt. The main use is when returning
++     * from a NMI or MCE to hypervisor code where pv_cr3 was active.
++     */
++    bool_t       use_pv_cr3;
++
+     unsigned long __pad;
+     /* get_stack_bottom() must be 16-byte aligned */
+ };
+-- 
+2.13.6
+

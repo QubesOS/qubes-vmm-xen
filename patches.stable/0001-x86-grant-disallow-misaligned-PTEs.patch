@@ -1,0 +1,68 @@
+From 3300ad37ea67e3d7249ad690d0383bcaded4ae43 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 15 Aug 2017 15:29:42 +0200
+Subject: x86/grant: disallow misaligned PTEs
+
+Pagetable entries must be aligned to function correctly.  Disallow attempts
+from the guest to have a grant PTE created at a misaligned address, which
+would result in corruption of the L1 table with largely-guest-controlled
+values.
+
+This is CVE-2017-12137 / XSA-227.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: ce442926c2530da9376199dcc769436376ad2386
+master date: 2017-08-15 15:06:45 +0200
+---
+ xen/arch/x86/mm.c        | 13 +++++++++++++
+ xen/include/xen/config.h |  2 ++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 213b52a1bd..3bf728bfe5 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -3878,6 +3878,9 @@ static int create_grant_pte_mapping(
+     l1_pgentry_t ol1e;
+     struct domain *d = v->domain;
+ 
++    if ( !IS_ALIGNED(pte_addr, sizeof(nl1e)) )
++        return GNTST_general_error;
++
+     adjust_guest_l1e(nl1e, d);
+ 
+     gmfn = pte_addr >> PAGE_SHIFT;
+@@ -3935,6 +3938,16 @@ static int destroy_grant_pte_mapping(
+     struct page_info *page;
+     l1_pgentry_t ol1e;
+ 
++    /*
++     * addr comes from Xen's active_entry tracking so isn't guest controlled,
++     * but it had still better be PTE-aligned.
++     */
++    if ( !IS_ALIGNED(addr, sizeof(ol1e)) )
++    {
++        ASSERT_UNREACHABLE();
++        return GNTST_general_error;
++    }
++
+     gmfn = addr >> PAGE_SHIFT;
+     page = get_page_from_gfn(d, gmfn, NULL, P2M_ALLOC);
+ 
+diff --git a/xen/include/xen/config.h b/xen/include/xen/config.h
+index f7258c7ff7..ded815628b 100644
+--- a/xen/include/xen/config.h
++++ b/xen/include/xen/config.h
+@@ -72,6 +72,8 @@
+ #define MB(_mb)     (_AC(_mb, ULL) << 20)
+ #define GB(_gb)     (_AC(_gb, ULL) << 30)
+ 
++#define IS_ALIGNED(val, align) (((val) & ((align) - 1)) == 0)
++
+ #define __STR(...) #__VA_ARGS__
+ #define STR(...) __STR(__VA_ARGS__)
+ 
+-- 
+2.13.6
+

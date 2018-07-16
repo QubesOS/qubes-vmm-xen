@@ -1,0 +1,233 @@
+From 8a2e1db9670d5e0dd3269d18ba7a472a08854cd2 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 26 Apr 2018 13:33:14 +0200
+Subject: xen/x86: disable global pages for domains with XPTI
+ active
+
+Instead of flushing the TLB from global pages when switching address
+spaces with XPTI being active just disable global pages via %cr4
+completely when a domain subject to XPTI is active. This avoids the
+need for extra TLB flushes as loading %cr3 will remove all TLB
+entries.
+
+In order to avoid states with cr3/cr4 having inconsistent values
+(e.g. global pages being activated while cr3 already specifies a XPTI
+address space) move loading of the new cr4 value to write_ptbase()
+(actually to switch_cr3_cr4() called by write_ptbase()).
+
+This requires to use switch_cr3_cr4() instead of write_ptbase() when
+building dom0 in order to avoid setting cr4 with cr4.smap set.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/domain.c           |  5 -----
+ xen/arch/x86/domain_build.c     |  6 +++---
+ xen/arch/x86/flushtlb.c         | 17 ++++++++++++-----
+ xen/arch/x86/mm.c               | 14 +++++++++++---
+ xen/common/efi/runtime.c        |  4 ++--
+ xen/include/asm-x86/asm_defns.h |  7 +------
+ xen/include/asm-x86/domain.h    |  3 ++-
+ xen/include/asm-x86/flushtlb.h  |  2 +-
+ 8 files changed, 32 insertions(+), 26 deletions(-)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 2eea3db9c5..91a0e1897c 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -1522,7 +1522,6 @@ static void paravirt_ctxt_switch_from(struct vcpu *v)
+ static void paravirt_ctxt_switch_to(struct vcpu *v)
+ {
+     root_pgentry_t *root_pgt = this_cpu(root_pgt);
+-    unsigned long cr4;
+ 
+     set_int80_direct_trap(v);
+     switch_kernel_stack(v);
+@@ -1532,10 +1531,6 @@ static void paravirt_ctxt_switch_to(struct vcpu *v)
+             l4e_from_page(v->domain->arch.perdomain_l3_pg,
+                           __PAGE_HYPERVISOR_RW);
+ 
+-    cr4 = pv_guest_cr4_to_real_cr4(v);
+-    if ( unlikely(cr4 != read_cr4()) )
+-        write_cr4(cr4);
+-
+     if ( unlikely(v->arch.debugreg[7] & DR7_ACTIVE_MASK) )
+         activate_debugregs(v);
+ 
+diff --git a/xen/arch/x86/domain_build.c b/xen/arch/x86/domain_build.c
+index 3ddf0ba9e9..b880190a3a 100644
+--- a/xen/arch/x86/domain_build.c
++++ b/xen/arch/x86/domain_build.c
+@@ -1326,7 +1326,7 @@ int __init construct_dom0(
+         update_cr3(v);
+ 
+     /* We run on dom0's page tables for the final part of the build process. */
+-    write_ptbase(v);
++    switch_cr3_cr4(v->arch.cr3, read_cr4());
+     mapcache_override_current(v);
+ 
+     /* Copy the OS image and free temporary buffer. */
+@@ -1346,7 +1346,7 @@ int __init construct_dom0(
+              (parms.virt_hypercall >= v_end) )
+         {
+             mapcache_override_current(NULL);
+-            write_ptbase(current);
++            switch_cr3_cr4(current->arch.cr3, read_cr4());
+             printk("Invalid HYPERCALL_PAGE field in ELF notes.\n");
+             rc = -1;
+             goto out;
+@@ -1485,7 +1485,7 @@ int __init construct_dom0(
+ 
+     /* Return to idle domain's page tables. */
+     mapcache_override_current(NULL);
+-    write_ptbase(current);
++    switch_cr3_cr4(current->arch.cr3, read_cr4());
+ 
+     update_domain_wallclock_time(d);
+ 
+diff --git a/xen/arch/x86/flushtlb.c b/xen/arch/x86/flushtlb.c
+index 92cfb6bcb2..dd8f59b5af 100644
+--- a/xen/arch/x86/flushtlb.c
++++ b/xen/arch/x86/flushtlb.c
+@@ -91,20 +91,27 @@ static void do_tlb_flush(void)
+     post_flush(t);
+ }
+ 
+-void switch_cr3(unsigned long cr3)
++void switch_cr3_cr4(unsigned long cr3, unsigned long cr4)
+ {
+-    unsigned long flags, cr4;
++    unsigned long flags, old_cr4;
+     u32 t;
+ 
+     /* This non-reentrant function is sometimes called in interrupt context. */
+     local_irq_save(flags);
+ 
+     t = pre_flush();
+-    cr4 = read_cr4();
+ 
+-    write_cr4(cr4 & ~X86_CR4_PGE);
++    old_cr4 = read_cr4();
++    if ( old_cr4 & X86_CR4_PGE )
++    {
++        old_cr4 = cr4 & ~X86_CR4_PGE;
++        write_cr4(old_cr4);
++    }
++
+     write_cr3(cr3);
+-    write_cr4(cr4);
++
++    if ( old_cr4 != cr4 )
++        write_cr4(cr4);
+ 
+     post_flush(t);
+ 
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 496bfe619b..303df66174 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -489,20 +489,28 @@ void make_cr3(struct vcpu *v, unsigned long mfn)
+ void write_ptbase(struct vcpu *v)
+ {
+     struct cpu_info *cpu_info = get_cpu_info();
++    unsigned long new_cr4;
++
++    new_cr4 = (is_pv_vcpu(v) && !is_idle_vcpu(v))
++              ? pv_guest_cr4_to_real_cr4(v)
++              : ((read_cr4() & ~X86_CR4_TSD) | X86_CR4_PGE);
+ 
+     if ( is_pv_vcpu(v) && v->domain->arch.pv_domain.xpti )
+     {
+         cpu_info->root_pgt_changed = 1;
+         cpu_info->pv_cr3 = __pa(this_cpu(root_pgt));
+-        switch_cr3(v->arch.cr3);
++        switch_cr3_cr4(v->arch.cr3, new_cr4);
+     }
+     else
+     {
+-        /* Make sure to clear xen_cr3 before pv_cr3; switch_cr3() serializes. */
++        /* Make sure to clear xen_cr3 before pv_cr3. */
+         cpu_info->xen_cr3 = 0;
+-        switch_cr3(v->arch.cr3);
++        /* switch_cr3_cr4() serializes. */
++        switch_cr3_cr4(v->arch.cr3, new_cr4);
+         cpu_info->pv_cr3 = 0;
+     }
++
++    ASSERT(is_pv_vcpu(v) || read_cr4() == mmu_cr4_features);
+ }
+ 
+ /*
+diff --git a/xen/common/efi/runtime.c b/xen/common/efi/runtime.c
+index 593cc46f10..22b2c6c509 100644
+--- a/xen/common/efi/runtime.c
++++ b/xen/common/efi/runtime.c
+@@ -104,7 +104,7 @@ struct efi_rs_state efi_rs_enter(void)
+         asm volatile ( "lgdt %0" : : "m" (gdt_desc) );
+     }
+ 
+-    switch_cr3(virt_to_maddr(efi_l4_pgtable));
++    switch_cr3_cr4(virt_to_maddr(efi_l4_pgtable), read_cr4());
+ 
+     return state;
+ }
+@@ -113,7 +113,7 @@ void efi_rs_leave(struct efi_rs_state *state)
+ {
+     if ( !state->cr3 )
+         return;
+-    switch_cr3(state->cr3);
++    switch_cr3_cr4(state->cr3, read_cr4());
+     if ( is_pv_vcpu(current) && !is_idle_vcpu(current) )
+     {
+         struct desc_ptr gdt_desc = {
+diff --git a/xen/include/asm-x86/asm_defns.h b/xen/include/asm-x86/asm_defns.h
+index 1f68181616..295ee73304 100644
+--- a/xen/include/asm-x86/asm_defns.h
++++ b/xen/include/asm-x86/asm_defns.h
+@@ -161,13 +161,8 @@ void ret_from_intr(void);
+ #define ASM_STAC ASM_AC(STAC)
+ #define ASM_CLAC ASM_AC(CLAC)
+ 
+-.macro write_cr3 val:req, tmp1:req, tmp2:req
+-        mov   %cr4, %\tmp1
+-        mov   %\tmp1, %\tmp2
+-        and   $~X86_CR4_PGE, %\tmp1
+-        mov   %\tmp1, %cr4
++.macro write_cr3 val:req, tmp1, tmp2
+         mov   %\val, %cr3
+-        mov   %\tmp2, %cr4
+ .endm
+ 
+ #define CR4_PV32_RESTORE                                           \
+diff --git a/xen/include/asm-x86/domain.h b/xen/include/asm-x86/domain.h
+index f729333442..9dd9c3ec23 100644
+--- a/xen/include/asm-x86/domain.h
++++ b/xen/include/asm-x86/domain.h
+@@ -593,9 +593,10 @@ unsigned long pv_guest_cr4_fixup(const struct vcpu *, unsigned long guest_cr4);
+ #define pv_guest_cr4_to_real_cr4(v)                         \
+     (((v)->arch.pv_vcpu.ctrlreg[4]                          \
+       | (mmu_cr4_features                                   \
+-         & (X86_CR4_PGE | X86_CR4_PSE | X86_CR4_SMEP |      \
++         & (X86_CR4_PSE | X86_CR4_SMEP |                    \
+             X86_CR4_SMAP | X86_CR4_OSXSAVE |                \
+             X86_CR4_FSGSBASE))                              \
++      | ((v)->domain->arch.pv_domain.xpti ? 0 : X86_CR4_PGE) \
+       | ((v)->domain->arch.vtsc ? X86_CR4_TSD : 0))         \
+      & ~X86_CR4_DE)
+ #define real_cr4_to_pv_guest_cr4(c)                         \
+diff --git a/xen/include/asm-x86/flushtlb.h b/xen/include/asm-x86/flushtlb.h
+index bc908aebf8..ed3351af18 100644
+--- a/xen/include/asm-x86/flushtlb.h
++++ b/xen/include/asm-x86/flushtlb.h
+@@ -84,7 +84,7 @@ static inline unsigned long read_cr3(void)
+ }
+ 
+ /* Write pagetable base and implicitly tick the tlbflush clock. */
+-void switch_cr3(unsigned long cr3);
++void switch_cr3_cr4(unsigned long cr3, unsigned long cr4);
+ 
+ /* flush_* flag fields: */
+  /*
+-- 
+2.13.6
+

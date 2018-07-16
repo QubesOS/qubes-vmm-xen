@@ -1,0 +1,140 @@
+From ec05090403ef4d760fbe701e31afd0f0edc414d5 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 12:38:48 +0100
+Subject: x86/entry: Erase guest GPR state on entry to Xen
+
+This reduces the number of code gadgets which can be attacked with arbitrary
+guest-controlled GPR values.
+
+This is part of XSA-254.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+master commit: 03bd8c3a70d101fc2f8f36f1e171b7594462a4cd
+master date: 2018-01-05 19:57:08 +0000
+---
+ xen/arch/x86/x86_64/compat/entry.S |  3 +--
+ xen/arch/x86/x86_64/entry.S        |  2 +-
+ xen/include/asm-x86/asm_defns.h    | 30 +++++++++++++++++++++++++-----
+ 3 files changed, 27 insertions(+), 8 deletions(-)
+
+diff --git a/xen/arch/x86/x86_64/compat/entry.S b/xen/arch/x86/x86_64/compat/entry.S
+index 1b919a8bd6..9c875e57ad 100644
+--- a/xen/arch/x86/x86_64/compat/entry.S
++++ b/xen/arch/x86/x86_64/compat/entry.S
+@@ -23,10 +23,9 @@ ENTRY(compat_hypercall)
+ UNLIKELY_START(ne, msi_check)
+         movl  $HYPERCALL_VECTOR,%edi
+         call  check_for_unexpected_msi
+-        LOAD_C_CLOBBERED compat=1 ax=0
+ UNLIKELY_END(msi_check)
+ 
+-        movl  UREGS_rax(%rsp),%eax
++        LOAD_C_CLOBBERED compat=1
+         GET_CURRENT(%rbx)
+ 
+         cmpl  $NR_hypercalls,%eax
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 6d8e5d1be9..b5188e49df 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -189,7 +189,7 @@ ENTRY(lstar_enter)
+         jz    switch_to_kernel
+ 
+ /*hypercall:*/
+-        movq  %r10,%rcx
++        LOAD_C_CLOBBERED cx=0
+         cmpq  $NR_hypercalls,%rax
+         jae   bad_hypercall
+ #ifndef NDEBUG
+diff --git a/xen/include/asm-x86/asm_defns.h b/xen/include/asm-x86/asm_defns.h
+index 54328e7b53..0bb058977e 100644
+--- a/xen/include/asm-x86/asm_defns.h
++++ b/xen/include/asm-x86/asm_defns.h
+@@ -183,7 +183,7 @@ static always_inline void stac(void)
+ #endif
+ 
+ #ifdef __ASSEMBLY__
+-.macro SAVE_ALL op, compat=0
++.macro SAVE_ALL op, compat=0, clrargs=1
+ .ifeqs "\op", "CLAC"
+         ASM_CLAC
+ .else
+@@ -198,22 +198,34 @@ static always_inline void stac(void)
+         addq  $-(UREGS_error_code-UREGS_r15), %rsp
+         cld
+         movq  %rdi,UREGS_rdi(%rsp)
++        xor   %edi, %edi
+         movq  %rsi,UREGS_rsi(%rsp)
++        xor   %esi, %esi
+         movq  %rdx,UREGS_rdx(%rsp)
++        xor   %edx, %edx
+         movq  %rcx,UREGS_rcx(%rsp)
++        xor   %ecx, %ecx
+         movq  %rax,UREGS_rax(%rsp)
++        xor   %eax, %eax
+ .if !\compat
+         movq  %r8,UREGS_r8(%rsp)
+         movq  %r9,UREGS_r9(%rsp)
+         movq  %r10,UREGS_r10(%rsp)
+         movq  %r11,UREGS_r11(%rsp)
+ .endif
++        xor   %r8, %r8
++        xor   %r9, %r9
++        xor   %r10, %r10
++        xor   %r11, %r11
+         movq  %rbx,UREGS_rbx(%rsp)
++        xor   %ebx, %ebx
+         movq  %rbp,UREGS_rbp(%rsp)
+ #ifdef CONFIG_FRAME_POINTER
+ /* Indicate special exception stack frame by inverting the frame pointer. */
+         leaq  UREGS_rbp(%rsp), %rbp
+         notq  %rbp
++#else
++        xor   %ebp, %ebp
+ #endif
+ .if !\compat
+         movq  %r12,UREGS_r12(%rsp)
+@@ -221,6 +233,10 @@ static always_inline void stac(void)
+         movq  %r14,UREGS_r14(%rsp)
+         movq  %r15,UREGS_r15(%rsp)
+ .endif
++        xor   %r12, %r12
++        xor   %r13, %r13
++        xor   %r14, %r14
++        xor   %r15, %r15
+ .endm
+ 
+ /*
+@@ -230,19 +246,23 @@ static always_inline void stac(void)
+  *
+  * For the way it is used in RESTORE_ALL, this macro must preserve EFLAGS.ZF.
+  */
+-.macro LOAD_C_CLOBBERED compat=0 ax=1
++.macro LOAD_C_CLOBBERED compat=0 cx=1
+ .if !\compat
+         movq  UREGS_r11(%rsp),%r11
++.if \cx
+         movq  UREGS_r10(%rsp),%r10
++.else
++        movq  UREGS_r10(%rsp),%rcx
++.endif
+         movq  UREGS_r9(%rsp),%r9
+         movq  UREGS_r8(%rsp),%r8
+-.if \ax
+         movq  UREGS_rax(%rsp),%rax
+-.endif
+-.elseif \ax
++.else
+         movl  UREGS_rax(%rsp),%eax
+ .endif
++.if \cx
+         movq  UREGS_rcx(%rsp),%rcx
++.endif
+         movq  UREGS_rdx(%rsp),%rdx
+         movq  UREGS_rsi(%rsp),%rsi
+         movq  UREGS_rdi(%rsp),%rdi
+-- 
+2.13.6
+

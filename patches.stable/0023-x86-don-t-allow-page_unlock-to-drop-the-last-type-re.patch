@@ -1,0 +1,56 @@
+From 42b2c82081fa2bc9b7fe37c8ae69687a3f5e91fb Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 12 Oct 2017 15:40:04 +0200
+Subject: x86: don't allow page_unlock() to drop the last type
+ reference
+
+Only _put_page_type() does the necessary cleanup, and hence not all
+domain pages can be released during guest cleanup (leaving around
+zombie domains) if we get this wrong.
+
+This is XSA-242.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+master commit: 6410733a8a0dff2fe581338ff631670cf91889db
+master date: 2017-10-12 14:49:46 +0200
+---
+ xen/arch/x86/mm.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 9527e54b01..7ae3c33c25 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -1824,7 +1824,11 @@ void page_unlock(struct page_info *page)
+ 
+     do {
+         x = y;
++        ASSERT((x & PGT_count_mask) && (x & PGT_locked));
++
+         nx = x - (1 | PGT_locked);
++        /* We must not drop the last reference here. */
++        ASSERT(nx & PGT_count_mask);
+     } while ( (y = cmpxchg(&page->u.inuse.type_info, x, nx)) != x );
+ }
+ 
+@@ -2511,6 +2515,17 @@ static int _put_page_type(struct page_info *page, bool_t preemptible,
+                    (page->count_info & PGC_page_table)) )
+                 page_set_tlbflush_timestamp(page);
+         }
++        else if ( unlikely((nx & (PGT_locked | PGT_count_mask)) ==
++                           (PGT_locked | 1)) )
++        {
++            /*
++             * We must not drop the second to last reference when the page is
++             * locked, as page_unlock() doesn't do any cleanup of the type.
++             */
++            cpu_relax();
++            y = page->u.inuse.type_info;
++            continue;
++        }
+ 
+         if ( likely((y = cmpxchg(&page->u.inuse.type_info, x, nx)) == x) )
+             break;
+-- 
+2.13.6
+

@@ -1,0 +1,50 @@
+From 76f154986f8afa1077478b4681ea82b0bf16896c Mon Sep 17 00:00:00 2001
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 12 Oct 2017 15:37:21 +0200
+Subject: x86/ioreq server: correctly handle bogus
+ XEN_DMOP_{,un}map_io_range_to_ioreq_server arguments
+
+Misbehaving device model can pass incorrect XEN_DMOP_map/
+unmap_io_range_to_ioreq_server arguments, namely end < start when
+specifying address range. When this happens we hit ASSERT(s <= e) in
+rangeset_contains_range()/rangeset_overlaps_range() with debug builds.
+Production builds will not trap right away but may misbehave later
+while handling such bogus ranges.
+
+This is XSA-238.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: d59e55b018cfb79d0c4f794041aff4fe1cd0d570
+master date: 2017-10-12 14:43:02 +0200
+---
+ xen/arch/x86/hvm/hvm.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 706834250b..35e9449caf 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -1271,6 +1271,9 @@ static int hvm_map_io_range_to_ioreq_server(struct domain *d, ioservid_t id,
+     struct hvm_ioreq_server *s;
+     int rc;
+ 
++    if ( start > end )
++        return -EINVAL;
++
+     spin_lock_recursive(&d->arch.hvm_domain.ioreq_server.lock);
+ 
+     rc = -ENOENT;
+@@ -1322,6 +1325,9 @@ static int hvm_unmap_io_range_from_ioreq_server(struct domain *d, ioservid_t id,
+     struct hvm_ioreq_server *s;
+     int rc;
+ 
++    if ( start > end )
++        return -EINVAL;
++
+     spin_lock_recursive(&d->arch.hvm_domain.ioreq_server.lock);
+ 
+     rc = -ENOENT;
+-- 
+2.13.6
+

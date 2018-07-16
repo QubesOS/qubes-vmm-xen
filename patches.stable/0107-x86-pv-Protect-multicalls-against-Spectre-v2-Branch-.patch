@@ -1,0 +1,42 @@
+From a0db1f211f4970066d5544f7408d8cbdb3a302a0 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 18 May 2018 13:26:15 +0200
+Subject: x86/pv: Protect multicalls against Spectre v2 -
+ Branch Target Injection
+
+This is a missing adjustment in c/s 88602190f69 "x86: Support indirect thunks
+from assembly code".
+
+This is part of XSA-254.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/include/asm-x86/multicall.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xen/include/asm-x86/multicall.h b/xen/include/asm-x86/multicall.h
+index 3cb0b6d9a0..415d7646b7 100644
+--- a/xen/include/asm-x86/multicall.h
++++ b/xen/include/asm-x86/multicall.h
+@@ -34,7 +34,7 @@ enum mc_disposition {
+             "    movq  %c2+3*%c3(%0),%%rcx; "                \
+             "    movq  %c2+4*%c3(%0),%%r8; "                 \
+             "    movq  %c2+5*%c3(%0),%%r9; "                 \
+-            "    callq *%%rax; "                             \
++            "    INDIRECT_CALL %%rax; "                      \
+             "1:  movq  %%rax,%c4(%0)\n"                      \
+             ".section .fixup,\"ax\"\n"                       \
+             "2:  movq  %5,%%rax\n"                           \
+@@ -67,7 +67,7 @@ enum mc_disposition {
+             "    movl  %c2+3*%c3(%0),%%ecx; "                \
+             "    movl  %c2+4*%c3(%0),%%r8d; "                \
+             "    movl  %c2+5*%c3(%0),%%r9d; "                \
+-            "    callq *%%rax; "                             \
++            "    INDIRECT_CALL %%rax; "                      \
+             "1:  movl  %%eax,%c4(%0)\n"                      \
+             ".section .fixup,\"ax\"\n"                       \
+             "2:  movl  %5,%%eax\n"                           \
+-- 
+2.13.6
+

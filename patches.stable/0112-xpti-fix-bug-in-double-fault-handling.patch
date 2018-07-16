@@ -1,0 +1,43 @@
+From 12b9fca6046741ffcda9eb3320f47093ed5d9ef0 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Fri, 18 May 2018 13:32:05 +0200
+Subject: xpti: fix bug in double fault handling
+
+When entering the hypervisor via the double fault handler resetting
+xen_cr3 was missing. This led to switching to pv_cr3 when returning
+from the next following exception, so repair this in order to allow
+exception handling to work even after a double fault.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Tested-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: d80af845de7a4db01a4a3b4d779e0e0dcb5e738b
+master date: 2018-04-23 16:13:01 +0200
+---
+ xen/arch/x86/x86_64/entry.S | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index ef6eab8436..7c8211ae5a 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -842,12 +842,14 @@ ENTRY(double_fault)
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rbx
+-        test  %rbx, %rbx
++        neg   %rbx
+         jz    .Ldblf_cr3_okay
+         jns   .Ldblf_cr3_load
++        mov   %rbx, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+         neg   %rbx
+ .Ldblf_cr3_load:
+         write_cr3 rbx, rdi, rsi
++        movq $0, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+ .Ldblf_cr3_okay:
+ 
+         movq  %rsp,%rdi
+-- 
+2.13.6
+

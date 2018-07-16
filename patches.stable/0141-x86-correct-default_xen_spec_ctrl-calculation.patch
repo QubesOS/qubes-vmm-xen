@@ -1,0 +1,74 @@
+From 03938ba0131520df0b05d9d4e5d8bb1cff526f73 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 28 Jun 2018 12:25:43 +0200
+Subject: x86: correct default_xen_spec_ctrl calculation
+
+Even with opt_msr_sc_{pv,hvm} both false we should set up the variable
+as usual, to ensure proper one-time setup during boot and CPU bringup.
+This then also brings the code in line with the comment immediately
+ahead of the printk() being modified saying "irrespective of guests".
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: d6239f64713df819278bf048446d3187c6ac4734
+master date: 2018-05-29 12:38:52 +0200
+---
+ xen/arch/x86/spec_ctrl.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 836897222e..6ca9bca471 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -183,8 +183,6 @@ custom_param("spec-ctrl", parse_spec_ctrl);
+ 
+ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+ {
+-    bool_t use_spec_ctrl = (boot_cpu_has(X86_FEATURE_SC_MSR_PV) ||
+-                            boot_cpu_has(X86_FEATURE_SC_MSR_HVM));
+     unsigned int _7d0 = 0, e8b = 0, tmp;
+ 
+     /* Collect diagnostics about available mitigations. */
+@@ -217,10 +215,9 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            thunk == THUNK_RETPOLINE ? "RETPOLINE" :
+            thunk == THUNK_LFENCE    ? "LFENCE" :
+            thunk == THUNK_JMP       ? "JMP" : "?",
+-           !use_spec_ctrl                            ?  "No" :
+-           (default_xen_spec_ctrl & SPEC_CTRL_IBRS)  ?  "IBRS+" :  "IBRS-",
+-           !use_spec_ctrl || !boot_cpu_has(X86_FEATURE_SSBD)
+-                                                     ? "" :
++           !boot_cpu_has(X86_FEATURE_IBRSB)          ? "No" :
++           (default_xen_spec_ctrl & SPEC_CTRL_IBRS)  ? "IBRS+" :  "IBRS-",
++           !boot_cpu_has(X86_FEATURE_SSBD)           ? "" :
+            (default_xen_spec_ctrl & SPEC_CTRL_SSBD)  ? " SSBD+" : " SSBD-",
+            opt_ibpb                                  ? " IBPB"  : "");
+ 
+@@ -553,16 +550,19 @@ void __init init_speculation_mitigations(void)
+         }
+ 
+         if ( use_spec_ctrl )
+-        {
+-            if ( ibrs )
+-                default_xen_spec_ctrl |= SPEC_CTRL_IBRS;
+-
+             default_spec_ctrl_flags |= SCF_ist_wrmsr;
+-        }
++
++        if ( ibrs )
++            default_xen_spec_ctrl |= SPEC_CTRL_IBRS;
++    }
++    else
++    {
++        setup_clear_cpu_cap(X86_FEATURE_STIBP);
++        setup_clear_cpu_cap(X86_FEATURE_SSBD);
+     }
+ 
+     /* If we have SSBD available, see whether we should use it. */
+-    if ( boot_cpu_has(X86_FEATURE_SSBD) && use_spec_ctrl && opt_ssbd )
++    if ( boot_cpu_has(X86_FEATURE_SSBD) && opt_ssbd )
+         default_xen_spec_ctrl |= SPEC_CTRL_SSBD;
+ 
+     /*
+-- 
+2.13.6
+

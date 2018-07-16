@@ -1,0 +1,38 @@
+From b4660b4d4a35edac715c003c84326de2b0fa4f47 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 21 Aug 2017 15:59:29 +0200
+Subject: gnttab: fix "don't use possibly unbounded tail calls"
+
+The compat mode code also needs adjustment to deal with the changed
+return value from gnttab_copy().
+
+This is part of XSA-226.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: ca617570542e1d7d8de636d5396959bbf1dabab7
+master date: 2017-08-21 15:43:36 +0200
+---
+ xen/common/compat/grant_table.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/common/compat/grant_table.c b/xen/common/compat/grant_table.c
+index f8c60a1bdf..cce3ff0b9a 100644
+--- a/xen/common/compat/grant_table.c
++++ b/xen/common/compat/grant_table.c
+@@ -258,9 +258,9 @@ int compat_grant_table_op(unsigned int cmd,
+                 rc = gnttab_copy(guest_handle_cast(nat.uop, gnttab_copy_t), n);
+             if ( rc > 0 )
+             {
+-                ASSERT(rc < n);
+-                i -= n - rc;
+-                n = rc;
++                ASSERT(rc <= n);
++                i -= rc;
++                n -= rc;
+             }
+             if ( rc >= 0 )
+             {
+-- 
+2.13.6
+

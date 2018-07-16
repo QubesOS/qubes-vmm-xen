@@ -1,0 +1,78 @@
+From 9454e3030ae0835c11aa66471238a9e09db5074e Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 24 Oct 2017 16:51:51 +0200
+Subject: gnttab: fix pin count / page reference race
+
+Dropping page references before decrementing pin counts is a bad idea
+if assumptions are being made that a non-zero pin count implies a valid
+page. Fix the order of operations in gnttab_copy_release_buf(), but at
+the same time also remove the assertion that was found to trigger:
+map_grant_ref() also has the potential of causing a race here, and
+changing the order of operations there would likely be quite a bit more
+involved.
+
+This is CVE-2017-15597 / XSA-236.
+
+Reported-by: Pawel Wieczorkiewicz <wipawel@amazon.de>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: e008f7619dcd6d549727c9635b3f9f3c7ee483ed
+master date: 2017-10-24 16:01:33 +0200
+---
+ xen/common/grant_table.c | 25 ++++++++++++++++++-------
+ 1 file changed, 18 insertions(+), 7 deletions(-)
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index 6755728361..b946250cf1 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -2317,9 +2317,20 @@ __acquire_grant_for_copy(
+         td = page_get_owner_and_reference(*page);
+         /*
+          * act->pin being non-zero should guarantee the page to have a
+-         * non-zero refcount and hence a valid owner.
++         * non-zero refcount and hence a valid owner (matching the one on
++         * record), with one exception: If the owning domain is dying we
++         * had better not make implications from pin count (map_grant_ref()
++         * updates pin counts before obtaining page references, for
++         * example).
+          */
+-        ASSERT(td);
++        if ( td != rd || rd->is_dying )
++        {
++            if ( td )
++                put_page(*page);
++            *page = NULL;
++            rc = GNTST_bad_domain;
++            goto unlock_out_clear;
++        }
+     }
+ 
+     act->pin += readonly ? GNTPIN_hstr_inc : GNTPIN_hstw_inc;
+@@ -2438,6 +2449,11 @@ static void gnttab_copy_release_buf(struct gnttab_copy_buf *buf)
+         unmap_domain_page(buf->virt);
+         buf->virt = NULL;
+     }
++    if ( buf->have_grant )
++    {
++        __release_grant_for_copy(buf->domain, buf->ptr.u.ref, buf->read_only);
++        buf->have_grant = 0;
++    }
+     if ( buf->have_type )
+     {
+         put_page_type(buf->page);
+@@ -2448,11 +2464,6 @@ static void gnttab_copy_release_buf(struct gnttab_copy_buf *buf)
+         put_page(buf->page);
+         buf->page = NULL;
+     }
+-    if ( buf->have_grant )
+-    {
+-        __release_grant_for_copy(buf->domain, buf->ptr.u.ref, buf->read_only);
+-        buf->have_grant = 0;
+-    }
+ }
+ 
+ static int gnttab_copy_claim_buf(const struct gnttab_copy *op,
+-- 
+2.13.6
+

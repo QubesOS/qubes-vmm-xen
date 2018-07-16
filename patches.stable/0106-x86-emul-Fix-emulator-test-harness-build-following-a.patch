@@ -1,0 +1,30 @@
+From 6a74f4e31dc28fb0d5c9e56b54d4b2aaf9b46bbe Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 9 May 2018 18:06:46 +0100
+Subject: x86/emul: Fix emulator test harness build following a
+ backport of 7c508612
+
+The x86 emulator doesn't need to employ any Spectre v2 mitigations.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ tools/tests/x86_emulator/x86_emulate.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/tools/tests/x86_emulator/x86_emulate.c b/tools/tests/x86_emulator/x86_emulate.c
+index 1e67d648ad..c91d436a63 100644
+--- a/tools/tests/x86_emulator/x86_emulate.c
++++ b/tools/tests/x86_emulator/x86_emulate.c
+@@ -35,4 +35,9 @@ typedef bool bool_t;
+ #define get_stub(stb) ((void *)((stb).addr = (uintptr_t)(stb).buf))
+ #define put_stub(stb)
+ 
++/* No Spectre mitigations needed for the test harness. */
++asm (".macro INDIRECT_CALL arg:req\n\t"
++     "call *\\arg\n\t"
++     ".endm");
++
+ #include "x86_emulate/x86_emulate.c"
+-- 
+2.13.6
+

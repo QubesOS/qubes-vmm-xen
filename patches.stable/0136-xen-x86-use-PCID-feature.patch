@@ -1,0 +1,426 @@
+From 365ecffbb613b4ad06a916561940a853a5d380bb Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 26 Apr 2018 13:33:18 +0200
+Subject: xen/x86: use PCID feature
+
+Avoid flushing the complete TLB when switching %cr3 for mitigation of
+Meltdown by using the PCID feature if available.
+
+We are using 4 PCID values for a 64 bit pv domain subject to XPTI and
+2 values for the non-XPTI case:
+
+- guest active and in kernel mode
+- guest active and in user mode
+- hypervisor active and guest in user mode (XPTI only)
+- hypervisor active and guest in kernel mode (XPTI only)
+
+We use PCID only if PCID _and_ INVPCID are supported. With PCID in use
+we disable global pages in cr4. A command line parameter controls in
+which cases PCID is being used.
+
+As the non-XPTI case has shown not to perform better with PCID at least
+on some machines the default is to use PCID only for domains subject to
+XPTI.
+
+With PCID enabled we always disable global pages. This avoids having to
+either flush the complete TLB or do a cycle through all PCID values
+when invalidating a single global page.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ docs/misc/xen-command-line.markdown | 14 ++++++++
+ xen/arch/x86/domain.c               | 69 +++++++++++++++++++++++++++++++++++++
+ xen/arch/x86/domain_build.c         |  3 +-
+ xen/arch/x86/flushtlb.c             | 48 ++++++++++++++++++++++++--
+ xen/arch/x86/mm.c                   | 15 ++++++--
+ xen/arch/x86/x86_64/traps.c         | 12 ++++++-
+ xen/include/asm-x86/domain.h        | 33 +++++++++++++++++-
+ xen/include/asm-x86/processor.h     |  3 ++
+ 8 files changed, 190 insertions(+), 7 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index 39c535ed17..ece2cec75b 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1250,6 +1250,20 @@ This option can be specified more than once (up to 8 times at present).
+ ### ple\_window
+ > `= <integer>`
+ 
++### pcid (x86)
++> `= <boolean> | xpti=<bool>`
++
++> Default: `xpti`
++
++> Can be modified at runtime (change takes effect only for domains created
++  afterwards)
++
++If available, control usage of the PCID feature of the processor for
++64-bit pv-domains. PCID can be used either for no domain at all (`false`),
++for all of them (`true`), only for those subject to XPTI (`xpti`) or for
++those not subject to XPTI (`no-xpti`). The feature is used only in case
++INVPCID is supported and not disabled via `invpcid=false`.
++
+ ### psr (Intel)
+ > `= List of ( cmt:<boolean> | rmid_max:<integer> | cat:<boolean> | cos_max:<integer> )`
+ 
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index d0cf15da54..7fc8995b05 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -45,7 +45,9 @@
+ #include <asm/desc.h>
+ #include <asm/i387.h>
+ #include <asm/xstate.h>
++#include <asm/cpufeature.h>
+ #include <asm/cpuidle.h>
++#include <asm/invpcid.h>
+ #include <asm/mpspec.h>
+ #include <asm/ldt.h>
+ #include <asm/fixmap.h>
+@@ -65,6 +67,49 @@
+ #include <asm/psr.h>
+ #include <asm/spec_ctrl.h>
+ 
++static __read_mostly enum {
++    PCID_OFF,
++    PCID_ALL,
++    PCID_XPTI,
++    PCID_NOXPTI
++} opt_pcid = PCID_XPTI;
++
++static __init int parse_pcid(const char *s)
++{
++    int rc = 0;
++
++    switch ( parse_bool(s) )
++    {
++    case 0:
++        opt_pcid = PCID_OFF;
++        break;
++
++    case 1:
++        opt_pcid = PCID_ALL;
++        break;
++
++    default:
++        switch ( parse_boolean("xpti", s, NULL) )
++        {
++        case 0:
++            opt_pcid = PCID_NOXPTI;
++            break;
++
++        case 1:
++            opt_pcid = PCID_XPTI;
++            break;
++
++        default:
++            rc = -EINVAL;
++            break;
++        }
++        break;
++    }
++
++    return rc;
++}
++custom_param("pcid", parse_pcid);
++
+ DEFINE_PER_CPU(struct vcpu *, curr_vcpu);
+ 
+ static void default_idle(void);
+@@ -420,6 +465,7 @@ int switch_compat(struct domain *d)
+     d->arch.x87_fip_width = 4;
+ 
+     d->arch.pv_domain.xpti = 0;
++    d->arch.pv_domain.pcid = 0;
+ 
+     return 0;
+ 
+@@ -663,6 +709,29 @@ int arch_domain_create(struct domain *d, unsigned int domcr_flags,
+ 
+         d->arch.pv_domain.xpti = opt_xpti & (is_hardware_domain(d)
+                                              ? OPT_XPTI_DOM0 : OPT_XPTI_DOMU);
++
++        if ( !is_pv_32bit_domain(d) && use_invpcid && cpu_has_pcid )
++            switch ( opt_pcid )
++            {
++            case PCID_OFF:
++                break;
++
++            case PCID_ALL:
++                d->arch.pv_domain.pcid = 1;
++                break;
++
++            case PCID_XPTI:
++                d->arch.pv_domain.pcid = d->arch.pv_domain.xpti;
++                break;
++
++            case PCID_NOXPTI:
++                d->arch.pv_domain.pcid = !d->arch.pv_domain.xpti;
++                break;
++
++            default:
++                ASSERT_UNREACHABLE();
++                break;
++            }
+     }
+ 
+     /* initialize default tsc behavior in case tools don't */
+diff --git a/xen/arch/x86/domain_build.c b/xen/arch/x86/domain_build.c
+index b880190a3a..f583c5928c 100644
+--- a/xen/arch/x86/domain_build.c
++++ b/xen/arch/x86/domain_build.c
+@@ -1001,6 +1001,7 @@ int __init construct_dom0(
+     {
+         d->arch.is_32bit_pv = d->arch.has_32bit_shinfo = 1;
+         d->arch.pv_domain.xpti = 0;
++        d->arch.pv_domain.pcid = 0;
+         v->vcpu_info = (void *)&d->shared_info->compat.vcpu_info[0];
+         if ( setup_compat_arg_xlat(v) != 0 )
+             BUG();
+@@ -1326,7 +1327,7 @@ int __init construct_dom0(
+         update_cr3(v);
+ 
+     /* We run on dom0's page tables for the final part of the build process. */
+-    switch_cr3_cr4(v->arch.cr3, read_cr4());
++    switch_cr3_cr4(cr3_pa(v->arch.cr3), read_cr4());
+     mapcache_override_current(v);
+ 
+     /* Copy the OS image and free temporary buffer. */
+diff --git a/xen/arch/x86/flushtlb.c b/xen/arch/x86/flushtlb.c
+index dd8f59b5af..3ba1d658c5 100644
+--- a/xen/arch/x86/flushtlb.c
++++ b/xen/arch/x86/flushtlb.c
+@@ -14,6 +14,8 @@
+ #include <asm/flushtlb.h>
+ #include <asm/invpcid.h>
+ #include <asm/page.h>
++#include <asm/domain.h>
++#include <asm/spec_ctrl.h>
+ 
+ /* Debug builds: Wrap frequently to stress-test the wrap logic. */
+ #ifdef NDEBUG
+@@ -95,6 +97,7 @@ void switch_cr3_cr4(unsigned long cr3, unsigned long cr4)
+ {
+     unsigned long flags, old_cr4;
+     u32 t;
++    unsigned long old_pcid = cr3_pcid(read_cr3());
+ 
+     /* This non-reentrant function is sometimes called in interrupt context. */
+     local_irq_save(flags);
+@@ -104,14 +107,34 @@ void switch_cr3_cr4(unsigned long cr3, unsigned long cr4)
+     old_cr4 = read_cr4();
+     if ( old_cr4 & X86_CR4_PGE )
+     {
++        /*
++         * X86_CR4_PGE set means PCID is inactive.
++         * We have to purge the TLB via flipping cr4.pge.
++         */
+         old_cr4 = cr4 & ~X86_CR4_PGE;
+         write_cr4(old_cr4);
+     }
++    else if ( use_invpcid )
++        /*
++         * Flushing the TLB via INVPCID is necessary only in case PCIDs are
++         * in use, which is true only with INVPCID being available.
++         * Without PCID usage the following write_cr3() will purge the TLB
++         * (we are in the cr4.pge off path) of all entries.
++         * Using invpcid_flush_all_nonglobals() seems to be faster than
++         * invpcid_flush_all(), so use that.
++         */
++        invpcid_flush_all_nonglobals();
+ 
+     write_cr3(cr3);
+ 
+     if ( old_cr4 != cr4 )
+         write_cr4(cr4);
++    else if ( old_pcid != cr3_pcid(cr3) )
++        /*
++         * Make sure no TLB entries related to the old PCID created between
++         * flushing the TLB and writing the new %cr3 value remain in the TLB.
++         */
++        invpcid_flush_single_context(old_pcid);
+ 
+     post_flush(t);
+ 
+@@ -137,8 +160,29 @@ void flush_area_local(const void *va, unsigned int flags)
+              * are various errata surrounding INVLPG usage on superpages, and
+              * a full flush is in any case not *that* expensive.
+              */
+-            asm volatile ( "invlpg %0"
+-                           : : "m" (*(const char *)(va)) : "memory" );
++            if ( read_cr4() & X86_CR4_PCIDE )
++            {
++                unsigned long addr = (unsigned long)va;
++
++                /*
++                 * Flush the addresses for all potential address spaces.
++                 * We can't check the current domain for being subject to
++                 * XPTI as current might be the idle vcpu while we still have
++                 * some XPTI domain TLB entries.
++                 * Using invpcid is okay here, as with PCID enabled we always
++                 * have global pages disabled.
++                 */
++                invpcid_flush_one(PCID_PV_PRIV, addr);
++                invpcid_flush_one(PCID_PV_USER, addr);
++                if ( opt_xpti )
++                {
++                    invpcid_flush_one(PCID_PV_PRIV | PCID_PV_XPTI, addr);
++                    invpcid_flush_one(PCID_PV_USER | PCID_PV_XPTI, addr);
++                }
++            }
++            else
++                asm volatile ( "invlpg %0"
++                               : : "m" (*(const char *)(va)) : "memory" );
+         }
+         else
+             do_tlb_flush();
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 7c2558d13c..48111f5fee 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -483,7 +483,11 @@ void share_xen_page_with_privileged_guests(
+ 
+ void make_cr3(struct vcpu *v, unsigned long mfn)
+ {
++    struct domain *d = v->domain;
++
+     v->arch.cr3 = mfn << PAGE_SHIFT;
++    if ( is_pv_domain(d) && d->arch.pv_domain.pcid )
++        v->arch.cr3 |= get_pcid_bits(v, 0);
+ }
+ 
+ unsigned long pv_guest_cr4_to_real_cr4(const struct vcpu *v)
+@@ -494,7 +498,12 @@ unsigned long pv_guest_cr4_to_real_cr4(const struct vcpu *v)
+     cr4 = v->arch.pv_vcpu.ctrlreg[4] & ~X86_CR4_DE;
+     cr4 |= mmu_cr4_features & (X86_CR4_PSE | X86_CR4_SMEP | X86_CR4_SMAP |
+                                X86_CR4_OSXSAVE | X86_CR4_FSGSBASE);
+-    cr4 |= d->arch.pv_domain.xpti  ? 0 : X86_CR4_PGE;
++
++    if ( d->arch.pv_domain.pcid )
++        cr4 |= X86_CR4_PCIDE;
++    else if ( !d->arch.pv_domain.xpti )
++        cr4 |= X86_CR4_PGE;
++
+     cr4 |= d->arch.vtsc ? X86_CR4_TSD : 0;
+ 
+     return cr4;
+@@ -507,12 +516,14 @@ void write_ptbase(struct vcpu *v)
+ 
+     new_cr4 = (is_pv_vcpu(v) && !is_idle_vcpu(v))
+               ? pv_guest_cr4_to_real_cr4(v)
+-              : ((read_cr4() & ~X86_CR4_TSD) | X86_CR4_PGE);
++              : ((read_cr4() & ~(X86_CR4_PCIDE | X86_CR4_TSD)) | X86_CR4_PGE);
+ 
+     if ( is_pv_vcpu(v) && v->domain->arch.pv_domain.xpti )
+     {
+         cpu_info->root_pgt_changed = 1;
+         cpu_info->pv_cr3 = __pa(this_cpu(root_pgt));
++        if ( new_cr4 & X86_CR4_PCIDE )
++            cpu_info->pv_cr3 |= get_pcid_bits(v, 1);
+         switch_cr3_cr4(v->arch.cr3, new_cr4);
+     }
+     else
+diff --git a/xen/arch/x86/x86_64/traps.c b/xen/arch/x86/x86_64/traps.c
+index 371fa9472c..a5593bff5a 100644
+--- a/xen/arch/x86/x86_64/traps.c
++++ b/xen/arch/x86/x86_64/traps.c
+@@ -251,6 +251,8 @@ void do_double_fault(struct cpu_user_regs *regs)
+ 
+ void toggle_guest_mode(struct vcpu *v)
+ {
++    const struct domain *d = v->domain;
++
+     if ( is_pv_32bit_vcpu(v) )
+         return;
+     if ( cpu_has_fsgsbase )
+@@ -263,7 +265,15 @@ void toggle_guest_mode(struct vcpu *v)
+     v->arch.flags ^= TF_kernel_mode;
+     asm volatile ( "swapgs" );
+     update_cr3(v);
+-    get_cpu_info()->root_pgt_changed = 1;
++    if ( d->arch.pv_domain.xpti )
++    {
++        struct cpu_info *cpu_info = get_cpu_info();
++
++        cpu_info->root_pgt_changed = 1;
++        cpu_info->pv_cr3 = __pa(this_cpu(root_pgt)) |
++                           (d->arch.pv_domain.pcid
++                            ? get_pcid_bits(v, 1) : 0);
++    }
+ 
+     /* Don't flush user global mappings from the TLB. Don't tick TLB clock. */
+     write_cr3(v->arch.cr3);
+diff --git a/xen/include/asm-x86/domain.h b/xen/include/asm-x86/domain.h
+index 1f754aa6cf..f917b46d4b 100644
+--- a/xen/include/asm-x86/domain.h
++++ b/xen/include/asm-x86/domain.h
+@@ -254,11 +254,42 @@ struct pv_domain
+ 
+     /* XPTI active? */
+     bool_t xpti;
++    /* Use PCID feature? */
++    bool_t pcid;
+ 
+     /* map_domain_page() mapping cache. */
+     struct mapcache_domain mapcache;
+ };
+ 
++/*
++ * PCID values for the address spaces of 64-bit pv domains:
++ *
++ * We are using 4 PCID values for a 64 bit pv domain subject to XPTI:
++ * - hypervisor active and guest in kernel mode   PCID 0
++ * - hypervisor active and guest in user mode     PCID 1
++ * - guest active and in kernel mode              PCID 2
++ * - guest active and in user mode                PCID 3
++ *
++ * Without XPTI only 2 values are used:
++ * - guest in kernel mode                         PCID 0
++ * - guest in user mode                           PCID 1
++ */
++
++#define PCID_PV_PRIV      0x0000    /* Used for other domains, too. */
++#define PCID_PV_USER      0x0001
++#define PCID_PV_XPTI      0x0002    /* To be ORed to above values. */
++
++/*
++ * Return additional PCID specific cr3 bits.
++ *
++ * Note that X86_CR3_NOFLUSH will not be readable in cr3. Anyone consuming
++ * v->arch.cr3 should mask away X86_CR3_NOFLUSH and X86_CR3_PCIDMASK in case
++ * the value is used to address the root page table.
++ */
++#define get_pcid_bits(v, is_xpti)                                       \
++    (X86_CR3_NOFLUSH | ((is_xpti) ? PCID_PV_XPTI : 0) |                 \
++     (((v)->arch.flags & TF_kernel_mode) ? PCID_PV_PRIV : PCID_PV_USER))
++
+ struct monitor_write_data {
+     struct {
+         unsigned int msr : 1;
+@@ -595,7 +626,7 @@ unsigned long pv_guest_cr4_to_real_cr4(const struct vcpu *v);
+ #define real_cr4_to_pv_guest_cr4(c)                         \
+     ((c) & ~(X86_CR4_PGE | X86_CR4_PSE | X86_CR4_TSD |      \
+              X86_CR4_OSXSAVE | X86_CR4_SMEP |               \
+-             X86_CR4_FSGSBASE | X86_CR4_SMAP))
++             X86_CR4_FSGSBASE | X86_CR4_SMAP | X86_CR4_PCIDE))
+ 
+ void domain_cpuid(struct domain *d,
+                   unsigned int  input,
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 82e3fb2144..ca535bb22b 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -358,6 +358,9 @@ static inline unsigned long read_cr4(void)
+ 
+ static inline void write_cr4(unsigned long val)
+ {
++    /* No global pages in case of PCIDs enabled! */
++    ASSERT(!(val & X86_CR4_PGE) || !(val & X86_CR4_PCIDE));
++
+     get_cpu_info()->cr4 = val;
+     asm volatile ( "mov %0,%%cr4" : : "r" (val) );
+ }
+-- 
+2.13.6
+

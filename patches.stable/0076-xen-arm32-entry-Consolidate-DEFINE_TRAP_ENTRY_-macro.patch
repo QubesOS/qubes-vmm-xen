@@ -1,0 +1,66 @@
+From c93bcf9409e0da14cbc4bf43bf138bfaaecefa2c Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@linaro.org>
+Date: Wed, 7 Feb 2018 08:52:44 -0800
+Subject: xen/arm32: entry: Consolidate DEFINE_TRAP_ENTRY_*
+ macros
+
+The only difference between all the DEFINE_TRAP_ENTRY_* macros  are the
+interrupts (Asynchronous Abort, IRQ, FIQ) unmasked.
+
+Rather than duplicating the code, introduce __DEFINE_TRAP_ENTRY macro
+that will take the list of interrupts to unmask.
+
+This is part of XSA-254.
+
+Signed-off-by: Julien Grall <julien.grall@linaro.org>
+Reviewed-by: Stefano Stabellini <sstabellini@kernel.org>
+(cherry picked from commit 3bd8fd751e50dd981b7055fb33cdc8aa29537673)
+---
+ xen/arch/arm/arm32/entry.S | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/xen/arch/arm/arm32/entry.S b/xen/arch/arm/arm32/entry.S
+index 090f049470..e1e60c278c 100644
+--- a/xen/arch/arm/arm32/entry.S
++++ b/xen/arch/arm/arm32/entry.S
+@@ -102,26 +102,26 @@ abort_guest_exit_end:
+ 
+         mov pc, lr
+ 
+-#define DEFINE_TRAP_ENTRY(trap)                                         \
++/*
++ * Macro to define trap entry. The iflags corresponds to the list of
++ * interrupts (Asynchronous Abort, IRQ, FIQ) to unmask.
++ */
++#define __DEFINE_TRAP_ENTRY(trap, iflags)                               \
+         ALIGN;                                                          \
+ trap_##trap:                                                            \
+         SAVE_ALL;                                                       \
+-        cpsie i;        /* local_irq_enable */                          \
++        cpsie iflags;                                                   \
+         adr lr, return_from_trap;                                       \
+         mov r0, sp;                                                     \
+         mov r11, sp;                                                    \
+         bic sp, #7; /* Align the stack pointer (noop on guest trap) */  \
+         b do_trap_##trap
+ 
+-#define DEFINE_TRAP_ENTRY_NOIRQ(trap)                                   \
+-        ALIGN;                                                          \
+-trap_##trap:                                                            \
+-        SAVE_ALL;                                                       \
+-        adr lr, return_from_trap;                                       \
+-        mov r0, sp;                                                     \
+-        mov r11, sp;                                                    \
+-        bic sp, #7; /* Align the stack pointer (noop on guest trap) */  \
+-        b do_trap_##trap
++/* Trap handler which unmask IRQ/Abort, keep FIQ masked */
++#define DEFINE_TRAP_ENTRY(trap) __DEFINE_TRAP_ENTRY(trap, ai)
++
++/* Trap handler which unmask Abort, keep IRQ/FIQ masked */
++#define DEFINE_TRAP_ENTRY_NOIRQ(trap) __DEFINE_TRAP_ENTRY(trap, a)
+ 
+         .align 5
+ GLOBAL(hyp_traps_vector)
+-- 
+2.13.6
+

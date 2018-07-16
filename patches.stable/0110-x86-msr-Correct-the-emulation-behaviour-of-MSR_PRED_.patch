@@ -1,0 +1,79 @@
+From 055abe41980b429eca9a899701f8327def937206 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 18 May 2018 13:31:01 +0200
+Subject: x86/msr: Correct the emulation behaviour of
+ MSR_PRED_CMD
+
+Experimentally, the behaviour of reserved bits in MSR_PRED_CMD changed between
+beta and production microcode, and now raises a #GP fault for set reserved
+bits.  The AMD spec for future hardware also specifies this behaviour, and it
+is the more sensible behaviour to implement.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+
+x86/msr: further correct the emulation behaviour of MSR_PRED_CMD
+
+Following commit a6aa678fa3 ("x86/msr: Correct the emulation behaviour
+of MSR_PRED_CMD") we may end up writing the low bit with the wrong
+value. While it's unlikely for a guest to want to write zero there, we
+should still permit (this without incurring the overhead of an actual
+barrier). Correcting this right away will also help whenever further
+bits in the MSR might become defined.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: a6aa678fa380e9369cc44701a181142322b3a4b0
+master date: 2018-04-16 13:18:19 +0100
+master commit: a996273d1fc10d14598985703227bfa35a91f681
+master date: 2018-04-18 11:16:37 +0200
+---
+ xen/arch/x86/hvm/hvm.c | 10 ++++------
+ xen/arch/x86/traps.c   | 10 ++++------
+ 2 files changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index ebabc10763..78f44c5f66 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -5007,12 +5007,10 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
+              !(ebx & cpufeat_mask(X86_FEATURE_IBPB)) )
+             goto gp_fault; /* MSR available? */
+ 
+-        /*
+-         * The only defined behaviour is when writing PRED_CMD_IBPB.  In
+-         * practice, real hardware accepts any value without faulting.
+-         */
+-        if ( msr_content & PRED_CMD_IBPB )
+-            wrmsrl(MSR_PRED_CMD, PRED_CMD_IBPB);
++        if ( msr_content & ~PRED_CMD_IBPB )
++            goto gp_fault; /* Rsvd bit set? */
++
++        wrmsrl(MSR_PRED_CMD, msr_content);
+         break;
+ 
+     case MSR_ARCH_CAPABILITIES:
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index eab5a3f23f..c23f4c0edb 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -2753,12 +2753,10 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+                  !(ebx & cpufeat_mask(X86_FEATURE_IBPB)) )
+                 goto fail; /* MSR available? */
+ 
+-            /*
+-             * The only defined behaviour is when writing PRED_CMD_IBPB.  In
+-             * practice, real hardware accepts any value without faulting.
+-             */
+-            if ( eax & PRED_CMD_IBPB )
+-                wrmsrl(MSR_PRED_CMD, PRED_CMD_IBPB);
++            if ( msr_content & ~PRED_CMD_IBPB )
++                goto fail; /* Rsvd bit set? */
++
++            wrmsrl(MSR_PRED_CMD, msr_content);
+             break;
+ 
+         case MSR_P6_PERFCTR(0)...MSR_P6_PERFCTR(7):
+-- 
+2.13.6
+

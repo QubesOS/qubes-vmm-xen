@@ -1,0 +1,71 @@
+From 1222333a8220638747e77b40b6418daa85270265 Mon Sep 17 00:00:00 2001
+From: Julien Grall <julien.grall@arm.com>
+Date: Wed, 22 Jun 2016 12:15:18 +0100
+Subject: xen/arm: Add macros to handle the MIDR
+
+Add new macros to easily get different parts of the register and to
+check if a given MIDR match a CPU model range. The latter will be really
+useful to handle errata later.
+
+The macros have been imported from the header
+arch/arm64/include/asm/cputype.h in Linux v4.6-rc3.
+
+Also remove MIDR_MASK which is unused.
+
+Signed-off-by: Julien Grall <julien.grall@arm.com>
+Acked-by: Stefano Stabellini <sstabellini@kernel.org>
+Signed-off-by: Stefano Stabellini <sstabellini@kernel.org>
+(cherry picked from commit 96c53eaa8cd32f86700b749065eaa37bf4cdc24c)
+---
+ xen/include/asm-arm/processor.h | 35 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/xen/include/asm-arm/processor.h b/xen/include/asm-arm/processor.h
+index 04a3e37ac1..94b29d840b 100644
+--- a/xen/include/asm-arm/processor.h
++++ b/xen/include/asm-arm/processor.h
+@@ -9,7 +9,40 @@
+ #include <public/arch-arm.h>
+ 
+ /* MIDR Main ID Register */
+-#define MIDR_MASK    0xff0ffff0
++#define MIDR_REVISION_MASK      0xf
++#define MIDR_RESIVION(midr)     ((midr) & MIDR_REVISION_MASK)
++#define MIDR_PARTNUM_SHIFT      4
++#define MIDR_PARTNUM_MASK       (0xfff << MIDR_PARTNUM_SHIFT)
++#define MIDR_PARTNUM(midr) \
++    (((midr) & MIDR_PARTNUM_MASK) >> MIDR_PARTNUM_SHIFT)
++#define MIDR_ARCHITECTURE_SHIFT 16
++#define MIDR_ARCHITECTURE_MASK  (0xf << MIDR_ARCHITECTURE_SHIFT)
++#define MIDR_ARCHITECTURE(midr) \
++    (((midr) & MIDR_ARCHITECTURE_MASK) >> MIDR_ARCHITECTURE_SHIFT)
++#define MIDR_VARIANT_SHIFT      20
++#define MIDR_VARIANT_MASK       (0xf << MIDR_VARIANT_SHIFT)
++#define MIDR_VARIANT(midr) \
++    (((midr) & MIDR_VARIANT_MASK) >> MIDR_VARIANT_SHIFT)
++#define MIDR_IMPLEMENTOR_SHIFT  24
++#define MIDR_IMPLEMENTOR_MASK   (0xff << MIDR_IMPLEMENTOR_SHIFT)
++#define MIDR_IMPLEMENTOR(midr) \
++    (((midr) & MIDR_IMPLEMENTOR_MASK) >> MIDR_IMPLEMENTOR_SHIFT)
++
++#define MIDR_CPU_MODEL(imp, partnum)            \
++    (((imp)     << MIDR_IMPLEMENTOR_SHIFT) |    \
++     (0xf       << MIDR_ARCHITECTURE_SHIFT) |   \
++     ((partnum) << MIDR_PARTNUM_SHIFT))
++
++#define MIDR_CPU_MODEL_MASK \
++     (MIDR_IMPLEMENTOR_MASK | MIDR_PARTNUM_MASK | MIDR_ARCHITECTURE_MASK)
++
++#define MIDR_IS_CPU_MODEL_RANGE(midr, model, rv_min, rv_max)            \
++({                                                                      \
++        u32 _model = (midr) & MIDR_CPU_MODEL_MASK;                      \
++        u32 _rv = (midr) & (MIDR_REVISION_MASK | MIDR_VARIANT_MASK);    \
++                                                                        \
++        _model == (model) && _rv >= (rv_min) && _rv <= (rv_max);        \
++})
+ 
+ /* MPIDR Multiprocessor Affinity Register */
+ #define _MPIDR_UP           (30)
+-- 
+2.13.6
+

@@ -1,0 +1,227 @@
+From 41a5ccec99e81a768a66995f483f424f848f5b5e Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 14 Feb 2018 13:39:40 +0100
+Subject: x86/msr: Emulation of MSR_{SPEC_CTRL,PRED_CMD} for
+ guests
+
+As per the spec currently available here:
+
+https://software.intel.com/sites/default/files/managed/c5/63/336996-Speculative-Execution-Side-Channel-Mitigations.pdf
+
+MSR_ARCH_CAPABILITIES will only come into existence on new hardware, but is
+implemented as a straight #GP for now to avoid being leaky when new hardware
+arrives.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: ea58a679a6190e714a592f1369b660769a48a80c
+master date: 2018-01-26 14:10:21 +0000
+---
+ xen/arch/x86/hvm/hvm.c          | 52 ++++++++++++++++++++++++++++++++++++-
+ xen/arch/x86/traps.c            | 57 ++++++++++++++++++++++++++++++++++++++---
+ xen/include/asm-x86/domain.h    |  2 ++
+ xen/include/asm-x86/msr-index.h |  2 ++
+ 4 files changed, 108 insertions(+), 5 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 8fe6fdc081..487afb266f 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -4799,6 +4799,21 @@ int hvm_msr_read_intercept(unsigned int msr, uint64_t *msr_content)
+         *msr_content = var_range_base[index];
+         break;
+ 
++    case MSR_PRED_CMD:
++        /* Write-only */
++        goto gp_fault;
++
++    case MSR_SPEC_CTRL:
++        hvm_cpuid(7, NULL, NULL, NULL, &edx);
++        if ( !(edx & cpufeat_mask(X86_FEATURE_IBRSB)) )
++            goto gp_fault;
++        *msr_content = v->arch.spec_ctrl;
++        break;
++
++    case MSR_ARCH_CAPABILITIES:
++        /* Not implemented yet. */
++        goto gp_fault;
++
+     case MSR_K8_ENABLE_C1E:
+     case MSR_AMD64_NB_CFG:
+          /*
+@@ -4836,7 +4851,7 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
+ {
+     struct vcpu *v = current;
+     bool_t mtrr;
+-    unsigned int edx, index;
++    unsigned int edx, ebx, index;
+     int ret = X86EMUL_OKAY;
+     struct arch_domain *currad = &current->domain->arch;
+ 
+@@ -4944,6 +4959,41 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
+             goto gp_fault;
+         break;
+ 
++    case MSR_SPEC_CTRL:
++        hvm_cpuid(7, NULL, NULL, NULL, &edx);
++        if ( !(edx & cpufeat_mask(X86_FEATURE_IBRSB)) )
++            goto gp_fault; /* MSR available? */
++
++        /*
++         * Note: SPEC_CTRL_STIBP is specified as safe to use (i.e. ignored)
++         * when STIBP isn't enumerated in hardware.
++         */
++
++        if ( msr_content & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP) )
++            goto gp_fault; /* Rsvd bit set? */
++
++        v->arch.spec_ctrl = msr_content;
++        break;
++
++    case MSR_PRED_CMD:
++        hvm_cpuid(7, NULL, NULL, NULL, &edx);
++        hvm_cpuid(0x80000008, NULL, &ebx, NULL, NULL);
++        if ( !(edx & cpufeat_mask(X86_FEATURE_IBRSB)) &&
++             !(ebx & cpufeat_mask(X86_FEATURE_IBPB)) )
++            goto gp_fault; /* MSR available? */
++
++        /*
++         * The only defined behaviour is when writing PRED_CMD_IBPB.  In
++         * practice, real hardware accepts any value without faulting.
++         */
++        if ( msr_content & PRED_CMD_IBPB )
++            wrmsrl(MSR_PRED_CMD, PRED_CMD_IBPB);
++        break;
++
++    case MSR_ARCH_CAPABILITIES:
++        /* Read-only */
++        goto gp_fault;
++
+     case MSR_AMD64_NB_CFG:
+         /* ignore the write */
+         break;
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index b827f5d0aa..8e97703ed0 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -2574,6 +2574,8 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+         vpmu_msr = 0;
+         switch ( regs->_ecx )
+         {
++            uint32_t ebx, dummy;
++
+         case MSR_FS_BASE:
+             if ( is_pv_32bit_domain(currd) ||
+                  !is_canonical_address(msr_content) )
+@@ -2713,10 +2715,39 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+             break;
+ 
+         case MSR_INTEL_PLATFORM_INFO:
+-            if ( boot_cpu_data.x86_vendor != X86_VENDOR_INTEL ||
+-                 msr_content ||
+-                 rdmsr_safe(MSR_INTEL_PLATFORM_INFO, msr_content) )
+-                goto fail;
++        case MSR_ARCH_CAPABILITIES:
++            /* The MSR is read-only. */
++            goto fail;
++
++        case MSR_SPEC_CTRL:
++            domain_cpuid(currd, 7, 0, &dummy, &dummy, &dummy, &edx);
++            if ( !(edx & cpufeat_mask(X86_FEATURE_IBRSB)) )
++                goto fail; /* MSR available? */
++
++            /*
++             * Note: SPEC_CTRL_STIBP is specified as safe to use (i.e. ignored)
++             * when STIBP isn't enumerated in hardware.
++             */
++
++            if ( eax & ~(SPEC_CTRL_IBRS | SPEC_CTRL_STIBP) )
++                goto fail; /* Rsvd bit set? */
++
++            v->arch.spec_ctrl = eax;
++            break;
++
++        case MSR_PRED_CMD:
++            domain_cpuid(currd, 7, 0, &dummy, &dummy, &dummy, &edx);
++            domain_cpuid(currd, 0x80000008, 0, &dummy, &ebx, &dummy, &dummy);
++            if ( !(edx & cpufeat_mask(X86_FEATURE_IBRSB)) &&
++                 !(ebx & cpufeat_mask(X86_FEATURE_IBPB)) )
++                goto fail; /* MSR available? */
++
++            /*
++             * The only defined behaviour is when writing PRED_CMD_IBPB.  In
++             * practice, real hardware accepts any value without faulting.
++             */
++            if ( eax & PRED_CMD_IBPB )
++                wrmsrl(MSR_PRED_CMD, PRED_CMD_IBPB);
+             break;
+ 
+         case MSR_P6_PERFCTR(0)...MSR_P6_PERFCTR(7):
+@@ -2777,6 +2808,8 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+         vpmu_msr = 0;
+         switch ( regs->_ecx )
+         {
++            uint32_t edx, dummy;
++
+         case MSR_FS_BASE:
+             if ( is_pv_32bit_domain(currd) )
+                 goto fail;
+@@ -2847,6 +2880,18 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+             regs->eax = regs->edx = 0;
+             break;
+ 
++        case MSR_PRED_CMD:
++            /* Write-only */
++            goto fail;
++
++        case MSR_SPEC_CTRL:
++            domain_cpuid(currd, 7, 0, &dummy, &dummy, &dummy, &edx);
++            if ( !(edx & cpufeat_mask(X86_FEATURE_IBRSB)) )
++                goto fail;
++            regs->eax = v->arch.spec_ctrl;
++            regs->edx = 0;
++            break;
++
+         case MSR_INTEL_PLATFORM_INFO:
+             if ( boot_cpu_data.x86_vendor != X86_VENDOR_INTEL ||
+                  rdmsr_safe(MSR_INTEL_PLATFORM_INFO, val) )
+@@ -2854,6 +2899,10 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+             regs->eax = regs->edx = 0;
+             break;
+ 
++        case MSR_ARCH_CAPABILITIES:
++            /* Not implemented yet. */
++            goto fail;
++
+         case MSR_P6_PERFCTR(0)...MSR_P6_PERFCTR(7):
+         case MSR_P6_EVNTSEL(0)...MSR_P6_EVNTSEL(3):
+         case MSR_CORE_PERF_FIXED_CTR0...MSR_CORE_PERF_FIXED_CTR2:
+diff --git a/xen/include/asm-x86/domain.h b/xen/include/asm-x86/domain.h
+index 4279549c28..6f512a1170 100644
+--- a/xen/include/asm-x86/domain.h
++++ b/xen/include/asm-x86/domain.h
+@@ -550,6 +550,8 @@ struct arch_vcpu
+ 
+     struct paging_vcpu paging;
+ 
++    uint32_t spec_ctrl;
++
+     uint32_t gdbsx_vcpu_event;
+ 
+     /* A secondary copy of the vcpu time info. */
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index ec2be6a1c7..1ef338e361 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -39,6 +39,8 @@
+ #define MSR_PRED_CMD			0x00000049
+ #define PRED_CMD_IBPB			(_AC(1, ULL) << 0)
+ 
++#define MSR_ARCH_CAPABILITIES		0x0000010a
++
+ /* Intel MSRs. Some also available on other CPUs */
+ #define MSR_IA32_PERFCTR0		0x000000c1
+ #define MSR_IA32_A_PERFCTR0		0x000004c1
+-- 
+2.13.6
+
