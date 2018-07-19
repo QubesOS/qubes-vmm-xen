@@ -18,12 +18,21 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
  1 file changed, 8 insertions(+), 2 deletions(-)
 --- xen-4.7.0/xen/common/efi/boot.c     2016-07-20 16:19:13.337000000 +0300
 +++ xen-4.7.0-new/xen/common/efi/boot.c 2016-07-20 16:18:51.621000000 +0300
+@@ -128,7 +128,7 @@
+ static void setup_efi_pci(void);
+ static void efi_variables(void);
+ static void efi_set_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN gop_mode);
+-static void efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable);
++static void efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool efit_boot_services);
+ 
+ static const EFI_BOOT_SERVICES *__initdata efi_bs;
+ static UINT32 __initdata efi_bs_revision;
 @@ -856,7 +856,7 @@
          efi_arch_video_init(gop, info_size, mode_info);
  }
 
 -static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
-+static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool_t exit_boot_services)
++static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool exit_boot_services)
  {
      EFI_STATUS status;
      UINTN info_size = 0, map_key;
@@ -44,17 +53,17 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
      EFI_SHIM_LOCK_PROTOCOL *shim_lock;
      EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
      union string section = { NULL }, name;
--    bool_t base_video = 0;
-+    bool_t base_video = 0, exit_boot_services = 1;
+-    bool base_video = false;
++    bool base_video = false, exit_boot_services = true;
      char *option_str;
-     bool_t use_cfg_file;
+     bool use_cfg_file;
 
 @@ -971,6 +974,8 @@
-                     base_video = 1;
+                     base_video = true;
                  else if ( wstrcmp(ptr + 1, L"mapbs") == 0 )
-                     map_bs = 1;
+                     map_bs = true;
 +                else if ( wstrcmp(ptr + 1, L"noexitboot") == 0 )
-+                    exit_boot_services = 0;
++                    exit_boot_services = false;
                  else if ( wstrncmp(ptr + 1, L"cfg=", 4) == 0 )
                      cfg_file_name = ptr + 5;
                  else if ( i + 1 < argc && wstrcmp(ptr + 1, L"cfg") == 0 )
@@ -75,3 +84,14 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
 
      efi_arch_post_exit_boot();
      for( ; ; ); /* not reached */
+--- a/xen/arch/x86/efi/efi-boot.h	2018-07-19 01:26:13.842000000 +0200
++++ b/xen/arch/x86/efi/efi-boot.h	2018-07-19 01:27:49.641000000 +0200
+@@ -706,7 +706,7 @@
+     if ( gop )
+         efi_set_gop_mode(gop, gop_mode);
+ 
+-    efi_exit_boot(ImageHandle, SystemTable);
++    efi_exit_boot(ImageHandle, SystemTable, true);
+ }
+ 
+ /*

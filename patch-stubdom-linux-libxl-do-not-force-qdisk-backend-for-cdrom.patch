@@ -17,10 +17,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  tools/libxl/libxl.c | 13 -------------
  1 file changed, 13 deletions(-)
 
-diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+diff --git a/tools/libxl/libxl_disk.c b/tools/libxl/libxl_disk.c
 index 814aa02..5cca657 100644
---- a/tools/libxl/libxl.c
-+++ b/tools/libxl/libxl.c
+--- a/tools/libxl/libxl_disk.c
++++ b/tools/libxl/libxl_disk.c
 @@ -2095,17 +2095,6 @@ int libxl__device_disk_setdefault(libxl__gc *gc, libxl_device_disk *disk,
      rc = libxl__resolve_domid(gc, disk->backend_domname, &disk->backend_domid);
      if (rc < 0) return rc;
@@ -30,7 +30,7 @@ index 814aa02..5cca657 100644
 -        libxl__domain_type(gc, domid) == LIBXL_DOMAIN_TYPE_HVM) {
 -        if (!(disk->backend == LIBXL_DISK_BACKEND_QDISK ||
 -              disk->backend == LIBXL_DISK_BACKEND_UNKNOWN)) {
--            LOG(ERROR, "Backend for CD devices on HVM guests must be Qdisk");
+-            LOGD(ERROR, domid, "Backend for CD devices on HVM guests must be Qdisk");
 -            return ERROR_FAIL;
 -        }
 -        disk->backend = LIBXL_DISK_BACKEND_QDISK;

@@ -1,6 +1,6 @@
 TODO: upstream?
---- a/tools/libxl/libxl.c
-+++ b/tools/libxl/libxl.c
+--- a/tools/libxl/libxl_mem.c
++++ b/tools/libxl/libxl_mem.c
 @@ -4493,7 +4493,7 @@ int libxl_domain_need_memory(libxl_ctx *
          if (libxl_defbool_val(b_info->device_model_stubdomain)) {
              switch (b_info->stubdomain_version) {

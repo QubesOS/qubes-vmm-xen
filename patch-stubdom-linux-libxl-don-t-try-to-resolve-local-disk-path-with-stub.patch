@@ -23,14 +23,14 @@ index ad366a8..b9dbf5f 100644
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
 @@ -1352,7 +1352,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
-                         disks[i].vdev);
+                          disks[i].vdev);
                      continue;
                  }
 -            } else {
 +            } else if (!libxl_defbool_val(b_info->device_model_stubdomain)) {
                  if (format == NULL) {
-                     LOG(WARN,
-                         "Unable to determine disk image format: %s\n"
+                     LOGD(WARN, guest_domid,
+                          "Unable to determine disk image format: %s\n"
 -- 
 2.9.5
 

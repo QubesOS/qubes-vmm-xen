@@ -29,8 +29,8 @@ index 6e410fb..77100c9 100644
 @@ -97,6 +97,7 @@ static SIMPLE_TEXT_OUTPUT_INTERFACE *__initdata StdErr;
  
  static UINT32 __initdata mdesc_ver;
- static bool_t __initdata map_bs;
-+static bool_t __initdata map_res = 1;
+ static bool __initdata map_bs;
++static bool __initdata map_res = true;
  
  static struct file __initdata cfg;
  static struct file __initdata kernel;

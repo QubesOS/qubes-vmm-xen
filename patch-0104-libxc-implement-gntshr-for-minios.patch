@@ -66,7 +66,7 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
  SRCS-$(CONFIG_Linux)   += $(SRCS-GNTTAB) $(SRCS-GNTSHR) linux.c
 -SRCS-$(CONFIG_MiniOS)  += $(SRCS-GNTTAB) gntshr_unimp.c minios.c
 +SRCS-$(CONFIG_MiniOS)  += $(SRCS-GNTTAB) $(SRCS-GNTSHR) minios.c
- SRCS-$(CONFIG_FreeBSD) += gnttab_unimp.c gntshr_unimp.c
+ SRCS-$(CONFIG_FreeBSD) += $(SRCS-GNTTAB) $(SRCS-GNTSHR) freebsd.c
  SRCS-$(CONFIG_SunOS)   += gnttab_unimp.c gntshr_unimp.c
  SRCS-$(CONFIG_NetBSD)  += gnttab_unimp.c gntshr_unimp.c
 --- xen-4.7.0/tools/libs/gnttab/minios.c.orig	2016-07-17 01:12:21.137000000 +0300

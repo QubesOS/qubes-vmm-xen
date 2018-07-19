@@ -25,16 +25,16 @@
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
 @@ -556,6 +556,8 @@ libxl_domain_build_info = Struct("domain
-                                        ("serial_list",      libxl_string_list),
                                         ("rdm", libxl_rdm_reserve),
                                         ("rdm_mem_boundary_memkb", MemKB),
+                                        ("mca_caps",         uint64),
 +
 +                                       ("qubes_gui", libxl_defbool),
                                         ])),
                   ("pv", Struct(None, [("kernel", string),
                                        ("slack_memkb", MemKB),
---- a/tools/libxl/xl_cmdimpl.c
-+++ b/tools/libxl/xl_cmdimpl.c
+--- a/tools/xl/xl_parse.c
++++ b/tools/xl/xl_parse.c
 @@ -2503,6 +2503,8 @@ skip_usbdev:
  
              b_info->u.hvm.vendor_device = d;

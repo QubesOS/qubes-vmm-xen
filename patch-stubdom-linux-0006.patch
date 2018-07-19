@@ -18,8 +18,8 @@ HW42:
  tools/libxl/libxl_internal.h |   4 ++
  5 files changed, 145 insertions(+), 22 deletions(-)
 
---- a/tools/libxl/libxl.c
-+++ b/tools/libxl/libxl.c
+--- a/tools/libxl/libxl_console.c
++++ b/tools/libxl/libxl_console.c
 @@ -1876,8 +1876,17 @@ static int libxl__primary_console_find(l
  
      if (stubdomid) {
@@ -39,6 +39,8 @@ HW42:
      } else {
          switch (libxl__domain_type(gc, domid_vm)) {
          case LIBXL_DOMAIN_TYPE_HVM:
+--- a/tools/libxl/libxl_mem.c
++++ b/tools/libxl/libxl_mem.c
 @@ -4509,8 +4518,18 @@ int libxl_domain_need_memory(libxl_ctx *
      case LIBXL_DOMAIN_TYPE_PVH:
      case LIBXL_DOMAIN_TYPE_HVM:
@@ -130,7 +132,7 @@ HW42:
 +    dm_config->b_info.max_memkb += guest_config->b_info.video_memkb;
      dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
  
-     dm_config->b_info.u.pv.features = "";
+     dm_config->b_info.max_grant_frames = guest_config->b_info.max_grant_frames;
 @@ -1772,10 +1795,25 @@ void libxl__spawn_stub_dm(libxl__egc *eg
          dm_config->num_vkbs = 1;
      }
@@ -160,7 +162,7 @@ HW42:
 +    }
  
      /* fixme: this function can leak the stubdom if it fails */
-     ret = libxl__domain_make(gc, dm_config, &sdss->pvqemu.guest_domid,
+     ret = libxl__domain_make(gc, dm_config, stubdom_state,
 @@ -1795,7 +1833,12 @@ void libxl__spawn_stub_dm(libxl__egc *eg
          goto out;
      }
@@ -190,9 +192,9 @@ HW42:
 +    }
      ret = xc_domain_set_target(ctx->xch, dm_domid, guest_domid);
      if (ret<0) {
-         LOGE(ERROR, "setting target domain %d -> %d", dm_domid, guest_domid);
+         LOGED(ERROR, guest_domid, "setting target domain %d -> %d",
 @@ -1882,6 +1934,10 @@ static void spawn_stub_launch_dm(libxl__
-             goto out;
+         if (ret) goto out;
      }
  
 +    if (guest_config->b_info.stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX) {

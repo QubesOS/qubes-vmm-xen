@@ -49,8 +49,8 @@ index 77d9d02..1087f1a 100644
 +        if (rc) goto out;
 +    }
  
-     DEVICE_ADD(pci, pcidevs, domid, &pcidev_saved, COMPARE_PCI, &d_config);
- 
+     device_add_domain_config(gc, &d_config, &libxl__pcidev_devtype,
+                              &pcidev_saved);
 @@ -169,8 +173,10 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
          rc = libxl__xs_transaction_start(gc, &t);
          if (rc) goto out;

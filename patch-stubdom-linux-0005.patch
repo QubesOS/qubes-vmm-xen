@@ -29,9 +29,9 @@ alcreator:
 
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -24,7 +24,8 @@
- #include <sys/types.h>
+@@ -24,15 +24,26 @@
  #include <pwd.h>
+ #include <grp.h>
  
 -static const char *libxl_tapif_script(libxl__gc *gc)
 +static const char *libxl_tapif_script(libxl__gc *gc,
@@ -63,7 +63,7 @@ alcreator:
                                    NULL);
                  ioemu_nics++;
              }
-@@ -916,9 +923,11 @@ static int libxl__build_device_model_arg
+@@ -924,10 +935,12 @@ static int libxl__build_device_model_arg
      char *machinearg;
      flexarray_t *dm_args, *dm_envs;
      int i, connection, devid, ret;
@@ -71,6 +71,7 @@ alcreator:
      uint64_t ram_size;
      const char *path, *chardev;
      char *user = NULL;
+     struct passwd *user_base, user_pwbuf;
 +    bool is_stubdom = libxl_defbool_val(b_info->device_model_stubdomain);
  
      dm_args = flexarray_make(gc, 16, 1);
@@ -211,10 +212,10 @@ alcreator:
 -                                           libxl_tapif_script(gc)));
 +                                           libxl_tapif_script(gc, b_info),
 +                                           libxl_tapif_downscript(gc, b_info)));
-                 ioemu_nics++;
-             }
-         }
-@@ -1314,6 +1335,8 @@ static int libxl__build_device_model_arg
+ 
+                 /* Userspace COLO Proxy need this */
+ #define APPEND_COLO_SOCK_SERVER(sock_id, sock_ip, sock_port) ({             \
+@@ -1322,6 +1347,8 @@ static int libxl__build_device_model_arg
      if (b_info->type == LIBXL_DOMAIN_TYPE_HVM) {
          if (b_info->u.hvm.hdtype == LIBXL_HDTYPE_AHCI)
              flexarray_append_pair(dm_args, "-device", "ahci,id=ahci0");
@@ -273,10 +274,10 @@ alcreator:
 +                        disk, 0x3525400051756265 + disk), NULL);
 +                    continue;
 +                } else if (strncmp(disks[i].vdev, "sd", 2) == 0) {
+                     const char *drive_id;
                      if (colo_mode == LIBXL__COLO_SECONDARY) {
                          drive = libxl__sprintf
-                             (gc, "if=none,driver=%s,file=%s,id=%s,readonly=%s",
-@@ -1512,7 +1563,7 @@ static int libxl__build_device_model_arg
+@@ -1519,7 +1574,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)

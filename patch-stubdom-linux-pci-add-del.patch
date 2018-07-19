@@ -1,9 +1,9 @@
 --- a/tools/libxl/libxl_pci.c
 +++ b/tools/libxl/libxl_pci.c
 @@ -1007,6 +1007,7 @@ static int do_pci_add(libxl__gc *gc, uin
-     unsigned long long start, end, flags, size;
-     int irq, i, rc, hvm = 0;
      uint32_t flag = XEN_DOMCTL_DEV_RDM_RELAXED;
+     uint32_t domainid = domid;
+     bool isstubdom = libxl_is_stubdom(ctx, domid, &domainid);
 +    uint32_t dm_domid;
  
      if (type == LIBXL_DOMAIN_TYPE_INVALID)
@@ -31,9 +31,9 @@
      int hvm = 0, rc, num;
 -    int stubdomid = 0;
 +    int stubdomid = libxl_get_stubdom_id(ctx, domid);
+     uint32_t domainid = domid;
+     bool isstubdom = libxl_is_stubdom(ctx, domid, &domainid);
  
-     assigned = libxl_device_pci_list(ctx, domid, &num);
-     if ( assigned == NULL )
 @@ -1408,7 +1417,13 @@ static int do_pci_remove(libxl__gc *gc,
              rc = qemu_pci_remove_xenstore(gc, domid, pcidev, force);
              break;
@@ -50,7 +50,7 @@
          default:
              rc = ERROR_INVAL;
 @@ -1488,7 +1503,6 @@ out:
-             LOGE(ERROR, "xc_deassign_device failed");
+             LOGED(ERROR, domainid, "xc_deassign_device failed");
      }
  
 -    stubdomid = libxl_get_stubdom_id(ctx, domid);

@@ -3,8 +3,8 @@ index b6d41de..8a76c27 100644
 --- a/tools/console/daemon/io.c
 +++ b/tools/console/daemon/io.c
 @@ -98,10 +98,25 @@ struct domain {
- 
- static struct domain *dom_head;
+ 	return ret;
+ }
  
 +static void replace_esc(const char *buf, char *dest, int len) {
 +	int i;

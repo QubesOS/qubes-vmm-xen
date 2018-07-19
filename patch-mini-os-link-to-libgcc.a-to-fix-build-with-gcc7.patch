@@ -14,5 +14,5 @@ Signed-off-by: Frédéric Pierret
 +	$(LD) -r $(LDFLAGS) $(HEAD_OBJ) $(APP_O) $(OBJS) $(LDARCHLIB) $(LDLIBS) $$(gcc -print-libgcc-file-name $(CFLAGS)) -o $@.o
  	$(OBJCOPY) -w -G $(GLOBAL_PREFIX)* -G _start $@.o $@.o
  	$(LD) $(LDFLAGS) $(LDFLAGS_FINAL) $@.o $(EXTRA_OBJS) -o $@
- 	gzip -f -9 -c $@ >$@.gz
+ 	gzip -n -f -9 -c $@ >$@.gz
 

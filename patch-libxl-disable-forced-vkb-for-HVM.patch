@@ -28,7 +28,7 @@ index 18b064e..a5fd815 100644
          libxl__device_console_dispose(&console);
  
 -        libxl_device_vkb_init(&vkb);
--        libxl__device_vkb_add(gc, domid, &vkb);
+-        libxl__device_add(gc, domid, &libxl__vkb_devtype, &vkb);
 -        libxl_device_vkb_dispose(&vkb);
 -
          dcs->sdss.dm.guest_domid = domid;

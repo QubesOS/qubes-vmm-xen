@@ -45,7 +45,7 @@ index 61bef12..395ed6b 100644
 -    if (domtype == LIBXL_DOMAIN_TYPE_PV) {
 +    if (domtype == LIBXL_DOMAIN_TYPE_PV && state_before && atoi(state_before) != 6) {
          if (libxl__wait_for_backend(gc, be_path, GCSPRINTF("%d", XenbusStateConnected)) < 0) {
-             LOG(DEBUG, "pci backend at %s is not ready", be_path);
+             LOGD(DEBUG, domid, "pci backend at %s is not ready", be_path);
              return ERROR_FAIL;
 @@ -363,6 +364,8 @@ static int libxl_device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libxl
      }

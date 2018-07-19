@@ -1,17 +1,28 @@
 --- a/stubdom/Makefile.orig	2012-02-21 15:42:20.364000956 +0100
 +++ b/stubdom/Makefile	2012-02-21 15:43:40.916001086 +0100
-@@ -350,6 +350,11 @@
- 	  ln -sf $(XEN_ROOT)/tools/libxc/include/*.h include/ && \
- 	  ln -sf $(XEN_ROOT)/tools/libxc/*.c . && \
- 	  ln -sf $(XEN_ROOT)/tools/libxc/Makefile . )
-+	mkdir -p vchan-$(XEN_TARGET_ARCH)
-+	[ -h vchan-$(XEN_TARGET_ARCH) ] || ( cd vchan-$(XEN_TARGET_ARCH) && \
-+	  ln -sf $(XEN_ROOT)/tools/vchan/*.c . && \
-+	  ln -sf $(XEN_ROOT)/tools/vchan/*.h . && \
-+	  ln -sf $(XEN_ROOT)/tools/vchan/Makefile.stubdom ./Makefile )
- 	mkdir -p libvchan-$(XEN_TARGET_ARCH)
- 	[ -h libvchan-$(XEN_TARGET_ARCH) ] || ( cd libvchan-$(XEN_TARGET_ARCH) && \
- 	  ln -sf $(XEN_ROOT)/tools/libvchan/*.c . && \
+@@ -325,7 +325,7 @@
+   ln -sf $(dir $<)include/*.h include/; \
+   ln -sf $(dir $<)*.[ch] .; \
+   ln -sf $(dir $<)*.pc.in .; \
+-  ln -sf $(dir $<)Makefile .
++  ln -sf $< ./Makefile
+   touch $@
+ endef
+ 
+@@ -359,8 +359,12 @@
+ libvchan-$(XEN_TARGET_ARCH)/stamp: $(XEN_ROOT)/tools/libvchan/Makefile
+ 	$(do_links)
+ 
++vchan-$(XEN_TARGET_ARCH)/stamp: $(XEN_ROOT)/tools/vchan/Makefile.stubdom
++	$(do_links)
++
++
+ LINK_LIBS_DIRS := toolcore toollog evtchn gnttab call foreignmemory devicemodel
+-LINK_DIRS := libxc-$(XEN_TARGET_ARCH) xenstore libvchan-$(XEN_TARGET_ARCH) $(foreach dir,$(LINK_LIBS_DIRS),libs-$(XEN_TARGET_ARCH)/$(dir))
++LINK_DIRS := libxc-$(XEN_TARGET_ARCH) xenstore libvchan-$(XEN_TARGET_ARCH) vchan-$(XEN_TARGET_ARCH) $(foreach dir,$(LINK_LIBS_DIRS),libs-$(XEN_TARGET_ARCH)/$(dir))
+ LINK_STAMPS := $(foreach dir,$(LINK_DIRS),$(dir)/stamp)
+
+ mk-headers-$(XEN_TARGET_ARCH): $(IOEMU_LINKFARM_TARGET) $(LINK_STAMPS)
 @@ -267,6 +272,15 @@
   libxc-$(XEN_TARGET_ARCH)/libxenguest.a: libxc-$(XEN_TARGET_ARCH)/libxenctrl.a
  
@@ -46,8 +57,10 @@
  APP_LDLIBS += -lz
  APP_LDLIBS += -lm
 +ifeq ($(vchan),y)
-+APP_LDLIBS += -L$(XEN_ROOT)/stubdom/vchan-$(XEN_TARGET_ARCH) -lvchan -L$(XEN_ROOT)/stubdom/libvchan-$(XEN_TARGET_ARCH) -lxenvchan
++APP_LDLIBS += -L$(XEN_ROOT)/stubdom/vchan-$(MINIOS_TARGET_ARCH) -lvchan -L$(XEN_ROOT)/stubdom/libvchan-$(MINIOS_TARGET_ARCH) -lxenvchan
 +endif
  LDLIBS += -lc
  endif
  
+--- stubdom/Makefile	2018-07-18 22:19:23.817000000 +0200
++++ stubdom/Makefile.new	2018-07-18 22:28:37.792000000 +0200

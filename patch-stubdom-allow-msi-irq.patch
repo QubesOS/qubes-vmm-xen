@@ -1,13 +1,11 @@
 Allow stubdom access to irq created for msi.
 
 Based on https://github.com/OpenXT/xenclient-oe/blob/5e0e7304a5a3c75ef01240a1e3673665b2aaf05e/recipes-extended/xen/files/stubdomain-msi-irq-access.patch
---- a/xen/arch/x86/physdev.c
-+++ b/xen/arch/x86/physdev.c
-@@ -146,7 +146,25 @@ int physdev_map_pirq(domid_t domid, int
-         irq = *index;
-         if ( irq == -1 )
+--- a/xen/arch/x86/irq.c
++++ b/xen/arch/x86/irq.c
+@@ -146,6 +146,21 @@ int physdev_map_pirq(domid_t domid, int
+         {
      case MAP_PIRQ_TYPE_MULTI_MSI:
-+        {
              irq = create_irq(NUMA_NO_NODE);
 +            if ( !(irq < nr_irqs_gsi || irq >= nr_irqs) &&
 +                 current->domain->target == d )
@@ -21,17 +19,15 @@ Based on https://github.com/OpenXT/xenclient-oe/blob/5e0e7304a5a3c75ef01240a1e36
 +                            current->domain->domain_id,
 +                            irq,
 +                            ret);
-+                    ret = -EINVAL;
-+                    goto free_domain;
++                    return -EINVAL;
 +                }
 +            }
-+        }
+         }
  
          if ( irq < nr_irqs_gsi || irq >= nr_irqs )
-         {
 @@ -244,7 +262,15 @@ int physdev_map_pirq(domid_t domid, int
          case MAP_PIRQ_TYPE_MSI:
-             if ( *index == -1 )
+             if ( index == -1 )
          case MAP_PIRQ_TYPE_MULTI_MSI:
 +            {
 +                if ( current->domain->target == d &&
@@ -44,7 +40,9 @@ Based on https://github.com/OpenXT/xenclient-oe/blob/5e0e7304a5a3c75ef01240a1e36
 +            }
              break;
          }
-  free_domain:
+     }
+--- a/xen/arch/x86/physdev.c
++++ b/xen/arch/x86/physdev.c
 @@ -277,6 +303,15 @@ int physdev_unmap_pirq(domid_t domid, in
  
      pcidevs_lock();

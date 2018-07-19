@@ -1,5 +1,5 @@
---- a/tools/libxl/libxl.c
-+++ b/tools/libxl/libxl.c
+--- a/tools/libxl/libxl_mem.c
++++ b/tools/libxl/libxl_mem.c
 @@ -4491,16 +4491,7 @@ int libxl_domain_need_memory(libxl_ctx *
      case LIBXL_DOMAIN_TYPE_HVM:
          *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;

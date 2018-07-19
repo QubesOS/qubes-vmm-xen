@@ -40,7 +40,7 @@ index 658c159..e4f7a61 100644
  endif
  
 +ifeq ($(CONFIG_VCHAN),y)
-+APP_LDLIBS += -L$(XEN_ROOT)/stubdom/libvchan-$(XEN_TARGET_ARCH) -lxenvchan
++APP_LDLIBS += -L$(XEN_ROOT)/stubdom/libvchan-$(MINIOS_TARGET_ARCH) -lxenvchan
 +endif
 +
  ifneq ($(APP_OBJS)-$(lwip),-y)
@@ -48,18 +48,19 @@ index 658c159..e4f7a61 100644
  endif
 --- xen-4.7.0/stubdom/Makefile.orig	2016-06-20 13:38:15.000000000 +0300
 +++ xen-4.7.0/stubdom/Makefile	2016-07-17 01:50:56.853000000 +0300
-@@ -349,6 +350,11 @@
- 	  ln -sf $(XEN_ROOT)/tools/libxc/include/*.h include/ && \
- 	  ln -sf $(XEN_ROOT)/tools/libxc/*.c . && \
- 	  ln -sf $(XEN_ROOT)/tools/libxc/Makefile . )
-+	mkdir -p libvchan-$(XEN_TARGET_ARCH)
-+	[ -h libvchan-$(XEN_TARGET_ARCH) ] || ( cd libvchan-$(XEN_TARGET_ARCH) && \
-+	  ln -sf $(XEN_ROOT)/tools/libvchan/*.c . && \
-+	  ln -sf $(XEN_ROOT)/tools/libvchan/*.h . && \
-+	  ln -sf $(XEN_ROOT)/tools/libvchan/Makefile . )
- 	mkdir -p xenstore/include
- 	[ -h xenstore/Makefile ] || ( cd xenstore && \
- 	  ln -sf $(XEN_ROOT)/tools/xenstore/*.c . && \
+@@ -356,8 +356,11 @@
+ xenstore/stamp: $(XEN_ROOT)/tools/xenstore/Makefile
+ 	$(do_links)
+ 
++libvchan-$(XEN_TARGET_ARCH)/stamp: $(XEN_ROOT)/tools/libvchan/Makefile
++	$(do_links)
++
+ LINK_LIBS_DIRS := toolcore toollog evtchn gnttab call foreignmemory devicemodel
+-LINK_DIRS := libxc-$(XEN_TARGET_ARCH) xenstore $(foreach dir,$(LINK_LIBS_DIRS),libs-$(XEN_TARGET_ARCH)/$(dir))
++LINK_DIRS := libxc-$(XEN_TARGET_ARCH) xenstore libvchan-$(XEN_TARGET_ARCH) $(foreach dir,$(LINK_LIBS_DIRS),libs-$(XEN_TARGET_ARCH)/$(dir))
+ LINK_STAMPS := $(foreach dir,$(LINK_DIRS),$(dir)/stamp)
+ 
+ mk-headers-$(XEN_TARGET_ARCH): $(IOEMU_LINKFARM_TARGET) $(LINK_STAMPS)
 @@ -422,6 +428,15 @@
   libxc-$(XEN_TARGET_ARCH)/libxenguest.a: libxc-$(XEN_TARGET_ARCH)/libxenctrl.a
  
@@ -79,3 +80,5 @@ index 658c159..e4f7a61 100644
 -- 
 1.8.1.4
 
+--- stubdom/Makefile.orig	2018-07-18 22:08:55.128000000 +0200
++++ stubdom/Makefile	2018-07-18 22:18:17.557000000 +0200
