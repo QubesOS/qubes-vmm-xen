@@ -25,7 +25,7 @@ Build-Depends:
     libncurses5-dev:amd64,
     libpixman-1-dev,
     libpython2.7:amd64,
-    libpython2.7-dev
+    libpython2.7-dev,
     libssl-dev, 
     libssl-dev:amd64,
     libyajl-dev,
