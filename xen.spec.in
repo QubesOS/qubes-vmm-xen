@@ -78,6 +78,7 @@ Source36: @gui-common@
 Patch101: patch-xen.use.fedora.ipxe.patch
 Patch102: patch-xen.fedora.efi.build.patch
 Patch103: patch-xen.gcc5.fix.patch
+Patch104: patch-xen.vwprintw.fix.patch
 
 # EFI workarounds
 
