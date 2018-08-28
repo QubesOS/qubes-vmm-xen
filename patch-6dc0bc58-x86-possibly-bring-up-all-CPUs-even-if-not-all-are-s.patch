@@ -1,0 +1,173 @@
+From 6dc0bc58810ef9462548318f8155a328720b7ac9 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 30 Jul 2018 12:07:43 +0200
+Subject: [PATCH] x86: possibly bring up all CPUs even if not all are supposed
+ to be used
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reportedly Intel CPUs which can't broadcast #MC to all targeted
+cores/threads because some have CR4.MCE clear will shut down. Therefore
+we want to keep CR4.MCE enabled when offlining a CPU, and we need to
+bring up all CPUs in order to be able to set CR4.MCE in the first place.
+
+The use of clear_in_cr4() in cpu_mcheck_disable() was ill advised
+anyway, and to avoid future similar mistakes I'm removing clear_in_cr4()
+altogether right here.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+master commit: 8797d20a6ec2dd75195585a107ce345c51c0a59a
+master date: 2018-07-19 13:43:33 +0100
+---
+ xen/arch/x86/cpu/common.c           |  4 ++++
+ xen/arch/x86/cpu/mcheck/mce_intel.c |  2 --
+ xen/arch/x86/mpparse.c              | 15 +++++++++++----
+ xen/arch/x86/setup.c                | 18 +++++++++++++++---
+ xen/include/asm-x86/processor.h     |  6 ------
+ 5 files changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 6310dbedec..81487cb2e6 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -15,6 +15,7 @@
+ #include <public/sysctl.h> /* for XEN_INVALID_{SOCKET,CORE}_ID */
+ 
+ #include "cpu.h"
++#include "mcheck/x86_mca.h"
+ 
+ bool_t opt_arat = 1;
+ boolean_param("arat", opt_arat);
+@@ -281,6 +282,9 @@ static void __init early_cpu_detect(void)
+ 			hap_paddr_bits = PADDR_BITS;
+ 	}
+ 
++	if (c->x86_vendor != X86_VENDOR_AMD)
++		park_offline_cpus = opt_mce;
++
+ 	initialize_cpu_data(0);
+ }
+ 
+diff --git a/xen/arch/x86/cpu/mcheck/mce_intel.c b/xen/arch/x86/cpu/mcheck/mce_intel.c
+index 005e41de60..71e6891be1 100644
+--- a/xen/arch/x86/cpu/mcheck/mce_intel.c
++++ b/xen/arch/x86/cpu/mcheck/mce_intel.c
+@@ -628,8 +628,6 @@ static void clear_cmci(void)
+ 
+ static void cpu_mcheck_disable(void)
+ {
+-    clear_in_cr4(X86_CR4_MCE);
+-
+     if (cmci_support && opt_mce)
+         clear_cmci();
+ }
+diff --git a/xen/arch/x86/mpparse.c b/xen/arch/x86/mpparse.c
+index ef6557c0ef..31e29d90c2 100644
+--- a/xen/arch/x86/mpparse.c
++++ b/xen/arch/x86/mpparse.c
+@@ -69,19 +69,26 @@ physid_mask_t phys_cpu_present_map;
+ 
+ void __init set_nr_cpu_ids(unsigned int max_cpus)
+ {
++	unsigned int tot_cpus = num_processors + disabled_cpus;
++
+ 	if (!max_cpus)
+-		max_cpus = num_processors + disabled_cpus;
++		max_cpus = tot_cpus;
+ 	if (max_cpus > NR_CPUS)
+ 		max_cpus = NR_CPUS;
+ 	else if (!max_cpus)
+ 		max_cpus = 1;
+ 	printk(XENLOG_INFO "SMP: Allowing %u CPUs (%d hotplug CPUs)\n",
+ 	       max_cpus, max_t(int, max_cpus - num_processors, 0));
+-	nr_cpu_ids = max_cpus;
++
++	if (!park_offline_cpus)
++		tot_cpus = max_cpus;
++	nr_cpu_ids = min(tot_cpus, NR_CPUS + 0u);
++	if (park_offline_cpus && nr_cpu_ids < num_processors)
++		printk(XENLOG_WARNING "SMP: Cannot bring up %u further CPUs\n",
++		       num_processors - nr_cpu_ids);
+ 
+ #ifndef nr_cpumask_bits
+-	nr_cpumask_bits = (max_cpus + (BITS_PER_LONG - 1)) &
+-			  ~(BITS_PER_LONG - 1);
++	nr_cpumask_bits = ROUNDUP(nr_cpu_ids, BITS_PER_LONG);
+ 	printk(XENLOG_DEBUG "NR_CPUS:%u nr_cpumask_bits:%u\n",
+ 	       NR_CPUS, nr_cpumask_bits);
+ #endif
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 75eda01bd6..fd80b6dfef 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -647,7 +647,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ {
+     char *memmap_type = NULL;
+     char *cmdline, *kextra, *loader;
+-    unsigned int initrdidx, domcr_flags = DOMCRF_s3_integrity;
++    unsigned int initrdidx, num_parked = 0, domcr_flags = DOMCRF_s3_integrity;
+     multiboot_info_t *mbi = __va(mbi_p);
+     module_t *mod = (module_t *)__va(mbi->mods_addr);
+     unsigned long nr_pages, raw_max_page, modules_headroom, *module_map;
+@@ -1434,7 +1434,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+     else
+     {
+         set_nr_cpu_ids(max_cpus);
+-        max_cpus = nr_cpu_ids;
++        if ( !max_cpus )
++            max_cpus = nr_cpu_ids;
+     }
+ 
+     /* Low mappings were only needed for some BIOS table parsing. */
+@@ -1547,15 +1548,26 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+         /* Set up node_to_cpumask based on cpu_to_node[]. */
+         numa_add_cpu(i);        
+ 
+-        if ( (num_online_cpus() < max_cpus) && !cpu_online(i) )
++        if ( (park_offline_cpus || num_online_cpus() < max_cpus) &&
++             !cpu_online(i) )
+         {
+             int ret = cpu_up(i);
+             if ( ret != 0 )
+                 printk("Failed to bring up CPU %u (error %d)\n", i, ret);
++            else if ( num_online_cpus() > max_cpus )
++            {
++                ret = cpu_down(i);
++                if ( !ret )
++                    ++num_parked;
++                else
++                    printk("Could not re-offline CPU%u (%d)\n", i, ret);
++            }
+         }
+     }
+ 
+     printk("Brought up %ld CPUs\n", (long)num_online_cpus());
++    if ( num_parked )
++        printk(XENLOG_INFO "Parked %u CPUs\n", num_parked);
+     smp_cpus_done();
+ 
+     do_initcalls();
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 1482e4755d..a3acf8506a 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -402,12 +402,6 @@ static always_inline void set_in_cr4 (unsigned long mask)
+     write_cr4(read_cr4() | mask);
+ }
+ 
+-static always_inline void clear_in_cr4 (unsigned long mask)
+-{
+-    mmu_cr4_features &= ~mask;
+-    write_cr4(read_cr4() & ~mask);
+-}
+-
+ static inline unsigned int read_pkru(void)
+ {
+     unsigned int pkru;
+-- 
+2.18.0
+

@@ -1,0 +1,36 @@
+From 3686d0963ed2dd18825e6c108056b3a58bbcd1fb Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 30 Jul 2018 12:00:59 +0200
+Subject: [PATCH] cmdline: fix parse_boolean() for NULL incoming end pointer
+
+Use the calculated lengths instead of pointers, as 'e' being NULL will
+otherwise cause undue parsing failures.
+
+Reported-by: Karl Johnson <karljohnson.it@gmail.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/common/kernel.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/xen/common/kernel.c b/xen/common/kernel.c
+index ed49c62a46..75567274fa 100644
+--- a/xen/common/kernel.c
++++ b/xen/common/kernel.c
+@@ -191,10 +191,11 @@ int parse_boolean(const char *name, const char *s, const char *e)
+         char buf[8];
+ 
+         s += nlen + 1;
+-        if ( e <= s || e - s >= ARRAY_SIZE(buf) )
++        slen -= nlen + 1;
++        if ( slen >= ARRAY_SIZE(buf) )
+             return -1;
+-        memcpy(buf, s, e - s);
+-        buf[e - s] = 0;
++        memcpy(buf, s, slen);
++        buf[slen] = 0;
+         return parse_bool(buf);
+     }
+ 
+-- 
+2.18.0
+

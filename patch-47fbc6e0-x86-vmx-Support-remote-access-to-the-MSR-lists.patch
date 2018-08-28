@@ -1,0 +1,306 @@
+From 47fbc6e0250c8027245d9ef9c3ea33b9e33e2e28 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 7 May 2018 11:57:00 +0100
+Subject: [PATCH] x86/vmx: Support remote access to the MSR lists
+
+At the moment, all modifications of the MSR lists are in current context.
+However, future changes may need to put MSR_EFER into the lists from domctl
+hypercall context.
+
+Plumb a struct vcpu parameter down through the infrastructure, and use
+vmx_vmcs_{enter,exit}() for safe access to the VMCS in vmx_add_msr().  Use
+assertions to ensure that access is either in current context, or while the
+vcpu is paused.
+
+Note these expectations beside the fields in arch_vmx_struct, and reorder the
+fields to avoid unnecessary padding.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Kevin Tian <kevin.tian@intel.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 80599f0b770199116aa753bfdfac9bfe2e8ea86a)
+---
+ xen/arch/x86/cpu/vpmu_intel.c      | 14 +++++------
+ xen/arch/x86/hvm/vmx/vmcs.c        | 40 ++++++++++++++++++++++--------
+ xen/arch/x86/hvm/vmx/vmx.c         |  8 +++---
+ xen/include/asm-x86/hvm/vmx/vmcs.h | 34 ++++++++++++++++---------
+ xen/include/xen/sched.h            |  2 +-
+ 5 files changed, 65 insertions(+), 33 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/vpmu_intel.c b/xen/arch/x86/cpu/vpmu_intel.c
+index 7f9add1472..42925c8bdb 100644
+--- a/xen/arch/x86/cpu/vpmu_intel.c
++++ b/xen/arch/x86/cpu/vpmu_intel.c
+@@ -483,12 +483,12 @@ static int core2_vpmu_alloc_resource(struct vcpu *v)
+     if ( has_hvm_container_vcpu(v) )
+     {
+         wrmsrl(MSR_CORE_PERF_GLOBAL_CTRL, 0);
+-        if ( vmx_add_host_load_msr(MSR_CORE_PERF_GLOBAL_CTRL) )
++        if ( vmx_add_host_load_msr(v, MSR_CORE_PERF_GLOBAL_CTRL) )
+             goto out_err;
+ 
+-        if ( vmx_add_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL) )
++        if ( vmx_add_guest_msr(v, MSR_CORE_PERF_GLOBAL_CTRL) )
+             goto out_err;
+-        vmx_write_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
++        vmx_write_guest_msr(v, MSR_CORE_PERF_GLOBAL_CTRL, 0);
+     }
+ 
+     core2_vpmu_cxt = xzalloc_bytes(sizeof(*core2_vpmu_cxt) +
+@@ -642,7 +642,7 @@ static int core2_vpmu_do_wrmsr(unsigned int msr, uint64_t msr_content,
+             return -EINVAL;
+ 
+         if ( has_hvm_container_vcpu(v) )
+-            vmx_read_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL,
++            vmx_read_guest_msr(v, MSR_CORE_PERF_GLOBAL_CTRL,
+                                &core2_vpmu_cxt->global_ctrl);
+         else
+             rdmsrl(MSR_CORE_PERF_GLOBAL_CTRL, core2_vpmu_cxt->global_ctrl);
+@@ -711,7 +711,7 @@ static int core2_vpmu_do_wrmsr(unsigned int msr, uint64_t msr_content,
+                 return -EINVAL;
+ 
+             if ( has_hvm_container_vcpu(v) )
+-                vmx_read_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL,
++                vmx_read_guest_msr(v, MSR_CORE_PERF_GLOBAL_CTRL,
+                                    &core2_vpmu_cxt->global_ctrl);
+             else
+                 rdmsrl(MSR_CORE_PERF_GLOBAL_CTRL, core2_vpmu_cxt->global_ctrl);
+@@ -730,7 +730,7 @@ static int core2_vpmu_do_wrmsr(unsigned int msr, uint64_t msr_content,
+     else
+     {
+         if ( has_hvm_container_vcpu(v) )
+-            vmx_write_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL, msr_content);
++            vmx_write_guest_msr(v, MSR_CORE_PERF_GLOBAL_CTRL, msr_content);
+         else
+             wrmsrl(MSR_CORE_PERF_GLOBAL_CTRL, msr_content);
+     }
+@@ -764,7 +764,7 @@ static int core2_vpmu_do_rdmsr(unsigned int msr, uint64_t *msr_content)
+             break;
+         case MSR_CORE_PERF_GLOBAL_CTRL:
+             if ( has_hvm_container_vcpu(v) )
+-                vmx_read_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL, msr_content);
++                vmx_read_guest_msr(v, MSR_CORE_PERF_GLOBAL_CTRL, msr_content);
+             else
+                 rdmsrl(MSR_CORE_PERF_GLOBAL_CTRL, *msr_content);
+             break;
+diff --git a/xen/arch/x86/hvm/vmx/vmcs.c b/xen/arch/x86/hvm/vmx/vmcs.c
+index 2d50f45bc6..ab0905484d 100644
+--- a/xen/arch/x86/hvm/vmx/vmcs.c
++++ b/xen/arch/x86/hvm/vmx/vmcs.c
+@@ -1337,13 +1337,15 @@ static struct vmx_msr_entry *locate_msr_entry(
+     return start;
+ }
+ 
+-struct vmx_msr_entry *vmx_find_msr(uint32_t msr, enum vmx_msr_list_type type)
++struct vmx_msr_entry *vmx_find_msr(const struct vcpu *v, uint32_t msr,
++                                   enum vmx_msr_list_type type)
+ {
+-    struct vcpu *curr = current;
+-    struct arch_vmx_struct *vmx = &curr->arch.hvm_vmx;
++    const struct arch_vmx_struct *vmx = &v->arch.hvm_vmx;
+     struct vmx_msr_entry *start = NULL, *ent, *end;
+     unsigned int total;
+ 
++    ASSERT(v == current || !vcpu_runnable(v));
++
+     switch ( type )
+     {
+     case VMX_MSR_HOST:
+@@ -1369,12 +1371,14 @@ struct vmx_msr_entry *vmx_find_msr(uint32_t msr, enum vmx_msr_list_type type)
+     return ((ent < end) && (ent->index == msr)) ? ent : NULL;
+ }
+ 
+-int vmx_add_msr(uint32_t msr, enum vmx_msr_list_type type)
++int vmx_add_msr(struct vcpu *v, uint32_t msr, enum vmx_msr_list_type type)
+ {
+-    struct vcpu *curr = current;
+-    struct arch_vmx_struct *vmx = &curr->arch.hvm_vmx;
++    struct arch_vmx_struct *vmx = &v->arch.hvm_vmx;
+     struct vmx_msr_entry **ptr, *start = NULL, *ent, *end;
+     unsigned int total;
++    int rc;
++
++    ASSERT(v == current || !vcpu_runnable(v));
+ 
+     switch ( type )
+     {
+@@ -1393,13 +1397,18 @@ int vmx_add_msr(uint32_t msr, enum vmx_msr_list_type type)
+         return -EINVAL;
+     }
+ 
++    vmx_vmcs_enter(v);
++
+     /* Allocate memory on first use. */
+     if ( unlikely(!*ptr) )
+     {
+         paddr_t addr;
+ 
+         if ( (*ptr = alloc_xenheap_page()) == NULL )
+-            return -ENOMEM;
++        {
++            rc = -ENOMEM;
++            goto out;
++        }
+ 
+         addr = virt_to_maddr(*ptr);
+ 
+@@ -1421,10 +1430,16 @@ int vmx_add_msr(uint32_t msr, enum vmx_msr_list_type type)
+     ent   = locate_msr_entry(start, end, msr);
+ 
+     if ( (ent < end) && (ent->index == msr) )
+-        return 0;
++    {
++        rc = 0;
++        goto out;
++    }
+ 
+     if ( total == (PAGE_SIZE / sizeof(*ent)) )
+-        return -ENOSPC;
++    {
++        rc = -ENOSPC;
++        goto out;
++    }
+ 
+     memmove(ent + 1, ent, sizeof(*ent) * (end - ent));
+ 
+@@ -1445,7 +1460,12 @@ int vmx_add_msr(uint32_t msr, enum vmx_msr_list_type type)
+         break;
+     }
+ 
+-    return 0;
++    rc = 0;
++
++ out:
++    vmx_vmcs_exit(v);
++
++    return rc;
+ }
+ 
+ void vmx_set_eoi_exit_bitmap(struct vcpu *v, u8 vector)
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 621585fd0b..1becfaa9a0 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2772,6 +2772,8 @@ static int is_last_branch_msr(u32 ecx)
+ 
+ static int vmx_msr_read_intercept(unsigned int msr, uint64_t *msr_content)
+ {
++    struct vcpu *curr = current;
++
+     HVM_DBG_LOG(DBG_LEVEL_MSR, "ecx=%#x", msr);
+ 
+     switch ( msr )
+@@ -2833,7 +2835,7 @@ static int vmx_msr_read_intercept(unsigned int msr, uint64_t *msr_content)
+                 goto done;
+         }
+ 
+-        if ( vmx_read_guest_msr(msr, msr_content) == 0 )
++        if ( vmx_read_guest_msr(curr, msr, msr_content) == 0 )
+             break;
+ 
+         if ( is_last_branch_msr(msr) )
+@@ -3013,7 +3015,7 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
+ 
+             for ( ; (rc == 0) && lbr->count; lbr++ )
+                 for ( i = 0; (rc == 0) && (i < lbr->count); i++ )
+-                    if ( (rc = vmx_add_guest_msr(lbr->base + i)) == 0 )
++                    if ( (rc = vmx_add_guest_msr(v, lbr->base + i)) == 0 )
+                         vmx_disable_intercept_for_msr(v, lbr->base + i, MSR_TYPE_R | MSR_TYPE_W);
+         }
+ 
+@@ -3057,7 +3059,7 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
+         switch ( long_mode_do_msr_write(msr, msr_content) )
+         {
+             case HNDL_unhandled:
+-                if ( (vmx_write_guest_msr(msr, msr_content) != 0) &&
++                if ( (vmx_write_guest_msr(v, msr, msr_content) != 0) &&
+                      !is_last_branch_msr(msr) )
+                     switch ( wrmsr_hypervisor_regs(msr, msr_content) )
+                     {
+diff --git a/xen/include/asm-x86/hvm/vmx/vmcs.h b/xen/include/asm-x86/hvm/vmx/vmcs.h
+index 3558d45647..374a16f359 100644
+--- a/xen/include/asm-x86/hvm/vmx/vmcs.h
++++ b/xen/include/asm-x86/hvm/vmx/vmcs.h
+@@ -193,10 +193,17 @@ struct arch_vmx_struct {
+     unsigned long        cstar;
+ 
+     unsigned long       *msr_bitmap;
+-    unsigned int         msr_count;
++
++    /*
++     * Most accesses to the MSR host/guest load/save lists are in current
++     * context.  However, the data can be modified by toolstack/migration
++     * actions.  Remote access is only permitted for paused vcpus, and is
++     * protected under the domctl lock.
++     */
+     struct vmx_msr_entry *msr_area;
+-    unsigned int         host_msr_count;
+     struct vmx_msr_entry *host_msr_area;
++    unsigned int         msr_count;
++    unsigned int         host_msr_count;
+ 
+     unsigned long        eoi_exitmap_changed;
+     DECLARE_BITMAP(eoi_exit_bitmap, NR_VECTORS);
+@@ -578,23 +585,25 @@ enum vmx_msr_list_type {
+     VMX_MSR_GUEST,          /* MSRs saved on VMExit, loaded on VMEntry. */
+ };
+ 
+-int vmx_add_msr(uint32_t msr, enum vmx_msr_list_type type);
++int vmx_add_msr(struct vcpu *v, uint32_t msr, enum vmx_msr_list_type type);
+ 
+-static inline int vmx_add_host_load_msr(uint32_t msr)
++static inline int vmx_add_guest_msr(struct vcpu *v, uint32_t msr)
+ {
+-    return vmx_add_msr(msr, VMX_MSR_HOST);
++    return vmx_add_msr(v, msr, VMX_MSR_GUEST);
+ }
+ 
+-static inline int vmx_add_guest_msr(uint32_t msr)
++static inline int vmx_add_host_load_msr(struct vcpu *v, uint32_t msr)
+ {
+-    return vmx_add_msr(msr, VMX_MSR_GUEST);
++    return vmx_add_msr(v, msr, VMX_MSR_HOST);
+ }
+ 
+-struct vmx_msr_entry *vmx_find_msr(uint32_t msr, enum vmx_msr_list_type type);
++struct vmx_msr_entry *vmx_find_msr(const struct vcpu *v, uint32_t msr,
++                                   enum vmx_msr_list_type type);
+ 
+-static inline int vmx_read_guest_msr(uint32_t msr, uint64_t *val)
++static inline int vmx_read_guest_msr(const struct vcpu *v, uint32_t msr,
++                                     uint64_t *val)
+ {
+-    const struct vmx_msr_entry *ent = vmx_find_msr(msr, VMX_MSR_GUEST);
++    const struct vmx_msr_entry *ent = vmx_find_msr(v, msr, VMX_MSR_GUEST);
+ 
+     if ( !ent )
+         return -ESRCH;
+@@ -604,9 +613,10 @@ static inline int vmx_read_guest_msr(uint32_t msr, uint64_t *val)
+     return 0;
+ }
+ 
+-static inline int vmx_write_guest_msr(uint32_t msr, uint64_t val)
++static inline int vmx_write_guest_msr(struct vcpu *v, uint32_t msr,
++                                      uint64_t val)
+ {
+-    struct vmx_msr_entry *ent = vmx_find_msr(msr, VMX_MSR_GUEST);
++    struct vmx_msr_entry *ent = vmx_find_msr(v, msr, VMX_MSR_GUEST);
+ 
+     if ( !ent )
+         return -ESRCH;
+diff --git a/xen/include/xen/sched.h b/xen/include/xen/sched.h
+index ff0f38fa48..272f0fd0a5 100644
+--- a/xen/include/xen/sched.h
++++ b/xen/include/xen/sched.h
+@@ -775,7 +775,7 @@ static inline struct domain *next_domain_in_cpupool(
+ #define _VPF_in_reset        7
+ #define VPF_in_reset         (1UL<<_VPF_in_reset)
+ 
+-static inline int vcpu_runnable(struct vcpu *v)
++static inline bool vcpu_runnable(const struct vcpu *v)
+ {
+     return !(v->pause_flags |
+              atomic_read(&v->pause_count) |
+-- 
+2.18.0
+

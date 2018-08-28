@@ -1,0 +1,292 @@
+From 790ed1521e7d7faa654f69724a18d537d3f4df3a Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 24 May 2018 17:20:09 +0000
+Subject: [PATCH] x86/vmx: Fix handing of MSR_DEBUGCTL on VMExit
+
+Currently, whenever the guest writes a nonzero value to MSR_DEBUGCTL, Xen
+updates a host MSR load list entry with the current hardware value of
+MSR_DEBUGCTL.
+
+On VMExit, hardware automatically resets MSR_DEBUGCTL to 0.  Later, when the
+guest writes to MSR_DEBUGCTL, the current value in hardware (0) is fed back
+into guest load list.  As a practical result, `ler` debugging gets lost on any
+PCPU which has ever scheduled an HVM vcpu, and the common case when `ler`
+debugging isn't active, guest actions result in an unnecessary load list entry
+repeating the MSR_DEBUGCTL reset.
+
+Restoration of Xen's debugging setting needs to happen from the very first
+vmexit.  Due to the automatic reset, Xen need take no action in the general
+case, and only needs to load a value when debugging is active.
+
+This could be fixed by using a host MSR load list entry set up during
+construct_vmcs().  However, a more efficient option is to use an alternative
+block in the VMExit path, keyed on whether hypervisor debugging has been
+enabled.
+
+In order to set this up, drop the per cpu ler_msr variable (as there is no
+point having it per cpu when it will be the same everywhere), and use a single
+read_mostly variable instead.  Split calc_ler_msr() out of percpu_traps_init()
+for clarity.
+
+Finally, clean up do_debug().  Reinstate LBR early to help catch cascade
+errors, which allows for the removal of the out label.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+(cherry picked from commit 730dc8d2c9e1b6402e66973cf99a7c56bc78be4c)
+---
+ xen/arch/x86/hvm/vmx/entry.S     |  9 +++++
+ xen/arch/x86/hvm/vmx/vmx.c       |  3 +-
+ xen/arch/x86/traps.c             | 64 +++++++++++++++-----------------
+ xen/arch/x86/x86_64/traps.c      |  7 ++--
+ xen/include/asm-x86/cpufeature.h |  2 +
+ xen/include/asm-x86/msr.h        |  2 +-
+ xen/include/asm-x86/nops.h       |  1 +
+ 7 files changed, 48 insertions(+), 40 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/entry.S b/xen/arch/x86/hvm/vmx/entry.S
+index f1528e8f9d..3b4e73e8be 100644
+--- a/xen/arch/x86/hvm/vmx/entry.S
++++ b/xen/arch/x86/hvm/vmx/entry.S
+@@ -40,6 +40,15 @@ ENTRY(vmx_asm_vmexit_handler)
+         SPEC_CTRL_ENTRY_FROM_HVM    /* Req: b=curr %rsp=regs/cpuinfo, Clob: acd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
++        /* Hardware clears MSR_DEBUGCTL on VMExit.  Reinstate it if debugging Xen. */
++        .macro restore_lbr
++            mov $IA32_DEBUGCTLMSR_LBR, %eax
++            mov $MSR_IA32_DEBUGCTLMSR, %ecx
++            xor %edx, %edx
++            wrmsr
++        .endm
++        ALTERNATIVE __stringify(ASM_NOP14), restore_lbr, X86_FEATURE_XEN_LBR
++
+         mov  %rsp,%rdi
+         call vmx_vmexit_handler
+ 
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 7c89915748..621585fd0b 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -3017,8 +3017,7 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
+                         vmx_disable_intercept_for_msr(v, lbr->base + i, MSR_TYPE_R | MSR_TYPE_W);
+         }
+ 
+-        if ( (rc < 0) ||
+-             (msr_content && (vmx_add_host_load_msr(msr) < 0)) )
++        if ( rc < 0 )
+             hvm_inject_hw_exception(TRAP_machine_check, HVM_DELIVER_NO_ERROR_CODE);
+         else
+             __vmwrite(GUEST_IA32_DEBUGCTL, msr_content);
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 00f944070c..027ebc1d9b 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -94,8 +94,6 @@ string_param("nmi", opt_nmi);
+ DEFINE_PER_CPU(u64, efer);
+ static DEFINE_PER_CPU(unsigned long, last_extable_addr);
+ 
+-DEFINE_PER_CPU_READ_MOSTLY(u32, ler_msr);
+-
+ DEFINE_PER_CPU_READ_MOSTLY(struct desc_struct *, gdt_table);
+ DEFINE_PER_CPU_READ_MOSTLY(struct desc_struct *, compat_gdt_table);
+ 
+@@ -115,6 +113,9 @@ integer_param("debug_stack_lines", debug_stack_lines);
+ static bool_t opt_ler;
+ boolean_param("ler", opt_ler);
+ 
++/* LastExceptionFromIP on this hardware.  Zero if LER is not in use. */
++unsigned int __read_mostly ler_msr;
++
+ #define stack_words_per_line 4
+ #define ESP_BEFORE_EXCEPTION(regs) ((unsigned long *)regs->rsp)
+ 
+@@ -4027,17 +4028,6 @@ void write_efer(u64 val)
+     wrmsrl(MSR_EFER, val);
+ }
+ 
+-static void ler_enable(void)
+-{
+-    u64 debugctl;
+-
+-    if ( !this_cpu(ler_msr) )
+-        return;
+-
+-    rdmsrl(MSR_IA32_DEBUGCTLMSR, debugctl);
+-    wrmsrl(MSR_IA32_DEBUGCTLMSR, debugctl | IA32_DEBUGCTLMSR_LBR);
+-}
+-
+ void do_debug(struct cpu_user_regs *regs)
+ {
+     unsigned long dr6;
+@@ -4070,6 +4060,10 @@ void do_debug(struct cpu_user_regs *regs)
+      */
+     write_debugreg(6, X86_DR6_DEFAULT);
+ 
++    /* #DB automatically disabled LBR.  Reinstate it if debugging Xen. */
++    if ( cpu_has_xen_lbr )
++        wrmsrl(MSR_IA32_DEBUGCTLMSR, IA32_DEBUGCTLMSR_LBR);
++
+     if ( !guest_mode(regs) )
+     {
+         /*
+@@ -4087,7 +4081,7 @@ void do_debug(struct cpu_user_regs *regs)
+             {
+                 if ( regs->rip == (unsigned long)sysenter_eflags_saved )
+                     regs->eflags &= ~X86_EFLAGS_TF;
+-                goto out;
++                return;
+             }
+             if ( !debugger_trap_fatal(TRAP_debug, regs) )
+             {
+@@ -4144,20 +4138,14 @@ void do_debug(struct cpu_user_regs *regs)
+                 regs->cs, _p(regs->rip), _p(regs->rip),
+                 regs->ss, _p(regs->rsp), dr6);
+ 
+-        goto out;
++        return;
+     }
+ 
+     /* Save debug status register where guest OS can peek at it */
+     v->arch.debugreg[6] |= (dr6 & ~X86_DR6_DEFAULT);
+     v->arch.debugreg[6] &= (dr6 | ~X86_DR6_DEFAULT);
+ 
+-    ler_enable();
+     do_guest_trap(TRAP_debug, regs);
+-    return;
+-
+- out:
+-    ler_enable();
+-    return;
+ }
+ 
+ static void __init noinline __set_intr_gate(unsigned int n, uint32_t dpl, void *addr)
+@@ -4200,38 +4188,46 @@ void load_TR(void)
+         : "=m" (old_gdt) : "rm" (TSS_ENTRY << 3), "m" (tss_gdt) : "memory" );
+ }
+ 
+-void percpu_traps_init(void)
++static unsigned int calc_ler_msr(void)
+ {
+-    subarch_percpu_traps_init();
+-
+-    if ( !opt_ler )
+-        return;
+-
+     switch ( boot_cpu_data.x86_vendor )
+     {
+     case X86_VENDOR_INTEL:
+         switch ( boot_cpu_data.x86 )
+         {
+         case 6:
+-            this_cpu(ler_msr) = MSR_IA32_LASTINTFROMIP;
+-            break;
++            return MSR_IA32_LASTINTFROMIP;
++
+         case 15:
+-            this_cpu(ler_msr) = MSR_P4_LER_FROM_LIP;
+-            break;
++            return MSR_P4_LER_FROM_LIP;
+         }
+         break;
++
+     case X86_VENDOR_AMD:
+         switch ( boot_cpu_data.x86 )
+         {
+         case 6:
+         case 0xf ... 0x17:
+-            this_cpu(ler_msr) = MSR_IA32_LASTINTFROMIP;
+-            break;
++            return MSR_IA32_LASTINTFROMIP;
+         }
+         break;
+     }
+ 
+-    ler_enable();
++    return 0;
++}
++
++void percpu_traps_init(void)
++{
++    subarch_percpu_traps_init();
++
++    if ( !opt_ler )
++        return;
++
++    if ( !ler_msr && (ler_msr = calc_ler_msr()) )
++        setup_force_cpu_cap(X86_FEATURE_XEN_LBR);
++
++    if ( cpu_has_xen_lbr )
++        wrmsrl(MSR_IA32_DEBUGCTLMSR, IA32_DEBUGCTLMSR_LBR);
+ }
+ 
+ void __init init_idt_traps(void)
+diff --git a/xen/arch/x86/x86_64/traps.c b/xen/arch/x86/x86_64/traps.c
+index 8ad09b524d..396e677f8d 100644
+--- a/xen/arch/x86/x86_64/traps.c
++++ b/xen/arch/x86/x86_64/traps.c
+@@ -146,11 +146,12 @@ void show_registers(const struct cpu_user_regs *regs)
+     printk("CPU:    %d\n", smp_processor_id());
+     _show_registers(&fault_regs, fault_crs, context, v);
+ 
+-    if ( this_cpu(ler_msr) && !guest_mode(regs) )
++    if ( ler_msr && !guest_mode(regs) )
+     {
+         u64 from, to;
+-        rdmsrl(this_cpu(ler_msr), from);
+-        rdmsrl(this_cpu(ler_msr) + 1, to);
++
++        rdmsrl(ler_msr, from);
++        rdmsrl(ler_msr + 1, to);
+         printk("ler: %016lx -> %016lx\n", from, to);
+     }
+ }
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index f5c244131e..af2a892bcd 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -31,6 +31,7 @@ XEN_CPUFEATURE(SC_RSB_PV,       (FSCAPINTS+0)*32+20) /* RSB overwrite needed for
+ XEN_CPUFEATURE(SC_RSB_HVM,      (FSCAPINTS+0)*32+21) /* RSB overwrite needed for HVM */
+ XEN_CPUFEATURE(NO_XPTI,         (FSCAPINTS+0)*32+22) /* XPTI mitigation not in use */
+ XEN_CPUFEATURE(SC_MSR_IDLE,     (FSCAPINTS+0)*32+23) /* (SC_MSR_PV || SC_MSR_HVM) && default_xen_spec_ctrl */
++XEN_CPUFEATURE(XEN_LBR,         (FSCAPINTS+0)*32+24) /* Xen uses MSR_DEBUGCTL.LBR */
+ 
+ #define NCAPINTS (FSCAPINTS + 1) /* N 32-bit words worth of info */
+ 
+@@ -109,6 +110,7 @@ XEN_CPUFEATURE(SC_MSR_IDLE,     (FSCAPINTS+0)*32+23) /* (SC_MSR_PV || SC_MSR_HVM
+ #define cpu_has_cmp_legacy	boot_cpu_has(X86_FEATURE_CMP_LEGACY)
+ #define cpu_has_lfence_dispatch boot_cpu_has(X86_FEATURE_LFENCE_DISPATCH)
+ #define cpu_has_no_xpti         boot_cpu_has(X86_FEATURE_NO_XPTI)
++#define cpu_has_xen_lbr         boot_cpu_has(X86_FEATURE_XEN_LBR)
+ 
+ enum _cache_type {
+     CACHE_TYPE_NULL = 0,
+diff --git a/xen/include/asm-x86/msr.h b/xen/include/asm-x86/msr.h
+index 71becf1a78..5e1df8fa23 100644
+--- a/xen/include/asm-x86/msr.h
++++ b/xen/include/asm-x86/msr.h
+@@ -187,7 +187,7 @@ DECLARE_PER_CPU(u64, efer);
+ u64 read_efer(void);
+ void write_efer(u64 val);
+ 
+-DECLARE_PER_CPU(u32, ler_msr);
++extern unsigned int ler_msr;
+ 
+ DECLARE_PER_CPU(uint32_t, tsc_aux);
+ 
+diff --git a/xen/include/asm-x86/nops.h b/xen/include/asm-x86/nops.h
+index ad32c2e75b..b02f22e3c0 100644
+--- a/xen/include/asm-x86/nops.h
++++ b/xen/include/asm-x86/nops.h
+@@ -63,6 +63,7 @@
+ #define ASM_NOP7 _ASM_MK_NOP(K8_NOP7)
+ #define ASM_NOP8 _ASM_MK_NOP(K8_NOP8)
+ 
++#define ASM_NOP14 ASM_NOP8; ASM_NOP6
+ #define ASM_NOP17 ASM_NOP8; ASM_NOP7; ASM_NOP2
+ #define ASM_NOP24 ASM_NOP8; ASM_NOP8; ASM_NOP8
+ #define ASM_NOP25 ASM_NOP8; ASM_NOP8; ASM_NOP7; ASM_NOP2
+-- 
+2.18.0
+

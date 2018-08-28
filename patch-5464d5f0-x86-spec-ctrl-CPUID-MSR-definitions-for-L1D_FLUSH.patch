@@ -1,0 +1,134 @@
+From 5464d5f0c9cf030186ba88c246a3eb96f67277fc Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 28 Mar 2018 15:21:39 +0100
+Subject: [PATCH] x86/spec-ctrl: CPUID/MSR definitions for L1D_FLUSH
+
+This is part of XSA-273 / CVE-2018-3646.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 3563fc2b2731a63fd7e8372ab0f5cef205bf8477)
+---
+ docs/misc/xen-command-line.markdown         | 8 ++++----
+ tools/libxl/libxl_cpuid.c                   | 1 +
+ tools/misc/xen-cpuid.c                      | 2 +-
+ xen/arch/x86/cpuid.c                        | 5 +++++
+ xen/arch/x86/spec_ctrl.c                    | 4 +++-
+ xen/include/asm-x86/msr-index.h             | 4 ++++
+ xen/include/public/arch-x86/cpufeatureset.h | 1 +
+ 7 files changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index f220d47c62..dda6f06d02 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -456,10 +456,10 @@ accounting for hardware capabilities as enumerated via CPUID.
+ 
+ Currently accepted:
+ 
+-The Speculation Control hardware features `ibrsb`, `stibp`, `ibpb`, `ssbd` are
+-used by default if available and applicable.  They can be ignored,
+-e.g. `no-ibrsb`, at which point Xen won't use them itself, and won't offer
+-them to guests.
++The Speculation Control hardware features `ibrsb`, `stibp`, `ibpb`,
++`l1d-flush` and `ssbd` are used by default if available and applicable.  They can
++be ignored, e.g. `no-ibrsb`, at which point Xen won't use them itself, and
++won't offer them to guests.
+ 
+ ### cpuid\_mask\_cpu (AMD only)
+ > `= fam_0f_rev_c | fam_0f_rev_d | fam_0f_rev_e | fam_0f_rev_f | fam_0f_rev_g | fam_10_rev_b | fam_10_rev_c | fam_11_rev_b`
+diff --git a/tools/libxl/libxl_cpuid.c b/tools/libxl/libxl_cpuid.c
+index b426898dfd..d0f4eeb98d 100644
+--- a/tools/libxl/libxl_cpuid.c
++++ b/tools/libxl/libxl_cpuid.c
+@@ -195,6 +195,7 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"avx512vbmi",   0x00000007,  0, CPUID_REG_ECX,  1,  1},
+         {"ibrsb",        0x00000007,  0, CPUID_REG_EDX, 26,  1},
+         {"stibp",        0x00000007,  0, CPUID_REG_EDX, 27,  1},
++        {"l1d-flush",    0x00000007,  0, CPUID_REG_EDX, 28,  1},
+         {"arch-caps",    0x00000007,  0, CPUID_REG_EDX, 29,  1},
+         {"ssbd",         0x00000007,  0, CPUID_REG_EDX, 31,  1},
+         {"avx512-4fmaps",0x00000007,  0, CPUID_REG_EDX,  3,  1},
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index faac91d007..184f8ad136 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -152,7 +152,7 @@ static const char *str_7d0[32] =
+     [0 ... 25] = "REZ",
+ 
+     [26] = "ibrsb",         [27] = "stibp",
+-    [28] = "REZ",           [29] = "arch_caps",
++    [28] = "l1d_flush",     [29] = "arch_caps",
+     [30] = "REZ",           [31] = "ssbd",
+ };
+ 
+diff --git a/xen/arch/x86/cpuid.c b/xen/arch/x86/cpuid.c
+index 35b7746ac3..99778bb658 100644
+--- a/xen/arch/x86/cpuid.c
++++ b/xen/arch/x86/cpuid.c
+@@ -42,6 +42,11 @@ static int __init parse_xen_cpuid(const char *s)
+             if ( !val )
+                 setup_clear_cpu_cap(X86_FEATURE_STIBP);
+         }
++        else if ( (val = parse_boolean("l1d-flush", s, ss)) >= 0 )
++        {
++            if ( !val )
++                setup_clear_cpu_cap(X86_FEATURE_L1D_FLUSH);
++        }
+         else if ( (val = parse_boolean("ssbd", s, ss)) >= 0 )
+         {
+             if ( !val )
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 73ac11ee8e..6d0006641a 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -249,14 +249,16 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+     printk("Speculative mitigation facilities:\n");
+ 
+     /* Hardware features which pertain to speculative mitigations. */
+-    printk("  Hardware features:%s%s%s%s%s%s%s%s\n",
++    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s\n",
+            (_7d0 & cpufeat_mask(X86_FEATURE_IBRSB)) ? " IBRS/IBPB" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_STIBP)) ? " STIBP"     : "",
++           (_7d0 & cpufeat_mask(X86_FEATURE_L1D_FLUSH)) ? " L1D_FLUSH" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_SSBD))  ? " SSBD"      : "",
+            (e8b  & cpufeat_mask(X86_FEATURE_IBPB))  ? " IBPB"      : "",
+            (caps & ARCH_CAPABILITIES_IBRS_ALL)      ? " IBRS_ALL"  : "",
+            (caps & ARCH_CAPABILITIES_RDCL_NO)       ? " RDCL_NO"   : "",
+            (caps & ARCH_CAPS_RSBA)                  ? " RSBA"      : "",
++           (caps & ARCH_CAPS_SKIP_L1DFL)            ? " SKIP_L1DFL": "",
+            (caps & ARCH_CAPS_SSB_NO)                ? " SSB_NO"    : "");
+ 
+     /* Compiled-in support which pertains to mitigations. */
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index e7b0be5483..7bb382f456 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -47,8 +47,12 @@
+ #define ARCH_CAPABILITIES_RDCL_NO	(_AC(1, ULL) << 0)
+ #define ARCH_CAPABILITIES_IBRS_ALL	(_AC(1, ULL) << 1)
+ #define ARCH_CAPS_RSBA			(_AC(1, ULL) << 2)
++#define ARCH_CAPS_SKIP_L1DFL		(_AC(1, ULL) << 3)
+ #define ARCH_CAPS_SSB_NO		(_AC(1, ULL) << 4)
+ 
++#define MSR_FLUSH_CMD			0x0000010b
++#define FLUSH_CMD_L1D			(_AC(1, ULL) << 0)
++
+ /* Intel MSRs. Some also available on other CPUs */
+ #define MSR_IA32_PERFCTR0		0x000000c1
+ #define MSR_IA32_A_PERFCTR0		0x000004c1
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 70a17f73cd..f5e99f56cc 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -238,6 +238,7 @@ XEN_CPUFEATURE(IBPB,          8*32+12) /*A  IBPB support only (no IBRS, used by
+ /* Intel-defined CPU features, CPUID level 0x00000007:0.edx, word 9 */
+ XEN_CPUFEATURE(IBRSB,         9*32+26) /*A  IBRS and IBPB support (used by Intel) */
+ XEN_CPUFEATURE(STIBP,         9*32+27) /*A! STIBP */
++XEN_CPUFEATURE(L1D_FLUSH,     9*32+28) /*   MSR_FLUSH_CMD and L1D flush. */
+ XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*   IA32_ARCH_CAPABILITIES MSR */
+ XEN_CPUFEATURE(SSBD,          9*32+31) /*A  MSR_SPEC_CTRL.SSBD available */
+ 
+-- 
+2.18.0
+

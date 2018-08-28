@@ -1,0 +1,63 @@
+From b149b06b1eb5fdc11ef2dfe0af9ce41fc119b5ab Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 30 Jul 2018 12:10:18 +0200
+Subject: [PATCH] x86/hvm: Disallow unknown MSR_EFER bits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It turns out that nothing ever prevented HVM guests from trying to set unknown
+EFER bits.  Generally, this results in a vmentry failure.
+
+For Intel hardware, all implemented bits are covered by the checks.
+
+For AMD hardware, the only EFER bit which isn't covered by the checks is TCE
+(which AFAICT is specific to AMD Fam15/16 hardware).  We never advertise TCE
+in CPUID, but it isn't a security problem to have TCE unexpected enabled in
+guest context.
+
+Disallow the setting of bits outside of the EFER_KNOWN_MASK, which prevents
+any vmentry failures for guests, yielding #GP instead.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+master commit: ef0269c6215d642a709866f04ba1a1f9f13f3614
+master date: 2018-07-24 11:25:53 +0100
+---
+ xen/arch/x86/hvm/hvm.c          | 3 +++
+ xen/include/asm-x86/msr-index.h | 3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 298d5ed0c8..56823bd616 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -935,6 +935,9 @@ const char *hvm_efer_valid(const struct vcpu *v, uint64_t value,
+ {
+     unsigned int ext1_ecx = 0, ext1_edx = 0;
+ 
++    if ( value & ~EFER_KNOWN_MASK )
++        return "Unknown bits set";
++
+     if ( cr0_pg < 0 && !is_hardware_domain(v->domain) )
+     {
+         unsigned int level;
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index 9969504fe1..e7b0be5483 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -31,6 +31,9 @@
+ #define EFER_LMSLE		(1<<_EFER_LMSLE)
+ #define EFER_FFXSE		(1<<_EFER_FFXSE)
+ 
++#define EFER_KNOWN_MASK		(EFER_SCE | EFER_LME | EFER_LMA | EFER_NX | \
++				 EFER_SVME | EFER_LMSLE | EFER_FFXSE)
++
+ /* Speculation Controls. */
+ #define MSR_SPEC_CTRL			0x00000048
+ #define SPEC_CTRL_IBRS			(_AC(1, ULL) << 0)
+-- 
+2.18.0
+
