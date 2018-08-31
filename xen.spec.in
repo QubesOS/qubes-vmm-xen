@@ -133,7 +133,6 @@ Patch438: patch-x86-check-feature-flags-after-resume.patch
 # Security fixes
 
 # Update to staging-4.8 for XSA-273
-Patch500: patch-4aec0c7f-update-Xen-version-to-4.8.5-pre.patch
 Patch501: patch-3686d096-cmdline-fix-parse_boolean-for-NULL-incoming-end-poin.patch
 Patch502: patch-de172b0f-xen-Port-the-array_index_nospec-infrastructure-from-.patch
 Patch503: patch-f5ef10dd-x86-correctly-set-nonlazy_xstate_used-when-loading-f.patch
