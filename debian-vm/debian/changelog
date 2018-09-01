@@ -1,3 +1,19 @@
+xen (2001:4.8.4-2) unstable; urgency=medium
+
+  [ unman ]
+  * Allow build for artful in 4.0
+  * Removed wheezy and trusty builds, consolidated Build-Depends
+  * Fix typo in Debian Build-Depends
+
+  [ Simon Gaiser ]
+  * Update to staging-4.8 to get fixes for XSA-273
+  * Disable SMT by default
+
+  [ Marek Marczykowski-Górecki ]
+  * Do not advance version to 4.8.5-pre
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 01 Sep 2018 16:04:40 +0200
+
 xen (2001:4.8.4-1) --release; urgency=medium
 
   * travis: Add Archlinux build
