@@ -494,6 +494,20 @@ else
   cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi/EFI/qubes/xen.efi
 fi
 %endif
+
+if [ -f /boot/efi/EFI/qubes/xen.cfg ]; then
+    if ! grep -q smt= /boot/efi/EFI/qubes/xen.cfg; then
+        sed -i -e 's:^options=.*:\0 smt=off:' /boot/efi/EFI/qubes/xen.cfg
+    fi
+fi
+
+if [ -f /etc/default/grub ]; then
+    if ! grep -q smt= /etc/default/grub; then
+        echo 'GRUB_CMDLINE_XEN_DEFAULT="$GRUB_CMDLINE_XEN_DEFAULT smt=off"' >> /etc/default/grub
+        grub2-mkconfig -o /boot/grub2/grub.cfg
+    fi
+fi
+
 if [ $1 == 1 -a -f /sbin/grub2-mkconfig ]; then
   if [ -f /boot/grub2/grub.cfg ]; then
     /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
