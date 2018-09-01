@@ -1,3 +1,18 @@
+xen (2001:4.6.6-44) unstable; urgency=medium
+
+  [ Frédéric Pierret ]
+  * Allow setting DISTFILES_MIRROR in the builder.conf
+
+  [ Marek Marczykowski-Górecki ]
+  * Update to stable-4.6 to get fixes for XSA-273
+  * Disable SMT by default
+
+  [ unman ]
+  * Removed wheezy and trusty builds, consolidated Build-Depends
+  * Fix typo in Debian Build-Depends
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 01 Sep 2018 16:03:23 +0200
+
 xen (2001:4.6.6-43) unstable; urgency=medium
 
   * Fix build on Debian buster
