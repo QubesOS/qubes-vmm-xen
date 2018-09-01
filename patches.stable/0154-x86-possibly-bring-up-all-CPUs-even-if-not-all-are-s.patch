@@ -1,0 +1,173 @@
+From 91cf29f7c680f399382ef50b422c1eb0a92a5b2e Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 30 Jul 2018 14:20:22 +0200
+Subject: [PATCH 154/182] x86: possibly bring up all CPUs even if not all are
+ supposed to be used
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reportedly Intel CPUs which can't broadcast #MC to all targeted
+cores/threads because some have CR4.MCE clear will shut down. Therefore
+we want to keep CR4.MCE enabled when offlining a CPU, and we need to
+bring up all CPUs in order to be able to set CR4.MCE in the first place.
+
+The use of clear_in_cr4() in cpu_mcheck_disable() was ill advised
+anyway, and to avoid future similar mistakes I'm removing clear_in_cr4()
+altogether right here.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+master commit: 8797d20a6ec2dd75195585a107ce345c51c0a59a
+master date: 2018-07-19 13:43:33 +0100
+---
+ xen/arch/x86/cpu/common.c           |  4 ++++
+ xen/arch/x86/cpu/mcheck/mce_intel.c |  2 --
+ xen/arch/x86/mpparse.c              | 15 +++++++++++----
+ xen/arch/x86/setup.c                | 18 +++++++++++++++---
+ xen/include/asm-x86/processor.h     |  6 ------
+ 5 files changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 1fb8f1b5d8..7d1c32e335 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -15,6 +15,7 @@
+ #include <public/sysctl.h> /* for XEN_INVALID_{SOCKET,CORE}_ID */
+ 
+ #include "cpu.h"
++#include "mcheck/x86_mca.h"
+ 
+ static bool_t __cpuinitdata use_xsave = 1;
+ boolean_param("xsave", use_xsave);
+@@ -209,6 +210,9 @@ static void __init early_cpu_detect(void)
+ 	c->x86_capability[0] = cap0;
+ 	c->x86_capability[4] = cap4;
+ 
++	if (c->x86_vendor != X86_VENDOR_AMD)
++		park_offline_cpus = !mce_disabled;
++
+ 	initialize_cpu_data(0);
+ }
+ 
+diff --git a/xen/arch/x86/cpu/mcheck/mce_intel.c b/xen/arch/x86/cpu/mcheck/mce_intel.c
+index 193366b002..a8afb9ba2d 100644
+--- a/xen/arch/x86/cpu/mcheck/mce_intel.c
++++ b/xen/arch/x86/cpu/mcheck/mce_intel.c
+@@ -628,8 +628,6 @@ static void clear_cmci(void)
+ 
+ static void cpu_mcheck_disable(void)
+ {
+-    clear_in_cr4(X86_CR4_MCE);
+-
+     if (cmci_support && !mce_disabled)
+         clear_cmci();
+ }
+diff --git a/xen/arch/x86/mpparse.c b/xen/arch/x86/mpparse.c
+index 837ede96d3..c834ce30cb 100644
+--- a/xen/arch/x86/mpparse.c
++++ b/xen/arch/x86/mpparse.c
+@@ -69,19 +69,26 @@ physid_mask_t phys_cpu_present_map;
+ 
+ void __init set_nr_cpu_ids(unsigned int max_cpus)
+ {
++	unsigned int tot_cpus = num_processors + disabled_cpus;
++
+ 	if (!max_cpus)
+-		max_cpus = num_processors + disabled_cpus;
++		max_cpus = tot_cpus;
+ 	if (max_cpus > NR_CPUS)
+ 		max_cpus = NR_CPUS;
+ 	else if (!max_cpus)
+ 		max_cpus = 1;
+ 	printk(XENLOG_INFO "SMP: Allowing %u CPUs (%d hotplug CPUs)\n",
+ 	       max_cpus, max_t(int, max_cpus - num_processors, 0));
+-	nr_cpu_ids = max_cpus;
++
++	if (!park_offline_cpus)
++		tot_cpus = max_cpus;
++	nr_cpu_ids = min(tot_cpus, NR_CPUS + 0u);
++	if (park_offline_cpus && nr_cpu_ids < num_processors)
++		printk(XENLOG_WARNING "SMP: Cannot bring up %u further CPUs\n",
++		       num_processors - nr_cpu_ids);
+ 
+ #ifndef nr_cpumask_bits
+-	nr_cpumask_bits = (max_cpus + (BITS_PER_LONG - 1)) &
+-			  ~(BITS_PER_LONG - 1);
++	nr_cpumask_bits = ROUNDUP(nr_cpu_ids, BITS_PER_LONG);
+ 	printk(XENLOG_DEBUG "NR_CPUS:%u nr_cpumask_bits:%u\n",
+ 	       NR_CPUS, nr_cpumask_bits);
+ #endif
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 8adba9d19c..58ac554f39 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -616,7 +616,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ {
+     char *memmap_type = NULL;
+     char *cmdline, *kextra, *loader;
+-    unsigned int initrdidx, domcr_flags = DOMCRF_s3_integrity;
++    unsigned int initrdidx, num_parked = 0, domcr_flags = DOMCRF_s3_integrity;
+     multiboot_info_t *mbi = __va(mbi_p);
+     module_t *mod = (module_t *)__va(mbi->mods_addr);
+     unsigned long nr_pages, raw_max_page, modules_headroom, *module_map;
+@@ -1319,7 +1319,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+     else
+     {
+         set_nr_cpu_ids(max_cpus);
+-        max_cpus = nr_cpu_ids;
++        if ( !max_cpus )
++            max_cpus = nr_cpu_ids;
+     }
+ 
+     /* Low mappings were only needed for some BIOS table parsing. */
+@@ -1431,15 +1432,26 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+         /* Set up node_to_cpumask based on cpu_to_node[]. */
+         numa_add_cpu(i);        
+ 
+-        if ( (num_online_cpus() < max_cpus) && !cpu_online(i) )
++        if ( (park_offline_cpus || num_online_cpus() < max_cpus) &&
++             !cpu_online(i) )
+         {
+             int ret = cpu_up(i);
+             if ( ret != 0 )
+                 printk("Failed to bring up CPU %u (error %d)\n", i, ret);
++            else if ( num_online_cpus() > max_cpus )
++            {
++                ret = cpu_down(i);
++                if ( !ret )
++                    ++num_parked;
++                else
++                    printk("Could not re-offline CPU%u (%d)\n", i, ret);
++            }
+         }
+     }
+ 
+     printk("Brought up %ld CPUs\n", (long)num_online_cpus());
++    if ( num_parked )
++        printk(XENLOG_INFO "Parked %u CPUs\n", num_parked);
+     smp_cpus_done();
+ 
+     do_initcalls();
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index ca535bb22b..02d5118c78 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -390,12 +390,6 @@ static always_inline void set_in_cr4 (unsigned long mask)
+     write_cr4(read_cr4() | mask);
+ }
+ 
+-static always_inline void clear_in_cr4 (unsigned long mask)
+-{
+-    mmu_cr4_features &= ~mask;
+-    write_cr4(read_cr4() & ~mask);
+-}
+-
+ /*
+  *      NSC/Cyrix CPU configuration register indexes
+  */
+-- 
+2.17.1
+

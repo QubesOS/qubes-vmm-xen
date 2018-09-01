@@ -1,0 +1,81 @@
+From 98d7948b50b4e91ec4efa860da32d9ac4fe69300 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 30 Jul 2018 14:21:41 +0200
+Subject: [PATCH 156/182] x86/spec-ctrl: Fix the parsing of xpti= on fixed
+ Intel hardware
+
+The calls to xpti_init_default() in parse_xpti() are buggy.  The CPUID data
+hasn't been fetched that early, and boot_cpu_has(X86_FEATURE_ARCH_CAPS) will
+always evaluate false.
+
+As a result, the default case won't disable XPTI on Intel hardware which
+advertises ARCH_CAPABILITIES_RDCL_NO.
+
+Simplify parse_xpti() to solely the setting of opt_xpti according to the
+passed string, and have init_speculation_mitigations() call
+xpti_init_default() if appropiate.  Drop the force parameter, and pass caps
+instead, to avoid redundant re-reading of MSR_ARCH_CAPS.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+master commit: be5e2ff6f54e0245331ed360b8786760f82fd673
+master date: 2018-07-24 11:25:54 +0100
+---
+ xen/arch/x86/spec_ctrl.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 5ee3b5ad9c..e0d1e658bf 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -408,12 +408,12 @@ static bool_t __init should_use_eager_fpu(void)
+ #define OPT_XPTI_DEFAULT  0xff
+ uint8_t __read_mostly opt_xpti = OPT_XPTI_DEFAULT;
+ 
+-static __init void xpti_init_default(bool_t force)
++static __init void xpti_init_default(uint64_t caps)
+ {
+-    if ( !force && (opt_xpti != OPT_XPTI_DEFAULT) )
+-        return;
+-
+     if ( boot_cpu_data.x86_vendor == X86_VENDOR_AMD )
++        caps = ARCH_CAPABILITIES_RDCL_NO;
++
++    if ( caps & ARCH_CAPABILITIES_RDCL_NO )
+         opt_xpti = 0;
+     else
+         opt_xpti = OPT_XPTI_DOM0 | OPT_XPTI_DOMU;
+@@ -424,8 +424,6 @@ static __init int parse_xpti(char *s)
+     char *ss;
+     int val, rc = 0;
+ 
+-    xpti_init_default(0);
+-
+     do {
+         ss = strchr(s, ',');
+         if ( ss )
+@@ -443,7 +441,7 @@ static __init int parse_xpti(char *s)
+ 
+         default:
+             if ( !strcmp(s, "default") )
+-                xpti_init_default(1);
++                opt_xpti = OPT_XPTI_DEFAULT;
+             else if ( (val = parse_boolean("dom0", s, ss)) >= 0 )
+                 opt_xpti = (opt_xpti & ~OPT_XPTI_DOM0) |
+                            (val ? OPT_XPTI_DOM0 : 0);
+@@ -608,7 +606,9 @@ void __init init_speculation_mitigations(void)
+     if ( default_xen_spec_ctrl )
+         __set_bit(X86_FEATURE_SC_MSR_IDLE, boot_cpu_data.x86_capability);
+ 
+-    xpti_init_default(0);
++    if ( opt_xpti == OPT_XPTI_DEFAULT )
++        xpti_init_default(caps);
++
+     if ( opt_xpti == 0 )
+         __set_bit(X86_FEATURE_NO_XPTI, boot_cpu_data.x86_capability);
+     else
+-- 
+2.17.1
+

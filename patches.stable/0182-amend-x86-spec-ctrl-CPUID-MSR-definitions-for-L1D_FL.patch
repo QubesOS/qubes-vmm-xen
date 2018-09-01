@@ -1,0 +1,69 @@
+From ef1b64877424016c90400963adff056e9199e667 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 15 Aug 2018 14:27:40 +0200
+Subject: [PATCH 182/182] amend "x86/spec-ctrl: CPUID/MSR definitions for
+ L1D_FLUSH"
+
+This is part of XSA-273 / CVE-2018-3646.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ tools/libxc/xc_cpufeature.h | 1 +
+ tools/libxc/xc_cpuid_x86.c  | 1 +
+ xen/arch/x86/hvm/hvm.c      | 2 ++
+ xen/arch/x86/traps.c        | 1 +
+ 4 files changed, 5 insertions(+)
+
+diff --git a/tools/libxc/xc_cpufeature.h b/tools/libxc/xc_cpufeature.h
+index eb24c53561..ccbf2e3581 100644
+--- a/tools/libxc/xc_cpufeature.h
++++ b/tools/libxc/xc_cpufeature.h
+@@ -147,6 +147,7 @@
+ /* Intel-defined CPU features, CPUID level 0x00000007:0 (edx) */
+ #define X86_FEATURE_IBRSB       26 /* IBRS and IBPB support (used by Intel) */
+ #define X86_FEATURE_STIBP       27 /* STIBP */
++#define X86_FEATURE_L1D_FLUSH   28 /* MSR_FLUSH_CMD and L1D flush. */
+ #define X86_FEATURE_SSBD        31 /* MSR_SPEC_CTRL.SSBD available */
+ 
+ #endif /* __LIBXC_CPUFEATURE_H */
+diff --git a/tools/libxc/xc_cpuid_x86.c b/tools/libxc/xc_cpuid_x86.c
+index 26cd475065..f5f0eb5357 100644
+--- a/tools/libxc/xc_cpuid_x86.c
++++ b/tools/libxc/xc_cpuid_x86.c
+@@ -370,6 +370,7 @@ static void xc_cpuid_hvm_policy(
+                         bitmaskof(X86_FEATURE_FSGSBASE));
+             regs[3] &= (bitmaskof(X86_FEATURE_IBRSB) |
+                         bitmaskof(X86_FEATURE_STIBP) |
++                        bitmaskof(X86_FEATURE_L1D_FLUSH) |
+                         bitmaskof(X86_FEATURE_SSBD));
+         } else
+             regs[1] = regs[3] = 0;
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 702dd1a872..1ce03b12b3 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -4627,6 +4627,8 @@ void hvm_cpuid(unsigned int input, unsigned int *eax, unsigned int *ebx,
+             if ( !boot_cpu_has(X86_FEATURE_SC_MSR_HVM) )
+                 *edx &= ~(cpufeat_mask(X86_FEATURE_IBRSB) |
+                           cpufeat_mask(X86_FEATURE_SSBD));
++            if ( !boot_cpu_has(X86_FEATURE_L1D_FLUSH) )
++                *edx &= ~cpufeat_mask(X86_FEATURE_L1D_FLUSH);
+ 
+             /*
+              * Override STIBP to match IBRS.  Guests can safely use STIBP
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 5845055824..a36ae95d14 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -882,6 +882,7 @@ void pv_cpuid(struct cpu_user_regs *regs)
+                 if ( !boot_cpu_has(X86_FEATURE_SC_MSR_PV) )
+                     d &= ~(cpufeat_mask(X86_FEATURE_IBRSB) |
+                            cpufeat_mask(X86_FEATURE_SSBD));
++                d &= ~cpufeat_mask(X86_FEATURE_L1D_FLUSH);
+ 
+                 /*
+                  * Override STIBP to match IBRS.  Guests can safely use STIBP
+-- 
+2.17.1
+

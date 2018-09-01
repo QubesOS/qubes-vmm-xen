@@ -1,0 +1,30 @@
+From 200bae4cb44ba95df4a888546e3cca9a83853869 Mon Sep 17 00:00:00 2001
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Wed, 15 Aug 2018 09:30:09 +0100
+Subject: [PATCH 179/182] arm: constify atomic_read parameter
+
+7d98594e6e added const to atomic_read. Do the same for Arm
+counterpart.
+
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: Julien Grall <julien.grall@arm.com>
+---
+ xen/include/asm-arm/atomic.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/include/asm-arm/atomic.h b/xen/include/asm-arm/atomic.h
+index 5a38c67fbd..73c53efc2b 100644
+--- a/xen/include/asm-arm/atomic.h
++++ b/xen/include/asm-arm/atomic.h
+@@ -110,7 +110,7 @@ typedef struct { int counter; } atomic_t;
+  * strex/ldrex monitor on some implementations. The reason we can use it for
+  * atomic_set() is the clrex or dummy strex done on every exception return.
+  */
+-static inline int atomic_read(atomic_t *v)
++static inline int atomic_read(const atomic_t *v)
+ {
+     return *(volatile int *)&v->counter;
+ }
+-- 
+2.17.1
+

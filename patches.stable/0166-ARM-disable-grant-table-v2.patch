@@ -1,0 +1,66 @@
+From 45f6a2777c42cf9794a7ad249fa5fa7f0a672f92 Mon Sep 17 00:00:00 2001
+From: Stefano Stabellini <sstabellini@kernel.org>
+Date: Tue, 14 Aug 2018 11:20:53 +0100
+Subject: [PATCH 166/182] ARM: disable grant table v2
+
+It was never expected to work, the implementation is incomplete.
+
+As a side effect, it also prevents guests from triggering a
+"BUG_ON(page_get_owner(pg) != d)" in gnttab_unpopulate_status_frames().
+
+This is XSA-268.
+
+Signed-off-by: Stefano Stabellini <sstabellini@kernel.org>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 9a5c16a3e75778c8a094ca87784d93b74676f46c)
+---
+ docs/misc/xen-command-line.markdown | 2 ++
+ xen/common/grant_table.c            | 6 +++++-
+ xen/include/asm-arm/grant_table.h   | 1 +
+ 3 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index ea959a00a5..6d17998427 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -789,6 +789,8 @@ version are 1 and 2.
+ use of grant table v2 without transitive grants is an ABI breakage from the
+ guests point of view.
+ 
++The usage of gnttab v2 is not security supported on ARM platforms.
++
+ ### gnttab\_max\_frames
+ > `= <integer>`
+ 
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index e28c4f012b..08c83fbb48 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -62,7 +62,11 @@ integer_param("gnttab_max_frames", max_grant_frames);
+ static unsigned int __read_mostly max_maptrack_frames;
+ integer_param("gnttab_max_maptrack_frames", max_maptrack_frames);
+ 
+-static unsigned int __read_mostly opt_gnttab_max_version = 2;
++#ifndef GNTTAB_MAX_VERSION
++#define GNTTAB_MAX_VERSION 2
++#endif
++
++static unsigned int __read_mostly opt_gnttab_max_version = GNTTAB_MAX_VERSION;
+ static bool_t __read_mostly opt_transitive_grants = 1;
+ 
+ static int __init parse_gnttab(const char *s)
+diff --git a/xen/include/asm-arm/grant_table.h b/xen/include/asm-arm/grant_table.h
+index fb393d4f45..c5d3a6cdad 100644
+--- a/xen/include/asm-arm/grant_table.h
++++ b/xen/include/asm-arm/grant_table.h
+@@ -4,6 +4,7 @@
+ #include <xen/grant_table.h>
+ 
+ #define INITIAL_NR_GRANT_FRAMES 4
++#define GNTTAB_MAX_VERSION 1
+ 
+ void gnttab_clear_flag(unsigned long nr, uint16_t *addr);
+ int create_grant_host_mapping(unsigned long gpaddr,
+-- 
+2.17.1
+
