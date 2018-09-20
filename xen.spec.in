@@ -287,7 +287,11 @@ BuildRequires: gcc-x86_64-linux-gnu
 BuildRequires: gcc >= 6.4.1-1.qubes1
 %endif
 Requires: bridge-utils
+%if 0%{?fedora} >= 29
+Requires: python2-lxml
+%else
 Requires: python-lxml
+%endif
 Requires: udev >= 059
 Requires: xen-runtime = %{version}-%{release}
 # Not strictly a dependency, but kpartx is by far the most useful tool right
