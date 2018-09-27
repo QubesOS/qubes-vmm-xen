@@ -1,4 +1,4 @@
-%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
+%{!?python2_sitearch: %define python2_sitearch %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 %define with_ocaml 0
 %define build_ocaml 0
 %define with_xsm 0
@@ -78,6 +78,7 @@ Source36: @gui-common@
 Patch101: patch-xen.use.fedora.ipxe.patch
 Patch102: patch-xen.fedora.efi.build.patch
 Patch103: patch-xen.gcc5.fix.patch
+Patch104: patch-xen.vwprintw.fix.patch
 
 # EFI workarounds
 
@@ -278,11 +279,7 @@ BuildRequires: libX11-devel ghostscript texlive-latex
 BuildRequires: python2-devel
 %endif
 %if %with_python3
-%if 0%{?rhel} >= 7
-BuildRequires: python34-devel
-%else
-BuildRequires: python3-devel
-%endif
+BuildRequires: python%{python3_pkgversion}-devel
 %endif
 %if 0%{?fedora} >= 18
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
@@ -332,7 +329,11 @@ BuildRequires: gcc-x86_64-linux-gnu
 BuildRequires: gcc >= 6.4.1-1.qubes1
 %endif
 Requires: bridge-utils
+%if 0%{?fedora} >= 29
+Requires: python2-lxml
+%else
 Requires: python-lxml
+%endif
 Requires: udev >= 059
 Requires: xen-runtime = %{version}-%{release}
 # Not strictly a dependency, but kpartx is by far the most useful tool right
@@ -381,30 +382,16 @@ and xen.lowlevel.xc modules.
 %endif
 
 %if %with_python3
-%if 0%{?rhel} >= 7
-%package -n python34-%{name}
-Summary: Python3 bindings for Xen tools
-Group: Development/Libraries
-Requires: xen-libs = %{version}-%{release}
-Requires: python34
-%{?python_provide:%python_provide python34-%{name}}
-
-%description -n python34-%{name}
-This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
-and xen.lowlevel.xc modules.
-%else
-%package -n python3-%{name}
+%package -n python%{python3_pkgversion}-%{name}
 Summary: Python3 bindings for Xen tools
 Group: Development/Libraries
 Requires: xen-libs = %{version}-%{release}
 Requires: python3
-%{?python_provide:%python_provide python3-%{name}}
+%{?python_provide:%python_provide python%{python3_pkgversion}-%{name}}
 
-%description -n python3-%{name}
+%description -n python%{python3_pkgversion}-%{name}
 This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
 and xen.lowlevel.xc modules.
-%endif
-
 %endif
 
 %package libs
@@ -840,14 +827,10 @@ rm -rf %{buildroot}
 %{_bindir}/xencons
 
 %files -n python2-%{name}
-%{python_sitearch}/%{name}
-%{python_sitearch}/xen-*.egg-info
+%{python2_sitearch}/%{name}
+%{python2_sitearch}/xen-*.egg-info
 
-%if 0%{?rhel} >= 7
-%files -n python34-%{name}
-%else
-%files -n python3-%{name}
-%endif
+%files -n python%{python3_pkgversion}-%{name}
 %{python3_sitearch}/%{name}
 %{python3_sitearch}/xen-*.egg-info
 
@@ -918,9 +901,9 @@ rm -rf %{buildroot}
 %{_mandir}/man5/xlcpupool.cfg.5*
 %{_mandir}/man1/xenstore*
 
-%{python_sitearch}/fsimage.so
-%{python_sitearch}/grub
-%{python_sitearch}/pygrub-*.egg-info
+%{python2_sitearch}/fsimage.so
+%{python2_sitearch}/grub
+%{python2_sitearch}/pygrub-*.egg-info
 
 # The firmware
 %ifarch %{ix86} x86_64
@@ -1095,11 +1078,10 @@ rm -rf %{buildroot}
 %dir %attr(0700,root,root) %{_localstatedir}/log/xen
 
 # Python modules
-%dir %{python_sitearch}/xen
-%{python_sitearch}/xen/__init__.*
-%{python_sitearch}/xen/lowlevel
-
-%{python_sitearch}/xen-*.egg-info
+%dir %{python2_sitearch}/xen
+%{python2_sitearch}/xen/__init__.*
+%{python2_sitearch}/xen/lowlevel
+%{python2_sitearch}/xen-*.egg-info
 
 
 %changelog
