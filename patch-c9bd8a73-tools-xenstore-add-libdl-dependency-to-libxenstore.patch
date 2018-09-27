@@ -1,0 +1,53 @@
+From c9bd8a73656d7435b1055ee8825823aee995993e Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Wed, 7 Mar 2018 12:03:18 +0100
+Subject: [PATCH] tools/xenstore: add libdl dependency to libxenstore
+
+Commit 448c03b3cbe14873ee63 ("tools/xenstore: try to get minimum thread
+stack size for watch thread") added a dependency to libdl to
+libxenstore.
+
+Add the needed flags to LDLIBS_libxenstore and the pkg-config file of
+libxenstore.
+
+Fixes: 448c03b3cbe14873ee63
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+[adjust for Xen 4.8]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/Rules.mk                | 3 +++
+ tools/xenstore/Makefile       | 2 ++
+ tools/xenstore/xenstore.pc.in | 1 +
+ 3 files changed, 6 insertions(+)
+
+diff --git a/tools/Rules.mk b/tools/Rules.mk
+index 61515d3063..296b722372 100644
+--- a/tools/Rules.mk
++++ b/tools/Rules.mk
+@@ -149,6 +149,9 @@ CFLAGS_libxenstore = -I$(XEN_XENSTORE)/include $(CFLAGS_xeninclude)
+ SHDEPS_libxenstore =
+ LDLIBS_libxenstore = $(SHDEPS_libxenstore) $(XEN_XENSTORE)/libxenstore$(libextension)
+ SHLIB_libxenstore  = $(SHDEPS_libxenstore) -Wl,-rpath-link=$(XEN_XENSTORE)
++ifeq ($(CONFIG_Linux),y)
++LDLIBS_libxenstore += -ldl
++endif
+ 
+ CFLAGS_libxenstat  = -I$(XEN_LIBXENSTAT)
+ SHDEPS_libxenstat  = $(SHLIB_libxenctrl) $(SHLIB_libxenstore)
+diff --git a/tools/xenstore/Makefile b/tools/xenstore/Makefile
+index 4473cf60b5..69e55e73e5 100644
+--- a/tools/xenstore/Makefile
++++ b/tools/xenstore/Makefile
+@@ -105,6 +105,8 @@ xs.opic: CFLAGS += -DUSE_PTHREAD
+ ifeq ($(CONFIG_Linux),y)
+ xs.opic: CFLAGS += -DUSE_DLSYM
+ libxenstore.so.$(MAJOR).$(MINOR): LDFLAGS += -ldl
++else
++PKG_CONFIG_REMOVE += -ldl
+ endif
+ 
+ libxenstore.so.$(MAJOR).$(MINOR): xs.opic xs_lib.opic
+-- 
+2.17.1
+
