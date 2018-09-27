@@ -19,13 +19,17 @@ HW42:
  * pass downscript for network interfaces
  * pass-through all disks as scsi disks and allow read-only disks
 
+alcreator:
+ remove ifup/ifdown scripts
+ change tablet usb controller to ehci
+
 ---
  tools/libxl/libxl_dm.c | 98 ++++++++++++++++++++++++++++++++------------------
  1 file changed, 64 insertions(+), 34 deletions(-)
 
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -24,15 +24,26 @@
+@@ -24,7 +24,8 @@
  #include <sys/types.h>
  #include <pwd.h>
  
@@ -34,26 +38,21 @@ HW42:
 +                                      const libxl_domain_build_info *info)
  {
  #if defined(__linux__) || defined(__FreeBSD__)
-+    if (info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
-+        return libxl__sprintf(gc, "/etc/qemu-ifup");
      return libxl__strdup(gc, "no");
- #else
-     return GCSPRINTF("%s/qemu-ifup", libxl__xen_script_dir_path());
+@@ -33,6 +34,12 @@ static const char *libxl_tapif_script(li
  #endif
  }
  
 +static const char *libxl_tapif_downscript(libxl__gc *gc,
 +                                          const libxl_domain_build_info *info)
 +{
-+    if (info->stubdomain_version == LIBXL_STUBDOMAIN_VERSION_LINUX)
-+        return libxl__sprintf(gc, "/etc/qemu-ifdown");
 +    return libxl__strdup(gc, "no");
 +}
 +
  const char *libxl__device_model_savefile(libxl__gc *gc, uint32_t domid)
  {
      return GCSPRINTF(LIBXL_DEVICE_MODEL_SAVE_FILE".%d", domid);
-@@ -615,8 +626,8 @@ static int libxl__build_device_model_arg
+@@ -615,8 +622,8 @@ static int libxl__build_device_model_arg
                                        "tap,vlan=%d,ifname=%s,bridge=%s,"
                                        "script=%s,downscript=%s",
                                        nics[i].devid, ifname, nics[i].bridge,
@@ -64,7 +63,7 @@ HW42:
                                    NULL);
                  ioemu_nics++;
              }
-@@ -924,9 +935,11 @@ static int libxl__build_device_model_arg
+@@ -916,9 +923,11 @@ static int libxl__build_device_model_arg
      char *machinearg;
      flexarray_t *dm_args, *dm_envs;
      int i, connection, devid, ret;
@@ -76,7 +75,7 @@ HW42:
  
      dm_args = flexarray_make(gc, 16, 1);
      dm_envs = flexarray_make(gc, 16, 1);
-@@ -937,24 +950,27 @@ static int libxl__build_device_model_arg
+@@ -929,24 +938,27 @@ static int libxl__build_device_model_arg
                        "-xen-domid",
                        GCSPRINTF("%d", guest_domid), NULL);
  
@@ -106,22 +105,22 @@ HW42:
 +        flexarray_append(dm_args, "-no-shutdown");
 +        flexarray_append(dm_args, "-mon");
 +        flexarray_append(dm_args, "chardev=libxl-cmd,mode=control");
- 
--    flexarray_append(dm_args, "-mon");
--    flexarray_append(dm_args, "chardev=libxenstat-cmd,mode=control");
++
 +        flexarray_append(dm_args, "-chardev");
 +        flexarray_append(dm_args,
 +                         GCSPRINTF("socket,id=libxenstat-cmd,"
 +                                        "path=%s/qmp-libxenstat-%d,server,nowait",
 +                                        libxl__run_dir_path(), guest_domid));
-+
+ 
+-    flexarray_append(dm_args, "-mon");
+-    flexarray_append(dm_args, "chardev=libxenstat-cmd,mode=control");
 +        flexarray_append(dm_args, "-mon");
 +        flexarray_append(dm_args, "chardev=libxenstat-cmd,mode=control");
 +    }
  
      for (i = 0; i < guest_config->num_channels; i++) {
          connection = guest_config->channels[i].connection;
-@@ -998,7 +1014,7 @@ static int libxl__build_device_model_arg
+@@ -990,7 +1002,7 @@ static int libxl__build_device_model_arg
          flexarray_vappend(dm_args, "-name", c_info->name, NULL);
      }
  
@@ -130,7 +129,7 @@ HW42:
          char *vncarg = NULL;
  
          flexarray_append(dm_args, "-vnc");
-@@ -1036,7 +1052,7 @@ static int libxl__build_device_model_arg
+@@ -1028,7 +1040,7 @@ static int libxl__build_device_model_arg
          }
  
          flexarray_append(dm_args, vncarg);
@@ -139,7 +138,7 @@ HW42:
          /*
           * Ensure that by default no vnc server is created.
           */
-@@ -1048,7 +1064,7 @@ static int libxl__build_device_model_arg
+@@ -1040,7 +1052,7 @@ static int libxl__build_device_model_arg
       */
      flexarray_append_pair(dm_args, "-display", "none");
  
@@ -148,7 +147,7 @@ HW42:
          flexarray_append(dm_args, "-sdl");
          if (sdl->display)
              flexarray_append_pair(dm_envs, "DISPLAY", sdl->display);
-@@ -1079,10 +1095,19 @@ static int libxl__build_device_model_arg
+@@ -1071,10 +1083,19 @@ static int libxl__build_device_model_arg
                  return ERROR_INVAL;
              }
              if (b_info->u.hvm.serial) {
@@ -170,7 +169,7 @@ HW42:
                  for (p = b_info->u.hvm.serial_list;
                       *p;
                       p++) {
-@@ -1097,7 +1122,7 @@ static int libxl__build_device_model_arg
+@@ -1089,7 +1110,7 @@ static int libxl__build_device_model_arg
              flexarray_append(dm_args, "-nographic");
          }
  
@@ -179,7 +178,32 @@ HW42:
              const libxl_spice_info *spice = &b_info->u.hvm.spice;
              char *spiceoptions = dm_spice_options(gc, spice);
              if (!spiceoptions)
-@@ -1236,8 +1261,8 @@ static int libxl__build_device_model_arg
+@@ -1141,18 +1162,18 @@ static int libxl__build_device_model_arg
+                 LOG(ERROR, "Both usbdevice and usbdevice_list set");
+                 return ERROR_INVAL;
+             }
+-            flexarray_append(dm_args, "-usb");
++            flexarray_append_pair(dm_args, 
++                              "-device", "usb-ehci,id=ehci");
+             if (b_info->u.hvm.usbdevice) {
+-                flexarray_vappend(dm_args,
+-                                  "-usbdevice", b_info->u.hvm.usbdevice, NULL);
++                flexarray_vappend(dm_args, "-device", 
++                    GCSPRINTF("usb-%s,bus=ehci.0", b_info->u.hvm.usbdevice), NULL);
+             } else if (b_info->u.hvm.usbdevice_list) {
+                 char **p;
+                 for (p = b_info->u.hvm.usbdevice_list;
+                      *p;
+                      p++) {
+-                    flexarray_vappend(dm_args,
+-                                      "-usbdevice",
+-                                      *p, NULL);
++                    flexarray_vappend(dm_args, "-device", 
++                        GCSPRINTF("usb-%s,bus=ehci.0", *p), NULL);
+                 }
+             }
+         } else if (b_info->u.hvm.usbversion) {
+@@ -1228,8 +1249,8 @@ static int libxl__build_device_model_arg
                                   GCSPRINTF("type=tap,id=net%d,ifname=%s,"
                                             "script=%s,downscript=%s",
                                             nics[i].devid, ifname,
@@ -190,7 +214,7 @@ HW42:
                  ioemu_nics++;
              }
          }
-@@ -1322,6 +1347,8 @@ static int libxl__build_device_model_arg
+@@ -1314,6 +1335,8 @@ static int libxl__build_device_model_arg
      if (b_info->type == LIBXL_DOMAIN_TYPE_HVM) {
          if (b_info->u.hvm.hdtype == LIBXL_HDTYPE_AHCI)
              flexarray_append_pair(dm_args, "-device", "ahci,id=ahci0");
@@ -199,7 +223,7 @@ HW42:
          for (i = 0; i < num_disks; i++) {
              int disk, part;
              int dev_number =
-@@ -1388,12 +1415,17 @@ static int libxl__build_device_model_arg
+@@ -1380,12 +1403,17 @@ static int libxl__build_device_model_arg
  
              if (disks[i].is_cdrom) {
                  drive = libxl__sprintf(gc,
@@ -220,7 +244,7 @@ HW42:
              } else {
                  /*
                   * Explicit sd disks are passed through as is.
-@@ -1411,7 +1443,30 @@ static int libxl__build_device_model_arg
+@@ -1403,7 +1431,30 @@ static int libxl__build_device_model_arg
                      colo_mode = LIBXL__COLO_NONE;
                  }
  
@@ -252,7 +276,7 @@ HW42:
                      if (colo_mode == LIBXL__COLO_SECONDARY) {
                          drive = libxl__sprintf
                              (gc, "if=none,driver=%s,file=%s,id=%s,readonly=%s",
-@@ -1519,7 +1574,7 @@ static int libxl__build_device_model_arg
+@@ -1512,7 +1563,7 @@ static int libxl__build_device_model_arg
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)
@@ -261,7 +285,7 @@ HW42:
   * and therefore will be passing a filename rather than a fd. */
  {
      switch (guest_config->b_info.device_model_version) {
-@@ -1529,8 +1584,10 @@ static int libxl__build_device_model_arg
+@@ -1522,8 +1573,10 @@ static int libxl__build_device_model_arg
                                                    args, envs,
                                                    state);
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -274,7 +298,7 @@ HW42:
          return libxl__build_device_model_args_new(gc, dm,
                                                    guest_domid, guest_config,
                                                    args, envs,
-@@ -1587,7 +1644,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
+@@ -1580,7 +1633,7 @@ static int libxl__vfb_and_vkb_from_hvm_g
  
  static int libxl__write_stub_dmargs(libxl__gc *gc,
                                      int dm_domid, int guest_domid,
@@ -283,7 +307,7 @@ HW42:
  {
      libxl_ctx *ctx = libxl__gc_owner(gc);
      int i;
-@@ -1615,7 +1672,9 @@ static int libxl__write_stub_dmargs(libx
+@@ -1608,7 +1661,9 @@ static int libxl__write_stub_dmargs(libx
      i = 1;
      dmargs[0] = '\0';
      while (args[i] != NULL) {
