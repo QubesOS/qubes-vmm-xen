@@ -89,6 +89,11 @@ Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 # Backports
 Patch301: patch-0001-libxl-add-more-cpuid-flags-handling.patch
 Patch302: patch-libxc-panic-when-trying-to-create-a-PVH-guest-withou.patch
+Patch303: patch-b4f98dc0-tools-fix-typo-in-tools-Rules.mk.patch
+Patch304: patch-448c03b3-tools-xenstore-try-to-get-minimum-thread-stack-size-.patch
+Patch305: patch-c9bd8a73-tools-xenstore-add-libdl-dependency-to-libxenstore.patch
+Patch306: patch-1a373194-tools-xenstore-fix-linking-libxenstore-with-ldl.patch
+
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
