@@ -402,8 +402,8 @@ Requires(post): /sbin/ldconfig
 Requires: xen-licenses
 Provides: xen-libs = %{version}-%{release}
 Obsoletes: xen-qubes-vm-libs < %{epoch}:%{version}-%{release}
-# qemu parameters format changed
-Conflicts: xen-hvm-stubdom-linux < 1.0.4
+# ifup/ifdown arguments dropped
+Conflicts: xen-hvm-stubdom-linux < 1.0.10
 # pvh definition syntax change
 Conflicts: libvirt-daemon-driver-libxl < 3.3.0-7
 
