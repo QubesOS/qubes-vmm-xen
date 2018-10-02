@@ -563,6 +563,7 @@ mkdir -p dist/install/boot/efi/efi/qubes
 export XEN_VENDORVERSION="-%{release}"
 export CFLAGS_EXTRA="$RPM_OPT_FLAGS"
 export PATH="/usr/bin:$PATH"
+export PYTHON=%{__python2}
 export KCONFIG_CONFIG=%{SOURCE3}
 cp -f %{SOURCE3} xen/.config
 export XEN_CONFIG_EXPERT=y
@@ -599,6 +600,7 @@ mkdir -p %{buildroot}%{_libdir}/ocaml/stublibs
 %if %build_efi
 mkdir -p %{buildroot}/boot/efi/efi/qubes
 %endif
+export PYTHON=%{__python2}
 make DESTDIR=%{buildroot} %{?efi_flags}  prefix=/usr install-xen
 make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-tools
 make DESTDIR=%{buildroot} prefix=/usr install-docs
