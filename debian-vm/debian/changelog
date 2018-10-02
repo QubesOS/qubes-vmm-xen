@@ -1,3 +1,23 @@
+xen (2001:4.8.4-3) unstable; urgency=medium
+
+  [ fepitre ]
+  * Replace deprecated vwprintw function
+  * Update travis for fc29
+  * Update from python to python2
+  * python3: better use python3_pkgversion rpm macro
+  * Switch to python2-lxml for Fedora 29
+
+  [ alcreator ]
+  * Change emulated qemu usb controller to ehci and remove ifup/ifdown
+    scripts
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: bump xen-hvm-stubdom-linux version requirement
+  * travis: allow failures for archlinux build
+  * Backport xenstore xs_watch() thread stack size fix
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 02 Oct 2018 03:58:00 +0200
+
 xen (2001:4.8.4-2) unstable; urgency=medium
 
   [ unman ]
