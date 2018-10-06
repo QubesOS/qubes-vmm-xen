@@ -1,0 +1,375 @@
+From 7e7d61920fc410000c3c889d260cf60a864d7cc1 Mon Sep 17 00:00:00 2001
+From: Suravee Suthikulpanit <suravee.suthikulpanit@amd.com>
+Date: Mon, 12 Dec 2016 17:43:34 +0100
+Subject: [PATCH] AMD IOMMU: Support IOAPIC IDs larger than 128
+
+Currently, the driver uses the APIC ID to index into the ioapic_sbdf array.
+The current MAX_IO_APICS is 128, which causes the driver initialization
+to fail on the system with IOAPIC ID >= 128.
+
+Instead, this patch adds APIC ID in the struct ioapic_sbdf,
+which is used to match the entry when searching through the array.
+
+Also, this patch removes the use of ioapic_cmdline bit-map, which is
+used to track the ivrs_ioapic options via command line.
+Instead, it introduces the cmdline flag in the struct ioapic_sbdf,
+to identify if the entry is created during ivrs_ioapic command-line parsing.
+
+Signed-off-by: Suravee Suthikulpanit <suravee.suthikulpanit@amd.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit f948ce4371cd935d0075d8c60309660bdd5ca178)
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/drivers/passthrough/amd/iommu_acpi.c      | 102 ++++++++++--------
+ xen/drivers/passthrough/amd/iommu_intr.c      |  61 +++++++++--
+ xen/include/asm-x86/hvm/svm/amd-iommu-proto.h |   6 ++
+ 3 files changed, 115 insertions(+), 54 deletions(-)
+
+diff --git a/xen/drivers/passthrough/amd/iommu_acpi.c b/xen/drivers/passthrough/amd/iommu_acpi.c
+index b92c8ad2a9..ac902ac960 100644
+--- a/xen/drivers/passthrough/amd/iommu_acpi.c
++++ b/xen/drivers/passthrough/amd/iommu_acpi.c
+@@ -633,26 +633,37 @@ static u16 __init parse_ivhd_device_extended_range(
+     return dev_length;
+ }
+ 
+-static DECLARE_BITMAP(ioapic_cmdline, ARRAY_SIZE(ioapic_sbdf)) __initdata;
+-
+ static void __init parse_ivrs_ioapic(char *str)
+ {
+     const char *s = str;
+     unsigned long id;
+     unsigned int seg, bus, dev, func;
++    unsigned int idx;
+ 
+     ASSERT(*s == '[');
+     id = simple_strtoul(s + 1, &s, 0);
+-    if ( id >= ARRAY_SIZE(ioapic_sbdf) || *s != ']' || *++s != '=' )
++    if ( *s != ']' || *++s != '=' )
+         return;
+ 
+     s = parse_pci(s + 1, &seg, &bus, &dev, &func);
+     if ( !s || *s )
+         return;
+ 
+-    ioapic_sbdf[id].bdf = PCI_BDF(bus, dev, func);
+-    ioapic_sbdf[id].seg = seg;
+-    __set_bit(id, ioapic_cmdline);
++    idx = ioapic_id_to_index(id);
++    if ( idx == MAX_IO_APICS )
++    {
++        idx = get_next_ioapic_sbdf_index();
++        if ( idx == MAX_IO_APICS )
++        {
++            printk(XENLOG_ERR "Error: %s: Too many IO APICs.\n", __func__);
++            return;
++        }
++    }
++
++    ioapic_sbdf[idx].bdf = PCI_BDF(bus, dev, func);
++    ioapic_sbdf[idx].seg = seg;
++    ioapic_sbdf[idx].id = id;
++    ioapic_sbdf[idx].cmdline = true;
+ }
+ custom_param("ivrs_ioapic[", parse_ivrs_ioapic);
+ 
+@@ -683,7 +694,7 @@ static u16 __init parse_ivhd_device_special(
+     u16 header_length, u16 block_length, struct amd_iommu *iommu)
+ {
+     u16 dev_length, bdf;
+-    int apic;
++    unsigned int apic, idx;
+ 
+     dev_length = sizeof(*special);
+     if ( header_length < (block_length + dev_length) )
+@@ -714,21 +725,19 @@ static u16 __init parse_ivhd_device_special(
+          * consistency here --- whether entry's IOAPIC ID is valid and
+          * whether there are conflicting/duplicated entries.
+          */
+-        apic = find_first_bit(ioapic_cmdline, ARRAY_SIZE(ioapic_sbdf));
+-        while ( apic < ARRAY_SIZE(ioapic_sbdf) )
++        for ( idx = 0; idx < nr_ioapic_sbdf; idx++ )
+         {
+-            if ( ioapic_sbdf[apic].bdf == bdf &&
+-                 ioapic_sbdf[apic].seg == seg )
++            if ( ioapic_sbdf[idx].bdf == bdf &&
++                 ioapic_sbdf[idx].seg == seg &&
++                 ioapic_sbdf[idx].cmdline )
+                 break;
+-            apic = find_next_bit(ioapic_cmdline, ARRAY_SIZE(ioapic_sbdf),
+-                                 apic + 1);
+         }
+-        if ( apic < ARRAY_SIZE(ioapic_sbdf) )
++        if ( idx < nr_ioapic_sbdf )
+         {
+             AMD_IOMMU_DEBUG("IVHD: Command line override present for IO-APIC %#x"
+                             "(IVRS: %#x devID %04x:%02x:%02x.%u)\n",
+-                            apic, special->handle, seg, PCI_BUS(bdf),
+-                            PCI_SLOT(bdf), PCI_FUNC(bdf));
++                            ioapic_sbdf[idx].id, special->handle, seg,
++                            PCI_BUS(bdf), PCI_SLOT(bdf), PCI_FUNC(bdf));
+             break;
+         }
+ 
+@@ -737,20 +746,14 @@ static u16 __init parse_ivhd_device_special(
+             if ( IO_APIC_ID(apic) != special->handle )
+                 continue;
+ 
+-            if ( special->handle >= ARRAY_SIZE(ioapic_sbdf) )
+-            {
+-                printk(XENLOG_ERR "IVHD Error: IO-APIC %#x entry beyond bounds\n",
+-                       special->handle);
+-                return 0;
+-            }
+-
+-            if ( test_bit(special->handle, ioapic_cmdline) )
++            idx = ioapic_id_to_index(special->handle);
++            if ( idx != MAX_IO_APICS && ioapic_sbdf[idx].cmdline )
+                 AMD_IOMMU_DEBUG("IVHD: Command line override present for IO-APIC %#x\n",
+                                 special->handle);
+-            else if ( ioapic_sbdf[special->handle].pin_2_idx )
++            else if ( idx != MAX_IO_APICS && ioapic_sbdf[idx].pin_2_idx )
+             {
+-                if ( ioapic_sbdf[special->handle].bdf == bdf &&
+-                     ioapic_sbdf[special->handle].seg == seg )
++                if ( ioapic_sbdf[idx].bdf == bdf &&
++                     ioapic_sbdf[idx].seg == seg )
+                     AMD_IOMMU_DEBUG("IVHD Warning: Duplicate IO-APIC %#x entries\n",
+                                     special->handle);
+                 else
+@@ -763,19 +766,27 @@ static u16 __init parse_ivhd_device_special(
+             }
+             else
+             {
++                idx = get_next_ioapic_sbdf_index();
++                if ( idx == MAX_IO_APICS )
++                {
++                    printk(XENLOG_ERR "IVHD Error: Too many IO APICs.\n");
++                    return 0;
++                }
++
+                 /* set device id of ioapic */
+-                ioapic_sbdf[special->handle].bdf = bdf;
+-                ioapic_sbdf[special->handle].seg = seg;
++                ioapic_sbdf[idx].bdf = bdf;
++                ioapic_sbdf[idx].seg = seg;
++                ioapic_sbdf[idx].id = special->handle;
+ 
+-                ioapic_sbdf[special->handle].pin_2_idx = xmalloc_array(
++                ioapic_sbdf[idx].pin_2_idx = xmalloc_array(
+                     u16, nr_ioapic_entries[apic]);
+                 if ( nr_ioapic_entries[apic] &&
+-                     !ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx )
++                     !ioapic_sbdf[idx].pin_2_idx )
+                 {
+                     printk(XENLOG_ERR "IVHD Error: Out of memory\n");
+                     return 0;
+                 }
+-                memset(ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx, -1,
++                memset(ioapic_sbdf[idx].pin_2_idx, -1,
+                        nr_ioapic_entries[apic] *
+                        sizeof(*ioapic_sbdf->pin_2_idx));
+             }
+@@ -1025,18 +1036,13 @@ static int __init parse_ivrs_table(struct acpi_table_header *table)
+     /* Each IO-APIC must have been mentioned in the table. */
+     for ( apic = 0; !error && iommu_intremap && apic < nr_ioapics; ++apic )
+     {
+-        if ( !nr_ioapic_entries[apic] )
+-            continue;
+-
+-        if ( !ioapic_sbdf[IO_APIC_ID(apic)].seg &&
+-             /* SB IO-APIC is always on this device in AMD systems. */
+-             ioapic_sbdf[IO_APIC_ID(apic)].bdf == PCI_BDF(0, 0x14, 0) )
+-            sb_ioapic = 1;
++        unsigned int idx;
+ 
+-        if ( ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx )
++        if ( !nr_ioapic_entries[apic] )
+             continue;
+ 
+-        if ( !test_bit(IO_APIC_ID(apic), ioapic_cmdline) )
++        idx = ioapic_id_to_index(IO_APIC_ID(apic));
++        if ( idx == MAX_IO_APICS )
+         {
+             printk(XENLOG_ERR "IVHD Error: no information for IO-APIC %#x\n",
+                    IO_APIC_ID(apic));
+@@ -1044,10 +1050,18 @@ static int __init parse_ivrs_table(struct acpi_table_header *table)
+                 return -ENXIO;
+         }
+ 
+-        ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx = xmalloc_array(
++        if ( !ioapic_sbdf[idx].seg &&
++             /* SB IO-APIC is always on this device in AMD systems. */
++             ioapic_sbdf[idx].bdf == PCI_BDF(0, 0x14, 0) )
++            sb_ioapic = 1;
++
++        if ( ioapic_sbdf[idx].pin_2_idx )
++            continue;
++
++        ioapic_sbdf[idx].pin_2_idx = xmalloc_array(
+             u16, nr_ioapic_entries[apic]);
+-        if ( ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx )
+-            memset(ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx, -1,
++        if ( ioapic_sbdf[idx].pin_2_idx )
++            memset(ioapic_sbdf[idx].pin_2_idx, -1,
+                    nr_ioapic_entries[apic] * sizeof(*ioapic_sbdf->pin_2_idx));
+         else
+         {
+diff --git a/xen/drivers/passthrough/amd/iommu_intr.c b/xen/drivers/passthrough/amd/iommu_intr.c
+index 0a9f22f0de..dad2d1e5ab 100644
+--- a/xen/drivers/passthrough/amd/iommu_intr.c
++++ b/xen/drivers/passthrough/amd/iommu_intr.c
+@@ -32,9 +32,32 @@ struct hpet_sbdf hpet_sbdf;
+ void *shared_intremap_table;
+ unsigned long *shared_intremap_inuse;
+ static DEFINE_SPINLOCK(shared_intremap_lock);
++unsigned int nr_ioapic_sbdf;
+ 
+ static void dump_intremap_tables(unsigned char key);
+ 
++unsigned int ioapic_id_to_index(unsigned int apic_id)
++{
++    unsigned int idx;
++
++    for ( idx = 0 ; idx < nr_ioapic_sbdf; idx++ )
++        if ( ioapic_sbdf[idx].id == apic_id )
++            break;
++
++    if ( idx == nr_ioapic_sbdf )
++        return MAX_IO_APICS;
++
++    return idx;
++}
++
++unsigned int __init get_next_ioapic_sbdf_index(void)
++{
++    if ( nr_ioapic_sbdf < MAX_IO_APICS )
++        return nr_ioapic_sbdf++;
++
++    return MAX_IO_APICS;
++}
++
+ static spinlock_t* get_intremap_lock(int seg, int req_id)
+ {
+     return (amd_iommu_perdev_intremap ?
+@@ -218,13 +241,19 @@ int __init amd_iommu_setup_ioapic_remapping(void)
+     {
+         for ( pin = 0; pin < nr_ioapic_entries[apic]; pin++ )
+         {
++            unsigned int idx;
++
+             rte = __ioapic_read_entry(apic, pin, 1);
+             if ( rte.mask == 1 )
+                 continue;
+ 
+             /* get device id of ioapic devices */
+-            bdf = ioapic_sbdf[IO_APIC_ID(apic)].bdf;
+-            seg = ioapic_sbdf[IO_APIC_ID(apic)].seg;
++            idx = ioapic_id_to_index(IO_APIC_ID(apic));
++            if ( idx == MAX_IO_APICS )
++                return -EINVAL;
++
++            bdf = ioapic_sbdf[idx].bdf;
++            seg = ioapic_sbdf[idx].seg;
+             iommu = find_iommu_for_device(seg, bdf);
+             if ( !iommu )
+             {
+@@ -250,7 +279,7 @@ int __init amd_iommu_setup_ioapic_remapping(void)
+             spin_unlock_irqrestore(lock, flags);
+ 
+             set_rte_index(&rte, offset);
+-            ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx[pin] = offset;
++            ioapic_sbdf[idx].pin_2_idx[pin] = offset;
+             __ioapic_write_entry(apic, pin, 1, rte);
+ 
+             if ( iommu->enabled )
+@@ -277,6 +306,7 @@ void amd_iommu_ioapic_update_ire(
+     unsigned int pin = (reg - 0x10) / 2;
+     int saved_mask, seg, bdf, rc;
+     struct amd_iommu *iommu;
++    unsigned int idx;
+ 
+     if ( !iommu_intremap )
+     {
+@@ -284,9 +314,13 @@ void amd_iommu_ioapic_update_ire(
+         return;
+     }
+ 
++    idx = ioapic_id_to_index(IO_APIC_ID(apic));
++    if ( idx == MAX_IO_APICS )
++        return;
++
+     /* get device id of ioapic devices */
+-    bdf = ioapic_sbdf[IO_APIC_ID(apic)].bdf;
+-    seg = ioapic_sbdf[IO_APIC_ID(apic)].seg;
++    bdf = ioapic_sbdf[idx].bdf;
++    seg = ioapic_sbdf[idx].seg;
+     iommu = find_iommu_for_device(seg, bdf);
+     if ( !iommu )
+     {
+@@ -313,7 +347,7 @@ void amd_iommu_ioapic_update_ire(
+     }
+ 
+     if ( new_rte.mask &&
+-         ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx[pin] >= INTREMAP_ENTRIES )
++         ioapic_sbdf[idx].pin_2_idx[pin] >= INTREMAP_ENTRIES )
+     {
+         ASSERT(saved_mask);
+         __io_apic_write(apic, reg, value);
+@@ -330,7 +364,7 @@ void amd_iommu_ioapic_update_ire(
+     /* Update interrupt remapping entry */
+     rc = update_intremap_entry_from_ioapic(
+              bdf, iommu, &new_rte, reg == rte_lo,
+-             &ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx[pin]);
++             &ioapic_sbdf[idx].pin_2_idx[pin]);
+ 
+     __io_apic_write(apic, reg, ((u32 *)&new_rte)[reg != rte_lo]);
+ 
+@@ -357,14 +391,21 @@ void amd_iommu_ioapic_update_ire(
+ unsigned int amd_iommu_read_ioapic_from_ire(
+     unsigned int apic, unsigned int reg)
+ {
++    unsigned int idx;
++    unsigned int offset;
+     unsigned int val = __io_apic_read(apic, reg);
+     unsigned int pin = (reg - 0x10) / 2;
+-    unsigned int offset = ioapic_sbdf[IO_APIC_ID(apic)].pin_2_idx[pin];
++
++    idx = ioapic_id_to_index(IO_APIC_ID(apic));
++    if ( idx == MAX_IO_APICS )
++        return -EINVAL;
++
++    offset = ioapic_sbdf[idx].pin_2_idx[pin];
+ 
+     if ( !(reg & 1) && offset < INTREMAP_ENTRIES )
+     {
+-        u16 bdf = ioapic_sbdf[IO_APIC_ID(apic)].bdf;
+-        u16 seg = ioapic_sbdf[IO_APIC_ID(apic)].seg;
++        u16 bdf = ioapic_sbdf[idx].bdf;
++        u16 seg = ioapic_sbdf[idx].seg;
+         u16 req_id = get_intremap_requestor_id(seg, bdf);
+         const u32 *entry = get_intremap_entry(seg, req_id, offset);
+ 
+diff --git a/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h b/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
+index 6c702e8162..1cf9c3d885 100644
+--- a/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
++++ b/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
+@@ -103,9 +103,15 @@ int amd_setup_hpet_msi(struct msi_desc *msi_desc);
+ 
+ extern struct ioapic_sbdf {
+     u16 bdf, seg;
++    u8 id;
++    bool cmdline;
+     u16 *pin_2_idx;
+ } ioapic_sbdf[MAX_IO_APICS];
+ 
++extern unsigned int nr_ioapic_sbdf;
++unsigned int ioapic_id_to_index(unsigned int apic_id);
++unsigned int get_next_ioapic_sbdf_index(void);
++
+ extern struct hpet_sbdf {
+     u16 bdf, seg, id;
+     enum {
+-- 
+2.17.1
+
