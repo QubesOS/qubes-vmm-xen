@@ -10,6 +10,7 @@ Build-Depends:
     debhelper (>= 9), 
     dh-autoreconf,
     dh-python,
+    dh-systemd,
     e2fslibs-dev,
     file,
     iasl,
