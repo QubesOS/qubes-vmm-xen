@@ -11,14 +11,15 @@ diff --git a/tools/libxl/Makefile b/tools/libxl/Makefile
 index ef01785..7cb0bac 100644
 --- a/tools/libxl/Makefile
 +++ b/tools/libxl/Makefile
-@@ -5,12 +5,6 @@
+@@ -5,12 +5,9 @@
  XEN_ROOT = $(CURDIR)/../..
  include $(XEN_ROOT)/tools/Rules.mk
  
--MAJOR = 4.8
+-MAJOR = 4.8.1
++MAJOR = 4.8
 -MINOR = 0
--
--XLUMAJOR = 4.8
+ 
+ XLUMAJOR = 4.8
 -XLUMINOR = 0
 -
  CFLAGS += -Werror -Wno-format-zero-length -Wmissing-declarations \
@@ -48,12 +49,12 @@ index ef01785..7cb0bac 100644
  	$(AR) rcs libxenlight.a $^
  
 -libxlutil.so: libxlutil.so.$(XLUMAJOR)
--	$(SYMLINK_SHLIB) $< $@
--
--libxlutil.so.$(XLUMAJOR): libxlutil.so.$(XLUMAJOR).$(XLUMINOR)
 +libxlutil.so: libxlutil-$(PACKAGE_VERSION).so
  	$(SYMLINK_SHLIB) $< $@
  
+-libxlutil.so.$(XLUMAJOR): libxlutil.so.$(XLUMAJOR).$(XLUMINOR)
+-	$(SYMLINK_SHLIB) $< $@
+-
 -libxlutil.so.$(XLUMAJOR).$(XLUMINOR): $(LIBXLU_OBJS) libxenlight.so
 -	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxlutil.so.$(XLUMAJOR) $(SHLIB_LDFLAGS) -o $@ $(LIBXLU_OBJS) $(LIBXLU_LIBS) $(APPEND_LDFLAGS)
 +libxlutil-$(PACKAGE_VERSION).so: $(LIBXLU_OBJS) libxenlight.so
@@ -70,18 +71,20 @@ index ef01785..7cb0bac 100644
  	@mv -f $@.new $@
  
  .PHONY: install
-@@ -311,13 +299,11 @@ install: all
+@@ -311,13 +299,13 @@ install: all
  	$(INSTALL_DIR) $(DESTDIR)$(PKG_INSTALLDIR)
  	$(INSTALL_PROG) xl $(DESTDIR)$(sbindir)
  	$(INSTALL_PROG) libxl-save-helper $(DESTDIR)$(LIBEXEC_BIN)
 -	$(INSTALL_SHLIB) libxenlight.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
 -	$(SYMLINK_SHLIB) libxenlight.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenlight.so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxenlight-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxenlight.so.$(MAJOR)
 -	$(SYMLINK_SHLIB) libxenlight.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenlight.so
 +	$(INSTALL_SHLIB) libxenlight-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)
 +	$(SYMLINK_SHLIB) libxenlight-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxenlight.so
  	$(INSTALL_DATA) libxenlight.a $(DESTDIR)$(libdir)
 -	$(INSTALL_SHLIB) libxlutil.so.$(XLUMAJOR).$(XLUMINOR) $(DESTDIR)$(libdir)
 -	$(SYMLINK_SHLIB) libxlutil.so.$(XLUMAJOR).$(XLUMINOR) $(DESTDIR)$(libdir)/libxlutil.so.$(XLUMAJOR)
++	$(SYMLINK_SHLIB) libxlutil-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxlutil.so.$(XLUMAJOR)
 -	$(SYMLINK_SHLIB) libxlutil.so.$(XLUMAJOR) $(DESTDIR)$(libdir)/libxlutil.so
 +	$(INSTALL_SHLIB) libxlutil-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)
 +	$(SYMLINK_SHLIB) libxlutil-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxlutil.so

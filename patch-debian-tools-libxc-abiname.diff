@@ -11,11 +11,10 @@ diff --git a/tools/libxc/Makefile b/tools/libxc/Makefile
 index e9509d1..00fbd24 100644
 --- a/tools/libxc/Makefile
 +++ b/tools/libxc/Makefile
-@@ -1,9 +1,6 @@
- XEN_ROOT = $(CURDIR)/../..
+@@ -1,8 +1,6 @@
  include $(XEN_ROOT)/tools/Rules.mk
  
--MAJOR    = 4.8
+ MAJOR    = 4.8
 -MINOR    = 0
 -
  ifeq ($(CONFIG_LIBXC_MINIOS),y)
@@ -36,7 +35,7 @@ index e9509d1..00fbd24 100644
  endif
  
  genpath-target = $(call buildmakevars2header,_paths.h)
-@@ -171,15 +168,13 @@ libs: $(LIB)
+@@ -171,15 +168,15 @@ libs: $(LIB)
  install: build
  	$(INSTALL_DIR) $(DESTDIR)$(libdir)
  	$(INSTALL_DIR) $(DESTDIR)$(includedir)
@@ -45,6 +44,7 @@ index e9509d1..00fbd24 100644
 +	$(SYMLINK_SHLIB) libxenctrl-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxenctrl.so
  	$(INSTALL_DATA) libxenctrl.a $(DESTDIR)$(libdir)
 -	$(SYMLINK_SHLIB) libxenctrl.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenctrl.so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxenctrl-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxenctrl.so.$(MAJOR)
 -	$(SYMLINK_SHLIB) libxenctrl.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenctrl.so
  	$(INSTALL_DATA) include/xenctrl.h include/xenctrl_compat.h $(DESTDIR)$(includedir)
 -	$(INSTALL_SHLIB) libxenguest.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
@@ -52,6 +52,7 @@ index e9509d1..00fbd24 100644
 +	$(SYMLINK_SHLIB) libxenguest-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxenguest.so
  	$(INSTALL_DATA) libxenguest.a $(DESTDIR)$(libdir)
 -	$(SYMLINK_SHLIB) libxenguest.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenguest.so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxenguest-$(PACKAGE_VERSION).so $(DESTDIR)$(libdir)/libxenguest.so.$(MAJOR)
 -	$(SYMLINK_SHLIB) libxenguest.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenguest.so
  	$(INSTALL_DATA) include/xenguest.h $(DESTDIR)$(includedir)
  

@@ -1,13 +1,17 @@
 usr/lib/*/libxencall.a
 usr/lib/*/libxencall.so
+usr/lib/*/libxencall-4.8.so
 usr/lib/*/libxenctrl.a
 usr/lib/*/libxenctrl.so
 usr/lib/*/libxenevtchn.a
 usr/lib/*/libxenevtchn.so
+usr/lib/*/libxenevtchn-4.8.so
 usr/lib/*/libxenforeignmemory.a
 usr/lib/*/libxenforeignmemory.so
+usr/lib/*/libxenforeignmemory-4.8.so
 usr/lib/*/libxengnttab.a
 usr/lib/*/libxengnttab.so
+usr/lib/*/libxengnttab-4.8.so
 usr/lib/*/libxenguest.a
 usr/lib/*/libxenguest.so
 usr/lib/*/libxenlight.a
@@ -17,6 +21,7 @@ usr/lib/*/libxenstore.a
 usr/lib/*/libxenstore.so
 usr/lib/*/libxentoollog.a
 usr/lib/*/libxentoollog.so
+usr/lib/*/libxentoollog-4.8.so
 usr/lib/*/libxenvchan.a
 usr/lib/*/libxenvchan.so
 usr/lib/*/libxlutil.a

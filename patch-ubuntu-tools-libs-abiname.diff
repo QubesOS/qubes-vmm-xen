@@ -14,7 +14,7 @@ diff --git a/tools/libs/call/Makefile b/tools/libs/call/Makefile
 index 9402ea5..ad8e22a 100644
 --- a/tools/libs/call/Makefile
 +++ b/tools/libs/call/Makefile
-@@ -39,22 +39,22 @@ headers.chk: $(wildcard include/*.h)
+@@ -39,22 +39,23 @@ headers.chk: $(wildcard include/*.h)
  libxencall.a: $(LIB_OBJS)
  	$(AR) rc $@ $^
  
@@ -41,6 +41,7 @@ index 9402ea5..ad8e22a 100644
 -	$(SYMLINK_SHLIB) libxencall.so.$(MAJOR) $(DESTDIR)$(libdir)/libxencall.so
 +	$(SYMLINK_SHLIB) libxencall-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxencall-$(PACKAGE_VERSION).so.$(MAJOR)
 +	$(SYMLINK_SHLIB) libxencall-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxencall.so
++	$(SYMLINK_SHLIB) libxencall-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxencall-$(PACKAGE_VERSION).so
  	$(INSTALL_DATA) include/xencall.h $(DESTDIR)$(includedir)
  
  .PHONY: TAGS
@@ -57,7 +58,7 @@ diff --git a/tools/libs/evtchn/Makefile b/tools/libs/evtchn/Makefile
 index 9917864..060fd01 100644
 --- a/tools/libs/evtchn/Makefile
 +++ b/tools/libs/evtchn/Makefile
-@@ -39,22 +39,22 @@ headers.chk: $(wildcard include/*.h)
+@@ -39,22 +39,23 @@ headers.chk: $(wildcard include/*.h)
  libxenevtchn.a: $(LIB_OBJS)
  	$(AR) rc $@ $^
  
@@ -84,6 +85,7 @@ index 9917864..060fd01 100644
 -	$(SYMLINK_SHLIB) libxenevtchn.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenevtchn.so
 +	$(SYMLINK_SHLIB) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR)
 +	$(SYMLINK_SHLIB) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxenevtchn.so
++	$(SYMLINK_SHLIB) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxenevtchn-$(PACKAGE_VERSION).so
  	$(INSTALL_DATA) include/xenevtchn.h $(DESTDIR)$(includedir)
  
  .PHONY: TAGS
@@ -100,7 +102,7 @@ diff --git a/tools/libs/foreignmemory/Makefile b/tools/libs/foreignmemory/Makefi
 index f062f45..e9a5dce 100644
 --- a/tools/libs/foreignmemory/Makefile
 +++ b/tools/libs/foreignmemory/Makefile
-@@ -39,22 +39,22 @@ headers.chk: $(wildcard include/*.h)
+@@ -39,22 +39,23 @@ headers.chk: $(wildcard include/*.h)
  libxenforeignmemory.a: $(LIB_OBJS)
  	$(AR) rc $@ $^
  
@@ -127,6 +129,7 @@ index f062f45..e9a5dce 100644
 -	$(SYMLINK_SHLIB) libxenforeignmemory.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenforeignmemory.so
 +	$(SYMLINK_SHLIB) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR)
 +	$(SYMLINK_SHLIB) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxenforeignmemory.so
++	$(SYMLINK_SHLIB) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxenforeignmemory-$(PACKAGE_VERSION).so
  	$(INSTALL_DATA) include/xenforeignmemory.h $(DESTDIR)$(includedir)
  
  .PHONY: TAGS
@@ -143,7 +146,7 @@ diff --git a/tools/libs/gnttab/Makefile b/tools/libs/gnttab/Makefile
 index 95c2cd8..2697fa1 100644
 --- a/tools/libs/gnttab/Makefile
 +++ b/tools/libs/gnttab/Makefile
-@@ -41,22 +41,22 @@ headers.chk: $(wildcard include/*.h)
+@@ -41,22 +41,23 @@ headers.chk: $(wildcard include/*.h)
  libxengnttab.a: $(LIB_OBJS)
  	$(AR) rc $@ $^
  
@@ -170,6 +173,7 @@ index 95c2cd8..2697fa1 100644
 -	$(SYMLINK_SHLIB) libxengnttab.so.$(MAJOR) $(DESTDIR)$(libdir)/libxengnttab.so
 +	$(SYMLINK_SHLIB) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR)
 +	$(SYMLINK_SHLIB) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxengnttab.so
++	$(SYMLINK_SHLIB) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxengnttab-$(PACKAGE_VERSION).so
  	$(INSTALL_DATA) include/xengnttab.h $(DESTDIR)$(includedir)
  
  .PHONY: TAGS
@@ -186,7 +190,7 @@ diff --git a/tools/libs/toollog/Makefile b/tools/libs/toollog/Makefile
 index fb701be..c98491f 100644
 --- a/tools/libs/toollog/Makefile
 +++ b/tools/libs/toollog/Makefile
-@@ -34,22 +34,22 @@ headers.chk: $(wildcard include/*.h)
+@@ -34,22 +34,23 @@ headers.chk: $(wildcard include/*.h)
  libxentoollog.a: $(LIB_OBJS)
  	$(AR) rc $@ $^
  
@@ -213,6 +217,7 @@ index fb701be..c98491f 100644
 -	$(SYMLINK_SHLIB) libxentoollog.so.$(MAJOR) $(DESTDIR)$(libdir)/libxentoollog.so
 +	$(SYMLINK_SHLIB) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR)
 +	$(SYMLINK_SHLIB) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxentoollog.so
++	$(SYMLINK_SHLIB) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxentoollog-$(PACKAGE_VERSION).so
  	$(INSTALL_DATA) include/xentoollog.h $(DESTDIR)$(includedir)
  
  .PHONY: TAGS
