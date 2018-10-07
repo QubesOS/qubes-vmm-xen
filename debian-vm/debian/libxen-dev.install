@@ -37,6 +37,10 @@ usr/include/xenforeignmemory.h
 usr/include/xengnttab.h
 usr/include/xenguest.h
 usr/include/xenstore*.h
-usr/include/xenstore-compat/xs* usr/include
+usr/include/xenstore-compat/xs*
+usr/include/xs.h
+usr/include/xs_lib.h
 usr/include/xentoollog.h
 usr/include/xen
+usr/share/pkgconfig/xlutil.pc usr/lib/x86_64-linux-gnu/pkgconfig/xlutil.pc
+usr/share/pkgconfig/xenlight.pc usr/lib/x86_64-linux-gnu/pkgconfig/xenlight.pc

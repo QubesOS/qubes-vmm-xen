@@ -1,0 +1,23 @@
+*.pyc
+
+# various stuff needed only in dom0
+usr/lib/x86_64-linux-gnu/xen/bin/xen-init-dom0
+usr/lib/x86_64-linux-gnu/xen/bin/convert-legacy-stream
+usr/lib/x86_64-linux-gnu/xen/bin/libxl-save-helper
+usr/lib/x86_64-linux-gnu/xen/bin/verify-stream-v2
+usr/lib/x86_64-linux-gnu/xen/bin/init-xenstore-domain
+usr/lib/x86_64-linux-gnu/xen/bin/xendomains
+lib/systemd/system/xen-init-dom0.service
+lib/systemd/system/xen-qemu-dom0-disk-backend.service
+lib/systemd/system/xenstored.service
+lib/systemd/system/proc-xen.mount
+lib/systemd/system/xenconsoled.service
+lib/systemd/system/var-lib-xenstored.mount
+lib/systemd/system/xendomains.service
+lib/systemd/system/xen-watchdog.service
+etc/init.d/xencommons
+etc/init.d/xen-watchdog
+etc/init.d/xendriverdomain
+etc/init.d/xendomains
+etc/default/xencommons
+etc/default/xendomains
