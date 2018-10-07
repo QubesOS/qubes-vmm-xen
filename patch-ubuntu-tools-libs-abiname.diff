@@ -1,0 +1,227 @@
+From: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Date: Thu, 6 Oct 2016 14:24:46 +0100
+Subject: ubuntu-tools-libs-abiname
+
+---
+ tools/libs/call/Makefile          | 16 ++++++++--------
+ tools/libs/evtchn/Makefile        | 16 ++++++++--------
+ tools/libs/foreignmemory/Makefile | 16 ++++++++--------
+ tools/libs/gnttab/Makefile        | 16 ++++++++--------
+ tools/libs/toollog/Makefile       | 16 ++++++++--------
+ 5 files changed, 40 insertions(+), 40 deletions(-)
+
+diff --git a/tools/libs/call/Makefile b/tools/libs/call/Makefile
+index 9402ea5..ad8e22a 100644
+--- a/tools/libs/call/Makefile
++++ b/tools/libs/call/Makefile
+@@ -39,22 +39,22 @@ headers.chk: $(wildcard include/*.h)
+ libxencall.a: $(LIB_OBJS)
+ 	$(AR) rc $@ $^
+ 
+-libxencall.so: libxencall.so.$(MAJOR)
++libxencall.so: libxencall-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	$(SYMLINK_SHLIB) $< $@
+-libxencall.so.$(MAJOR): libxencall.so.$(MAJOR).$(MINOR)
++libxencall-$(PACKAGE_VERSION).so.$(MAJOR): libxencall-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR)
+ 	$(SYMLINK_SHLIB) $< $@
+ 
+-libxencall.so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxencall.map
+-	$(CC) $(LDFLAGS) $(PTHREAD_LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxencall.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
++libxencall-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxencall.map
++	$(CC) $(LDFLAGS) $(PTHREAD_LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxencall-$(PACKAGE_VERSION).so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
+ 
+ .PHONY: install
+ install: build
+ 	$(INSTALL_DIR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_SHLIB) libxencall.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
++	$(INSTALL_SHLIB) libxencall-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DATA) libxencall.a $(DESTDIR)$(libdir)
+-	$(SYMLINK_SHLIB) libxencall.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxencall.so.$(MAJOR)
+-	$(SYMLINK_SHLIB) libxencall.so.$(MAJOR) $(DESTDIR)$(libdir)/libxencall.so
++	$(SYMLINK_SHLIB) libxencall-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxencall-$(PACKAGE_VERSION).so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxencall-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxencall.so
+ 	$(INSTALL_DATA) include/xencall.h $(DESTDIR)$(includedir)
+ 
+ .PHONY: TAGS
+@@ -64,7 +64,7 @@ TAGS:
+ .PHONY: clean
+ clean:
+ 	rm -rf *.rpm $(LIB) *~ $(DEPS) $(LIB_OBJS) $(PIC_OBJS)
+-	rm -f libxencall.so.$(MAJOR).$(MINOR) libxencall.so.$(MAJOR)
++	rm -f libxencall-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) libxencall-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	rm -f headers.chk
+ 
+ .PHONY: distclean
+diff --git a/tools/libs/evtchn/Makefile b/tools/libs/evtchn/Makefile
+index 9917864..060fd01 100644
+--- a/tools/libs/evtchn/Makefile
++++ b/tools/libs/evtchn/Makefile
+@@ -39,22 +39,22 @@ headers.chk: $(wildcard include/*.h)
+ libxenevtchn.a: $(LIB_OBJS)
+ 	$(AR) rc $@ $^
+ 
+-libxenevtchn.so: libxenevtchn.so.$(MAJOR)
++libxenevtchn.so: libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	$(SYMLINK_SHLIB) $< $@
+-libxenevtchn.so.$(MAJOR): libxenevtchn.so.$(MAJOR).$(MINOR)
++libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR): libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR)
+ 	$(SYMLINK_SHLIB) $< $@
+ 
+-libxenevtchn.so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxenevtchn.map
+-	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenevtchn.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
++libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxenevtchn.map
++	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
+ 
+ .PHONY: install
+ install: build
+ 	$(INSTALL_DIR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_SHLIB) libxenevtchn.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
++	$(INSTALL_SHLIB) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DATA) libxenevtchn.a $(DESTDIR)$(libdir)
+-	$(SYMLINK_SHLIB) libxenevtchn.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenevtchn.so.$(MAJOR)
+-	$(SYMLINK_SHLIB) libxenevtchn.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenevtchn.so
++	$(SYMLINK_SHLIB) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxenevtchn.so
+ 	$(INSTALL_DATA) include/xenevtchn.h $(DESTDIR)$(includedir)
+ 
+ .PHONY: TAGS
+@@ -64,7 +64,7 @@ TAGS:
+ .PHONY: clean
+ clean:
+ 	rm -rf *.rpm $(LIB) *~ $(DEPS) $(LIB_OBJS) $(PIC_OBJS)
+-	rm -f libxenevtchn.so.$(MAJOR).$(MINOR) libxenevtchn.so.$(MAJOR)
++	rm -f libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) libxenevtchn-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	rm -f headers.chk
+ 
+ .PHONY: distclean
+diff --git a/tools/libs/foreignmemory/Makefile b/tools/libs/foreignmemory/Makefile
+index f062f45..e9a5dce 100644
+--- a/tools/libs/foreignmemory/Makefile
++++ b/tools/libs/foreignmemory/Makefile
+@@ -39,22 +39,22 @@ headers.chk: $(wildcard include/*.h)
+ libxenforeignmemory.a: $(LIB_OBJS)
+ 	$(AR) rc $@ $^
+ 
+-libxenforeignmemory.so: libxenforeignmemory.so.$(MAJOR)
++libxenforeignmemory.so: libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	$(SYMLINK_SHLIB) $< $@
+-libxenforeignmemory.so.$(MAJOR): libxenforeignmemory.so.$(MAJOR).$(MINOR)
++libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR): libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR)
+ 	$(SYMLINK_SHLIB) $< $@
+ 
+-libxenforeignmemory.so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxenforeignmemory.map
+-	$(CC) $(LDFLAGS) $(PTHREAD_LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenforeignmemory.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
++libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxenforeignmemory.map
++	$(CC) $(LDFLAGS) $(PTHREAD_LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
+ 
+ .PHONY: install
+ install: build
+ 	$(INSTALL_DIR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_SHLIB) libxenforeignmemory.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
++	$(INSTALL_SHLIB) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DATA) libxenforeignmemory.a $(DESTDIR)$(libdir)
+-	$(SYMLINK_SHLIB) libxenforeignmemory.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenforeignmemory.so.$(MAJOR)
+-	$(SYMLINK_SHLIB) libxenforeignmemory.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenforeignmemory.so
++	$(SYMLINK_SHLIB) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxenforeignmemory.so
+ 	$(INSTALL_DATA) include/xenforeignmemory.h $(DESTDIR)$(includedir)
+ 
+ .PHONY: TAGS
+@@ -64,7 +64,7 @@ TAGS:
+ .PHONY: clean
+ clean:
+ 	rm -rf *.rpm $(LIB) *~ $(DEPS) $(LIB_OBJS) $(PIC_OBJS)
+-	rm -f libxenforeignmemory.so.$(MAJOR).$(MINOR) libxenforeignmemory.so.$(MAJOR)
++	rm -f libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) libxenforeignmemory-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	rm -f headers.chk
+ 
+ .PHONY: distclean
+diff --git a/tools/libs/gnttab/Makefile b/tools/libs/gnttab/Makefile
+index 95c2cd8..2697fa1 100644
+--- a/tools/libs/gnttab/Makefile
++++ b/tools/libs/gnttab/Makefile
+@@ -41,22 +41,22 @@ headers.chk: $(wildcard include/*.h)
+ libxengnttab.a: $(LIB_OBJS)
+ 	$(AR) rc $@ $^
+ 
+-libxengnttab.so: libxengnttab.so.$(MAJOR)
++libxengnttab.so: libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	$(SYMLINK_SHLIB) $< $@
+-libxengnttab.so.$(MAJOR): libxengnttab.so.$(MAJOR).$(MINOR)
++libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR): libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR)
+ 	$(SYMLINK_SHLIB) $< $@
+ 
+-libxengnttab.so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxengnttab.map
+-	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxengnttab.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
++libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxengnttab.map
++	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS_libxentoollog) $(APPEND_LDFLAGS)
+ 
+ .PHONY: install
+ install: build
+ 	$(INSTALL_DIR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_SHLIB) libxengnttab.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
++	$(INSTALL_SHLIB) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DATA) libxengnttab.a $(DESTDIR)$(libdir)
+-	$(SYMLINK_SHLIB) libxengnttab.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxengnttab.so.$(MAJOR)
+-	$(SYMLINK_SHLIB) libxengnttab.so.$(MAJOR) $(DESTDIR)$(libdir)/libxengnttab.so
++	$(SYMLINK_SHLIB) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxengnttab.so
+ 	$(INSTALL_DATA) include/xengnttab.h $(DESTDIR)$(includedir)
+ 
+ .PHONY: TAGS
+@@ -66,7 +66,7 @@ TAGS:
+ .PHONY: clean
+ clean:
+ 	rm -rf *.rpm $(LIB) *~ $(DEPS) $(LIB_OBJS) $(PIC_OBJS)
+-	rm -f libxengnttab.so.$(MAJOR).$(MINOR) libxengnttab.so.$(MAJOR)
++	rm -f libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) libxengnttab-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	rm -f headers.chk
+ 
+ .PHONY: distclean
+diff --git a/tools/libs/toollog/Makefile b/tools/libs/toollog/Makefile
+index fb701be..c98491f 100644
+--- a/tools/libs/toollog/Makefile
++++ b/tools/libs/toollog/Makefile
+@@ -34,22 +34,22 @@ headers.chk: $(wildcard include/*.h)
+ libxentoollog.a: $(LIB_OBJS)
+ 	$(AR) rc $@ $^
+ 
+-libxentoollog.so: libxentoollog.so.$(MAJOR)
++libxentoollog.so: libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	$(SYMLINK_SHLIB) $< $@
+-libxentoollog.so.$(MAJOR): libxentoollog.so.$(MAJOR).$(MINOR)
++libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR): libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR)
+ 	$(SYMLINK_SHLIB) $< $@
+ 
+-libxentoollog.so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxentoollog.map
+-	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxentoollog.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(APPEND_LDFLAGS)
++libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR): $(PIC_OBJS) libxentoollog.map
++	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(PIC_OBJS) $(APPEND_LDFLAGS)
+ 
+ .PHONY: install
+ install: build
+ 	$(INSTALL_DIR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_SHLIB) libxentoollog.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
++	$(INSTALL_SHLIB) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DATA) libxentoollog.a $(DESTDIR)$(libdir)
+-	$(SYMLINK_SHLIB) libxentoollog.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxentoollog.so.$(MAJOR)
+-	$(SYMLINK_SHLIB) libxentoollog.so.$(MAJOR) $(DESTDIR)$(libdir)/libxentoollog.so
++	$(SYMLINK_SHLIB) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR)
++	$(SYMLINK_SHLIB) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR) $(DESTDIR)$(libdir)/libxentoollog.so
+ 	$(INSTALL_DATA) include/xentoollog.h $(DESTDIR)$(includedir)
+ 
+ .PHONY: TAGS
+@@ -59,7 +59,7 @@ TAGS:
+ .PHONY: clean
+ clean:
+ 	rm -rf *.rpm $(LIB) *~ $(DEPS) $(LIB_OBJS) $(PIC_OBJS)
+-	rm -f libxentoollog.so.$(MAJOR).$(MINOR) libxentoollog.so.$(MAJOR)
++	rm -f libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR).$(MINOR) libxentoollog-$(PACKAGE_VERSION).so.$(MAJOR)
+ 	rm -f headers.chk
+ 
+ .PHONY: distclean

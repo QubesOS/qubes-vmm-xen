@@ -1,0 +1,59 @@
+From: Bastian Blank <waldi@debian.org>
+Date: Sat, 5 Jul 2014 11:46:47 +0200
+Subject: tools-libfsimage-abiname.diff
+
+Patch-Name: tools-libfsimage-abiname.diff
+---
+ tools/libfsimage/common/Makefile | 18 ++++--------------
+ 1 file changed, 4 insertions(+), 14 deletions(-)
+
+diff --git a/tools/libfsimage/common/Makefile b/tools/libfsimage/common/Makefile
+index 4840bc2..8357b0a 100644
+--- a/tools/libfsimage/common/Makefile
++++ b/tools/libfsimage/common/Makefile
+@@ -1,9 +1,6 @@
+ XEN_ROOT = $(CURDIR)/../../..
+ include $(XEN_ROOT)/tools/libfsimage/Rules.mk
+ 
+-MAJOR = 1.0
+-MINOR = 0
+-
+ LDFLAGS-$(CONFIG_SunOS) = -Wl,-M -Wl,mapfile-SunOS
+ LDFLAGS-$(CONFIG_Linux) = -Wl,mapfile-GNU
+ LDFLAGS = $(LDFLAGS-y)
+@@ -15,7 +12,7 @@ LIB_SRCS-y = fsimage.c fsimage_plugin.c fsimage_grub.c
+ 
+ PIC_OBJS := $(patsubst %.c,%.opic,$(LIB_SRCS-y))
+ 
+-LIB = libfsimage.so libfsimage.so.$(MAJOR) libfsimage.so.$(MAJOR).$(MINOR)
++LIB = libfsimage.so
+ 
+ .PHONY: all
+ all: $(LIB)
+@@ -24,9 +21,7 @@ all: $(LIB)
+ install: all
+ 	$(INSTALL_DIR) $(DESTDIR)$(libdir)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_PROG) libfsimage.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+-	ln -sf libfsimage.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libfsimage.so.$(MAJOR)
+-	ln -sf libfsimage.so.$(MAJOR) $(DESTDIR)$(libdir)/libfsimage.so
++	$(INSTALL_PROG) libfsimage.so $(DESTDIR)$(libdir)
+ 	$(INSTALL_DATA) fsimage.h $(DESTDIR)$(includedir)
+ 	$(INSTALL_DATA) fsimage_plugin.h $(DESTDIR)$(includedir)
+ 	$(INSTALL_DATA) fsimage_grub.h $(DESTDIR)$(includedir)
+@@ -34,13 +29,8 @@ install: all
+ clean distclean::
+ 	rm -f $(LIB)
+ 
+-libfsimage.so: libfsimage.so.$(MAJOR)
+-	ln -sf $< $@
+-libfsimage.so.$(MAJOR): libfsimage.so.$(MAJOR).$(MINOR)
+-	ln -sf $< $@
+-
+-libfsimage.so.$(MAJOR).$(MINOR): $(PIC_OBJS)
+-	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libfsimage.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $^ $(PTHREAD_LIBS) $(APPEND_LDFLAGS)
++libfsimage.so: $(PIC_OBJS)
++	$(CC) $(LDFLAGS) -Wl,$(SONAME_LDFLAG),$@ $(SHLIB_LDFLAGS) -o $@ $^ $(PTHREAD_LIBS) $(APPEND_LDFLAGS)
+ 
+ -include $(DEPS)
+ 
