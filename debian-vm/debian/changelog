@@ -1,3 +1,14 @@
+xen (2001:4.8.4-4) unstable; urgency=medium
+
+  * rpm: set PYTHON=python2
+  * debian: fix changelog
+  * debian: rework packaging to match Debian libxen-4.8 package
+  * debian: package remaining files
+  * debian: fix changelog
+  * debian: use dh-systemd instead of manual systemctl call
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 08 Oct 2018 14:09:33 +0200
+
 xen (2001:4.8.4-3) unstable; urgency=medium
 
   [ fepitre ]
