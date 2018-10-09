@@ -1,3 +1,10 @@
+xen (2001:4.8.4-5) unstable; urgency=medium
+
+  * debian: make packages linked with new libxen-4.8 depdend on specific
+    version
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 09 Oct 2018 18:34:38 +0200
+
 xen (2001:4.8.4-4) unstable; urgency=medium
 
   * rpm: set PYTHON=python2
