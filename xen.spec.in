@@ -249,6 +249,7 @@ Patch908: patch-libxl-disable-forced-vkb-for-HVM.patch
 Patch909: patch-xenconsoled-enable-logging.patch
 Patch910: patch-vm-0001-hotplug-do-not-attempt-to-remove-containing-xenstore.patch
 Patch911: patch-xen-hotplug-qubesdb-update.patch
+Patch912: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
 
 # python3
 Patch1001: patch-0001-python-check-return-value-of-PyErr_NewException.patch
@@ -425,7 +426,6 @@ Requires: xen-libs = %{version}-%{release}
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
-Requires: perl
 Provides: xen-runtime = %{version}-%{release}
 
 %description runtime
@@ -517,7 +517,6 @@ budled with Xen, making them available for general use.
 %package qubes-vm
 Summary: Xen files required in Qubes VM
 Requires: xen-libs = %{epoch}:%{version}-%{release}
-Requires: perl
 Conflicts: xen
 Provides: xen-qubes-vm-essentials = %{epoch}:%{version}-%{release}
 

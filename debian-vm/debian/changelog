@@ -1,3 +1,29 @@
+xen (2001:4.8.4-6) unstable; urgency=medium
+
+  * debian: compile fix for jessie
+  * debian: reuse upstream orig tarball
+  * Simplify hotplug locking mechanism, drop perl dependency
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 31 Oct 2018 02:38:20 +0100
+
+xen (2001:4.8.4-5) unstable; urgency=medium
+
+  * debian: make packages linked with new libxen-4.8 depdend on specific
+    version
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 09 Oct 2018 18:34:38 +0200
+
+xen (2001:4.8.4-4) unstable; urgency=medium
+
+  * rpm: set PYTHON=python2
+  * debian: fix changelog
+  * debian: rework packaging to match Debian libxen-4.8 package
+  * debian: package remaining files
+  * debian: fix changelog
+  * debian: use dh-systemd instead of manual systemctl call
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 08 Oct 2018 14:09:33 +0200
+
 xen (2001:4.8.4-3) unstable; urgency=medium
 
   [ fepitre ]

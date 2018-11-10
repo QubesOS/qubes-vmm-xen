@@ -1,4 +1,6 @@
 etc/xen/scripts
+usr/lib/modules-load.d/xen.conf
 lib/systemd/system/xendriverdomain.service
 usr/lib/python2.7
 usr/sbin
+etc/bash_completion.d/xl.sh usr/share/bash-completion/completions/xl.sh

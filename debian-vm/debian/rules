@@ -12,7 +12,7 @@ export DESTDIR=$(shell pwd)/debian/tmp
 BUILD_DIR = debian/build
 
 %:
-	dh $@ --with autoreconf,autotools-dev,python2
+	dh $@ --with autoreconf,autotools-dev,python2,systemd
 
 override_dh_auto_configure:
 	dh_auto_configure -- --prefix=/usr \
@@ -33,9 +33,10 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	make DESTDIR=$(DESTDIR) install-tools
+	(cd debian/tmp; rm -r `grep ^[a-z] ../not-installed`)
 	dh_testdir
 	dh_testroot
-	dh_install --arch --sourcedir=debian/tmp
+	dh_install --arch --sourcedir=debian/tmp --fail-missing
 	dh_strip --arch
 	dh_makeshlibs -V
 	dh_shlibdeps
