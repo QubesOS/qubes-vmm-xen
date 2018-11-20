@@ -1,3 +1,9 @@
+xen (2001:4.8.4-7) unstable; urgency=medium
+
+  * Apply XSA-275
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 20 Nov 2018 12:49:12 +0100
+
 xen (2001:4.8.4-6) unstable; urgency=medium
 
   * debian: compile fix for jessie
