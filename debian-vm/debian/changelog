@@ -1,3 +1,9 @@
+xen (2001:4.8.4-8) unstable; urgency=medium
+
+  * Backport AMD IOMMU driver support for IOAPIC IDs larger than 128
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 28 Nov 2018 03:10:24 +0100
+
 xen (2001:4.8.4-7) unstable; urgency=medium
 
   * Apply XSA-275
