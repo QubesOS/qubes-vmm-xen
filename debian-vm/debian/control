@@ -35,7 +35,7 @@ Build-Depends:
     mime-support,
     perl,
     pkg-config,
-    python2.7-minimal,
+    python,
     seabios,
     uuid-dev:amd64,
     zlib1g-dev,
