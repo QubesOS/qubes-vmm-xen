@@ -26,6 +26,8 @@ while read patch_file
 do
     if [ -f "${DIR}/${patch_file}" ]; then
         echo -e "${patch_file##*/}" >> "${PATCH_DIR}/series"
-        cp "${DIR}/${patch_file}" "${PATCH_DIR}"
+        cp --preserve=timestamps "${DIR}/${patch_file}" "${PATCH_DIR}"
     fi
 done < "${SERIES_CONF}"
+touch --reference="${SERIES_CONF}" "${PATCH_DIR}/series"
+touch --reference="${SERIES_CONF}" "${PATCH_DIR}"
