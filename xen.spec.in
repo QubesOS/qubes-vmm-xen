@@ -308,6 +308,7 @@ BuildRequires: dev86
 BuildRequires: autoconf
 BuildRequires: automake
 BuildRequires: gettext
+BuildRequires: glibc-devel
 BuildRequires: gnutls-devel
 BuildRequires: openssl-devel
 # For ioemu PCI passthrough
