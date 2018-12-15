@@ -1,5 +1,5 @@
 sudo: required
-dist: trusty
+dist: xenial
 language: minimal
 install: git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
 script: ~/qubes-builder/scripts/travis-build
