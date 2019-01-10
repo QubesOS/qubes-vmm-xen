@@ -139,51 +139,6 @@ Patch438: patch-x86-check-feature-flags-after-resume.patch
 
 # Security fixes
 
-# Update to staging-4.8 for XSA-273
-Patch501: patch-3686d096-cmdline-fix-parse_boolean-for-NULL-incoming-end-poin.patch
-Patch502: patch-de172b0f-xen-Port-the-array_index_nospec-infrastructure-from-.patch
-Patch503: patch-f5ef10dd-x86-correctly-set-nonlazy_xstate_used-when-loading-f.patch
-Patch504: patch-f3b0cdb4-x86-spec-ctrl-command-line-handling-adjustments.patch
-Patch505: patch-23975f51-xen-oprofile-nmi_int.c-Drop-unwanted-sexual-referenc.patch
-Patch506: patch-96bf2dbc-allow-cpu_down-to-be-called-earlier.patch
-Patch507: patch-08eda978-cpupools-fix-state-when-downing-a-CPU-failed.patch
-Patch508: patch-f6a31ed4-x86-AMD-distinguish-compute-units-from-hyper-threads.patch
-Patch509: patch-37a1b4aa-x86-distinguish-CPU-offlining-from-CPU-removal.patch
-Patch510: patch-6dc0bc58-x86-possibly-bring-up-all-CPUs-even-if-not-all-are-s.patch
-Patch511: patch-f049cd67-x86-command-line-option-to-avoid-use-of-secondary-hy.patch
-Patch512: patch-5566272d-x86-vmx-Don-t-clobber-dr6-while-debugging-state-is-l.patch
-Patch513: patch-e343ee80-x86-xstate-Use-a-guests-CPUID-policy-rather-than-all.patch
-Patch514: patch-c117d09f-x86-xstate-Make-errors-in-xstate-calculations-more-o.patch
-Patch515: patch-b149b06b-x86-hvm-Disallow-unknown-MSR_EFER-bits.patch
-Patch516: patch-aa450153-x86-spec-ctrl-Fix-the-parsing-of-xpti-on-fixed-Intel.patch
-Patch517: patch-d8389572-x86-spec-ctrl-Yet-more-fixes-for-xpti-parsing.patch
-Patch518: patch-790ed152-x86-vmx-Fix-handing-of-MSR_DEBUGCTL-on-VMExit.patch
-Patch519: patch-15508b33-x86-vmx-Defer-vmx_vmcs_exit-as-long-as-possible-in-c.patch
-Patch520: patch-d96893fe-x86-vmx-API-improvements-for-MSR-load-save-infrastru.patch
-Patch521: patch-df5bbf7a-x86-vmx-Internal-cleanup-for-MSR-load-save-infrastru.patch
-Patch522: patch-ee7bceaf-x86-vmx-Factor-locate_msr_entry-out-of-vmx_find_msr-.patch
-Patch523: patch-47fbc6e0-x86-vmx-Support-remote-access-to-the-MSR-lists.patch
-Patch524: patch-b2894035-x86-vmx-Improvements-to-LBR-MSR-handling.patch
-Patch525: patch-b81b74aa-x86-vmx-Pass-an-MSR-value-into-vmx_msr_add.patch
-Patch526: patch-3478439f-x86-vmx-Support-load-only-guest-MSR-list-entries.patch
-Patch527: patch-c00fabcd-VMX-fix-vmx_-find-del-_msr-build.patch
-Patch528: patch-e3d0ce38-common-gnttab-Introduce-command-line-feature-control.patch
-Patch529: patch-04061641-ARM-disable-grant-table-v2.patch
-Patch530: patch-ed6fcdb9-x86-vtx-Fix-the-checking-for-unknown-invalid-MSR_DEB.patch
-Patch531: patch-712082da-tools-oxenstored-Make-evaluation-order-explicit.patch
-Patch532: patch-28fc483f-x86-spec-ctrl-Calculate-safe-PTE-addresses-for-L1TF-.patch
-Patch533: patch-fe788294-x86-spec-ctrl-Introduce-an-option-to-control-L1TF-mi.patch
-Patch534: patch-e819108a-x86-shadow-Infrastructure-to-force-a-PV-guest-into-s.patch
-Patch535: patch-7849d13d-x86-mm-Plumbing-to-allow-any-PTE-update-to-fail-with.patch
-Patch536: patch-9e7d5e26-x86-pv-Force-a-guest-into-shadow-mode-when-it-writes.patch
-Patch537: patch-5464d5f0-x86-spec-ctrl-CPUID-MSR-definitions-for-L1D_FLUSH.patch
-Patch538: patch-1f56fba4-x86-msr-Virtualise-MSR_FLUSH_CMD-for-guests.patch
-Patch539: patch-1c6c2def-x86-spec-ctrl-Introduce-an-option-to-control-L1D_FLU.patch
-Patch540: patch-565de91a-x86-Make-spec-ctrl-no-a-global-disable-of-all-mitiga.patch
-Patch541: patch-d95b5bb3-xl.conf-Add-global-affinity-masks.patch
-
-Patch542: patch-xsa275-4.11-1.patch
-Patch543: patch-xsa275-4.11-2.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
@@ -230,7 +185,6 @@ Patch711: patch-memfd-fix-configure-test.patch
 Patch712: patch-tools-xenpmd-fix-possible-0-truncation.patch
 Patch713: patch-tools-gdbsx-fix-Wstringop-truncation-warning.patch
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
-Patch715: patch-stubdom-apply-gcc-8-fix-for-tpm-emulator.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch

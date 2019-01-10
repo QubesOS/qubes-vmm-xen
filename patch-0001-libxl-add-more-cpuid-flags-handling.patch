@@ -83,7 +83,7 @@ index 24591e2..fda8bf6 100644
          {"cntxid",       0x00000001, NA, CPUID_REG_ECX, 10,  1},
          {"ssse3",        0x00000001, NA, CPUID_REG_ECX,  9,  1},
          {"tm2",          0x00000001, NA, CPUID_REG_ECX,  8,  1},
-@@ -158,10 +162,45 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+@@ -158,11 +162,46 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
          {"de",           0x00000001, NA, CPUID_REG_EDX,  2,  1},
          {"vme",          0x00000001, NA, CPUID_REG_EDX,  1,  1},
          {"fpu",          0x00000001, NA, CPUID_REG_EDX,  0,  1},
@@ -120,6 +120,7 @@ index 24591e2..fda8bf6 100644
 +        {"avx512vbmi",   0x00000007,  0, CPUID_REG_ECX,  1,  1},
          {"ibrsb",        0x00000007,  0, CPUID_REG_EDX, 26,  1},
          {"stibp",        0x00000007,  0, CPUID_REG_EDX, 27,  1},
+         {"l1d-flush",    0x00000007,  0, CPUID_REG_EDX, 28,  1},
          {"arch-caps",    0x00000007,  0, CPUID_REG_EDX, 29,  1},
          {"ssbd",         0x00000007,  0, CPUID_REG_EDX, 31,  1},
 +        {"avx512-4fmaps",0x00000007,  0, CPUID_REG_EDX,  3,  1},

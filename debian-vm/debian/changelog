@@ -1,3 +1,13 @@
+xen (2001:4.8.5-1) --release; urgency=medium
+
+  * debian: fixes for reproducible source package
+  * debian: fix Build-Depends - dh-python2 is not included in python2.7-
+    minimal
+  * rpm: add BR: glibc-devel
+  * travis: switch to xenial
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 10 Jan 2019 01:52:56 +0100
+
 xen (2001:4.8.4-8) unstable; urgency=medium
 
   * Backport AMD IOMMU driver support for IOAPIC IDs larger than 128
