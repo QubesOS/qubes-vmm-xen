@@ -1,0 +1,58 @@
+From a6540882b8174a49ae4c37b180c7f33589baf872 Mon Sep 17 00:00:00 2001
+Message-Id: <a6540882b8174a49ae4c37b180c7f33589baf872.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Tue, 31 Jul 2018 04:16:02 +0200
+Subject: [PATCH v3 03/17] libxl: fix qemu-trad cmdline for no sdl/vnc case
+
+When qemu is running in stubdomain, any attempt to initialize vnc/sdl
+there will crash it (on failed attempt to load a keymap from a file). If
+vfb is present, all those cases are skipped. But since
+b053f0c4c9e533f3d97837cf897eb920b8355ed3 "libxl: do not start dom0 qemu
+for stubdomain when not needed" it is possible to create a stubdomain
+without vfb and contrary to the comment -vnc none do trigger VNC
+initialization code (just skips exposing it externally).
+Change the implicit SDL avoiding method to -nographics option, used when
+none of SDL or VNC is enabled.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jason Andryuk <jandryuk@gmail.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+Changes in v2:
+ - typo in qemu option
+Changes in v3:
+ - add missing { }
+---
+ tools/libxl/libxl_dm.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index b245956..3601b14 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -715,14 +715,15 @@ static int libxl__build_device_model_args_old(libxl__gc *gc,
+         if (libxl_defbool_val(vnc->findunused)) {
+             flexarray_append(dm_args, "-vncunused");
+         }
+-    } else
++    } else if (!sdl) {
+         /*
+          * VNC is not enabled by default by qemu-xen-traditional,
+-         * however passing -vnc none causes SDL to not be
+-         * (unexpectedly) enabled by default. This is overridden by
+-         * explicitly passing -sdl below as required.
++         * however skipping -vnc causes SDL to be
++         * (unexpectedly) enabled by default. If undesired, disable graphics at
++         * all.
+          */
+-        flexarray_append_pair(dm_args, "-vnc", "none");
++        flexarray_append(dm_args, "-nographic");
++    }
+ 
+     if (sdl) {
+         flexarray_append(dm_args, "-sdl");
+-- 
+git-series 0.9.1

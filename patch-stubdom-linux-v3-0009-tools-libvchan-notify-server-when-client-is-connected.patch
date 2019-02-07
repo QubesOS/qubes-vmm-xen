@@ -1,0 +1,38 @@
+From 02ae82eafc7e64ba7fad883cb5f66cbe888e799d Mon Sep 17 00:00:00 2001
+Message-Id: <02ae82eafc7e64ba7fad883cb5f66cbe888e799d.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Sun, 13 Jan 2019 12:44:41 +0100
+Subject: [PATCH v3 09/17] tools/libvchan: notify server when client is connected
+
+Let the server know when the client is connected. Otherwise server will
+notice only when client send some data.
+This change does not break existing clients, as libvchan user should
+handle spurious notifications anyway (for example acknowledge of remote
+side reading the data).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+I had this patch in Qubes for a long time and totally forgot it wasn't
+upstream thing...
+---
+ tools/libvchan/init.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tools/libvchan/init.c b/tools/libvchan/init.c
+index 180833d..50a64c1 100644
+--- a/tools/libvchan/init.c
++++ b/tools/libvchan/init.c
+@@ -447,6 +447,9 @@ struct libxenvchan *libxenvchan_client_init(struct xentoollog_logger *logger,
+ 	ctrl->ring->cli_live = 1;
+ 	ctrl->ring->srv_notify = VCHAN_NOTIFY_WRITE;
+ 
++    /* wake up the server */
++    xenevtchn_notify(ctrl->event, ctrl->event_port);
++
+  out:
+ 	if (xs)
+ 		xs_daemon_close(xs);
+-- 
+git-series 0.9.1

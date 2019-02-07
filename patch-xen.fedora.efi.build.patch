@@ -2,7 +2,7 @@
 +++ xen-4.7.0/xen/arch/x86/Makefile		2016-07-15 18:27:47.654000000 +0300
 @@ -168,20 +168,20 @@
  
- $(TARGET).efi: prelink-efi.o $(note_file) efi.lds efi/relocs-dummy.o $(BASEDIR)/common/symbols-dummy.o efi/mkreloc
+ $(TARGET).efi: prelink-efi.o $(note_file) efi.lds efi/relocs-dummy.o efi/mkreloc
  	$(foreach base, $(VIRT_BASE) $(ALT_BASE), \
 -	          $(guard) $(LD) $(call EFI_LDFLAGS,$(base)) -T efi.lds -N $< efi/relocs-dummy.o \
 +	          $(guard) $(LD_EFI) $(call EFI_LDFLAGS,$(base)) -T efi.lds -N $< efi/relocs-dummy.o \
@@ -24,17 +24,6 @@
  	                $(@D)/.$(@F).1r.o $(@D)/.$(@F).1s.o $(note_file_option) -o $@
  	if $(guard) false; then rm -f $@; echo 'EFI support disabled'; \
  	else $(NM) -pa --format=sysv $(@D)/$(@F) \
---- xen-4.7.0/xen/arch/x86/efi/Makefile.orig	2016-07-15 18:30:27.834000000 +0300
-+++ xen-4.7.0/xen/arch/x86/efi/Makefile		2016-07-15 18:32:05.241000000 +0300
-@@ -6,7 +6,7 @@
- 
- efi := y$(shell rm -f disabled)
- efi := $(if $(efi),$(shell $(CC) $(filter-out $(CFLAGS-y) .%.d,$(CFLAGS)) -c check.c 2>disabled && echo y))
--efi := $(if $(efi),$(shell $(LD) -mi386pep --subsystem=10 -o check.efi check.o 2>disabled && echo y))
-+efi := $(if $(efi),$(shell $(LD_EFI) -mi386pep --subsystem=10 -o check.efi check.o 2>disabled && echo y))
- efi := $(if $(efi),$(shell rm disabled)y)
- 
- %.o: %.ihex
 --- xen-4.7.0/xen/Makefile.orig	2016-07-15 18:40:41.140000000 +0300
 +++ xen-4.7.0/xen/Makefile	2016-07-15 18:42:03.203000000 +0300
 @@ -20,6 +20,8 @@

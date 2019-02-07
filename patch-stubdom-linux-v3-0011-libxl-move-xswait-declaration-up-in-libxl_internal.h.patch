@@ -1,0 +1,149 @@
+From 8da7250bbf758b3dd1599c792663facc5329f274 Mon Sep 17 00:00:00 2001
+Message-Id: <8da7250bbf758b3dd1599c792663facc5329f274.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Sun, 13 Jan 2019 13:10:14 +0100
+Subject: [PATCH v3 11/17] libxl: move xswait declaration up in libxl_internal.h
+
+It will be needed for qmp_ev_* over vchan.
+
+No functional change.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+---
+Changes in v3:
+ - new patch
+---
+ tools/libxl/libxl_internal.h | 108 ++++++++++++++++++------------------
+ 1 file changed, 54 insertions(+), 54 deletions(-)
+
+diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
+index a26d36e..0095835 100644
+--- a/tools/libxl/libxl_internal.h
++++ b/tools/libxl/libxl_internal.h
+@@ -358,6 +358,60 @@ struct libxl__ev_child {
+     LIBXL_LIST_ENTRY(struct libxl__ev_child) entry;
+ };
+ 
++/*----- xswait: wait for a xenstore node to be suitable -----*/
++
++typedef struct libxl__xswait_state libxl__xswait_state;
++
++/*
++ * rc describes the circumstances of this callback:
++ *
++ * rc==0
++ *
++ *     The xenstore path (may have) changed.  It has been read for
++ *     you.  The result is in data (allocated from the ao gc).
++ *     data may be NULL, which means that the xenstore read gave
++ *     ENOENT.
++ *
++ *     If you are satisfied, you MUST call libxl__xswait_stop.
++ *     Otherwise, xswait will continue waiting and watching and
++ *     will call you back later.
++ *
++ * rc==ERROR_TIMEDOUT, rc==ERROR_ABORTED
++ *
++ *     The specified timeout was reached.
++ *     This has NOT been logged (except to the debug log).
++ *     xswait will not continue (but calling libxl__xswait_stop is OK).
++ *
++ * rc!=0, !=ERROR_TIMEDOUT, !=ERROR_ABORTED
++ *
++ *     Some other error occurred.
++ *     This HAS been logged.
++ *     xswait will not continue (but calling libxl__xswait_stop is OK).
++ *
++ * xswait.path may start with with '@', in which case no read is done
++ * and the callback will always get data==0.
++ */
++typedef void libxl__xswait_callback(libxl__egc *egc,
++      libxl__xswait_state *xswa, int rc, const char *data);
++
++struct libxl__xswait_state {
++    /* caller must fill these in, and they must all remain valid */
++    libxl__ao *ao;
++    const char *what; /* for error msgs: noun phrase, what we're waiting for */
++    const char *path;
++    int timeout_ms; /* as for poll(2) */
++    libxl__xswait_callback *callback;
++    /* remaining fields are private to xswait */
++    libxl__ev_time time_ev;
++    libxl__ev_xswatch watch_ev;
++};
++
++void libxl__xswait_init(libxl__xswait_state*);
++void libxl__xswait_stop(libxl__gc*, libxl__xswait_state*); /*idempotent*/
++bool libxl__xswait_inuse(const libxl__xswait_state *ss);
++
++int libxl__xswait_start(libxl__gc*, libxl__xswait_state*);
++
+ /*
+  * QMP asynchronous calls
+  *
+@@ -1401,60 +1455,6 @@ _hidden const char *libxl__device_nic_devname(libxl__gc *gc,
+ 
+ _hidden int libxl__get_domid(libxl__gc *gc, uint32_t *domid);
+ 
+-/*----- xswait: wait for a xenstore node to be suitable -----*/
+-
+-typedef struct libxl__xswait_state libxl__xswait_state;
+-
+-/*
+- * rc describes the circumstances of this callback:
+- *
+- * rc==0
+- *
+- *     The xenstore path (may have) changed.  It has been read for
+- *     you.  The result is in data (allocated from the ao gc).
+- *     data may be NULL, which means that the xenstore read gave
+- *     ENOENT.
+- *
+- *     If you are satisfied, you MUST call libxl__xswait_stop.
+- *     Otherwise, xswait will continue waiting and watching and
+- *     will call you back later.
+- *
+- * rc==ERROR_TIMEDOUT, rc==ERROR_ABORTED
+- *
+- *     The specified timeout was reached.
+- *     This has NOT been logged (except to the debug log).
+- *     xswait will not continue (but calling libxl__xswait_stop is OK).
+- *
+- * rc!=0, !=ERROR_TIMEDOUT, !=ERROR_ABORTED
+- *
+- *     Some other error occurred.
+- *     This HAS been logged.
+- *     xswait will not continue (but calling libxl__xswait_stop is OK).
+- *
+- * xswait.path may start with with '@', in which case no read is done
+- * and the callback will always get data==0.
+- */
+-typedef void libxl__xswait_callback(libxl__egc *egc,
+-      libxl__xswait_state *xswa, int rc, const char *data);
+-
+-struct libxl__xswait_state {
+-    /* caller must fill these in, and they must all remain valid */
+-    libxl__ao *ao;
+-    const char *what; /* for error msgs: noun phrase, what we're waiting for */
+-    const char *path;
+-    int timeout_ms; /* as for poll(2) */
+-    libxl__xswait_callback *callback;
+-    /* remaining fields are private to xswait */
+-    libxl__ev_time time_ev;
+-    libxl__ev_xswatch watch_ev;
+-};
+-
+-void libxl__xswait_init(libxl__xswait_state*);
+-void libxl__xswait_stop(libxl__gc*, libxl__xswait_state*); /*idempotent*/
+-bool libxl__xswait_inuse(const libxl__xswait_state *ss);
+-
+-int libxl__xswait_start(libxl__gc*, libxl__xswait_state*);
+-
+ /*
+  * libxl__ev_devstate - waits a given time for a device to
+  * reach a given state.  Follows the libxl_ev_* conventions.
+-- 
+git-series 0.9.1

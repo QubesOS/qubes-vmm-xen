@@ -23,9 +23,9 @@ index 52e7592..86f16bc 100644
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
 @@ -1083,6 +1083,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
- 
-     if (guest_config->b_info.u.hvm.serial)
-         num_console++;
+         while (*(serial++))
+             num_console++;
+     }
 +    else
 +        /* Qubes hack */
 +        num_console = 1;

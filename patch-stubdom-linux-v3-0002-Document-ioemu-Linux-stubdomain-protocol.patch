@@ -1,0 +1,78 @@
+From 27fbf2868a07046d4287a35d2b93483ae4a1f6dd Mon Sep 17 00:00:00 2001
+Message-Id: <27fbf2868a07046d4287a35d2b93483ae4a1f6dd.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Wed, 16 Jan 2019 02:54:15 +0100
+Subject: [PATCH v3 02/17] Document ioemu Linux stubdomain protocol
+
+Add documentation for upcoming Linux stubdomain for qemu-upstream.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/misc/stubdom.txt | 50 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 50 insertions(+)
+
+diff --git a/docs/misc/stubdom.txt b/docs/misc/stubdom.txt
+index 4c524f2..9c94c6b 100644
+--- a/docs/misc/stubdom.txt
++++ b/docs/misc/stubdom.txt
+@@ -75,6 +75,56 @@ Defined commands:
+    - "running" - success
+ 
+ 
++Toolstack to Linux ioemu stubdomain protocol
++--------------------------------------------
++
++This section describe communication protocol between toolstack and
++qemu-upstream running in Linux stubdomain. The protocol include
++expectations of both stubdomain, and qemu.
++
++Setup (done by toolstack, expected by stubdomain):
++ - Block devices for target domain are connected as PV disks to stubdomain,
++   according to configuration order, starting with xvda
++ - Network devices for target domain are connected as PV nics to stubdomain,
++   according to configuration order, starting with 0
++ - [not implemented] if graphics output is expected, VFB and VKB devices are set for stubdomain
++   (its backend is responsible for exposing them using appropriate protocol
++   like VNC or Spice)
++ - other target domain's devices are not connected at this point to stubdomain
++   (may be hot-plugged later)
++ - QEMU command line is stored in
++   /vm/<target-uuid>/image/dmargs xenstore dir, each argument as separate key
++   in form /vm/<target-uuid>/image/dmargs/NNN, where NNN is 0-padded argument
++   number
++ - target domain id is stored in /local/domain/<stubdom-id>/target xenstore path
++?? - bios type is stored in /local/domain/<target-id>/hvmloader/bios
++ - stubdomain's console 0 is connected to qemu log file
++ - stubdomain's console 1 is connected to qemu save file (for saving state)
++ - stubdomain's console 2 is connected to qemu save file (for restoring state)
++ - next consoles are connected according to target guest's serial console configuration
++
++Environment exposed by stubdomain to qemu (needed to construct appropriate qemu command line and later interact with qmp):
++ - target domain's disks are available as /dev/xvd[a-z]
++ - console 2 (incoming domain state) is connected with FD 3
++ - console 1 (saving domain state) is added over QMP to qemu as "fdset-id 1" (done by stubdomain, toolstack doesn't need to care about it)
++ - nics are connected to relevant stubdomain PV vifs when available (qemu -netdev should specify ifname= explicitly)
++
++Startup:
++1. toolstack starts PV stubdomain with stubdom-linux-kernel kernel and stubdom-linux-initrd initrd
++2. stubdomain initialize relevant devices
++3. stubdomain starts qemu with requested command line, plus few stubdomain specific ones - including local qmp access options
++4. stubdomain starts vchan server on /local/domain/<stubdom-id>/device-model/<target-id>/qmp-vchan, exposing qmp socket to the toolstack
++5. qemu signal readiness by writing "running" to /local/domain/<stubdom-id>/device-model/<target-id>/state xenstore path
++6. now device model is considered running
++
++QEMU can be controlled using QMP over vchan at /local/domain/<stubdom-id>/device-model/<target-id>/qmp-vchan. Only one simultaneous connection is supported and toolstack needs to ensure that.
++
++Limitations:
++ - PCI passthrough require permissive mode
++ - only one nic is supported
++ - at most 26 emulated disks are supported (more are still available as PV disks)
++ - graphics output (VNC/SDL/Spice) not supported
++
+ 
+                                    PV-GRUB
+                                    =======
+-- 
+git-series 0.9.1

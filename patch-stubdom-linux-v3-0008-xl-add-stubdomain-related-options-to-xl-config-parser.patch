@@ -1,0 +1,69 @@
+From cd3c849abd5da9257a7e5d36127ce7422557adac Mon Sep 17 00:00:00 2001
+Message-Id: <cd3c849abd5da9257a7e5d36127ce7422557adac.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Sun, 29 Jul 2018 01:44:35 +0200
+Subject: [PATCH v3 08/17] xl: add stubdomain related options to xl config parser
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jason Andryuk <jandryuk@gmail.com>
+---
+ docs/man/xl.cfg.5.pod.in | 23 +++++++++++++++++++----
+ tools/xl/xl_parse.c      |  7 +++++++
+ 2 files changed, 26 insertions(+), 4 deletions(-)
+
+diff --git a/docs/man/xl.cfg.5.pod.in b/docs/man/xl.cfg.5.pod.in
+index 3b92f39..f475196 100644
+--- a/docs/man/xl.cfg.5.pod.in
++++ b/docs/man/xl.cfg.5.pod.in
+@@ -2694,10 +2694,25 @@ model which they were installed with.
+ 
+ =item B<device_model_override="PATH">
+ 
+-Override the path to the binary to be used as the device-model. The
+-binary provided here MUST be consistent with the
+-B<device_model_version> which you have specified. You should not
+-normally need to specify this option.
++Override the path to the binary to be used as the device-model running in
++toolstack domain. The binary provided here MUST be consistent with the
++B<device_model_version> which you have specified. You should not normally need
++to specify this option.
++
++=item B<stubdomain_kernel="PATH">
++
++Override the path to the kernel image used as device-model stubdomain.
++The binary provided here MUST be consistent with the
++B<device_model_version> which you have specified.
++In case of B<qemu-xen-traditional> it is expected to be MiniOS-based stubdomain
++image, in case of B<qemu-xen> it is expected to be Linux-based stubdomain
++kernel.
++
++=item B<stubdomain_ramdisk="PATH">
++
++Override the path to the ramdisk image used as device-model stubdomain.
++The binary provided here is to be used by a kernel pointed by B<stubdomain_kernel>.
++It is known to be used only by Linux-based stubdomain kernel.
+ 
+ =item B<device_model_stubdomain_override=BOOLEAN>
+ 
+diff --git a/tools/xl/xl_parse.c b/tools/xl/xl_parse.c
+index 352cd21..77e4cf0 100644
+--- a/tools/xl/xl_parse.c
++++ b/tools/xl/xl_parse.c
+@@ -2502,6 +2502,13 @@ skip_usbdev:
+     xlu_cfg_replace_string(config, "device_model_user",
+                            &b_info->device_model_user, 0);
+ 
++    xlu_cfg_replace_string (config, "stubdomain_kernel",
++                            &b_info->stubdomain_kernel, 0);
++    xlu_cfg_replace_string (config, "stubdomain_ramdisk",
++                            &b_info->stubdomain_ramdisk, 0);
++    if (!xlu_cfg_get_long (config, "stubdomain_memory", &l, 0))
++        b_info->stubdomain_memkb = l * 1024;
++
+ #define parse_extra_args(type)                                            \
+     e = xlu_cfg_get_list_as_string_list(config, "device_model_args"#type, \
+                                     &b_info->extra##type, 0);            \
+-- 
+git-series 0.9.1

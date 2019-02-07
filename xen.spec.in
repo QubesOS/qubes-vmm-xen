@@ -1,4 +1,3 @@
-%{!?python2_sitearch: %define python2_sitearch %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 %define with_ocaml 0
 %define build_ocaml 0
 %define with_xsm 0
@@ -9,6 +8,13 @@
 %define build_stubdom %{?_without_stubdom: 0} %{?!_without_stubdom: 1}
 # Build with qemu-traditional unless rpmbuild was run with --without qemutrad
 %define build_qemutrad %{?_without_qemutrad: 0} %{?!_without_qemutrad: 1}
+# build with ovmf from edk2-ovmf unless rpmbuild was run with --without ovmf
+%define build_ovmf %{?_without_ovmf: 0} %{?!_without_ovmf: 1}
+# set to 0 for archs that don't use qemu or ovmf (reduces build dependencies)
+%ifnarch x86_64 %{ix86}
+%define build_qemutrad 0
+%define build_ovmf 0
+%endif
 %if ! %build_qemutrad
 %define build_stubdom 0
 %endif
@@ -32,7 +38,8 @@
 # --without efi
 %define build_efi %{?_without_efi: 0} %{?!_without_efi: 1}
 # xen only supports efi boot images on x86_64 or aarch64
-%ifnarch x86_64 aarch64
+# i686 builds a x86_64 hypervisor so add that as well
+%ifnarch x86_64 aarch64 %{ix86}
 %define build_efi 0
 %endif
 %if %build_efi && "%dist" < ".fc26"
@@ -52,8 +59,14 @@
 %define with_python2 1
 %define with_python3 1
 
+# Workaround for https://bugzilla.redhat.com/1671883
+%define _unpackaged_files_terminate_build 0
+
+
 # Hypervisor ABI
 %define hv_abi  4.11
+
+%define upstream_version %(echo @VERSION@ | tr '~' '-')
 
 Summary: Xen is a virtual machine monitor
 Name:    xen
@@ -63,7 +76,7 @@ Epoch:   2001
 Group:   Development/Libraries
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
-Source0: xen-%{version}.tar.gz
+Source0: xen-%{upstream_version}.tar.gz
 Source2: %{name}.logrotate
 Source3: config
 # used by stubdoms
@@ -88,24 +101,16 @@ Source36: @gui-common@
 # Use the following patch numbers:
 # 100+:  Fedora
 # 200+:  EFI workarounds
-# 300+:  Backports
-# 400+:  PVH backports
 # 500+:  Security fixes
 # 600+:  Upstreamable patches
-# 700+:  GCC7 fixes
+# 700+:  GCC7+ fixes
 # 800+:  vchan for stubdom:
-# 900+:  Qubes specific patches
-# 1000+: python3
-# 1100+: Support for Linux based stubdom
+# 900+:  Support for Linux based stubdom
+# 1000+:  Qubes specific patches
 
 # Fedora
-Patch101: patch-xen.use.fedora.ipxe.patch
-Patch102: patch-xen.fedora.efi.build.patch
-Patch103: patch-xen.gcc5.fix.patch
-Patch104: patch-xen.vwprintw.fix.patch
 
 # EFI workarounds
-
 Patch201: patch-0001-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServices.patch
 Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
@@ -115,14 +120,11 @@ Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
-#Patch604: patch-libxl-Revert-libxl-Remove-redundant-setting-of-phyical-dev.patch
-#Patch605: patch-libxl-allow-PHY-backend-for-files-allocate-loop-devi.patch
-#Patch606: patch-libxl-do-not-call-default-block-script.patch
+#TODO: simplified script instead:
+# Patch604: patch-libxl-Revert-libxl-Remove-redundant-setting-of-phyical-dev.patch
+# Patch605: patch-libxl-allow-PHY-backend-for-files-allocate-loop-devi.patch
+# Patch606: patch-libxl-do-not-call-default-block-script.patch
 Patch607: patch-libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
-# TODO: test dynamic network detach
-#Patch608: patch-libxl-fix-libxl_device_-_remove-with-driver-domain-s.patch
-# TODO: adjust libvirt driver
-#Patch609: patch-libxl-suspend.patch
 Patch610: patch-stubdom-gmp-compile-fix.patch
 Patch611: patch-0001-libxl-attach-xen-pciback-only-to-PV-domains.patch
 Patch612: patch-0002-libxl-attach-PCI-device-to-qemu-only-after-setting-p.patch
@@ -138,7 +140,6 @@ Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-minios-ignore-close-0.patch
 Patch624: patch-qemu-docs-utf8.patch
 Patch625: patch-minios-remove-net-device-instead-of-preparing-for-re.patch
-Patch626: patch-xenconsole-sanitize-ESC-in-log.patch
 Patch627: patch-qemu-keyboard-leds.patch
 
 # GCC7 fixes
@@ -148,43 +149,49 @@ Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
-Patch802: patch-0101-libvchan-create-xenstore-entries-in-one-transaction.patch
 Patch803: patch-0102-libvchan-remove-unnecessary-includes.patch
 Patch804: patch-0103-minios-implement-gntalloc-interface.patch
 Patch805: patch-0104-libxc-implement-gntshr-for-minios.patch
 Patch806: patch-0105-stubdom-make-libvchan-available-in-stubdom.patch
 
-# Qubes specific patches
-Patch901: patch-stubdom-vbd-non-dom0-backend.patch
-Patch902: patch-xen-no-downloads.patch
-Patch903: patch-xen-hotplug-external-store.patch
-Patch904: patch-xen-stubdom-qubes-gui.patch
-Patch905: patch-stubdom-lwip-fix-for-dhcp.patch
-Patch906: patch-xen-libxl-qubes-minimal-stubdom.patch
-Patch907: patch-xen-disable-dom0-qemu.patch
-Patch908: patch-libxl-disable-forced-vkb-for-HVM.patch
-Patch909: patch-xenconsoled-enable-logging.patch
-Patch910: patch-vm-0001-hotplug-do-not-attempt-to-remove-containing-xenstore.patch
-Patch911: patch-xen-hotplug-qubesdb-update.patch
-Patch912: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
-
 # Support for Linux based stubdom
-Patch1101: patch-stubdom-linux-0004.patch
-Patch1102: patch-stubdom-linux-0005.patch
-Patch1103: patch-stubdom-linux-0006.patch
-Patch1104: patch-stubdom-linux-libxl-soname.patch
-Patch1105: patch-stubdom-linux-pci-add-del.patch
-Patch1106: patch-stubdom-linux-config-qubes-gui.patch
-Patch1107: patch-stubdom-linux-fix-need-memory.patch
-Patch1108: patch-stubdom-linux-config-stubdom-mem.patch
-Patch1109: patch-stubdom-linux-libxl-suspend.patch
-Patch1110: patch-stubdom-linux-libxl-silence-dm_check_start.patch
-Patch1111: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
-Patch1112: patch-stubdom-linux-libxl-don-t-try-to-resolve-local-disk-path-with-stub.patch
-Patch1113: patch-stubdom-allow-msi-irq.patch
-Patch1114: patch-stubdom-allow-msi-enable.patch
-Patch1115: patch-stubdom-linux-cmdline.patch
-Patch1116: patch-xenstore-client-raw.patch
+#    patch-stubdom-linux-v3-0000-cover-letter.patch
+Patch900: patch-stubdom-linux-v3-0001-Document-ioemu-MiniOS-stubdomain-protocol.patch
+Patch901: patch-stubdom-linux-v3-0002-Document-ioemu-Linux-stubdomain-protocol.patch
+Patch902: patch-stubdom-linux-v3-0003-libxl-fix-qemu-trad-cmdline-for-no-sdl-vnc-case.patch
+Patch903: patch-stubdom-linux-v3-0004-libxl-Allow-running-qemu-xen-in-stubdomain.patch
+Patch904: patch-stubdom-linux-v3-0005-libxl-Handle-Linux-stubdomain-specific-QEMU-options.patch
+Patch905: patch-stubdom-linux-v3-0006-libxl-write-qemu-arguments-into-separate-xenstore-keys.patch
+Patch906: patch-stubdom-linux-v3-0007-libxl-create-vkb-device-only-for-guests-with-graphics-output.patch
+Patch907: patch-stubdom-linux-v3-0008-xl-add-stubdomain-related-options-to-xl-config-parser.patch
+Patch908: patch-stubdom-linux-v3-0009-tools-libvchan-notify-server-when-client-is-connected.patch
+Patch909: patch-stubdom-linux-v3-0010-libxl-typo-fix-in-comment.patch
+Patch910: patch-stubdom-linux-v3-0011-libxl-move-xswait-declaration-up-in-libxl_internal.h.patch
+Patch911: patch-stubdom-linux-v3-0012-libxl-use-vchan-for-QMP-access-with-Linux-stubdomain-libxl__ev_qmp_-version.patch
+Patch912: patch-stubdom-linux-v3-0013-libxl-use-vchan-for-QMP-access-with-Linux-stubdomain-non-async-version.patch
+Patch913: patch-stubdom-linux-v3-0014-libxl-add-save-restore-support-for-qemu-xen-in-stubdomain.patch
+Patch914: patch-stubdom-linux-v3-0015-tools-add-missing-libxenvchan-cflags.patch
+Patch915: patch-stubdom-linux-v3-0016-libxl-add-locking-for-libvchan-QMP-connection.patch
+# modified vs upstream
+Patch916: patch-stubdom-linux-v3-0017-libxl-require-qemu-in-dom0-even-if-stubdomain-is-in-use.patch
+
+# Qubes specific patches
+Patch1001: patch-stubdom-vbd-non-dom0-backend.patch
+Patch1002: patch-xen-no-downloads.patch
+Patch1003: patch-xen-hotplug-external-store.patch
+Patch1004: patch-xen-stubdom-qubes-gui.patch
+Patch1005: patch-stubdom-lwip-fix-for-dhcp.patch
+Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
+Patch1007: patch-xen-disable-dom0-qemu.patch
+Patch1009: patch-xenconsoled-enable-logging.patch
+#TODO Patch1110: patch-stubdom-linux-libxl-suspend.patch
+Patch1011: patch-xen-hotplug-qubesdb-update.patch
+Patch1012: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
+Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.patch
+
+
+Patch1020: patch-stubdom-linux-config-qubes-gui.patch
+Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
 
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
@@ -273,7 +280,7 @@ BuildRequires: ocaml, ocaml-findlib
 %endif
 # efi image needs an ld that has -mi386pep option
 %if %efiming
-BuildRequires: mingw64-binutils
+#BuildRequires: mingw64-binutils
 %endif
 %if %with_systemd_presets
 Requires(post): systemd
@@ -438,7 +445,7 @@ Provides: qemu-img
 Conflicts: qemu-img
 
 %description qemu-tools
-This package contains symlinks to qemu tools (qemu-img, qemu-nbd, qemu-io)
+This package contains symlinks to qemu tools (qemu-img, qemu-nbd)
 budled with Xen, making them available for general use.
 
 %package qubes-vm
@@ -451,7 +458,7 @@ Provides: xen-qubes-vm-essentials = %{epoch}:%{version}-%{release}
 Just a few xenstore-* tools and Xen hotplug scripts needed by Qubes VMs
 
 %prep
-%autosetup -p1
+%autosetup -p1 -n %{name}-%{upstream_version}
 
 # Fix for glibc 2.7
 #FIXME sed 's:LIBS+=-lutil:LIBS+=-lutil -lrt:' -i tools/ioemu-qemu-xen/Makefile.target
@@ -484,7 +491,7 @@ patch -d tools/qemu-xen-traditional -p4 < stubdom-dhcp/lwip-dhcp-qemu-glue.patch
 %define ocaml_flags OCAML_TOOLS=n
 %endif
 %if %efiming
-%define efi_flags LD_EFI=/usr/x86_64-w64-mingw32/bin/ld EFI_VENDOR=qubes
+%define efi_flags EFI_VENDOR=qubes
 %endif
 %if %build_efi
 mkdir -p dist/install/boot/efi/efi/qubes
@@ -525,6 +532,9 @@ CONFIG_EXTRA="--disable-qemu-traditional"
 %else
 CONFIG_EXTRA=""
 %endif
+%if %build_ovmf
+CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.bin"
+%endif
 export PATH="/usr/bin:$PATH"
 autoreconf
 # setting libexecdir to real libexec is broken in the configure script (it is
@@ -532,11 +542,12 @@ autoreconf
 ./configure \
     --prefix=%{_prefix} \
     --libdir=%{_libdir} \
-    --libexecdir=/usr/lib \
+    --libexecdir=%{_libexecdir} \
     --with-system-seabios=%{seabiosloc} \
-    --with-system-ovmf=/usr/lib/xen/boot/ovmf.bin \
+    --with-system-ipxe=/usr/share/ipxe/8086100e.rom \
     --enable-vtpm-stubdom \
     --enable-vtpmmgr-stubdom \
+    --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" \
     --with-extra-qemuu-configure-args="--disable-spice" \
     $CONFIG_EXTRA
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr tools
@@ -593,19 +604,6 @@ rm -f %{buildroot}/usr/sbin/flask-*
 make PYTHON=%{__python3} -C tools/python DESTDIR=%{buildroot} install
 %endif
 
-# qemu symlinks
-mkdir -p %{buildroot}/usr/bin
-ln -s ../lib/%{name}/bin/qemu-img %{buildroot}/usr/bin/
-ln -s ../lib/%{name}/bin/qemu-io  %{buildroot}/usr/bin/
-ln -s ../lib/%{name}/bin/qemu-nbd %{buildroot}/usr/bin/
-
-# "build" combined OVMF image based on system package
-%if 0%{?rhel} >=7
-cat /usr/share/OVMF/OVMF_{VARS,CODE.secboot}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
-%else
-cat /usr/share/edk2/ovmf/OVMF_{VARS,CODE}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
-%endif
-
 ############ debug packaging: list files ############
 
 find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
@@ -624,12 +622,14 @@ rm -rf %{buildroot}/boot
 %endif
 
 # silly doc dir fun
-rm -rf %{buildroot}%{_datadir}/doc/xen
+rm -fr %{buildroot}%{_datadir}/doc/xen
 rm -rf %{buildroot}%{_datadir}/doc/qemu
 
 # Pointless helper
 rm -f %{buildroot}%{_sbindir}/xen-python-path
 
+ln -s qemu-img-xen %{buildroot}/%{_bindir}/qemu-img
+ln -s qemu-nbd-xen %{buildroot}/%{_bindir}/qemu-nbd
 # qemu stuff (unused or available from upstream)
 rm -rf %{buildroot}/usr/share/xen/man
 for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
@@ -656,6 +656,14 @@ rm -rf %{buildroot}/%{_libdir}/efi
 
 %if ! %build_ocaml
 rm -rf %{buildroot}/%{_unitdir}/oxenstored.service
+%endif
+
+%if %build_ovmf
+%if 0%{?rhel} >=7
+cat /usr/share/OVMF/OVMF_{VARS,CODE.secboot}.fd > %{buildroot}/usr/lib/xen/boot/ovmf.bin
+%else
+cat /usr/share/OVMF/OVMF_{VARS,CODE}.fd >%{buildroot}%{_libexecdir}/%{name}/boot/ovmf.bin
+%endif
 %endif
 
 ############ fixup files in /etc ############
@@ -706,10 +714,10 @@ done
 %systemd_postun
 
 %post runtime
-%systemd_post xenstored.service xenconsoled.service
+%systemd_post xenstored.service xenconsoled.service xen-init-dom0.service
 
 %preun runtime
-%systemd_preun xenstored.service xenconsoled.service
+%systemd_preun xenstored.service xenconsoled.service xen-init-dom0.service
 
 %postun runtime
 %systemd_postun
@@ -731,7 +739,7 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 # reload libxl library
 systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
 
-%postun libs -p /sbin/ldconfig
+%ldconfig_scriptlets libs
 
 %if %build_hyp
 %post hypervisor
@@ -749,9 +757,9 @@ EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
 # FAT (on ESP) does not support symlinks
 # override the file on purpose
 if [ -d "/boot/efi${EFI_DIR}" ]; then
-  cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi${EFI_DIR}/xen.efi
+  cp -pf /boot/efi/EFI/qubes/xen-%{upstream_version}.efi /boot/efi${EFI_DIR}/xen.efi
 else
-  cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi/EFI/qubes/xen.efi
+  cp -pf /boot/efi/EFI/qubes/xen-%{upstream_version}.efi /boot/efi/EFI/qubes/xen.efi
 fi
 %endif
 
@@ -820,7 +828,7 @@ rm -rf %{buildroot}
 %files libs
 %defattr(-,root,root)
 %{_libdir}/*.so.*
-%{_libdir}/fs
+%{_libdir}/xenfsimage
 
 # All runtime stuff except for XenD/xm python stuff
 %files runtime
@@ -832,14 +840,14 @@ rm -rf %{buildroot}
 %config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
 
 %{_sysconfdir}/bash_completion.d/xl.sh
-%exclude %{_unitdir}/xendriverdomain.service
 
 %{_unitdir}/proc-xen.mount
 %{_unitdir}/var-lib-xenstored.mount
-%{_unitdir}/xen-init-dom0.service
 %{_unitdir}/xenstored.service
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
+%{_unitdir}/xen-init-dom0.service
+%exclude %{_unitdir}/xendriverdomain.service
 /usr/lib/modules-load.d/xen.conf
 
 %config(noreplace) %{_sysconfdir}/sysconfig/xencommons
@@ -851,9 +859,9 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/logrotate.d/xen
 
 # Programs run by other programs
-%dir /usr/lib/%{name}
-%dir /usr/lib/%{name}/bin
-%attr(0700,root,root) /usr/lib/%{name}/bin/*
+%dir %{_libexecdir}/%{name}
+%dir %{_libexecdir}/%{name}/bin
+%attr(0700,root,root) %{_libexecdir}/%{name}/bin/*
 # QEMU runtime files
 %if %build_qemutrad
 %ifnarch armv7hl aarch64
@@ -886,27 +894,30 @@ rm -rf %{buildroot}
 %{_mandir}/man7/xl-numa-placement.7.gz
 %endif
 
-%{python2_sitearch}/fsimage.so
+%{python2_sitearch}/xenfsimage.so
 %{python2_sitearch}/grub
 %{python2_sitearch}/pygrub-*.egg-info
 
 # The firmware
 %ifarch %{ix86} x86_64
-%dir /usr/lib/%{name}/boot
-/usr/lib/xen/boot/hvmloader
+%dir %{_libexecdir}/%{name}/boot
+%{_libexecdir}/xen/boot/hvmloader
 %ifnarch %{ix86}
-/usr/lib/xen/boot/xen-shim
-/usr/lib/debug/usr/lib/xen/boot/xen-shim-syms
+%{_libexecdir}/%{name}/boot/xen-shim
+/usr/lib/debug%{_libexecdir}/xen/boot/xen-shim-syms
+%endif
+%if %build_ovmf
+%{_libexecdir}/xen/boot/ovmf.bin
 %endif
 %if %build_stubdom
-/usr/lib/xen/boot/ioemu-stubdom.gz
-/usr/lib/xen/boot/xenstore-stubdom.gz
-/usr/lib/xen/boot/pv-grub*.gz
-/usr/lib/xen/boot/vtpm-stubdom.gz
-/usr/lib/xen/boot/vtpmmgr-stubdom.gz
+%{_libexecdir}/xen/boot/ioemu-stubdom.gz
+%{_libexecdir}/xen/boot/xenstore-stubdom.gz
+%{_libexecdir}/xen/boot/pv-grub*.gz
+%{_libexecdir}/xen/boot/vtpm-stubdom.gz
+%{_libexecdir}/xen/boot/vtpmmgr-stubdom.gz
 %endif
-/usr/lib/xen/boot/ovmf.bin
 %endif
+%ghost /usr/lib/%{name}
 # General Xen state
 %dir %{_localstatedir}/lib/%{name}
 %dir %{_localstatedir}/lib/%{name}/dump
@@ -922,7 +933,6 @@ rm -rf %{buildroot}
 %{_bindir}/xenstore-*
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
-/usr/lib/%{name}/bin/init-xenstore-domain
 #%%{_bindir}/remus
 # XSM
 %if %build_xsm
@@ -935,7 +945,7 @@ rm -rf %{buildroot}
 %{_bindir}/xencov_split
 %ifnarch armv7hl aarch64
 %{_sbindir}/gdbsx
-%{_sbindir}/kdd
+%{_sbindir}/xen-kdd
 %endif
 %{_sbindir}/xen-bugtool
 %ifnarch armv7hl aarch64
@@ -946,7 +956,7 @@ rm -rf %{buildroot}
 %{_sbindir}/xen-tmem-list-parse
 %{_sbindir}/xenconsoled
 %{_sbindir}/xenlockprof
-%{_sbindir}/xenmon.py*
+%{_sbindir}/xenmon
 %{_sbindir}/xentop
 %{_sbindir}/xentrace_setmask
 %{_sbindir}/xenbaked
@@ -964,7 +974,6 @@ rm -rf %{buildroot}
 %ifnarch armv7hl aarch64
 %{_sbindir}/xen-mfndump
 %endif
-/usr/share/pkgconfig/*
 %ifnarch armv7hl aarch64
 %{_bindir}/xenalyze
 %endif
@@ -987,7 +996,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %ifnarch armv7hl aarch64
 /boot/xen-*.gz
-%config(noreplace) /boot/xen-*.config
+/boot/xen*.config
 %else
 /boot/xen*
 %endif
@@ -1016,6 +1025,7 @@ rm -rf %{buildroot}
 %dir %{_includedir}/xenstore-compat
 %{_includedir}/xenstore-compat/*
 %{_libdir}/*.so
+/usr/share/pkgconfig/*
 
 %files licenses
 %defattr(-,root,root)
@@ -1043,7 +1053,6 @@ rm -rf %{buildroot}
 
 %files qemu-tools
 /usr/bin/qemu-img
-/usr/bin/qemu-io
 /usr/bin/qemu-nbd
 /usr/share/locale/*/LC_MESSAGES/qemu.mo
 

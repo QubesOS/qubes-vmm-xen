@@ -31,7 +31,7 @@
 +
 +                                       ("qubes_gui", libxl_defbool),
                                         ])),
-                  ("pv", Struct(None, [("kernel", string),
+                  ("pv", Struct(None, [("kernel", string, {'deprecated_by': 'kernel'}),
                                        ("slack_memkb", MemKB),
 --- a/tools/xl/xl_parse.c
 +++ b/tools/xl/xl_parse.c

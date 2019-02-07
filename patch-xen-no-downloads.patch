@@ -1,14 +1,4 @@
 diff -ru xen-4.1.0.orig/Makefile xen-4.1.0/Makefile
---- xen-4.1.0.orig/Makefile	2011-03-25 11:42:47.000000000 +0100
-+++ xen-4.1.0/Makefile	2011-05-12 16:43:57.998690847 +0200
-@@ -272,7 +272,3 @@
- 
- tboot/Makefile: tboot/$(TBOOT_TARFILE)
- 	[ -e tboot/Makefile ] || tar -xzf tboot/$(TBOOT_TARFILE) -C tboot/ --strip-components 1
--
--tboot/$(TBOOT_TARFILE):
--	mkdir -p tboot
--	wget -O tboot/$(TBOOT_TARFILE) $(TBOOT_BASE_URL)/$(TBOOT_TARFILE)
 --- xen-4.4.0/m4/fetcher.m4.orig	2014-06-24 01:08:52.593933406 +0200
 +++ xen-4.4.0/m4/fetcher.m4	2014-06-24 01:09:29.337842284 +0200
 @@ -1,14 +1,4 @@
@@ -27,3 +17,14 @@ diff -ru xen-4.1.0.orig/Makefile xen-4.1.0/Makefile
 +FETCHER="false"
  AC_SUBST(FETCHER)
  ])
+--- a/config/StdGNU.mk.orig
++++ b/config/StdGNU.mk
+@@ -19,7 +19,7 @@ OBJDUMP    = $(CROSS_COMPILE)objdump
+ SIZEUTIL   = $(CROSS_COMPILE)size
+ 
+ # Allow git to be wrappered in the environment
+-GIT        ?= git
++GIT        ?= false
+ 
+ INSTALL      = install
+ INSTALL_DIR  = $(INSTALL) -d -m0755 -p

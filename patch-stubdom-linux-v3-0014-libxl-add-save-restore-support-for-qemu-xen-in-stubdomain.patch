@@ -1,0 +1,132 @@
+From 7804ded09ac936bcf015ad60f540ac64cfb4b490 Mon Sep 17 00:00:00 2001
+Message-Id: <7804ded09ac936bcf015ad60f540ac64cfb4b490.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Sun, 29 Jul 2018 01:18:07 +0200
+Subject: [PATCH v3 14/17] libxl: add save/restore support for qemu-xen in stubdomain
+
+Rely on a wrapper script in stubdomain to attach FD 3/4 of qemu to
+relevant consoles.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+Changes in v3:
+ - adjust for qmp_ev*
+ - assume specific fdset id in qemu set in stubdomain
+---
+ tools/libxl/libxl_dm.c  | 23 +++++++++++------------
+ tools/libxl/libxl_qmp.c | 25 ++++++++++++++++++++++++-
+ 2 files changed, 35 insertions(+), 13 deletions(-)
+
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index b9a53f3..ce65321 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1715,10 +1715,17 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+     }
+ 
+     if (state->saved_state) {
+-        /* This file descriptor is meant to be used by QEMU */
+-        *dm_state_fd = open(state->saved_state, O_RDONLY);
+-        flexarray_append(dm_args, "-incoming");
+-        flexarray_append(dm_args, GCSPRINTF("fd:%d",*dm_state_fd));
++        if (is_stubdom) {
++            /* Linux stubdomain connects specific FD to STUBDOM_CONSOLE_RESTORE
++             */
++            flexarray_append(dm_args, "-incoming");
++            flexarray_append(dm_args, "fd:3");
++        } else {
++            /* This file descriptor is meant to be used by QEMU */
++            *dm_state_fd = open(state->saved_state, O_RDONLY);
++            flexarray_append(dm_args, "-incoming");
++            flexarray_append(dm_args, GCSPRINTF("fd:%d",*dm_state_fd));
++        }
+     }
+     for (i = 0; b_info->extra && b_info->extra[i] != NULL; i++)
+         flexarray_append(dm_args, b_info->extra[i]);
+@@ -2192,14 +2199,6 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+ 
+     assert(libxl_defbool_val(guest_config->b_info.device_model_stubdomain));
+ 
+-    if (libxl__stubdomain_is_linux(&guest_config->b_info)) {
+-        if (d_state->saved_state) {
+-            LOG(ERROR, "Save/Restore not supported yet with Linux Stubdom.");
+-            ret = -1;
+-            goto out;
+-        }
+-    }
+-
+     sdss->pvqemu.guest_domid = 0;
+ 
+     libxl_domain_create_info_init(&dm_config->c_info);
+diff --git a/tools/libxl/libxl_qmp.c b/tools/libxl/libxl_qmp.c
+index 19ce3ce..7643f15 100644
+--- a/tools/libxl/libxl_qmp.c
++++ b/tools/libxl/libxl_qmp.c
+@@ -1328,6 +1328,7 @@ static void dm_stopped(libxl__egc *egc, libxl__ev_qmp *ev,
+                        const libxl__json_object *response, int rc);
+ static void dm_state_fd_ready(libxl__egc *egc, libxl__ev_qmp *ev,
+                               const libxl__json_object *response, int rc);
++static void dm_state_save_to_fdset(libxl__egc *egc, libxl__ev_qmp *ev, int fdset);
+ static void dm_state_saved(libxl__egc *egc, libxl__ev_qmp *ev,
+                            const libxl__json_object *response, int rc);
+ 
+@@ -1360,10 +1361,17 @@ static void dm_stopped(libxl__egc *egc, libxl__ev_qmp *ev,
+     EGC_GC;
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(ev, *dsps, qmp);
+     const char *const filename = dsps->dm_savefile;
++    uint32_t dm_domid = libxl_get_stubdom_id(CTX, dsps->domid);
+ 
+     if (rc)
+         goto error;
+ 
++    if (dm_domid) {
++        /* see Linux stubdom interface in docs/stubdom.txt */
++        dm_state_save_to_fdset(egc, ev, 1);
++        return;
++    }
++
+     ev->payload_fd = open(filename, O_WRONLY | O_CREAT, 0600);
+     if (ev->payload_fd < 0) {
+         LOGED(ERROR, ev->domid,
+@@ -1394,7 +1402,6 @@ static void dm_state_fd_ready(libxl__egc *egc, libxl__ev_qmp *ev,
+     EGC_GC;
+     int fdset;
+     const libxl__json_object *o;
+-    libxl__json_object *args = NULL;
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(ev, *dsps, qmp);
+ 
+     close(ev->payload_fd);
+@@ -1409,6 +1416,21 @@ static void dm_state_fd_ready(libxl__egc *egc, libxl__ev_qmp *ev,
+         goto error;
+     }
+     fdset = libxl__json_object_get_integer(o);
++    dm_state_save_to_fdset(egc, ev, fdset);
++    return;
++
++error:
++    assert(rc);
++    libxl__remove_file(gc, dsps->dm_savefile);
++    dsps->callback_device_model_done(egc, dsps, rc);
++}
++
++static void dm_state_save_to_fdset(libxl__egc *egc, libxl__ev_qmp *ev, int fdset)
++{
++    EGC_GC;
++    int rc;
++    libxl__json_object *args = NULL;
++    libxl__domain_suspend_state *dsps = CONTAINER_OF(ev, *dsps, qmp);
+ 
+     ev->callback = dm_state_saved;
+ 
+@@ -1426,6 +1448,7 @@ static void dm_state_fd_ready(libxl__egc *egc, libxl__ev_qmp *ev,
+ 
+ error:
+     assert(rc);
++    /* TODO: only in non-stubdom case */
+     libxl__remove_file(gc, dsps->dm_savefile);
+     dsps->callback_device_model_done(egc, dsps, rc);
+ }
+-- 
+git-series 0.9.1

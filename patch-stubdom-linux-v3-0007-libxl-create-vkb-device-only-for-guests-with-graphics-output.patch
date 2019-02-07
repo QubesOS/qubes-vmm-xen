@@ -1,0 +1,47 @@
+From e7c58b14e234a5b24a0a4f62da2db26e34071e05 Mon Sep 17 00:00:00 2001
+Message-Id: <e7c58b14e234a5b24a0a4f62da2db26e34071e05.1548765755.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Sun, 29 Jul 2018 00:49:23 +0200
+Subject: [PATCH v3 07/17] libxl: create vkb device only for guests with graphics output
+
+The forced vkb device is meant for better performance of qemu access
+(at least according to ebbd2561b4cefb299f0f68a88b2788504223de18 "libxl:
+Add a vkbd frontend/backend pair for HVM guests"), which isn't used if
+there is no configured channel to actually access that keyboard.
+
+One can still add vkb device manually if needed.
+
+This is continuation of b053f0c4c9e533f3d97837cf897eb920b8355ed3 "libxl: do
+not start dom0 qemu for stubdomain when not needed".
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jason Andryuk <jandryuk@gmail.com>
+---
+ tools/libxl/libxl_create.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
+index 13fc304..736b93c 100644
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -1439,9 +1439,13 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
+         libxl__device_console_add(gc, domid, &console, state, &device);
+         libxl__device_console_dispose(&console);
+ 
+-        libxl_device_vkb_init(&vkb);
+-        libxl__device_add(gc, domid, &libxl__vkb_devtype, &vkb);
+-        libxl_device_vkb_dispose(&vkb);
++        if (libxl_defbool_val(d_config->b_info.u.hvm.vnc.enable)
++            || libxl_defbool_val(d_config->b_info.u.hvm.spice.enable)
++            || libxl_defbool_val(d_config->b_info.u.hvm.sdl.enable)) {
++            libxl_device_vkb_init(&vkb);
++            libxl__device_add(gc, domid, &libxl__vkb_devtype, &vkb);
++            libxl_device_vkb_dispose(&vkb);
++        }
+ 
+         dcs->sdss.dm.guest_domid = domid;
+         if (libxl_defbool_val(d_config->b_info.device_model_stubdomain))
+-- 
+git-series 0.9.1

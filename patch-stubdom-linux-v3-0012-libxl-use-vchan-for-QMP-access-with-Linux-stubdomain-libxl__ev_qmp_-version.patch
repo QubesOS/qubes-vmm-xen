@@ -1,0 +1,477 @@
+From 8da3ca24aa70cc486f1dcda23a266b4ac410a4a9 Mon Sep 17 00:00:00 2001
+Message-Id: <8da3ca24aa70cc486f1dcda23a266b4ac410a4a9.1548800325.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.5a1e2bec2f56d533067b1c4261971471fe7f0e86.1548800325.git-series.marmarek@invisiblethingslab.com>
+References: <cover.5a1e2bec2f56d533067b1c4261971471fe7f0e86.1548800325.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Sun, 13 Jan 2019 13:41:35 +0100
+Subject: [PATCH v3 12/17] libxl: use vchan for QMP access with Linux stubdomain, libxl__ev_qmp_* version
+
+Access to QMP of QEMU in Linux stubdomain is possible over vchan
+connection. Add appropriate handling in libxl__ev_qmp_* API, keeping all the
+asynchronous properties.
+Since only one client can be connected to vchan server at the same time
+and it is not enforced by the libxenvchan itself, additional client-side
+locking is needed. Note that qemu supports only one simultaneous client
+on a control socket anyway (but in UNIX socket case, it enforce it
+server-side), so it doesn't add any extra limitation.
+
+Regarding pipe to self:
+Vchan issue notification about incoming data (or space for it)
+only once - even if there is more data to read, FD returned by
+libxenvchan_fd_for_select() will not be readable. Similar to buffer
+space - there is one notification if more data can be written, but FD
+isn't considered "writable" after libxenvchan_wait() call, even if in
+fact there is a buffer space.
+There are two situations where it is problematic:
+ - some QMP message results in a user callback and processing further
+   messages must stop (even if more data is already available in vchan
+   buffer)
+ - data is scheduled to write after a buffer space notification; this
+   may result from either delayed libxl__ev_qmp_send() call, or internal
+   state change
+
+To avoid the above problems, schedule next callback using
+libxl__ev_time* API to do the rest of vchan data processing, even if
+vchan would not issue notification itself.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+TODO:
+ - handle locking for vchan access - a lockfile + flock comes to mind,
+   but there is no async provisioning for it in libxl
+
+Changes in v3:
+ - new patch, in place of "libxl: access QMP socket via console for
+   qemu-in-stubdomain"
+---
+ tools/Rules.mk               |   4 +-
+ tools/libxl/Makefile         |   2 +-
+ tools/libxl/libxl_dm.c       |   2 +-
+ tools/libxl/libxl_internal.h |   5 +-
+ tools/libxl/libxl_qmp.c      | 262 +++++++++++++++++++++++++++++++++++-
+ 5 files changed, 268 insertions(+), 7 deletions(-)
+
+diff --git a/tools/Rules.mk b/tools/Rules.mk
+index 68f2ed7..12b3129 100644
+--- a/tools/Rules.mk
++++ b/tools/Rules.mk
+@@ -187,8 +187,8 @@ SHLIB_libblktapctl  =
+ PKG_CONFIG_REMOVE += xenblktapctl
+ endif
+ 
+-CFLAGS_libxenlight = -I$(XEN_XENLIGHT) $(CFLAGS_libxenctrl) $(CFLAGS_xeninclude)
+-SHDEPS_libxenlight = $(SHLIB_libxenctrl) $(SHLIB_libxenstore) $(SHLIB_libblktapctl)
++CFLAGS_libxenlight = -I$(XEN_XENLIGHT) $(CFLAGS_libxenctrl) $(CFLAGS_xeninclude) $(CFLAGS_libxenvchan)
++SHDEPS_libxenlight = $(SHLIB_libxenctrl) $(SHLIB_libxenstore) $(SHLIB_libblktapctl) $(SHLIB_libxenvchan)
+ LDLIBS_libxenlight = $(SHDEPS_libxenlight) $(XEN_XENLIGHT)/libxenlight$(libextension)
+ SHLIB_libxenlight  = $(SHDEPS_libxenlight) -Wl,-rpath-link=$(XEN_XENLIGHT)
+ 
+diff --git a/tools/libxl/Makefile b/tools/libxl/Makefile
+index 6da342e..55b0b63 100644
+--- a/tools/libxl/Makefile
++++ b/tools/libxl/Makefile
+@@ -24,6 +24,7 @@ LIBXL_LIBS = $(LDLIBS_libxentoollog) $(LDLIBS_libxenevtchn) $(LDLIBS_libxenctrl)
+ ifeq ($(CONFIG_LIBNL),y)
+ LIBXL_LIBS += $(LIBNL3_LIBS)
+ endif
++LIBXL_LIBS += $(LDLIBS_libxenvchan)
+ 
+ CFLAGS_LIBXL += $(CFLAGS_libxentoollog)
+ CFLAGS_LIBXL += $(CFLAGS_libxentoolcore)
+@@ -35,6 +36,7 @@ CFLAGS_LIBXL += $(CFLAGS_libblktapctl)
+ ifeq ($(CONFIG_LIBNL),y)
+ CFLAGS_LIBXL += $(LIBNL3_CFLAGS)
+ endif
++CFLAGS_LIBXL += $(CFLAGS_libxenvchan)
+ CFLAGS_LIBXL += -Wshadow
+ 
+ LIBXL_LIBS-$(CONFIG_ARM) += -lfdt
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index 6cfc256..b9a53f3 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1180,7 +1180,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+                       "-xen-domid",
+                       GCSPRINTF("%d", guest_domid), NULL);
+ 
+-    /* There is currently no way to access the QMP socket in the stubdom */
++    /* QMP access to qemu running in stubdomain is done over vchan, not local socket */
+     if (!is_stubdom) {
+         flexarray_append(dm_args, "-chardev");
+         if (state->dm_monitor_fd >= 0) {
+diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
+index 0095835..62654a7 100644
+--- a/tools/libxl/libxl_internal.h
++++ b/tools/libxl/libxl_internal.h
+@@ -57,6 +57,7 @@
+ #include <xenctrl.h>
+ #include <xenguest.h>
+ #include <xc_dom.h>
++#include <libxenvchan.h>
+ 
+ #include <xen-tools/libs.h>
+ 
+@@ -509,6 +510,10 @@ struct libxl__ev_qmp {
+     libxl__carefd *cfd;
+     libxl__ev_fd efd;
+     libxl__qmp_state state;
++    /* event to wake itself if there is more data in vchan */
++    libxl__ev_time vchan_wake;
++    struct libxenvchan *vchan;
++    libxl__xswait_state xswait;
+     int id;
+     int next_id;        /* next id to use */
+     /* receive buffer */
+diff --git a/tools/libxl/libxl_qmp.c b/tools/libxl/libxl_qmp.c
+index a235095..133bd7c 100644
+--- a/tools/libxl/libxl_qmp.c
++++ b/tools/libxl/libxl_qmp.c
+@@ -1466,6 +1466,14 @@ static void dm_state_saved(libxl__egc *egc, libxl__ev_qmp *ev,
+ 
+ /* prototypes */
+ 
++static int qmp_ev_connect_vchan(libxl__gc *gc, libxl__ev_qmp *ev);
++static void qmp_vchan_watch_callback(libxl__egc *egc,
++      libxl__xswait_state *xswa, int rc, const char *data);
++static void qmp_ev_vchan_fd_callback(libxl__egc *egc, libxl__ev_fd *ev_fd,
++                               int fd, short events, short revents);
++static void qmp_ev_vchan_wake_callback(libxl__egc *egc, libxl__ev_time *ev_time,
++                                       const struct timeval *tv, int rc);
++static void qmp_ev_vchan_schedule_wakeup(libxl__ev_qmp *ev);
+ static void qmp_ev_fd_callback(libxl__egc *egc, libxl__ev_fd *ev_fd,
+                                int fd, short events, short revents);
+ static int qmp_ev_callback_writable(libxl__gc *gc,
+@@ -1491,6 +1499,17 @@ static void qmp_ev_ensure_reading_writing(libxl__gc *gc, libxl__ev_qmp *ev)
+     else if ((ev->state == qmp_state_waiting_reply) && ev->msg)
+         events |= POLLOUT;
+ 
++    if (ev->vchan || ev->xswait.what) {
++        if (ev->vchan &&
++                libxenvchan_buffer_space(ev->vchan) &&
++                (events & POLLOUT)) {
++            /* If vchan notification about available buffer space was received
++             * already, it won't be dispatched again, trigger it manually. */
++            qmp_ev_vchan_schedule_wakeup(ev);
++        }
++        return;
++    }
++
+     libxl__ev_fd_modify(gc, &ev->efd, events);
+ }
+ 
+@@ -1564,6 +1583,8 @@ static int qmp_error_class_to_libxl_error_code(libxl__gc *gc,
+ 
+ /* Setup connection */
+ 
++/*   - QMP over unix socket */
++
+ static int qmp_ev_connect(libxl__gc *gc, libxl__ev_qmp *ev)
+     /* disconnected -> connecting but with `msg` free
+      * on error: broken */
+@@ -1575,6 +1596,10 @@ static int qmp_ev_connect(libxl__gc *gc, libxl__ev_qmp *ev)
+ 
+     assert(ev->state == qmp_state_disconnected);
+ 
++    /* use vchan connection for stubdomain */
++    if (libxl_get_stubdom_id(CTX, ev->domid))
++        return qmp_ev_connect_vchan(gc, ev);
++
+     qmp_socket_path = libxl__qemu_qmp_path(gc, ev->domid);
+ 
+     LOGD(DEBUG, ev->domid, "Connecting to %s", qmp_socket_path);
+@@ -1618,6 +1643,83 @@ out:
+     return rc;
+ }
+ 
++/*   - QMP over vchan */
++
++static int qmp_ev_connect_vchan(libxl__gc *gc, libxl__ev_qmp *ev)
++    /* disconnected -> connecting but with `msg` free
++     * on error: broken */
++{
++    int dm_domid;
++    int rc;
++
++    assert(ev->state == qmp_state_disconnected);
++
++    dm_domid = libxl_get_stubdom_id(CTX, ev->domid);
++    assert(dm_domid != 0);
++
++    ev->xswait.ao = ev->ao;
++    ev->xswait.what = GCSPRINTF("qmp vchan for %u", ev->domid);
++    ev->xswait.path = DEVICE_MODEL_XS_PATH(gc, dm_domid, ev->domid, "/qmp-vchan");
++    ev->xswait.timeout_ms = LIBXL_STUBDOM_START_TIMEOUT * 1000;
++    ev->xswait.callback = qmp_vchan_watch_callback;
++
++    LOGD(DEBUG, ev->domid, "Connecting to vchan at %s", ev->xswait.path);
++
++    rc = libxl__xswait_start(gc, &ev->xswait);
++    if (rc) goto out;
++
++    qmp_ev_set_state(gc, ev, qmp_state_connecting);
++
++    return 0;
++
++out:
++    return rc;
++}
++
++static void qmp_vchan_watch_callback(libxl__egc *egc,
++      libxl__xswait_state *xswa, int rc, const char *data)
++{
++    libxl__ev_qmp *ev = CONTAINER_OF(xswa, *ev, xswait);
++    STATE_AO_GC(ev->ao);
++    int dm_domid = libxl_get_stubdom_id(CTX, ev->domid);
++
++    if (!rc) {
++        ev->vchan = libxenvchan_client_init(CTX->lg, dm_domid, ev->xswait.path);
++        if (ev->vchan) {
++            /* ok */
++            libxl__xswait_stop(gc, &ev->xswait);
++
++            ev->vchan->blocking = 0;
++
++            rc = libxl__ev_fd_register(gc, &ev->efd, qmp_ev_vchan_fd_callback,
++                    libxenvchan_fd_for_select(ev->vchan), POLLIN);
++            if (rc)
++                goto error;
++        } else if (errno == ENOENT) {
++            /* not ready yet, wait */
++            return;
++        } else {
++            LOGED(ERROR, ev->domid, "Connection to qmp vchan for %u failed", ev->domid);
++            rc = ERROR_FAIL;
++        }
++    }
++
++    if (!rc)
++        return;
++
++error:
++
++    if (rc==ERROR_TIMEDOUT || rc==ERROR_ABORTED)
++        LOGD(ERROR, ev->domid, "Connection to qmp vchan for %u timed out", ev->domid);
++
++    /* On error, deallocate all private ressources */
++    libxl__ev_qmp_dispose(gc, ev);
++
++    /* And tell libxl__ev_qmp user about the error */
++    ev->callback(egc, ev, NULL, rc); /* must be last */
++}
++
++
+ /* QMP FD callbacks */
+ 
+ static void qmp_ev_fd_callback(libxl__egc *egc, libxl__ev_fd *ev_fd,
+@@ -1690,6 +1792,105 @@ error:
+     ev->callback(egc, ev, NULL, rc); /* must be last */
+ }
+ 
++/* Make sure vchan events will be handled even if no new notification is sent.
++ */
++static void qmp_ev_vchan_schedule_wakeup(libxl__ev_qmp *ev)
++{
++    if (!libxl__ev_time_isregistered(&ev->vchan_wake))
++        libxl__ev_time_register_rel(ev->ao, &ev->vchan_wake,
++                                    qmp_ev_vchan_wake_callback,
++                                    0);
++}
++
++static int qmp_ev_vchan_handle_read_write(libxl__egc *egc, libxl__ev_qmp *ev)
++{
++    int rc;
++    STATE_AO_GC(ev->ao);
++
++    rc = qmp_ev_callback_readable(egc, ev, -1);
++    if (rc)
++        /* returns both rc values -ERROR_* and 1 */
++        return rc;
++
++    if (ev->tx_buf || ((ev->state == qmp_state_waiting_reply) && ev->msg)) {
++        rc = qmp_ev_callback_writable(gc, ev, -1);
++        if (rc)
++            return rc;
++    }
++    return 0;
++}
++
++static void qmp_ev_vchan_fd_callback(libxl__egc *egc, libxl__ev_fd *ev_fd,
++                               int fd, short events, short revents)
++    /* On entry, ev_fd is (of course) Active.  The ev_qmp may be in any
++     * state where this is permitted.  qmp_ev_vchan_fd_callback will do the work
++     * necessary to make progress, depending on the current state, and make
++     * the appropriate state transitions and callbacks.  */
++{
++    libxl__ev_qmp *ev = CONTAINER_OF(ev_fd, *ev, efd);
++    STATE_AO_GC(ev->ao);
++    int rc;
++
++    assert(ev->vchan);
++
++    if (revents & ~(POLLIN)) {
++        LOGD(ERROR, ev->domid,
++             "unexpected poll event 0x%x on QMP vchan FD (expected POLLIN)",
++            revents);
++        rc = ERROR_FAIL;
++        goto error;
++    }
++
++    if (revents & POLLIN) {
++        libxenvchan_wait(ev->vchan);
++        rc = qmp_ev_vchan_handle_read_write(egc, ev);
++        if (rc < 0)
++            goto error;
++    }
++
++    return;
++
++error:
++    assert(rc);
++
++    LOGD(ERROR, ev->domid,
++         "Error happened with the QMP connection to QEMU");
++
++    /* On error, deallocate all private ressources */
++    libxl__ev_qmp_dispose(gc, ev);
++
++    /* And tell libxl__ev_qmp user about the error */
++    ev->callback(egc, ev, NULL, rc); /* must be last */
++}
++
++static void qmp_ev_vchan_wake_callback(libxl__egc *egc, libxl__ev_time *ev_time,
++                                       const struct timeval *tv, int rc)
++{
++    libxl__ev_qmp *ev = CONTAINER_OF(ev_time, *ev, vchan_wake);
++    STATE_AO_GC(ev->ao);
++
++    if (rc == ERROR_ABORTED)
++        goto error;
++
++    rc = qmp_ev_vchan_handle_read_write(egc, ev);
++    if (rc < 0)
++        goto error;
++
++    return;
++
++error:
++    assert(rc);
++
++    LOGD(ERROR, ev->domid,
++         "Error happened with the QMP connection to QEMU");
++
++    /* On error, deallocate all private ressources */
++    libxl__ev_qmp_dispose(gc, ev);
++
++    /* And tell libxl__ev_qmp user about the error */
++    ev->callback(egc, ev, NULL, rc); /* must be last */
++}
++
+ static int qmp_ev_callback_writable(libxl__gc *gc,
+                                     libxl__ev_qmp *ev, int fd)
+     /* on entry: !disconnected
+@@ -1725,6 +1926,13 @@ static int qmp_ev_callback_writable(libxl__gc *gc,
+         ev->payload_fd >= 0 &&
+         ev->tx_buf_off == 0) {
+ 
++        /* sending FDs not supported over vchan */
++        if (ev->vchan) {
++            /* XXX should it be assert? */
++            LOGED(ERROR, ev->domid, "Sending FD over vchan connection not supported");
++            return ERROR_NI;
++        }
++
+         rc = libxl__sendmsg_fds(gc, fd, ev->tx_buf[ev->tx_buf_off],
+                                 1, &ev->payload_fd, "QMP socket");
+         /* Check for EWOULDBLOCK, and return to try again later */
+@@ -1737,7 +1945,16 @@ static int qmp_ev_callback_writable(libxl__gc *gc,
+ 
+     while (ev->tx_buf_off < ev->tx_buf_len) {
+         ssize_t max_write = ev->tx_buf_len - ev->tx_buf_off;
+-        r = write(fd, ev->tx_buf + ev->tx_buf_off, max_write);
++        if (ev->vchan) {
++            r = libxenvchan_write(ev->vchan, ev->tx_buf + ev->tx_buf_off, max_write);
++            /* libxenvchan_write returns 0 if no space left, translate to EWOULDBLOCK */
++            if (r == 0) {
++                r = -1;
++                errno = EWOULDBLOCK;
++            }
++        } else {
++            r = write(fd, ev->tx_buf + ev->tx_buf_off, max_write);
++        }
+         if (r < 0) {
+             if (errno == EINTR)
+                 continue;
+@@ -1790,6 +2007,24 @@ static int qmp_ev_callback_readable(libxl__egc *egc,
+             else if (rc)
+                 return rc;
+ 
++            /*
++             * When adding support for multiple simultaneousl requests (or events),
++             * possibly multiple responses will be already waiting in vchan
++             * buffer. 'ev' can't be touched here after calling user callback,
++             * so remaining messages may be processed in the next callback
++             * (qmp_ev_fd_callback/qmp_ev_vchan_fd_callback). But if at this
++             * point all the data is already in vchan buffer and qemu will not
++             * write anything more, no vchan notification will be issued
++             * (ev->efd will not report POLLIN). Because of this, the callback
++             * will need to be triggered the other way:
++             *
++             * if (ev->vchan && libxenvchan_data_ready(ev->vchan))
++             *     qmp_ev_vchan_schedule_wakeup(ev);
++             *
++             * With only one qmp request pending, this isn't needed, as if user
++             * callback is called, there are no more (interesting) messages in
++             * the vchan buffer (there was only one).
++             */
+             /* Must be last and return when the user callback is called */
+             rc = qmp_ev_handle_message(egc, ev, o);
+             if (rc)
+@@ -1811,8 +2046,18 @@ static int qmp_ev_callback_readable(libxl__egc *egc,
+             ev->rx_buf = libxl__realloc(gc, ev->rx_buf, ev->rx_buf_size);
+         }
+ 
+-        r = read(fd, ev->rx_buf + ev->rx_buf_used,
+-                 ev->rx_buf_size - ev->rx_buf_used);
++        if (ev->vchan) {
++            r = libxenvchan_read(ev->vchan, ev->rx_buf + ev->rx_buf_used,
++                    ev->rx_buf_size - ev->rx_buf_used);
++            /* translate r == 0 to EWOULDBLOCK */
++            if (r == 0) {
++                r = -1;
++                errno = EWOULDBLOCK;
++            }
++        } else {
++            r = read(fd, ev->rx_buf + ev->rx_buf_used,
++                     ev->rx_buf_size - ev->rx_buf_used);
++        }
+         if (r < 0) {
+             if (errno == EINTR)
+                 continue;
+@@ -2098,7 +2343,12 @@ void libxl__ev_qmp_init(libxl__ev_qmp *ev)
+     ev->next_id = 0x786c7100;
+ 
+     ev->cfd = NULL;
++    ev->vchan = NULL;
++    libxl__xswait_init(&ev->xswait);
++    ev->xswait.what = NULL;
++    ev->xswait.path = NULL;
+     libxl__ev_fd_init(&ev->efd);
++    libxl__ev_time_init(&ev->vchan_wake);
+     ev->state = qmp_state_disconnected;
+     ev->id = 0;
+ 
+@@ -2162,7 +2412,11 @@ void libxl__ev_qmp_dispose(libxl__gc *gc, libxl__ev_qmp *ev)
+     LOGD(DEBUG, ev->domid, " ev %p", ev);
+ 
+     libxl__ev_fd_deregister(gc, &ev->efd);
+-    libxl__carefd_close(ev->cfd);
++    if (ev->vchan)
++        libxenvchan_close(ev->vchan);
++    else
++        libxl__carefd_close(ev->cfd);
++    libxl__ev_time_deregister(gc, &ev->vchan_wake);
+ 
+     libxl__ev_qmp_init(ev);
+ }
+-- 
+git-series 0.9.1

@@ -1,0 +1,163 @@
+From fd8eafb540a68d75cd4e8bc20a57a5805007ebe7 Mon Sep 17 00:00:00 2001
+Message-Id: <fd8eafb540a68d75cd4e8bc20a57a5805007ebe7.1548808003.git-series.marmarek@invisiblethingslab.com>
+In-Reply-To: <cover.5a1e2bec2f56d533067b1c4261971471fe7f0e86.1548808003.git-series.marmarek@invisiblethingslab.com>
+References: <cover.5a1e2bec2f56d533067b1c4261971471fe7f0e86.1548808003.git-series.marmarek@invisiblethingslab.com>
+From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Mon, 28 Jan 2019 04:00:05 +0100
+Subject: [PATCH v3 16/17] libxl: add locking for libvchan QMP connection
+
+It is not safe for multiple clients to (even try to) connect to the same
+vchan server at the same time. Contrary to QMP over local socket,
+connection over vchan needs external locking. For now use flock() for
+this. This is not ideal for async QMP API, as flock() will block the
+whole thread while other thread/process talks to the same QEMU instance.
+This may be a problem especially in cause of malicious QEMU, that could
+stall the communication. But since libxl doesn't have asynchronous
+locking primitives, keep flock() until something better can be used
+instead.
+
+Note that qemu will handle only one client at a time anyway, so this
+does not introduce artificial limit here.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_internal.h |  1 +-
+ tools/libxl/libxl_qmp.c      | 58 +++++++++++++++++++++++++++++++++++--
+ 2 files changed, 56 insertions(+), 3 deletions(-)
+
+diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
+index 62654a7..849e1ea 100644
+--- a/tools/libxl/libxl_internal.h
++++ b/tools/libxl/libxl_internal.h
+@@ -513,6 +513,7 @@ struct libxl__ev_qmp {
+     /* event to wake itself if there is more data in vchan */
+     libxl__ev_time vchan_wake;
+     struct libxenvchan *vchan;
++    libxl__carefd *vchan_lock;
+     libxl__xswait_state xswait;
+     int id;
+     int next_id;        /* next id to use */
+diff --git a/tools/libxl/libxl_qmp.c b/tools/libxl/libxl_qmp.c
+index 5917a69..dda7b97 100644
+--- a/tools/libxl/libxl_qmp.c
++++ b/tools/libxl/libxl_qmp.c
+@@ -114,6 +114,7 @@ typedef struct callback_id_pair {
+ struct libxl__qmp_handler {
+     int qmp_fd;
+     struct libxenvchan *vchan;
++    libxl__carefd *vchan_lock;
+     bool connected;
+     time_t timeout;
+     /* wait_for_id will be used by the synchronous send function */
+@@ -497,9 +498,10 @@ static void qmp_close(libxl__qmp_handler *qmp)
+     callback_id_pair *pp = NULL;
+     callback_id_pair *tmp = NULL;
+ 
+-    if (qmp->vchan)
++    if (qmp->vchan) {
+         libxenvchan_close(qmp->vchan);
+-    else
++        libxl__carefd_close(qmp->vchan_lock);
++    } else
+         close(qmp->qmp_fd);
+     LIBXL_STAILQ_FOREACH(pp, &qmp->callback_list, next) {
+         free(tmp);
+@@ -805,6 +807,40 @@ static void qmp_parameters_add_integer(libxl__gc *gc,
+     qmp_parameters_common_add(gc, param, name, obj);
+ }
+ 
++static libxl__carefd *qmp_vchan_lock(libxl__gc *gc, int domid)
++{
++    libxl__carefd *cfd;
++    char *lock_path;
++    int fd, r;
++
++    lock_path = GCSPRINTF("%s/qmp-libxl-%d.lock", libxl__run_dir_path(), domid);
++    libxl__carefd_begin();
++    fd = open(lock_path, O_RDWR | O_CREAT, 0644);
++    cfd = libxl__carefd_opened(CTX, fd);
++    if (!cfd) {
++        LOGED(ERROR, domid, "QMP lock file open error");
++        goto error;
++    }
++
++    /* Try to lock the file, retrying on EINTR */
++    for (;;) {
++        r = flock(fd, LOCK_EX);
++        if (!r)
++            break;
++        if (errno != EINTR) {
++            /* All other errno: EBADF, EINVAL, ENOLCK, EWOULDBLOCK */
++            LOGED(ERROR, domid,
++                  "unexpected error while trying to lock %s, fd=%d, errno=%d",
++                  lock_path, fd, errno);
++            goto error;
++        }
++    }
++    return cfd;
++error:
++    libxl__carefd_close(cfd);
++    return NULL;
++}
++
+ #define QMP_PARAMETERS_SPRINTF(args, name, format, ...) \
+     qmp_parameters_add_string(gc, args, name, GCSPRINTF(format, __VA_ARGS__))
+ 
+@@ -825,10 +861,15 @@ libxl__qmp_handler *libxl__qmp_initialize(libxl__gc *gc, uint32_t domid)
+     dm_domid = libxl_get_stubdom_id(CTX, domid);
+     if (dm_domid) {
+         qmp_path = DEVICE_MODEL_XS_PATH(gc, dm_domid, domid, "/qmp-vchan");
+-        /* TODO: add locking */
++        qmp->vchan_lock = qmp_vchan_lock(gc, domid);
++        if (!qmp->vchan_lock) {
++            qmp_free_handler(qmp);
++            return NULL;
++        }
+         qmp->vchan = libxenvchan_client_init(CTX->lg, dm_domid, qmp_path);
+         if (!qmp->vchan) {
+             LOGED(ERROR, domid, "QMP vchan connection failed: %s", strerror(errno));
++            libxl__carefd_close(qmp->vchan_lock);
+             qmp_free_handler(qmp);
+             return NULL;
+         }
+@@ -1740,6 +1781,12 @@ static void qmp_vchan_watch_callback(libxl__egc *egc,
+     int dm_domid = libxl_get_stubdom_id(CTX, ev->domid);
+ 
+     if (!rc) {
++        /* FIXME: convert to async locking */
++        ev->vchan_lock = qmp_vchan_lock(gc, ev->domid);
++        if (!ev->vchan_lock) {
++            rc= ERROR_FAIL;
++            goto error;
++        }
+         ev->vchan = libxenvchan_client_init(CTX->lg, dm_domid, ev->xswait.path);
+         if (ev->vchan) {
+             /* ok */
+@@ -1752,6 +1799,8 @@ static void qmp_vchan_watch_callback(libxl__egc *egc,
+             if (rc)
+                 goto error;
+         } else if (errno == ENOENT) {
++            libxl__carefd_close(ev->vchan_lock);
++            ev->vchan_lock = NULL;
+             /* not ready yet, wait */
+             return;
+         } else {
+@@ -2400,6 +2449,7 @@ void libxl__ev_qmp_init(libxl__ev_qmp *ev)
+ 
+     ev->cfd = NULL;
+     ev->vchan = NULL;
++    ev->vchan_lock = NULL;
+     libxl__xswait_init(&ev->xswait);
+     ev->xswait.what = NULL;
+     ev->xswait.path = NULL;
+@@ -2473,6 +2523,8 @@ void libxl__ev_qmp_dispose(libxl__gc *gc, libxl__ev_qmp *ev)
+     else
+         libxl__carefd_close(ev->cfd);
+     libxl__ev_time_deregister(gc, &ev->vchan_wake);
++    if (ev->vchan_lock)
++        libxl__carefd_close(ev->vchan_lock);
+ 
+     libxl__ev_qmp_init(ev);
+ }
+-- 
+git-series 0.9.1
