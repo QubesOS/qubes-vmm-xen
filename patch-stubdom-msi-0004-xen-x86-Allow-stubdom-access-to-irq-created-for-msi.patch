@@ -1,0 +1,362 @@
+From 2d0e98d0a49922c41dc1d5468adc72c624c2511b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 8 Feb 2019 02:55:50 +0100
+Subject: [PATCH 4/6] xen/x86: Allow stubdom access to irq created for msi.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Stubdomains need to be given sufficient privilege over the guest which it
+provides emulation for in order for PCI passthrough to work correctly.
+When a HVM domain try to enable MSI, QEMU in stubdomain calls
+PHYSDEVOP_map_pirq, but later it needs to call XEN_DOMCTL_bind_pt_irq as
+part of xc_domain_update_msi_irq. Allow for that as part of
+PHYSDEVOP_map_pirq.
+
+This is not needed for PCI INTx, because IRQ in that case is known
+beforehand and the stubdomain is given permissions over this IRQ by
+libxl__device_pci_add (there's a do_pci_add against the stubdomain).
+
+create_irq() already grant IRQ access to hardware_domain, with
+assumption the device model (something managing this IRQ) lives there.
+Modify create_irq() to take additional parameter pointing at device
+model domain - which may be dom0 or stubdomain. Do the same with
+destroy_irq() (and msi_free_irq() which calls it) to reverse the
+operation.
+
+Then, adjust all callers to provide the parameter. In case of calls not
+related to stubdomain-initiated allocations, give it hardware_domain, so
+the behavior is unchanged there.
+
+Inspired by https://github.com/OpenXT/xenclient-oe/blob/5e0e7304a5a3c75ef01240a1e3673665b2aaf05e/recipes-extended/xen/files/stubdomain-msi-irq-access.patch by Eric Chanudet <chanudete@ainfosec.com>.
+
+Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+Changes in v3:
+ - extend commit message
+Changes in v4:
+ - add missing destroy_irq on error path
+Changes in v5:
+ - move irq_{grant,revoke}_access() to {create,destroy}_irq(), which
+   basically make it a different patch
+
+There is one code path where I haven't managed to properly extract
+possible stubdomain in use:
+pci_remove_device()
+ -> pci_cleanup_msi()
+   -> msi_free_irqs()
+     -> msi_free_irq()
+       -> destroy_irq()
+
+For now I've hardcoded hardware_domain there (in msi_free_irqs). Can it happen
+when device is still assigned to some domU?
+---
+ xen/arch/x86/hpet.c                      |  5 +--
+ xen/arch/x86/irq.c                       | 46 ++++++++++++++----------
+ xen/arch/x86/msi.c                       |  6 ++--
+ xen/drivers/char/ns16550.c               |  6 ++--
+ xen/drivers/passthrough/amd/iommu_init.c |  4 +--
+ xen/drivers/passthrough/vtd/iommu.c      |  7 ++--
+ xen/include/asm-x86/irq.h                |  4 +--
+ xen/include/asm-x86/msi.h                |  2 +-
+ 8 files changed, 46 insertions(+), 34 deletions(-)
+
+diff --git a/xen/arch/x86/hpet.c b/xen/arch/x86/hpet.c
+index 4b08488ef1..6db71dfd71 100644
+--- a/xen/arch/x86/hpet.c
++++ b/xen/arch/x86/hpet.c
+@@ -11,6 +11,7 @@
+ #include <xen/softirq.h>
+ #include <xen/irq.h>
+ #include <xen/numa.h>
++#include <xen/sched.h>
+ #include <asm/fixmap.h>
+ #include <asm/div64.h>
+ #include <asm/hpet.h>
+@@ -368,13 +369,13 @@ static int __init hpet_assign_irq(struct hpet_event_channel *ch)
+ {
+     int irq;
+ 
+-    if ( (irq = create_irq(NUMA_NO_NODE)) < 0 )
++    if ( (irq = create_irq(NUMA_NO_NODE, hardware_domain)) < 0 )
+         return irq;
+ 
+     ch->msi.irq = irq;
+     if ( hpet_setup_msi_irq(ch) )
+     {
+-        destroy_irq(irq);
++        destroy_irq(irq, hardware_domain);
+         return -EINVAL;
+     }
+ 
+diff --git a/xen/arch/x86/irq.c b/xen/arch/x86/irq.c
+index 8b44d6ce0b..d41b32b2f4 100644
+--- a/xen/arch/x86/irq.c
++++ b/xen/arch/x86/irq.c
+@@ -157,7 +157,7 @@ int __init bind_irq_vector(int irq, int vector, const cpumask_t *cpu_mask)
+ /*
+  * Dynamic irq allocate and deallocation for MSI
+  */
+-int create_irq(nodeid_t node)
++int create_irq(nodeid_t node, struct domain *dm_domain)
+ {
+     int irq, ret;
+     struct irq_desc *desc;
+@@ -190,19 +190,19 @@ int create_irq(nodeid_t node)
+         desc->arch.used = IRQ_UNUSED;
+         irq = ret;
+     }
+-    else if ( hardware_domain )
++    else if ( dm_domain )
+     {
+-        ret = irq_permit_access(hardware_domain, irq);
++        ret = irq_permit_access(dm_domain, irq);
+         if ( ret )
+             printk(XENLOG_G_ERR
+-                   "Could not grant Dom0 access to IRQ%d (error %d)\n",
+-                   irq, ret);
++                   "Could not grant Dom%u access to IRQ%d (error %d)\n",
++                   dm_domain->domain_id, irq, ret);
+     }
+ 
+     return irq;
+ }
+ 
+-void destroy_irq(unsigned int irq)
++void destroy_irq(unsigned int irq, struct domain *dm_domain)
+ {
+     struct irq_desc *desc = irq_to_desc(irq);
+     unsigned long flags;
+@@ -210,14 +210,14 @@ void destroy_irq(unsigned int irq)
+ 
+     BUG_ON(!MSI_IRQ(irq));
+ 
+-    if ( hardware_domain )
++    if ( dm_domain )
+     {
+-        int err = irq_deny_access(hardware_domain, irq);
++        int err = irq_deny_access(dm_domain, irq);
+ 
+         if ( err )
+             printk(XENLOG_G_ERR
+-                   "Could not revoke Dom0 access to IRQ%u (error %d)\n",
+-                   irq, err);
++                   "Could not revoke Dom%u access to IRQ%u (error %d)\n",
++                   dm_domain->domain_id, irq, err);
+     }
+ 
+     spin_lock_irqsave(&desc->lock, flags);
+@@ -2010,7 +2010,9 @@ int map_domain_pirq(
+                     d->domain_id, irq);
+             pci_disable_msi(msi_desc);
+             msi_desc->irq = -1;
+-            msi_free_irq(msi_desc);
++            msi_free_irq(msi_desc,
++                         current->domain->target == d ? current->domain
++                                                      : hardware_domain);
+             ret = -EBUSY;
+             goto done;
+         }
+@@ -2038,7 +2040,9 @@ int map_domain_pirq(
+             spin_unlock_irqrestore(&desc->lock, flags);
+ 
+             info = NULL;
+-            irq = create_irq(NUMA_NO_NODE);
++            irq = create_irq(NUMA_NO_NODE,
++                             current->domain->target == d ? current->domain
++                                                          : hardware_domain);
+             ret = irq >= 0 ? prepare_domain_irq_pirq(d, irq, pirq + nr, &info)
+                            : irq;
+             if ( ret < 0 )
+@@ -2095,7 +2099,9 @@ int map_domain_pirq(
+                 irq = info->arch.irq;
+             }
+             msi_desc->irq = -1;
+-            msi_free_irq(msi_desc);
++            msi_free_irq(msi_desc,
++                         current->domain->target == d ? current->domain
++                                                      : hardware_domain);
+             goto done;
+         }
+ 
+@@ -2255,7 +2261,9 @@ int unmap_domain_pirq(struct domain *d, int pirq)
+     }
+ 
+     if (msi_desc)
+-        msi_free_irq(msi_desc);
++        msi_free_irq(msi_desc,
++                     current->domain->target == d ? current->domain
++                                                  : hardware_domain);
+ 
+  done:
+     return ret;
+@@ -2671,10 +2679,10 @@ int allocate_and_map_msi_pirq(struct domain *d, int index, int *pirq_p,
+             msi->entry_nr = 1;
+         irq = index;
+         if ( irq == -1 )
+-        {
+     case MAP_PIRQ_TYPE_MULTI_MSI:
+-            irq = create_irq(NUMA_NO_NODE);
+-        }
++            irq = create_irq(NUMA_NO_NODE,
++                             current->domain->target == d ? current->domain
++                                                          : hardware_domain);
+ 
+         if ( irq < nr_irqs_gsi || irq >= nr_irqs )
+         {
+@@ -2717,7 +2725,9 @@ int allocate_and_map_msi_pirq(struct domain *d, int index, int *pirq_p,
+         case MAP_PIRQ_TYPE_MSI:
+             if ( index == -1 )
+         case MAP_PIRQ_TYPE_MULTI_MSI:
+-                destroy_irq(irq);
++                destroy_irq(irq,
++                            current->domain->target == d ? current->domain
++                                                         : hardware_domain);
+             break;
+         }
+     }
+diff --git a/xen/arch/x86/msi.c b/xen/arch/x86/msi.c
+index babc4147c4..66026e3ca5 100644
+--- a/xen/arch/x86/msi.c
++++ b/xen/arch/x86/msi.c
+@@ -633,7 +633,7 @@ int __setup_msi_irq(struct irq_desc *desc, struct msi_desc *msidesc,
+     return ret;
+ }
+ 
+-int msi_free_irq(struct msi_desc *entry)
++int msi_free_irq(struct msi_desc *entry, struct domain *dm_domain)
+ {
+     unsigned int nr = entry->msi_attrib.type != PCI_CAP_ID_MSIX
+                       ? entry->msi.nvec : 1;
+@@ -641,7 +641,7 @@ int msi_free_irq(struct msi_desc *entry)
+     while ( nr-- )
+     {
+         if ( entry[nr].irq >= 0 )
+-            destroy_irq(entry[nr].irq);
++            destroy_irq(entry[nr].irq, dm_domain);
+ 
+         /* Free the unused IRTE if intr remap enabled */
+         if ( iommu_intremap )
+@@ -1280,7 +1280,7 @@ static void msi_free_irqs(struct pci_dev* dev)
+     list_for_each_entry_safe( entry, tmp, &dev->msi_list, list )
+     {
+         pci_disable_msi(entry);
+-        msi_free_irq(entry);
++        msi_free_irq(entry, hardware_domain);
+     }
+ }
+ 
+diff --git a/xen/drivers/char/ns16550.c b/xen/drivers/char/ns16550.c
+index 189e121b7e..2037bbbf08 100644
+--- a/xen/drivers/char/ns16550.c
++++ b/xen/drivers/char/ns16550.c
+@@ -719,7 +719,7 @@ static void __init ns16550_init_irq(struct serial_port *port)
+     struct ns16550 *uart = port->uart;
+ 
+     if ( uart->msi )
+-        uart->irq = create_irq(0);
++        uart->irq = create_irq(0, hardware_domain);
+ #endif
+ }
+ 
+@@ -812,9 +812,9 @@ static void __init ns16550_init_postirq(struct serial_port *port)
+                 {
+                     uart->irq = 0;
+                     if ( msi_desc )
+-                        msi_free_irq(msi_desc);
++                        msi_free_irq(msi_desc, hardware_domain);
+                     else
+-                        destroy_irq(msi.irq);
++                        destroy_irq(msi.irq, hardware_domain);
+                 }
+             }
+ 
+diff --git a/xen/drivers/passthrough/amd/iommu_init.c b/xen/drivers/passthrough/amd/iommu_init.c
+index 17f39552a9..423c473a63 100644
+--- a/xen/drivers/passthrough/amd/iommu_init.c
++++ b/xen/drivers/passthrough/amd/iommu_init.c
+@@ -780,7 +780,7 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
+     hw_irq_controller *handler;
+     u16 control;
+ 
+-    irq = create_irq(NUMA_NO_NODE);
++    irq = create_irq(NUMA_NO_NODE, hardware_domain);
+     if ( irq <= 0 )
+     {
+         dprintk(XENLOG_ERR, "IOMMU: no irqs\n");
+@@ -816,7 +816,7 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
+         ret = request_irq(irq, 0, iommu_interrupt_handler, "amd_iommu", iommu);
+     if ( ret )
+     {
+-        destroy_irq(irq);
++        destroy_irq(irq, hardware_domain);
+         AMD_IOMMU_DEBUG("can't request irq\n");
+         return 0;
+     }
+diff --git a/xen/drivers/passthrough/vtd/iommu.c b/xen/drivers/passthrough/vtd/iommu.c
+index 50a0e25224..73cf16c145 100644
+--- a/xen/drivers/passthrough/vtd/iommu.c
++++ b/xen/drivers/passthrough/vtd/iommu.c
+@@ -1138,7 +1138,8 @@ static int __init iommu_set_interrupt(struct acpi_drhd_unit *drhd)
+     struct irq_desc *desc;
+ 
+     irq = create_irq(rhsa ? pxm_to_node(rhsa->proximity_domain)
+-                          : NUMA_NO_NODE);
++                          : NUMA_NO_NODE,
++                     hardware_domain);
+     if ( irq <= 0 )
+     {
+         dprintk(XENLOG_ERR VTDPREFIX, "IOMMU: no irq available!\n");
+@@ -1151,7 +1152,7 @@ static int __init iommu_set_interrupt(struct acpi_drhd_unit *drhd)
+     if ( ret )
+     {
+         desc->handler = &no_irq_type;
+-        destroy_irq(irq);
++        destroy_irq(irq, hardware_domain);
+         dprintk(XENLOG_ERR VTDPREFIX, "IOMMU: can't request irq\n");
+         return ret;
+     }
+@@ -1286,7 +1287,7 @@ void __init iommu_free(struct acpi_drhd_unit *drhd)
+ 
+     free_intel_iommu(iommu->intel);
+     if ( iommu->msi.irq >= 0 )
+-        destroy_irq(iommu->msi.irq);
++        destroy_irq(iommu->msi.irq, hardware_domain);
+     xfree(iommu);
+ }
+ 
+diff --git a/xen/include/asm-x86/irq.h b/xen/include/asm-x86/irq.h
+index 4b39997f09..cf28a5c5ff 100644
+--- a/xen/include/asm-x86/irq.h
++++ b/xen/include/asm-x86/irq.h
+@@ -155,8 +155,8 @@ int  init_irq_data(void);
+ void clear_irq_vector(int irq);
+ 
+ int irq_to_vector(int irq);
+-int create_irq(nodeid_t node);
+-void destroy_irq(unsigned int irq);
++int create_irq(nodeid_t node, struct domain *dm_domain);
++void destroy_irq(unsigned int irq, struct domain *dm_domain);
+ int assign_irq_vector(int irq, const cpumask_t *);
+ 
+ extern void irq_complete_move(struct irq_desc *);
+diff --git a/xen/include/asm-x86/msi.h b/xen/include/asm-x86/msi.h
+index 10387dce2e..1a5ba84ccb 100644
+--- a/xen/include/asm-x86/msi.h
++++ b/xen/include/asm-x86/msi.h
+@@ -134,7 +134,7 @@ struct msi_desc {
+ #define MSI_TYPE_IOMMU   2
+ 
+ int msi_maskable_irq(const struct msi_desc *);
+-int msi_free_irq(struct msi_desc *entry);
++int msi_free_irq(struct msi_desc *entry, struct domain *dm_domain);
+ 
+ /*
+  * Assume the maximum number of hot plug slots supported by the system is about
+-- 
+2.17.2
+

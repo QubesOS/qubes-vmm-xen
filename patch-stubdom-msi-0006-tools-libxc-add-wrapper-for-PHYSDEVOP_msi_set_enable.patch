@@ -1,0 +1,75 @@
+From cda8e1e2cad0fea630aa194c6eb188fe93d3f9ae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 26 Jan 2019 01:28:07 +0100
+Subject: [PATCH 6/6] tools/libxc: add wrapper for PHYSDEVOP_msi_set_enable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Add libxc wrapper for PHYSDEVOP_msi_set_enable introduced in
+previous commit.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+Changes in v3:
+ - new patch
+Changes in v4:
+ - adjust for updated previous patch
+---
+ tools/libxc/include/xenctrl.h |  7 +++++++
+ tools/libxc/xc_physdev.c      | 21 +++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/tools/libxc/include/xenctrl.h b/tools/libxc/include/xenctrl.h
+index 31cdda76c6..879e92689a 100644
+--- a/tools/libxc/include/xenctrl.h
++++ b/tools/libxc/include/xenctrl.h
+@@ -1639,6 +1639,13 @@ int xc_physdev_unmap_pirq(xc_interface *xch,
+                           uint32_t domid,
+                           int pirq);
+ 
++int xc_physdev_msi_set_enable(xc_interface *xch,
++                              int seg,
++                              int bus,
++                              int devfn,
++                              int mode,
++                              int enable);
++
+ /*
+  *  LOGGING AND ERROR REPORTING
+  */
+diff --git a/tools/libxc/xc_physdev.c b/tools/libxc/xc_physdev.c
+index 460a8e779c..af6116f7ba 100644
+--- a/tools/libxc/xc_physdev.c
++++ b/tools/libxc/xc_physdev.c
+@@ -111,3 +111,24 @@ int xc_physdev_unmap_pirq(xc_interface *xch,
+     return rc;
+ }
+ 
++int xc_physdev_msi_set_enable(xc_interface *xch,
++                              int seg,
++                              int bus,
++                              int devfn,
++                              int mode,
++                              int enable)
++{
++    int rc;
++    struct physdev_msi_set_enable op;
++
++    memset(&op, 0, sizeof(struct physdev_msi_set_enable));
++    op.seg = seg;
++    op.bus = bus;
++    op.devfn = devfn;
++    op.mode = mode;
++    op.enable = enable;
++
++    rc = do_physdev_op(xch, PHYSDEVOP_msi_set_enable, &op, sizeof(op));
++
++    return rc;
++}
+-- 
+2.17.2
+

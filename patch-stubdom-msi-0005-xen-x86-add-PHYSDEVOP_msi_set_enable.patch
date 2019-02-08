@@ -1,0 +1,283 @@
+From 6a8279875acfebc9e96fface715cd140a70e6509 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 26 Jan 2019 00:55:15 +0100
+Subject: [PATCH 5/6] xen/x86: add PHYSDEVOP_msi_set_enable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Allow device model running in stubdomain to enable/disable MSI(-X),
+bypassing pciback. While pciback is still used to access config space
+from within stubdomain, it refuse to write to
+PCI_MSI_FLAGS_ENABLE/PCI_MSIX_FLAGS_ENABLE in non-permissive mode. Which
+is the right thing to do for PV domain (the main use case for pciback),
+as PV domain should use XEN_PCI_OP_* commands for that. Unfortunately
+those commands are not good for stubdomain use, as they configure MSI in
+dom0's kernel too, which should not happen for HVM domain.
+
+This new physdevop is allowed only for stubdomain controlling the domain
+which own the device.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+Changes in v3:
+ - new patch
+Changes in v4:
+ - adjust code style
+ - s/msi_msix/msi/
+ - add msi_set_enable XSM hook
+ - flatten struct physdev_msi_set_enable
+ - add to include/xlat.lst
+
+I'm not sure if XSM part is correct, compile-tested only, as I'm not
+sure how to set the policy.
+---
+ xen/arch/x86/msi.c            | 24 ++++++++++++++++++++++++
+ xen/arch/x86/physdev.c        | 24 ++++++++++++++++++++++++
+ xen/arch/x86/x86_64/physdev.c |  4 ++++
+ xen/include/asm-x86/msi.h     |  1 +
+ xen/include/public/physdev.h  | 15 +++++++++++++++
+ xen/include/xlat.lst          |  1 +
+ xen/include/xsm/dummy.h       |  7 +++++++
+ xen/include/xsm/xsm.h         |  6 ++++++
+ xen/xsm/dummy.c               |  1 +
+ xen/xsm/flask/hooks.c         | 25 +++++++++++++++++++++++++
+ 10 files changed, 108 insertions(+)
+
+diff --git a/xen/arch/x86/msi.c b/xen/arch/x86/msi.c
+index 66026e3ca5..5f640a3fcc 100644
+--- a/xen/arch/x86/msi.c
++++ b/xen/arch/x86/msi.c
+@@ -1474,6 +1474,30 @@ int pci_restore_msi_state(struct pci_dev *pdev)
+     return 0;
+ }
+ 
++int msi_msix_set_enable(struct pci_dev *pdev, int mode, int enable)
++{
++    int ret;
++
++    ret = xsm_msi_set_enable(XSM_DM_PRIV, pdev->domain,
++                             (pdev->seg << 16) | (pdev->bus << 8) | pdev->devfn,
++                             mode, enable);
++    if ( ret )
++        return ret;
++
++    switch ( mode )
++    {
++    case PHYSDEVOP_MSI_SET_ENABLE_MSI:
++        msi_set_enable(pdev, enable);
++        break;
++
++    case PHYSDEVOP_MSI_SET_ENABLE_MSIX:
++        msix_set_enable(pdev, enable);
++        break;
++    }
++
++    return 0;
++}
++
+ void __init early_msi_init(void)
+ {
+     if ( use_msi < 0 )
+diff --git a/xen/arch/x86/physdev.c b/xen/arch/x86/physdev.c
+index 3a3c15890b..6f602170a6 100644
+--- a/xen/arch/x86/physdev.c
++++ b/xen/arch/x86/physdev.c
+@@ -662,6 +662,30 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+         break;
+     }
+ 
++    case PHYSDEVOP_msi_set_enable: {
++        struct physdev_msi_set_enable op;
++        struct pci_dev *pdev;
++
++        ret = -EFAULT;
++        if ( copy_from_guest(&op, arg, 1) )
++            break;
++
++        ret = -EINVAL;
++        if ( op.mode != PHYSDEVOP_MSI_SET_ENABLE_MSI &&
++             op.mode != PHYSDEVOP_MSI_SET_ENABLE_MSIX )
++            break;
++
++        pcidevs_lock();
++        pdev = pci_get_pdev(op.seg, op.bus, op.devfn);
++        if ( pdev )
++            ret = msi_msix_set_enable(pdev, op.mode, !!op.enable);
++        else
++            ret = -ENODEV;
++        pcidevs_unlock();
++        break;
++
++    }
++
+     default:
+         ret = -ENOSYS;
+         break;
+diff --git a/xen/arch/x86/x86_64/physdev.c b/xen/arch/x86/x86_64/physdev.c
+index c5a00ea93f..cb26b1e697 100644
+--- a/xen/arch/x86/x86_64/physdev.c
++++ b/xen/arch/x86/x86_64/physdev.c
+@@ -76,6 +76,10 @@ CHECK_physdev_pci_device_add
+ CHECK_physdev_pci_device
+ #undef xen_physdev_pci_device
+ 
++#define xen_physdev_msi_set_enable physdev_msi_set_enable
++CHECK_physdev_msi_set_enable
++#undef xen_physdev_msi_set_enable
++
+ #define COMPAT
+ #undef guest_handle_okay
+ #define guest_handle_okay          compat_handle_okay
+diff --git a/xen/include/asm-x86/msi.h b/xen/include/asm-x86/msi.h
+index 1a5ba84ccb..7af63b36c4 100644
+--- a/xen/include/asm-x86/msi.h
++++ b/xen/include/asm-x86/msi.h
+@@ -252,5 +252,6 @@ void guest_mask_msi_irq(struct irq_desc *, bool mask);
+ void ack_nonmaskable_msi_irq(struct irq_desc *);
+ void end_nonmaskable_msi_irq(struct irq_desc *, u8 vector);
+ void set_msi_affinity(struct irq_desc *, const cpumask_t *);
++int msi_msix_set_enable(struct pci_dev *pdev, int mode, int enable);
+ 
+ #endif /* __ASM_MSI_H */
+diff --git a/xen/include/public/physdev.h b/xen/include/public/physdev.h
+index b6faf8350c..187fc23fa3 100644
+--- a/xen/include/public/physdev.h
++++ b/xen/include/public/physdev.h
+@@ -344,6 +344,21 @@ struct physdev_dbgp_op {
+ typedef struct physdev_dbgp_op physdev_dbgp_op_t;
+ DEFINE_XEN_GUEST_HANDLE(physdev_dbgp_op_t);
+ 
++#define PHYSDEVOP_MSI_SET_ENABLE_MSI  0
++#define PHYSDEVOP_MSI_SET_ENABLE_MSIX 1
++
++#define PHYSDEVOP_msi_set_enable   32
++struct physdev_msi_set_enable {
++    /* IN */
++    uint16_t seg;
++    uint8_t bus;
++    uint8_t devfn;
++    uint8_t mode;
++    uint8_t enable;
++};
++typedef struct physdev_msi_set_enable physdev_msi_set_enable_t;
++DEFINE_XEN_GUEST_HANDLE(physdev_msi_set_enable_t);
++
+ /*
+  * Notify that some PIRQ-bound event channels have been unmasked.
+  * ** This command is obsolete since interface version 0x00030202 and is **
+diff --git a/xen/include/xlat.lst b/xen/include/xlat.lst
+index 527332054a..cbd34a990d 100644
+--- a/xen/include/xlat.lst
++++ b/xen/include/xlat.lst
+@@ -106,6 +106,7 @@
+ ?	physdev_restore_msi		physdev.h
+ ?	physdev_set_iopl		physdev.h
+ ?	physdev_setup_gsi		physdev.h
++?	physdev_msi_set_enable		physdev.h
+ !	pct_register			platform.h
+ !	power_register			platform.h
+ ?	processor_csd			platform.h
+diff --git a/xen/include/xsm/dummy.h b/xen/include/xsm/dummy.h
+index a29d1efe9b..a10c980b69 100644
+--- a/xen/include/xsm/dummy.h
++++ b/xen/include/xsm/dummy.h
+@@ -520,6 +520,13 @@ static XSM_INLINE int xsm_pci_config_permission(XSM_DEFAULT_ARG struct domain *d
+     return xsm_default_action(action, current->domain, d);
+ }
+ 
++static XSM_INLINE int xsm_msi_set_enable(XSM_DEFAULT_ARG struct domain *d, uint32_t machine_bdf,
++                                         uint8_t mode, uint8_t enable)
++{
++    XSM_ASSERT_ACTION(XSM_DM_PRIV);
++    return xsm_default_action(action, current->domain, d);
++}
++
+ static XSM_INLINE int xsm_add_to_physmap(XSM_DEFAULT_ARG struct domain *d1, struct domain *d2)
+ {
+     XSM_ASSERT_ACTION(XSM_TARGET);
+diff --git a/xen/include/xsm/xsm.h b/xen/include/xsm/xsm.h
+index 3b192b5c31..6ca4c9ea08 100644
+--- a/xen/include/xsm/xsm.h
++++ b/xen/include/xsm/xsm.h
+@@ -106,6 +106,7 @@ struct xsm_operations {
+     int (*iomem_permission) (struct domain *d, uint64_t s, uint64_t e, uint8_t allow);
+     int (*iomem_mapping) (struct domain *d, uint64_t s, uint64_t e, uint8_t allow);
+     int (*pci_config_permission) (struct domain *d, uint32_t machine_bdf, uint16_t start, uint16_t end, uint8_t access);
++    int (*msi_set_enable) (struct domain *d, uint32_t machine_bdf, uint8_t mode, uint8_t enable);
+ 
+ #if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+     int (*get_device_group) (uint32_t machine_bdf);
+@@ -458,6 +459,11 @@ static inline int xsm_pci_config_permission (xsm_default_t def, struct domain *d
+     return xsm_ops->pci_config_permission(d, machine_bdf, start, end, access);
+ }
+ 
++static inline int xsm_msi_set_enable (xsm_default_t def, struct domain *d, uint32_t machine_bdf, uint8_t mode, uint8_t enable)
++{
++    return xsm_ops->msi_set_enable(d, machine_bdf, mode, enable);
++}
++
+ #if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+ static inline int xsm_get_device_group(xsm_default_t def, uint32_t machine_bdf)
+ {
+diff --git a/xen/xsm/dummy.c b/xen/xsm/dummy.c
+index 5701047c06..3a9e275b98 100644
+--- a/xen/xsm/dummy.c
++++ b/xen/xsm/dummy.c
+@@ -81,6 +81,7 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
+     set_to_dummy_if_null(ops, iomem_permission);
+     set_to_dummy_if_null(ops, iomem_mapping);
+     set_to_dummy_if_null(ops, pci_config_permission);
++    set_to_dummy_if_null(ops, msi_set_enable);
+     set_to_dummy_if_null(ops, get_vnumainfo);
+ 
+ #if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+diff --git a/xen/xsm/flask/hooks.c b/xen/xsm/flask/hooks.c
+index 96d31aaf08..1c201fdfd9 100644
+--- a/xen/xsm/flask/hooks.c
++++ b/xen/xsm/flask/hooks.c
+@@ -1084,6 +1084,30 @@ static int flask_pci_config_permission(struct domain *d, uint32_t machine_bdf, u
+ 
+ }
+ 
++static int flask_msi_set_enable(struct domain *d, uint32_t machine_bdf, uint8_t mode, uint8_t enable)
++{
++    u32 dsid, rsid;
++    int rc = -EPERM;
++    struct avc_audit_data ad;
++    u32 perm;
++
++    AVC_AUDIT_DATA_INIT(&ad, DEV);
++    ad.device = (unsigned long) machine_bdf;
++
++    rc = security_device_sid(machine_bdf, &rsid);
++    if ( rc )
++        return rc;
++
++    perm = flask_iommu_resource_use_perm();
++
++    rc = avc_current_has_perm(rsid, SECCLASS_RESOURCE, perm, &ad);
++    if ( rc )
++        return rc;
++
++    dsid = domain_sid(d);
++    return avc_current_has_perm(dsid, SECCLASS_RESOURCE, RESOURCE__SETUP, &ad);
++}
++
+ static int flask_resource_plug_core(void)
+ {
+     return avc_current_has_perm(SECINITSID_DOMXEN, SECCLASS_RESOURCE, RESOURCE__PLUG, NULL);
+@@ -1779,6 +1803,7 @@ static struct xsm_operations flask_ops = {
+     .iomem_permission = flask_iomem_permission,
+     .iomem_mapping = flask_iomem_mapping,
+     .pci_config_permission = flask_pci_config_permission,
++    .msi_set_enable = flask_msi_set_enable,
+ 
+     .resource_plug_core = flask_resource_plug_core,
+     .resource_unplug_core = flask_resource_unplug_core,
+-- 
+2.17.2
+

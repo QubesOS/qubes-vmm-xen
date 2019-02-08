@@ -126,9 +126,6 @@ Patch601: patch-xen-libxl-error-write-perm.patch
 # Patch606: patch-libxl-do-not-call-default-block-script.patch
 Patch607: patch-libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
 Patch610: patch-stubdom-gmp-compile-fix.patch
-Patch611: patch-0001-libxl-attach-xen-pciback-only-to-PV-domains.patch
-Patch612: patch-0002-libxl-attach-PCI-device-to-qemu-only-after-setting-p.patch
-Patch613: patch-0003-libxl-don-t-try-to-manipulate-json-config-for-stubdo.patch
 Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch615: patch-hvmpt01-minios-exprom-size.patch
 Patch616: patch-hvmpt02-disable-msix-caps.patch
@@ -174,6 +171,14 @@ Patch914: patch-stubdom-linux-v3-0015-tools-add-missing-libxenvchan-cflags.patch
 Patch915: patch-stubdom-linux-v3-0016-libxl-add-locking-for-libvchan-QMP-connection.patch
 # modified vs upstream
 Patch916: patch-stubdom-linux-v3-0017-libxl-require-qemu-in-dom0-even-if-stubdomain-is-in-use.patch
+
+# MSI fixes
+Patch920: patch-stubdom-msi-0001-libxl-do-not-attach-xen-pciback-to-HVM-domain-if-stu.patch
+Patch921: patch-stubdom-msi-0002-libxl-attach-PCI-device-to-qemu-only-after-setting-p.patch
+Patch922: patch-stubdom-msi-0003-libxl-don-t-try-to-manipulate-json-config-for-stubdo.patch
+Patch923: patch-stubdom-msi-0004-xen-x86-Allow-stubdom-access-to-irq-created-for-msi.patch
+Patch924: patch-stubdom-msi-0005-xen-x86-add-PHYSDEVOP_msi_set_enable.patch
+Patch925: patch-stubdom-msi-0006-tools-libxc-add-wrapper-for-PHYSDEVOP_msi_set_enable.patch
 
 # Qubes specific patches
 Patch1001: patch-stubdom-vbd-non-dom0-backend.patch
