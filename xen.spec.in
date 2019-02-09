@@ -750,6 +750,7 @@ systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
 %if %build_hyp
 %post hypervisor
 %if %build_efi
+XEN_EFI_VERSION=$(echo %{upstream_version} | sed -e 's/rc./rc/')-%{release}
 EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
       /^BootCurrent:/ { current=$2; }
       /^Boot....\* / {
@@ -762,10 +763,10 @@ EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
       }')
 # FAT (on ESP) does not support symlinks
 # override the file on purpose
-if [ -d "/boot/efi${EFI_DIR}" ]; then
-  cp -pf /boot/efi/EFI/qubes/xen-%{upstream_version}.efi /boot/efi${EFI_DIR}/xen.efi
+if [ -n "${EFI_DIR}" -a -d "/boot/efi${EFI_DIR}" ]; then
+  cp -pf /boot/efi/EFI/qubes/xen-$XEN_EFI_VERSION.efi /boot/efi${EFI_DIR}/xen.efi
 else
-  cp -pf /boot/efi/EFI/qubes/xen-%{upstream_version}.efi /boot/efi/EFI/qubes/xen.efi
+  cp -pf /boot/efi/EFI/qubes/xen-$XEN_EFI_VERSION.efi /boot/efi/EFI/qubes/xen.efi
 fi
 %endif
 
