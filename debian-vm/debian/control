@@ -23,6 +23,7 @@ Build-Depends:
    liblzma-dev,
    libncurses5-dev,
    libpixman-1-dev,
+   libsystemd-dev,
    libyajl-dev,
    pkg-config,
    uuid-dev,
@@ -66,6 +67,19 @@ Description: Xen administrative tools - common files
  .
  This package is only required on the host system (Domain 0) and not on the
  virtual guest systems (Domain U).
+
+Package: xen-utils-guest
+Section: admin
+Architecture: amd64 i386 armhf arm64
+Depends: xen-utils-4.12,
+    ${shlibs:Depends}, ${python:Depends}, ${misc:Depends}
+Conflicts: xen-hypervisor-common
+Description: Xen administrative tools - guest files
+ The userspace tools to manage a system virtualized through the Xen virtual
+ machine monitor.
+ .
+ This package is only required on the virtual guest system (Domain U), serving
+ as driver domain.
 
 Package: xen-hypervisor-common
 Section: kernel

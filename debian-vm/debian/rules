@@ -177,6 +177,8 @@ override_dh_auto_configure:
 		--with-libexec-libdir-suffix=/$(DEB_HOST_MULTIARCH) \
 		--mandir=/usr/share/man \
 		--infodir=/usr/share/info \
+		--enable-systemd \
+		--with-systemd=/lib/systemd/system \
 		--sysconfdir=/etc \
 		--localstatedir=/var \
 		--with-libexec-leaf-dir=xen-$(upstream_version) \

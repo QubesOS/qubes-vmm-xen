@@ -26,6 +26,11 @@ if [ $? -ne 0 ]; then
 	exit 0
 fi
 
+if grep -q '[^0-]' /sys/hypervisor/uuid; then
+	log_warning_msg "Xen guest detected"
+	exit 0
+fi
+
 XENCONSOLED="$ROOT"/bin/xenconsoled
 XENCONSOLED_PIDFILE="/var/run/xenconsoled.pid"
 XENSTORED="$ROOT"/bin/xenstored

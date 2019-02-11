@@ -1,6 +1,11 @@
 #!/bin/sh -e
 
-VERSION=$(. /usr/lib/xen-common/bin/xen-version); RET=$?; [ $RET -eq 0 ] || exit $RET
+# don't run autodetection in guest
+if grep -q [^0-] /sys/hypervisor/uuid 2>/dev/null; then
+    VERSION=4.12
+else
+    VERSION=$(. /usr/lib/xen-common/bin/xen-version); RET=$?; [ $RET -eq 0 ] || exit $RET
+fi
 
 if [ -d "/usr/lib/xen-$VERSION" ]; then
     echo "/usr/lib/xen-$VERSION"
