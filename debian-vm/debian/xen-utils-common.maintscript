@@ -1,0 +1,4 @@
+rm_conffile /etc/default/xend 4.11.1-2~
+rm_conffile /etc/xen/xend-config.sxp 4.11.1-2~
+rm_conffile /etc/xen/xend-pci-permissive.sxp 4.11.1-2~
+rm_conffile /etc/xen/xend-pci-quirks.sxp 4.11.1-2~

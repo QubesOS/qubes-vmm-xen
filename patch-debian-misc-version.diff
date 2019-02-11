@@ -1,0 +1,165 @@
+From: Bastian Blank <waldi@debian.org>
+Date: Sat, 5 Jul 2014 11:46:43 +0200
+Subject: version
+
+Patch-Name: version.diff
+---
+ xen/Makefile                 |  8 +++++---
+ xen/common/kernel.c          |  4 ++--
+ xen/common/version.c         | 22 +++++++++++-----------
+ xen/drivers/char/console.c   |  9 +++------
+ xen/include/xen/compile.h.in |  8 ++++----
+ xen/include/xen/version.h    |  7 ++++---
+ 6 files changed, 29 insertions(+), 29 deletions(-)
+
+diff --git a/xen/Makefile b/xen/Makefile
+index c07b2c3..1009d87 100644
+--- a/xen/Makefile
++++ b/xen/Makefile
+@@ -161,7 +161,7 @@ delete-unfresh-files:
+ 	@mv -f $@.tmp $@
+ 
+ # compile.h contains dynamic build info. Rebuilt on every 'make' invocation.
+-include/xen/compile.h: include/xen/compile.h.in .banner
++include/xen/compile.h: include/xen/compile.h.in
+ 	@sed -e 's/@@date@@/$(XEN_BUILD_DATE)/g' \
+ 	    -e 's/@@time@@/$(XEN_BUILD_TIME)/g' \
+ 	    -e 's/@@whoami@@/$(XEN_WHOAMI)/g' \
+@@ -172,9 +172,11 @@ include/xen/compile.h: include/xen/compile.h.in .banner
+ 	    -e 's/@@subversion@@/$(XEN_SUBVERSION)/g' \
+ 	    -e 's/@@extraversion@@/$(XEN_EXTRAVERSION)/g' \
+ 	    -e 's!@@changeset@@!$(shell tools/scmversion $(XEN_ROOT) || echo "unavailable")!g' \
++	    -e 's/@@system_distribution@@/$(shell lsb_release -is)/g' \
++	    -e 's/@@system_maintainer_domain@@/$(shell cd ../../../..; dpkg-parsechangelog | sed -ne 's,^Maintainer: .[^<]*<[^@>]*@\([^>]*\)>,\1,p')/g' \
++	    -e 's/@@system_maintainer_local@@/$(shell cd ../../../..; dpkg-parsechangelog | sed -ne 's,^Maintainer: .[^<]*<\([^@>]*\)@.*>,\1,p')/g' \
++	    -e 's/@@system_version@@/$(shell cd ../../../..; dpkg-parsechangelog | awk '/^Version:/ {print $$2}')/g' \
+ 	    < include/xen/compile.h.in > $@.new
+-	@cat .banner
+-	@$(PYTHON) tools/fig-to-oct.py < .banner >> $@.new
+ 	@mv -f $@.new $@
+ 
+ include/asm-$(TARGET_ARCH)/asm-offsets.h: arch/$(TARGET_ARCH)/asm-offsets.s
+diff --git a/xen/common/kernel.c b/xen/common/kernel.c
+index 5766a0f..1cf4cd8 100644
+--- a/xen/common/kernel.c
++++ b/xen/common/kernel.c
+@@ -357,8 +357,8 @@ DO(xen_version)(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+ 
+         memset(&info, 0, sizeof(info));
+         safe_strcpy(info.compiler,       deny ? xen_deny() : xen_compiler());
+-        safe_strcpy(info.compile_by,     deny ? xen_deny() : xen_compile_by());
+-        safe_strcpy(info.compile_domain, deny ? xen_deny() : xen_compile_domain());
++        safe_strcpy(info.compile_by,     deny ? xen_deny() : xen_compile_system_maintainer_local());
++        safe_strcpy(info.compile_domain, deny ? xen_deny() : xen_compile_system_maintainer_domain());
+         safe_strcpy(info.compile_date,   deny ? xen_deny() : xen_compile_date());
+         if ( copy_to_guest(arg, &info, 1) )
+             return -EFAULT;
+diff --git a/xen/common/version.c b/xen/common/version.c
+index 223cb52..b9c66fd 100644
+--- a/xen/common/version.c
++++ b/xen/common/version.c
+@@ -20,19 +20,24 @@ const char *xen_compile_time(void)
+     return XEN_COMPILE_TIME;
+ }
+ 
+-const char *xen_compile_by(void)
++const char *xen_compile_system_distribution(void)
+ {
+-    return XEN_COMPILE_BY;
++    return XEN_COMPILE_SYSTEM_DISTRIBUTION;
+ }
+ 
+-const char *xen_compile_domain(void)
++const char *xen_compile_system_maintainer_local(void)
+ {
+-    return XEN_COMPILE_DOMAIN;
++    return XEN_COMPILE_SYSTEM_MAINTAINER_LOCAL;
+ }
+ 
+-const char *xen_compile_host(void)
++const char *xen_compile_system_maintainer_domain(void)
+ {
+-    return XEN_COMPILE_HOST;
++    return XEN_COMPILE_SYSTEM_MAINTAINER_DOMAIN;
++}
++
++const char *xen_compile_system_version(void)
++{
++    return XEN_COMPILE_SYSTEM_VERSION;
+ }
+ 
+ const char *xen_compiler(void)
+@@ -60,11 +65,6 @@ const char *xen_changeset(void)
+     return XEN_CHANGESET;
+ }
+ 
+-const char *xen_banner(void)
+-{
+-    return XEN_BANNER;
+-}
+-
+ const char *xen_deny(void)
+ {
+     return "<denied>";
+diff --git a/xen/drivers/char/console.c b/xen/drivers/char/console.c
+index 0f05369..78c1ae6 100644
+--- a/xen/drivers/char/console.c
++++ b/xen/drivers/char/console.c
+@@ -842,14 +842,11 @@ void __init console_init_preirq(void)
+     pv_console_set_rx_handler(serial_rx);
+ 
+     /* HELLO WORLD --- start-of-day banner text. */
+-    spin_lock(&console_lock);
+-    __putstr(xen_banner());
+-    spin_unlock(&console_lock);
+-    printk("Xen version %d.%d%s (%s@%s) (%s) debug=%c " gcov_string " %s\n",
++    printk("Xen version %d.%d%s (%s %s) (%s@%s) (%s) debug=%c " gcov_string " %s\n",
+            xen_major_version(), xen_minor_version(), xen_extra_version(),
+-           xen_compile_by(), xen_compile_domain(),
++           xen_compile_system_distribution(), xen_compile_system_version(),
++           xen_compile_system_maintainer_local(), xen_compile_system_maintainer_domain(),
+            xen_compiler(), debug_build() ? 'y' : 'n', xen_compile_date());
+-    printk("Latest ChangeSet: %s\n", xen_changeset());
+ 
+     if ( opt_sync_console )
+     {
+diff --git a/xen/include/xen/compile.h.in b/xen/include/xen/compile.h.in
+index 440ecb2..0c3ca58 100644
+--- a/xen/include/xen/compile.h.in
++++ b/xen/include/xen/compile.h.in
+@@ -1,8 +1,9 @@
+ #define XEN_COMPILE_DATE	"@@date@@"
+ #define XEN_COMPILE_TIME	"@@time@@"
+-#define XEN_COMPILE_BY		"@@whoami@@"
+-#define XEN_COMPILE_DOMAIN	"@@domain@@"
+-#define XEN_COMPILE_HOST	"@@hostname@@"
++#define XEN_COMPILE_SYSTEM_DISTRIBUTION		"@@system_distribution@@"
++#define XEN_COMPILE_SYSTEM_MAINTAINER_DOMAIN	"@@system_maintainer_domain@@"
++#define XEN_COMPILE_SYSTEM_MAINTAINER_LOCAL	"@@system_maintainer_local@@"
++#define XEN_COMPILE_SYSTEM_VERSION		"@@system_version@@"
+ #define XEN_COMPILER		"@@compiler@@"
+ 
+ #define XEN_VERSION		@@version@@
+@@ -10,4 +11,3 @@
+ #define XEN_EXTRAVERSION	"@@extraversion@@"
+ 
+ #define XEN_CHANGESET		"@@changeset@@"
+-#define XEN_BANNER		\
+diff --git a/xen/include/xen/version.h b/xen/include/xen/version.h
+index 97c247a..a816f60 100644
+--- a/xen/include/xen/version.h
++++ b/xen/include/xen/version.h
+@@ -6,9 +6,10 @@
+ 
+ const char *xen_compile_date(void);
+ const char *xen_compile_time(void);
+-const char *xen_compile_by(void);
+-const char *xen_compile_domain(void);
+-const char *xen_compile_host(void);
++const char *xen_compile_system_distribution(void);
++const char *xen_compile_system_maintainer_domain(void);
++const char *xen_compile_system_maintainer_local(void);
++const char *xen_compile_system_version(void);
+ const char *xen_compiler(void);
+ unsigned int xen_major_version(void);
+ unsigned int xen_minor_version(void);

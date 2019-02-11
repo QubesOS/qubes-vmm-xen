@@ -1,0 +1,4 @@
+##  Xen release branches have debug turned off, but explicitly turn
+##  it off here so that this build system works right on unstable
+##  branches (and doesn't generate a debug hypervisor).
+CONFIG_DEBUG=n

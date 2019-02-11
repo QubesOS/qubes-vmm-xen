@@ -1,0 +1,4 @@
+
+usr/lib/debug/xen* usr/lib/debug/
+# ^ The xen* wildcard excludes the shim symbols.  The shim is treated
+#   as part of the toolstack - see xen-utils-V.install.vsn-in.

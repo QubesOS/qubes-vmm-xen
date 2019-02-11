@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -e
+
+version=$1; shift
+flavour=$1; shift
+t=debian/tmp
+
+hv=xen-hypervisor-$version-$flavour
+dest=debian/$hv/boot
+mkdir -p $dest
+
+# The upstream build system puts a pile of needless symlinks in /boot.
+#
+# Conversely it gives the actual hypervisor binary an unhelpfully-varying
+# name.  It makes symlinks with more stable names, which we can use
+# to our advantage.
+#
+# For our part, we have been in the habit of putting the flavour in
+# the name and want to continue to do so for continuity.  (This was
+# more useful when the -i386 flavour existed and was coinstallable
+# with the -amd64 flavour.)
+
+verstring=$(readlink debian/tmp/boot/xen.gz ||
+            readlink debian/tmp/boot/xen)
+verstring=${verstring##*/}
+verstring=${verstring%.gz}
+
+for f in `cd $t/boot && find * -type f -print`; do
+	cp -v $t/boot/$f $dest/${f/$verstring/xen-$version-$flavour}
+done

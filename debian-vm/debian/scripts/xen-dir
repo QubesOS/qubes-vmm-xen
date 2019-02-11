@@ -1,0 +1,10 @@
+#!/bin/sh -e
+
+VERSION=$(. /usr/lib/xen-common/bin/xen-version); RET=$?; [ $RET -eq 0 ] || exit $RET
+
+if [ -d "/usr/lib/xen-$VERSION" ]; then
+    echo "/usr/lib/xen-$VERSION"
+else
+    echo "ERROR:  Can't find version $VERSION of xen utils, bailing out!" >&2
+    exit 127
+fi

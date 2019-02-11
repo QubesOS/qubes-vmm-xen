@@ -1,0 +1,24 @@
+Xen for Debian
+==============
+
+Config behaviour
+----------------
+
+The Debian packages changes the behaviour of some config options.
+
+The options "kernel", "initrd" and "loader" searches in the Xen private boot
+directory (/usr/lib/xen-$version/boot) first. "bootloader" and "device_model"
+also searches the Xen private bin directory (/usr/lib/xen-$version/bin). This
+means that the following entries will properly find anything:
+  loader = 'hvmloader'
+  bootloader = 'pygrub'
+
+Network setup
+-------------
+
+The Debian package of Xen don't change the network setup in any way.  This
+differs from the upstream version, which overwrites the main network card
+(eth0) with a bridge setup and may break the network at this point..
+
+To setup a bridge please follow the instructions in the manpage for
+bridge-utils-interfaces(5).

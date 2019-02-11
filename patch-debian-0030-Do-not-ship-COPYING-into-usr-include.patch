@@ -1,0 +1,34 @@
+From: Bastian Blank <waldi@debian.org>
+Date: Sat, 5 Jul 2014 11:47:30 +0200
+Subject: Do not ship COPYING into /usr/include
+
+This is not wanted in Debian.  COPYING ends up in
+/usr/share/doc/xen-*copyright.
+
+Patch-Name: tools-include-no-COPYING.diff
+
+Signed-off-by: Ian Jackson <ian.jackson@citrix.com>
+---
+ tools/include/Makefile | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/tools/include/Makefile b/tools/include/Makefile
+index 6665105..82e45e9 100644
+--- a/tools/include/Makefile
++++ b/tools/include/Makefile
+@@ -14,7 +14,6 @@ xen-foreign:
+ xen/.dir:
+ 	@rm -rf xen
+ 	mkdir -p xen/libelf
+-	ln -sf $(XEN_ROOT)/xen/include/public/COPYING xen
+ 	ln -sf $(wildcard $(XEN_ROOT)/xen/include/public/*.h) xen
+ 	ln -sf $(addprefix $(XEN_ROOT)/xen/include/public/,arch-x86 arch-arm hvm io xsm) xen
+ 	ln -sf ../xen-sys/$(XEN_OS) xen/sys
+@@ -43,7 +42,6 @@ install: all
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)/xen/io
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)/xen/sys
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)/xen/xsm
+-	$(INSTALL_DATA) xen/COPYING $(DESTDIR)$(includedir)/xen
+ 	$(INSTALL_DATA) xen/*.h $(DESTDIR)$(includedir)/xen
+ 	$(INSTALL_DATA) xen/arch-x86/*.h $(DESTDIR)$(includedir)/xen/arch-x86
+ 	$(INSTALL_DATA) xen/arch-x86/hvm/*.h $(DESTDIR)$(includedir)/xen/arch-x86/hvm

@@ -62,5 +62,3 @@
  LDLIBS += -lc
  endif
  
---- stubdom/Makefile	2018-07-18 22:19:23.817000000 +0200
-+++ stubdom/Makefile.new	2018-07-18 22:28:37.792000000 +0200

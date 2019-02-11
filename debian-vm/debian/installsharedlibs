@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+set -o pipefail
+
+# This avoids us having to write out shared library package
+# names again.  We call dh_install once for each shared
+# library package to put the relevant shared library in it.
+#
+# libxenmisc is a portmanteau of unstable-ABI libraries and
+# is handled via a *.install-vsn file.
+#
+# libxen-dev-V is the dev library package of course.
+
+x () {
+	echo x "$@"
+	"$@"
+}
+
+for p in $(dh_listpackages); do
+	case $p in
+	libxen-dev*)	continue ;;
+	libxenmisc*)	continue ;;
+	lib*)		;;
+	*)		continue ;;
+	esac
+
+	l=${p%%[0-9]*}
+
+	x dh_install -p$p "usr/lib/*/$l.so.*"
+done

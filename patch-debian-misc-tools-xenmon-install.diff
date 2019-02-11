@@ -1,0 +1,24 @@
+From: Bastian Blank <waldi@debian.org>
+Date: Sat, 5 Jul 2014 11:47:31 +0200
+Subject: tools-xenmon-install.diff
+
+Patch-Name: tools-xenmon-install.diff
+---
+ tools/xenmon/Makefile | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/tools/xenmon/Makefile b/tools/xenmon/Makefile
+index e171230..e805784 100644
+--- a/tools/xenmon/Makefile
++++ b/tools/xenmon/Makefile
+@@ -13,6 +13,10 @@
+ XEN_ROOT=$(CURDIR)/../..
+ include $(XEN_ROOT)/tools/Rules.mk
+ 
++DEFAULT_PYTHON_PATH := $(shell $(XEN_ROOT)/tools/python/get-path)
++PYTHON_PATH ?= $(DEFAULT_PYTHON_PATH)
++INSTALL_PYTHON_PROG = $(XEN_ROOT)/tools/python/install-wrap "$(PYTHON_PATH)" $(INSTALL_PROG)
++
+ CFLAGS  += -Werror
+ CFLAGS  += $(CFLAGS_libxenevtchn)
+ CFLAGS  += $(CFLAGS_libxenctrl)

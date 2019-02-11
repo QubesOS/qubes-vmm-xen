@@ -1,0 +1,46 @@
+From: Hans van Kranenburg <hans@knorrie.org>
+Date: Thu, 3 Jan 2019 22:03:06 +0100
+Subject: Fix empty fields in first hypervisor log line
+
+Instead of:
+
+    (XEN) Xen version 4.11.1 (Debian )
+    (@)
+    (gcc (Debian 8.2.0-13) 8.2.0) debug=n
+    Thu Jan  3 19:08:37 UTC 2019
+
+I'd like to see:
+
+    (XEN) Xen version 4.11.1 (Debian 4.11.1-1~)
+    (pkg-xen-devel@lists.alioth.debian.org)
+    (gcc (Debian 8.2.0-13) 8.2.0) debug=n
+    Thu Jan  3 22:44:00 CET 2019
+
+The substitution was broken since the great packaging refactoring,
+because the directory in which the build is done changed.
+
+Also, use the Maintainer address from debian/control instead of the most
+recent changelog entry. If someone wants to use the address to ask a
+question, they will end up at the team mailing list, which is better
+than an individual person.
+---
+ xen/Makefile | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/Makefile b/xen/Makefile
+index 1009d87..bffb48d 100644
+--- a/xen/Makefile
++++ b/xen/Makefile
+@@ -173,9 +173,9 @@ include/xen/compile.h: include/xen/compile.h.in
+ 	    -e 's/@@extraversion@@/$(XEN_EXTRAVERSION)/g' \
+ 	    -e 's!@@changeset@@!$(shell tools/scmversion $(XEN_ROOT) || echo "unavailable")!g' \
+ 	    -e 's/@@system_distribution@@/$(shell lsb_release -is)/g' \
+-	    -e 's/@@system_maintainer_domain@@/$(shell cd ../../../..; dpkg-parsechangelog | sed -ne 's,^Maintainer: .[^<]*<[^@>]*@\([^>]*\)>,\1,p')/g' \
+-	    -e 's/@@system_maintainer_local@@/$(shell cd ../../../..; dpkg-parsechangelog | sed -ne 's,^Maintainer: .[^<]*<\([^@>]*\)@.*>,\1,p')/g' \
+-	    -e 's/@@system_version@@/$(shell cd ../../../..; dpkg-parsechangelog | awk '/^Version:/ {print $$2}')/g' \
++	    -e 's/@@system_maintainer_domain@@/$(shell grep Maintainer ../debian/control | sed -ne 's,^Maintainer: .[^<]*<[^@>]*@\([^>]*\)>,\1,p')/g' \
++	    -e 's/@@system_maintainer_local@@/$(shell grep Maintainer ../debian/control | sed -ne 's,^Maintainer: .[^<]*<\([^@>]*\)@.*>,\1,p')/g' \
++	    -e 's/@@system_version@@/$(shell cd ..; dpkg-parsechangelog | awk '/^Version:/ {print $$2}')/g' \
+ 	    < include/xen/compile.h.in > $@.new
+ 	@mv -f $@.new $@
+ 

@@ -1,0 +1,73 @@
+#!/usr/bin/python
+
+import json
+import re
+import sys
+import subprocess
+
+
+class SXPParser(object):
+    tokenizer_rules = r""" (?P<open> \( ) | (?P<close> \) ) | (?P<whitespace> \s+ ) | [^()^\s]+ """
+    tokenizer_re = re.compile(tokenizer_rules, re.X)
+
+    @classmethod
+    def loads(cls, input):
+        data = []
+        stack = []
+        for match in cls.tokenizer_re.finditer(input):
+            if match.group('open'):
+                stack.append([])
+            elif match.group('close'):
+                top = stack.pop()
+                if stack:
+                    stack[-1].append(top)
+                else:
+                    data.append(top)
+            elif match.group('whitespace'):
+                pass
+            else:
+                if stack:
+                    stack[-1].append(match.group())
+        return data
+
+
+class Data(object):
+    def __call__(self, out):
+        for domid, info in sorted(self.data.iteritems(), reverse=True):
+            if domid == 0:
+                continue
+            out.write('{!s} {}\n'.format(domid, *info))
+
+
+class DataJSON(Data):
+    def __init__(self, p):
+        s = json.loads(p)
+        self.data = d = {}
+        for i in s:
+            domid = i['domid']
+            name = i['config']['c_info']['name']
+            d[domid] = (name, )
+
+
+class DataSXP(Data):
+    def __init__(self, p):
+        s = SXPParser.loads(p)
+        self.data = d = {}
+        for i in s:
+            if i and i[0] == 'domain':
+                try:
+                    data = dict(j for j in i if len(j) == 2)
+                    domid = int(data['domid'])
+                    name = data['name']
+                    d[domid] = (name, )
+                except (KeyError, ValueError) as e:
+                    pass
+
+
+if __name__ == '__main__':
+    p = subprocess.check_output(('xen', 'list', '-l'))
+    if p[0] == '(':
+        d = DataSXP(p)
+    else:
+        d = DataJSON(p)
+    d(sys.stdout)

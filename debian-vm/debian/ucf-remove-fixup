@@ -1,0 +1,44 @@
+#!/usr/bin/perl -wpi~
+
+# dh_ucf does not seem have a mode for dropping a ucf-managed config
+# file.  ucf and ucfr can be used to DTRT but are insufficiently
+# coooked.
+#
+# I think the right thing to do, when dropping a ucf-handled config
+# file, is
+#   (i) stop shipping the original file in /usr/share
+#   (ii) in postinst, do nothing
+#   (iii) in postrm purge, delete all traces
+
+# The result of (i) and (ii) is that the file remains recorded by
+# ucf and ucfr, but that the original version of the file is no
+# longer present on the user's machine.
+#
+# (iii) is exactly what dh_ucf puts into the postrm.
+#
+# So, we can be fairly future-proof with the following approach
+#   (i) stop shipping the original file in /usr/share
+#   (ii) call dh_ucf
+#   (iii) call ucf-remove-fixup (this script)
+#          which strips out the ucf stuff from the postinst
+
+use strict;
+use Carp;
+
+our ($package, $configfile);
+
+BEGIN {
+    die unless @ARGV == 2;
+    ($package, $configfile) = @ARGV;
+    @ARGV = ("debian/$package.postinst.debhelper");
+    $/ = '# End automatically added section'
+}
+
+next unless m{$configfile};
+confess "UNEXPECTED $_ ?" unless m{^(?=# Automatically added by dh_ucf)}m;
+
+print $` or die $!;
+$_ = $';
+next unless m{^(?!#)}m;
+s{\n}{\n# suppressed by ucf-remove-fixup\n};
+s{^(?!#)}{# }mg;

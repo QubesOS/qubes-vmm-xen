@@ -1,0 +1,13 @@
+#!/bin/sh
+
+echo -c 'config qemu network with xen bridge for '
+echo $*
+
+# Initialise a dummy MAC address. We choose the numerically
+# largest non-broadcast address to prevent the address getting
+# stolen by an Ethernet bridge for STP purposes.
+# (FE:FF:FF:FF:FF:FF)
+ip link set $1 address fe:ff:ff:ff:ff:ff || true
+
+ip link set up dev $1
+brctl addif $2 $1

@@ -1,0 +1,24 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    configure)
+        update-alternatives --remove xen-default /usr/lib/xen-@version@
+        if [ -x "/etc/init.d/xen" ]; then
+	    invoke-rc.d xen start || exit $?
+        fi
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+	echo "postinst called with unknown argument \`$1'" >&2
+	exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,2 +1,5 @@
 usr/bin/xenstore
 usr/bin/xenstore-*
+usr/share/man/man1/xenstore.1
+usr/share/man/man1/xenstore-*.1
+# See also xenstore_rm in debian/rules.

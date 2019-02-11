@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    configure)
+        if command -v update-grub > /dev/null && [ -d /boot/grub ]; then
+            update-grub || :
+        fi
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+	echo "postinst called with unknown argument \`$1'" >&2
+	exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

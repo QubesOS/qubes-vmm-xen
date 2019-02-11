@@ -1,0 +1,78 @@
+From: Ian Jackson <iwj@barriere.debian.org>
+Date: Fri, 12 Oct 2018 17:17:10 +0000
+Subject: shim: Provide separate install-shim target
+
+When building on a 32-bit userland, the user wants to build 32-bit
+tools and a 64-bit hypervisor.  This involves setting XEN_TARGET_ARCH
+to different values for the tools build and the hypervisor build.
+
+So the user must invoke the tools build and the hypervisor build
+separately.
+
+However, although the shim is done by the tools/firmware Makefile, its
+bitness needs to be the same as the hypervisor, not the same as the
+tools.  When run with XEN_TARGET_ARCH=x86_32, it it skipped, which is
+wrong.
+
+So the user must invoke the shim build separately.  This can be done
+with
+   make -C tools/firmware/xen-dir XEN_TARGET_ARCH=x86_64
+
+However, tools/firmware/xen-dir has no `install' target.  The
+installation of all `firmware' is done in tools/firmware/Makefile.  It
+might be possible to fix this, but it is not trivial.  For example,
+the definitions of INST_DIR and DEBG_DIR would need to be copied, as
+would an appropriate $(INSTALL_DIR) call.
+
+For now, provide an `install-shim' target in tools/firmware/Makefile.
+
+This has to be called from `install' of course.  We can't make it
+a dependency of `install' because it might be run before `all' has
+completed.  We could make it depend on a `shim' target but such
+a target is nearly impossible to write because everything is done by
+the inflexible subdir-$@ machinery.
+
+The overally result of this patch is that existing make invocations
+work as before.  But additionally, the user can say
+  make -C tools/firmware install-shim XEN_TARGET_ARCH=x86_64
+to install the shim.  The user must have built it already.
+Unlike the build rune, this install-rune is properly conditional
+so it is OK to call on ARM.
+
+What a mess.
+
+Signed-off-by: Ian Jackson <ijackson@chiark.greenend.org.uk>
+---
+ tools/firmware/Makefile | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/tools/firmware/Makefile b/tools/firmware/Makefile
+index d6104e6..c449fab 100644
+--- a/tools/firmware/Makefile
++++ b/tools/firmware/Makefile
+@@ -43,6 +43,13 @@ ifeq ($(CONFIG_ROMBIOS),y)
+ endif
+ 	$(MAKE) CC=$(CC) PYTHON=$(PYTHON) subdirs-$@
+ 
++.PHONY: install-shim
++install-shim:
++ifeq ($(CONFIG_PV_SHIM),y)
++	$(INSTALL_DATA) xen-dir/xen-shim $(INST_DIR)/xen-shim
++	$(INSTALL_DATA) xen-dir/xen-shim-syms $(DEBG_DIR)/xen-shim-syms
++endif
++
+ .PHONY: install
+ install: all
+ 	[ -d $(INST_DIR) ] || $(INSTALL_DIR) $(INST_DIR)
+@@ -55,10 +61,7 @@ endif
+ ifeq ($(CONFIG_IPXE),y)
+ 	$(INSTALL_DATA) etherboot/ipxe/src/bin/ipxe.bin $(INST_DIR)/ipxe.bin
+ endif
+-ifeq ($(CONFIG_PV_SHIM),y)
+-	$(INSTALL_DATA) xen-dir/xen-shim $(INST_DIR)/xen-shim
+-	$(INSTALL_DATA) xen-dir/xen-shim-syms $(DEBG_DIR)/xen-shim-syms
+-endif
++	$(MAKE) install-shim
+ 
+ .PHONY: uninstall
+ uninstall:

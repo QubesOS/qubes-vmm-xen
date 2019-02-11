@@ -1,0 +1,24 @@
+From: Ian Jackson <ian.jackson@citrix.com>
+Date: Fri, 5 Oct 2018 18:05:48 +0100
+Subject: .gitignore: Add configure output which we always delete and
+ regenerate
+
+Signed-off-by: Ian Jackson <ian.jackson@citrix.com>
+---
+ .gitignore | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index c5032f3..d62277a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -424,3 +424,9 @@ tools/xl/xl
+ docs/txt/misc/*.txt
+ docs/txt/man/*.txt
+ docs/figs/*.png
++
++configure
++docs/configure
++tools/configure
++config.sub
++config.guess

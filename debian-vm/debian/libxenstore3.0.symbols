@@ -5,6 +5,7 @@ libxenstore.so.3.0 libxenstore3.0 #MINVER#
  xprintf@Base 3.2.0
  xs_check_watch@Base 4.2~
  xs_close@Base 4.1.0~rc6
+ xs_control_command@Base 4.9.0
  xs_count_strings@Base 3.2.0
  xs_daemon_close@Base 3.2.0
  xs_daemon_destroy_postfork@Base 4.0.1~rc4

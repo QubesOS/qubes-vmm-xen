@@ -1,0 +1,4 @@
+debug-package-should-be-named-dbg usr/lib/debug/xen-*-pre.efi.map.gz
+# ^ as is traditional for kernels too, we ship the debug information
+#   in the hypervisor package rather than creating yet another
+#   package just for this file, which is only 50K or so anyway.

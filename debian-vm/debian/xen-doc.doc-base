@@ -1,0 +1,10 @@
+Document: xen-doc-html
+Section: System/Administration
+Title: Xen HTML documentation
+Abstract: Xen hypercall interfaces, manpages, and miscellanea.
+ Xen upstream provides much of its documentation in HTML form.
+ This entry referes to the top-level index of the Xen HTML docs.
+
+Format: HTML
+Index: /usr/share/doc/xen/html/index.html
+Files: /usr/share/doc/xen/html

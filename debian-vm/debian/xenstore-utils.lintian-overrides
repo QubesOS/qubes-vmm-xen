@@ -1,0 +1,6 @@
+spelling-error-in-binary usr/bin/xenstore* upto up to
+# ^ these have --upto as a command line argument
+
+description-possibly-contains-homepage https://wiki.xen.org/wiki/XenStore
+# ^ It's not a homepage, it's a reference to help understand
+#   why this package might be useful.

@@ -1,0 +1,26 @@
+From: Ian Jackson <iwj@amdahl.debian.org>
+Date: Fri, 12 Oct 2018 17:56:04 +0000
+Subject: tools/firmware/Makefile: CONFIG_PV_SHIM: enable only on x86_64
+
+Previously this was *dis*abled for x86_*32*.  But if someone should
+run some of this Makefile on ARM, say, it ought not to be built
+either.
+
+Signed-off-by: Ian Jackson <ijackson@chiark.greenend.org.uk>
+---
+ tools/firmware/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/firmware/Makefile b/tools/firmware/Makefile
+index c449fab..40e36d9 100644
+--- a/tools/firmware/Makefile
++++ b/tools/firmware/Makefile
+@@ -1,7 +1,7 @@
+ XEN_ROOT = $(CURDIR)/../..
+ include $(XEN_ROOT)/tools/Rules.mk
+ 
+-ifneq ($(XEN_TARGET_ARCH),x86_32)
++ifeq ($(XEN_TARGET_ARCH),x86_64)
+ CONFIG_PV_SHIM ?= y
+ endif
+ 

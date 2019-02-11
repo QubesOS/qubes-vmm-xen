@@ -1,0 +1,26 @@
+From: Ian Jackson <iwj@barriere.debian.org>
+Date: Fri, 12 Oct 2018 16:00:16 +0000
+Subject: tools/firmware/Makfile: Respect caller's CONFIG_PV_SHIM
+
+This makes it easier to disable the shim build.  (In Debian we need to
+build the shim separately because it needs different compiler flags
+and a different XEN_COMPILE_ARCH.
+
+Signed-off-by: Ian Jackson <ijackson@chiark.greenend.org.uk>
+---
+ tools/firmware/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/firmware/Makefile b/tools/firmware/Makefile
+index 5a7cf77..d6104e6 100644
+--- a/tools/firmware/Makefile
++++ b/tools/firmware/Makefile
+@@ -2,7 +2,7 @@ XEN_ROOT = $(CURDIR)/../..
+ include $(XEN_ROOT)/tools/Rules.mk
+ 
+ ifneq ($(XEN_TARGET_ARCH),x86_32)
+-CONFIG_PV_SHIM := y
++CONFIG_PV_SHIM ?= y
+ endif
+ 
+ # hvmloader is a 32-bit protected mode binary.

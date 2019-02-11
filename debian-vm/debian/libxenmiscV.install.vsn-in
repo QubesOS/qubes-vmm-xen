@@ -1,0 +1,8 @@
+usr/lib/*/libxenctrl.so.*
+usr/lib/*/libxenguest.so.*
+usr/lib/*/libxenlight.so.*
+usr/lib/*/libxenstat.so.*
+usr/lib/*/libxenvchan.so.*
+usr/lib/*/libxlutil.so.*
+usr/lib/*/libxenfsimage.so.*
+usr/lib/xen-@version@/lib/*/xenfsimage

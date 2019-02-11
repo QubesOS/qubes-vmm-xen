@@ -1,0 +1,22 @@
+#!/bin/sh -e
+
+error() {
+    echo "ERROR: " "$@" >&2
+    exit 1
+}
+
+if [ -e "/sys/hypervisor/type" ]; then
+    type="$(cat /sys/hypervisor/type)"
+    if [ "$type" = xen ]; then
+        DIR=/sys/hypervisor/version
+        VERSION="$(cat $DIR/major).$(cat $DIR/minor)"
+    elif [ -z "$type" ]; then
+        error "Can't read hypervisor type from sysfs!"
+    else
+        error "Hypervisor is not xen but '$type'!"
+    fi
+else
+    error "Can't find hypervisor information in sysfs!"
+fi
+
+echo "$VERSION"

@@ -1,0 +1,9 @@
+statically-linked-binary usr/lib/xen-@version@/boot/hvmloader
+statically-linked-binary usr/lib/xen-@version@/boot/xen-shim
+
+binary-has-unneeded-section usr/lib/xen-4.11/boot/xen-shim .note
+# ^ that section is certainly needed for the tools etc. to be able
+#   to load it!
+
+binary-from-other-architecture usr/lib/debug/xen-syms-4.11-shim/xen-shim-syms
+# ^ this is a symbols file for the shim

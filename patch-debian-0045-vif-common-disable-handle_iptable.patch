@@ -1,0 +1,38 @@
+From: Hans van Kranenburg <hans@knorrie.org>
+Date: Fri, 4 Jan 2019 00:35:45 +0100
+Subject: vif-common: disable handle_iptable
+
+Also see Debian bug #894013. The current attempt at providing
+anti-spoofing rules results in a situation that does not have any
+effect. Also note that forwarding bridged traffic to iptables is not
+enabled by default, and that for openvswitch users it does not make any
+sense.
+
+So, stop cluttering the live iptables ruleset.
+
+This functionality seems to be introduced before 2004 and since then it
+has never got some additional love.
+
+It would be nice to have a proper discussion upstream about how Xen
+could provide some anti mac/ip spoofing in the dom0. It does not seem to
+be a trivial thing to do, since it requires having quite some knowledge
+about what the domU is allowed to do or not (e.g. a domU can be a
+router...).
+---
+ tools/hotplug/Linux/vif-common.sh | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tools/hotplug/Linux/vif-common.sh b/tools/hotplug/Linux/vif-common.sh
+index a8e6517..14cd44c 100644
+--- a/tools/hotplug/Linux/vif-common.sh
++++ b/tools/hotplug/Linux/vif-common.sh
+@@ -182,6 +182,9 @@ frob_iptable()
+ #
+ handle_iptable()
+ {
++  # This function is disabled in Debian packaging. See Debian bug #894013.
++  return
++
+   # Check for a working iptables installation.  Checking for the iptables
+   # binary is not sufficient, because the user may not have the appropriate
+   # modules installed.  If iptables is not working, then there's no need to do

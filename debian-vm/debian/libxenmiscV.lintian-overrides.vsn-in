@@ -1,0 +1,7 @@
+no-symbols-control-file usr/lib/*/lib*.so.@version@.0
+# ^ the ABI changes every Xen release and every Debian release anyway
+#   and we do not upload to Debian packages based on Xen upstream
+#   versions which are at least an rc with a stable ABI.
+
+package-name-doesnt-match-sonames
+# ^ yes, this is a portmanteau package.  They all change at once.

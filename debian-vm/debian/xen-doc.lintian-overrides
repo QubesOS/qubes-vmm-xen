@@ -1,0 +1,3 @@
+documentation-package-not-architecture-independent
+# ^ Indeed not.  It is arch-specific because the Xen upstream HTML
+#   documentation contains arch-specific hhypercall API information.

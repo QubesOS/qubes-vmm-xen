@@ -1,0 +1,54 @@
+From: Ian Jackson <ian.jackson@citrix.com>
+Date: Fri, 5 Oct 2018 17:53:38 +0100
+Subject: tools-libfsimage-prefix.diff
+
+Patch-Name: tools-libfsimage-prefix.diff
+---
+ tools/Rules.mk                   | 2 ++
+ tools/libfsimage/Rules.mk        | 3 ++-
+ tools/libfsimage/common/Makefile | 8 +++++---
+ 3 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/tools/Rules.mk b/tools/Rules.mk
+index 804176a..a46f10e 100644
+--- a/tools/Rules.mk
++++ b/tools/Rules.mk
+@@ -11,6 +11,8 @@ INSTALL = $(XEN_ROOT)/tools/cross-install
+ 
+ LDFLAGS += $(PREPEND_LDFLAGS_XEN_TOOLS)
+ 
++LDFLAGS_RPATH = -Wl,-rpath,'$${ORIGIN}$(if $(1),/$(1))'
++
+ XEN_INCLUDE        = $(XEN_ROOT)/tools/include
+ XEN_LIBXENTOOLCORE  = $(XEN_ROOT)/tools/libs/toolcore
+ XEN_LIBXENTOOLLOG  = $(XEN_ROOT)/tools/libs/toollog
+diff --git a/tools/libfsimage/Rules.mk b/tools/libfsimage/Rules.mk
+index eab4ecb..50be504 100644
+--- a/tools/libfsimage/Rules.mk
++++ b/tools/libfsimage/Rules.mk
+@@ -3,10 +3,11 @@ include $(XEN_ROOT)/tools/Rules.mk
+ CFLAGS += -Wno-unknown-pragmas -I$(XEN_ROOT)/tools/libfsimage/common/ -DFSIMAGE_FSDIR=\"$(FSDIR)\"
+ CFLAGS += -Werror -D_GNU_SOURCE
+ LDFLAGS += -L../common/
++LDFLAGS += $(call LDFLAGS_RPATH,../..)
+ 
+ PIC_OBJS := $(patsubst %.c,%.opic,$(LIB_SRCS-y))
+ 
+-FSDIR = $(libdir)/xenfsimage
++FSDIR = $(LIBEXEC_LIB)/xenfsimage
+ 
+ FSLIB = fsimage.so
+ 
+diff --git a/tools/libfsimage/common/Makefile b/tools/libfsimage/common/Makefile
+index b3881de..5a6e17d 100644
+--- a/tools/libfsimage/common/Makefile
++++ b/tools/libfsimage/common/Makefile
+@@ -1,6 +1,8 @@
+ MAJOR = 4.12
+ MINOR = 0
+ 
++CFLAGS += -DFSDIR="\"$(LIBEXEC_LIB)/fs\""
++
+ LDFLAGS-$(CONFIG_SunOS) = -Wl,-M -Wl,mapfile-SunOS
+ LDFLAGS-$(CONFIG_Linux) = -Wl,mapfile-GNU
+ LDFLAGS += $(LDFLAGS-y)

@@ -1,0 +1,16 @@
+__pycache__
+/build/
+/files
+/libxen-[0-9].*/
+!/libxen-dev.install
+/libxen-dev/
+/libxenstore[0-9].0/
+/stamps/
+/xen-hypervisor-[0-9].*-*/
+/xenstore-utils/
+/xen-system-[0-9]*/
+/xen-utils-[0-9]*.*/
+/xen-utils-common/
+/xen-hypervisor-common/
+*.debhelper*
+*.substvars

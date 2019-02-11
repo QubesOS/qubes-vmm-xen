@@ -1,0 +1,9 @@
+usr/lib/xen-@version@/bin
+usr/lib/xen-@version@/lib/python
+
+? flavour = amd64 | i386
+usr/lib/xen-@version@/boot
+usr/lib/debug/usr/lib/xen-*/boot/* usr/lib/debug/xen-syms-@version@-shim
+# ^ Yes, the upstream build system really does install the shim symbols
+#   file in debian/tmp/usr/lib/debug/usr/lib/xen-4.11/boot/xen-shim-syms
+?
