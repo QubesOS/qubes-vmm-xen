@@ -21,6 +21,7 @@ override_dh_auto_configure:
 		--infodir=/usr/share/info \
 		--with-initddir=/etc/init.d \
 		--enable-systemd \
+		--with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-privcmd xen-netback" \
 		--with-systemd=/lib/systemd/system \
 		--sysconfdir=/etc \
 		--localstatedir=/var \
