@@ -96,14 +96,7 @@ define template_rule_template =
 	&& mv -f $$@{.tmp,}
 endef
 
-$(foreach t,$(TEMPLATE_FILES), $(eval 					\
-	$(call 								\
-		template_rule_template, $t, 				\
-		$(subst F,$(flavour),					\
-		 $(subst V,$(upstream_version),				\
-		  $(basename $t)					\
-		 ))							\
-	)))
+$(foreach t,$(TEMPLATE_FILES), $(eval $(call template_rule_template, $t, $(subst F,$(flavour), $(subst V,$(upstream_version), $(basename $t))))))
 
 templated-files: $(TEMPLATED_FILES)
 	:
