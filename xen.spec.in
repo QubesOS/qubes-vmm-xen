@@ -207,6 +207,7 @@ Patch909: patch-xenconsoled-enable-logging.patch
 Patch910: patch-vm-0001-hotplug-do-not-attempt-to-remove-containing-xenstore.patch
 Patch911: patch-xen-hotplug-qubesdb-update.patch
 Patch912: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
+Patch913: patch-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
 
 # python3
 Patch1001: patch-0001-python-check-return-value-of-PyErr_NewException.patch
