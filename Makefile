@@ -10,7 +10,7 @@ _specdir := $(if $(SPECDIR), $(SPECDIR), $(_sourcedir))
 _builddir := $(if $(BUILDDIR), $(BUILDDIR), $(_sourcedir))
 _srcrpmdir := $(if $(SRCRPMDIR), $(SRCRPMDIR), $(_sourcedir)/srpm)
 _rpmdir := $(if $(RPMDIR), $(RPMDIR), $(_sourcedir)/rpm)
-version := $(shell cat version|tr '~' '-')
+version := $(shell cat version)
 release := $(shell cat rel)
 jobs := $(shell grep -c ^processor /proc/cpuinfo)
 
