@@ -1,3 +1,11 @@
+xen (2001:4.8.5-2) unstable; urgency=medium
+
+  * debian: load only pvops xen modules
+  * rpm: do not load xen-acpi-processor with systemd-modules-load
+  * By default forbid terminal control sequences on xl console output
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 19 Feb 2019 12:33:25 +0100
+
 xen (2001:4.8.5-1) --release; urgency=medium
 
   * debian: fixes for reproducible source package
