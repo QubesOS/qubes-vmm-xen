@@ -954,7 +954,6 @@ rm -rf %{buildroot}
 %{_sbindir}/gdbsx
 %{_sbindir}/xen-kdd
 %endif
-%{_sbindir}/xen-bugtool
 %ifnarch armv7hl aarch64
 %{_sbindir}/xen-hptool
 %{_sbindir}/xen-hvmcrash
@@ -976,7 +975,6 @@ rm -rf %{buildroot}
 %ifnarch armv7hl aarch64
 %{_sbindir}/xen-lowmemd
 %endif
-%{_sbindir}/xen-ringwatch
 %{_sbindir}/xencov
 %ifnarch armv7hl aarch64
 %{_sbindir}/xen-mfndump

@@ -1,3 +1,27 @@
+xen (4.12.0~rc3-1) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Replace stubdomain MSI fix with the version sent upstream
+  * Few more QubesOS specific stubdomain fixes
+
+  [ Simon Gaiser ]
+  * libxl: Add support for new qubes-gui options
+
+  [ Marek Marczykowski-Górecki ]
+  * Fix copying xen.efi
+  * debian: update packaging based on upstream Xen 4.11 package
+  * debian: include native xendriverdomain.service
+  * debian: fix build on stretch
+
+  [ Frédéric Pierret (fepitre) ]
+  * Build Qubes Xen package only for dom0 Fedora and use upstream for VM
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: update for R4.1
+  * Improve handling -rc releases
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 19 Feb 2019 17:16:30 +0100
+
 xen (4.12.0~rc1-0.1) unstable; urgency=medium
 
   [ Hans van Kranenburg ]

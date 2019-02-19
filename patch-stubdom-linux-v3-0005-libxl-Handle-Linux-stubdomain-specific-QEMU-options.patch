@@ -129,7 +129,7 @@ index 3601b14..1fa4fa8 100644
  
      dm_args = flexarray_make(gc, 16, 1);
      dm_envs = flexarray_make(gc, 16, 1);
-@@ -1179,30 +1180,33 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1179,38 +1180,41 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
                        "-xen-domid",
                        GCSPRINTF("%d", guest_domid), NULL);
  
@@ -138,6 +138,14 @@ index 3601b14..1fa4fa8 100644
 -        flexarray_append(dm_args,
 -            GCSPRINTF("socket,id=libxl-cmd,fd=%d,server,nowait",
 -                      state->dm_monitor_fd));
+-
+-        /*
+-         * Start QEMU with its "CPU" paused, it will not start any emulation
+-         * until the QMP command "cont" is used. This also prevent QEMU from
+-         * writing "running" to the "state" xenstore node so we only use this
+-         * flag when we have the QMP based startup notification.
+-         * */
+-        flexarray_append(dm_args, "-S");
 -    } else {
 -        flexarray_append(dm_args,
 -                         GCSPRINTF("socket,id=libxl-cmd,"
@@ -151,6 +159,14 @@ index 3601b14..1fa4fa8 100644
 +            flexarray_append(dm_args,
 +                GCSPRINTF("socket,id=libxl-cmd,fd=%d,server,nowait",
 +                          state->dm_monitor_fd));
++
++            /*
++             * Start QEMU with its "CPU" paused, it will not start any emulation
++             * until the QMP command "cont" is used. This also prevent QEMU from
++             * writing "running" to the "state" xenstore node so we only use this
++             * flag when we have the QMP based startup notification.
++             * */
++            flexarray_append(dm_args, "-S");
 +        } else {
 +            flexarray_append(dm_args,
 +                             GCSPRINTF("socket,id=libxl-cmd,"
