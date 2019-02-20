@@ -286,7 +286,7 @@ BuildRequires: ocaml, ocaml-findlib
 %endif
 # efi image needs an ld that has -mi386pep option
 %if %efiming
-#BuildRequires: mingw64-binutils
+BuildRequires: mingw64-binutils
 %endif
 %if %with_systemd_presets
 Requires(post): systemd
@@ -496,10 +496,8 @@ patch -d tools/qemu-xen-traditional -p4 < stubdom-dhcp/lwip-dhcp-qemu-glue.patch
 %if !%build_ocaml
 %define ocaml_flags OCAML_TOOLS=n
 %endif
-%if %efiming
-%define efi_flags EFI_VENDOR=qubes
-%endif
 %if %build_efi
+%define efi_flags EFI_VENDOR=qubes
 mkdir -p dist/install/boot/efi/efi/qubes
 %endif
 %if %build_ocaml
