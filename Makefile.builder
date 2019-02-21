@@ -36,7 +36,8 @@ source-debian-xen-copy-in: VERSION = $(shell cat $(ORIG_SRC)/version)
 source-debian-xen-copy-in: ORIG_FILE = "$(CHROOT_DIR)/$(DIST_SRC)/xen_$(subst -,~,$(VERSION)).orig.tar.gz"
 source-debian-xen-copy-in: SRC_FILE  = "$(CHROOT_DIR)/$(DIST_SRC)/xen-$(VERSION).tar.gz"
 source-debian-xen-copy-in:
-	-$(ORIG_SRC)/debian-quilt $(ORIG_SRC)/series-debian-vm.conf $(CHROOT_DIR)/$(DIST_SRC)/debian/patches
+	mkdir -p "$(CHROOT_DIR)/$(DIST_SRC)/debian/patches"
+	$(ORIG_SRC)/debian-quilt $(ORIG_SRC)/series-debian-vm.conf $(CHROOT_DIR)/$(DIST_SRC)/debian/patches
 	tar xfz $(SRC_FILE) -C $(CHROOT_DIR)/$(DIST_SRC)/debian-vm --strip-components=1 
 	rm -f $(CHROOT_DIR)/$(DIST_SRC)/debian-vm/rel
 	rm -f $(CHROOT_DIR)/$(DIST_SRC)/debian-vm/version
