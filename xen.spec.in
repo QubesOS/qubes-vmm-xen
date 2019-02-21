@@ -211,6 +211,7 @@ BuildRequires: dev86
 %endif
 BuildRequires: ncurses-devel
 BuildRequires: perl-interpreter perl-generators
+BuildRequires: python
 %if %with_python2
 BuildRequires: python2-devel
 %endif
