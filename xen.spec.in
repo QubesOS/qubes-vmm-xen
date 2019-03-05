@@ -138,7 +138,11 @@ Patch437: patch-60efd677-xl-Don-t-warn-on-using-deprecated-mode-selection.patch
 Patch438: patch-x86-check-feature-flags-after-resume.patch
 
 # Security fixes
-
+Patch500: patch-xsa284.patch
+Patch501: patch-xsa285-4.11.patch
+Patch502: patch-xsa287-4.8.patch
+Patch503: patch-xsa288-4.8.patch
+Patch504: patch-xsa292.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
