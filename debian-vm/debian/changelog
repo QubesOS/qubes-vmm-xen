@@ -1,3 +1,9 @@
+xen (2001:4.6.6-46) wheezy; urgency=medium
+
+  * Apply XSA-284, XSA-285, XSA-287, XSA-288, XSA-292
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 05 Mar 2019 10:28:39 +0100
+
 xen (2001:4.6.6-45) unstable; urgency=medium
 
   * debian: reuse upstream orig tarball
