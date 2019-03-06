@@ -11,6 +11,7 @@ else ifeq ($(PACKAGE_SET),vm)
   endif
 endif
 
+NO_ARCHIVE := 1
 
 source-debian-xen-copy-in: VERSION = $(shell cat $(ORIG_SRC)/version)
 source-debian-xen-copy-in: ORIG_FILE = "$(CHROOT_DIR)/$(DIST_SRC)/xen_$(VERSION).orig.tar.gz"
