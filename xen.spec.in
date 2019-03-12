@@ -136,6 +136,7 @@ Patch436: patch-6d1a9bcb-libxl-remove-device-model-none-from-IDL.patch
 Patch437: patch-60efd677-xl-Don-t-warn-on-using-deprecated-mode-selection.patch
 
 Patch438: patch-x86-check-feature-flags-after-resume.patch
+Patch439: patch-2dd3e22949-tools-libelf-fix-elf-notes-check-for-PVH-guest.patch
 
 # Security fixes
 Patch500: patch-xsa284.patch

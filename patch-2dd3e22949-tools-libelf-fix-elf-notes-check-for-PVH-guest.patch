@@ -1,0 +1,49 @@
+From 2dd3e229494649fcf3309f8e2ccecece2a2d1685 Mon Sep 17 00:00:00 2001
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Thu, 11 Jan 2018 17:47:58 +0000
+Subject: [PATCH] tools/libelf: fix elf notes check for PVH guest
+
+PVH only requires PHYS32_ENTRY to be set. Return immediately if that's
+the case.
+
+Also remove the printk in pvh_load_kernel.
+
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+[backport to 4.8]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/hvm/dom0_build.c      | 4 ----
+ xen/common/libelf/libelf-dominfo.c | 9 ++++++++-
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/xen/common/libelf/libelf-dominfo.c b/xen/common/libelf/libelf-dominfo.c
+index 829d5176a9..508f08db42 100644
+--- a/xen/common/libelf/libelf-dominfo.c
++++ b/xen/common/libelf/libelf-dominfo.c
+@@ -381,6 +381,13 @@ static elf_errorstatus elf_xen_note_check(struct elf_binary *elf,
+          return 0;
+     }
+ 
++    /* PVH only requires one ELF note to be set */
++    if ( parms->phys_entry != UNSET_ADDR32 )
++    {
++        elf_msg(elf, "ELF: Found PVH image\n");
++        return 0;
++    }
++
+     /* Check the contents of the Xen notes or guest string. */
+     if ( ((strlen(parms->loader) == 0) ||
+           strncmp(parms->loader, "generic", 7)) &&
+@@ -389,7 +396,7 @@ static elf_errorstatus elf_xen_note_check(struct elf_binary *elf,
+     {
+         elf_err(elf,
+                 "ERROR: Will only load images built for the generic loader or Linux images"
+-                " (Not '%.*s' and '%.*s')\n",
++                " (Not '%.*s' and '%.*s') or with PHYS32_ENTRY set\n",
+                 (int)sizeof(parms->loader), parms->loader,
+                 (int)sizeof(parms->guest_os), parms->guest_os);
+         return -1;
+-- 
+2.17.2
+
