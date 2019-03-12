@@ -583,6 +583,13 @@ make PYTHON=%{__python3} -C tools/python
 %endif
 
 %install
+export XEN_VENDORVERSION="-%{release}"
+export EXTRA_CFLAGS_XEN_TOOLS="$RPM_OPT_FLAGS"
+export EXTRA_CFLAGS_QEMU_TRADITIONAL="$RPM_OPT_FLAGS"
+export EXTRA_CFLAGS_QEMU_XEN="$RPM_OPT_FLAGS"
+export PATH="/usr/bin:$PATH"
+export KCONFIG_CONFIG=%{SOURCE3}
+export XEN_CONFIG_EXPERT=y
 rm -rf %{buildroot}
 mkdir -p %{buildroot}
 cp -prlP dist/install/* %{buildroot}
