@@ -557,6 +557,11 @@ make PYTHON=%{__python3} -C tools/python
 %endif
 
 %install
+export XEN_VENDORVERSION="-%{release}"
+export CFLAGS_EXTRA="$RPM_OPT_FLAGS"
+export PATH="/usr/bin:$PATH"
+export KCONFIG_CONFIG=%{SOURCE3}
+export XEN_CONFIG_EXPERT=y
 rm -rf %{buildroot}
 %if %build_ocaml
 mkdir -p %{buildroot}%{_libdir}/ocaml/stublibs
