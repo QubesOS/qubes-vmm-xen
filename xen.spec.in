@@ -73,6 +73,7 @@ Source36: @gui-common@
 # 900+:  Qubes specific patches
 # 1000+: python3
 # 1100+: Support for Linux based stubdom
+# 1200+: Other
 
 # Fedora
 Patch101: patch-xen.use.fedora.ipxe.patch
@@ -243,6 +244,8 @@ Patch1113: patch-stubdom-allow-msi-irq.patch
 Patch1114: patch-stubdom-allow-msi-enable.patch
 Patch1115: patch-stubdom-linux-cmdline.patch
 Patch1116: patch-xenstore-client-raw.patch
+
+Patch1200: patch-fix-errors-on-ambiguous-python-shebang.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
