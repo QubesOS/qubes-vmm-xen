@@ -104,9 +104,10 @@ Source36: @gui-common@
 # 500+:  Security fixes
 # 600+:  Upstreamable patches
 # 700+:  GCC7+ fixes
-# 800+:  vchan for stubdom:
+# 800+:  vchan for stubdom
 # 900+:  Support for Linux based stubdom
-# 1000+:  Qubes specific patches
+# 1000+: Qubes specific patches
+# 1100+: Others
 
 # Fedora
 
@@ -116,7 +117,6 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Security fixes
-
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
@@ -143,6 +143,8 @@ Patch627: patch-qemu-keyboard-leds.patch
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
+# GCC9 fixes
+Patch715: patch-xen.gcc9.fixes.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
