@@ -68,8 +68,8 @@ Source36: @gui-common@
 # 400+:  PVH backports
 # 500+:  Security fixes
 # 600+:  Upstreamable patches
-# 700+:  GCC7 fixes
-# 800+:  vchan for stubdom:
+# 700+:  GCC7+ fixes
+# 800+:  vchan for stubdom
 # 900+:  Qubes specific patches
 # 1000+: python3
 # 1100+: Support for Linux based stubdom
@@ -190,6 +190,8 @@ Patch711: patch-memfd-fix-configure-test.patch
 Patch712: patch-tools-xenpmd-fix-possible-0-truncation.patch
 Patch713: patch-tools-gdbsx-fix-Wstringop-truncation-warning.patch
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
+# GCC9 fixes
+Patch715: patch-xen.gcc9.fixes.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
