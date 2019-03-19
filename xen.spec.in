@@ -42,7 +42,7 @@
 %ifnarch x86_64 aarch64 %{ix86}
 %define build_efi 0
 %endif
-%if %build_efi && "%dist" < ".fc26"
+%if %build_efi && 0%{?fedora} < 26
 %ifarch x86_64
 %define efiming 1
 %else
@@ -51,11 +51,7 @@
 %else
 %define efiming 0
 %endif
-%if "%dist" >= ".fc20"
 %define with_systemd_presets 1
-%else
-%define with_systemd_presets 0
-%endif
 %define with_python2 1
 %define with_python3 1
 
@@ -394,9 +390,7 @@ Group: Documentation
 BuildArch: noarch
 Requires: xen-licenses
 # for the docs
-%if "%dist" >= ".fc18"
 BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
-%endif
 BuildRequires: transfig texi2html ghostscript texlive-latex
 BuildRequires: perl(Pod::Man) perl(Pod::Text) texinfo graphviz
 # optional requires for more documentation
