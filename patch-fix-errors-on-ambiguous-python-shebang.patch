@@ -1,0 +1,79 @@
+From a046b12a1c8a3ec5daf894bbd4299dfd3b9792a3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.pierret@qubes-os.org>
+Date: Sun, 17 Mar 2019 10:05:37 +0100
+Subject: [PATCH] Fix errors on ambiguous python shebangs
+
+Based on Fedora upstream
+---
+ tools/misc/xencov_split   | 2 +-
+ tools/pygrub/src/pygrub   | 2 +-
+ tools/python/Makefile     | 4 ++--
+ tools/python/install-wrap | 2 +-
+ tools/xenmon/Makefile     | 2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/tools/misc/xencov_split b/tools/misc/xencov_split
+index 1f20518b86..73286b1a4c 100755
+--- a/tools/misc/xencov_split
++++ b/tools/misc/xencov_split
+@@ -1,4 +1,4 @@
+-#!/usr/bin/python
++#!/usr/bin/python2
+ 
+ import sys, os, os.path as path, struct, errno
+ from optparse import OptionParser
+diff --git a/tools/pygrub/src/pygrub b/tools/pygrub/src/pygrub
+index 52a8965ad9..6a800d890b 100755
+--- a/tools/pygrub/src/pygrub
++++ b/tools/pygrub/src/pygrub
+@@ -1,4 +1,4 @@
+-#! /usr/bin/env python
++#!/usr/bin/python2
+ #
+ # pygrub - simple python-based bootloader for Xen
+ #
+diff --git a/tools/python/Makefile b/tools/python/Makefile
+index 541858e2f8..92418bdb17 100644
+--- a/tools/python/Makefile
++++ b/tools/python/Makefile
+@@ -20,8 +20,8 @@ install:
+ 		setup.py install --record $(INSTALL_LOG) $(PYTHON_PREFIX_ARG) \
+ 		--root="$(DESTDIR)" --force
+ 
+-	$(INSTALL_PROG) scripts/convert-legacy-stream $(DESTDIR)$(LIBEXEC_BIN)
+-	$(INSTALL_PROG) scripts/verify-stream-v2 $(DESTDIR)$(LIBEXEC_BIN)
++	$(INSTALL_PYTHON_PROG) scripts/convert-legacy-stream $(DESTDIR)$(LIBEXEC_BIN)
++	$(INSTALL_PYTHON_PROG) scripts/verify-stream-v2 $(DESTDIR)$(LIBEXEC_BIN)
+ 
+ .PHONY: uninstall
+ uninstall:
+diff --git a/tools/python/install-wrap b/tools/python/install-wrap
+index 00e2014016..fef24e0170 100755
+--- a/tools/python/install-wrap
++++ b/tools/python/install-wrap
+@@ -44,7 +44,7 @@ shift
+ destf="$dest"
+ for srcf in ${srcs}; do
+ 	if test -d "$dest"; then
+-		destf="$dest/${srcf%%*/}"
++		destf="$dest/${srcf##*/}"
+ 	fi
+ 	org="$(sed -n '2q; /^#! *\/usr\/bin\/env python *$/p' $srcf)"
+ 	if test "x$org" = x; then
+diff --git a/tools/xenmon/Makefile b/tools/xenmon/Makefile
+index e1712304d0..3e150b0659 100644
+--- a/tools/xenmon/Makefile
++++ b/tools/xenmon/Makefile
+@@ -32,7 +32,7 @@ install: build
+ 	$(INSTALL_DIR) $(DESTDIR)$(sbindir)
+ 	$(INSTALL_PROG) xenbaked $(DESTDIR)$(sbindir)/xenbaked
+ 	$(INSTALL_PROG) xentrace_setmask  $(DESTDIR)$(sbindir)/xentrace_setmask
+-	$(INSTALL_PROG) xenmon.py  $(DESTDIR)$(sbindir)/xenmon
++	$(INSTALL_PYTHON_PROG) xenmon.py  $(DESTDIR)$(sbindir)/xenmon
+ 
+ .PHONY: uninstall
+ uninstall:
+-- 
+2.20.1
+
