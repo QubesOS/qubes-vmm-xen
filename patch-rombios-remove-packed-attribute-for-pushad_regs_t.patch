@@ -1,0 +1,35 @@
+From 9df4c648d79f32946b65d5795c172a91d7d71cfe Mon Sep 17 00:00:00 2001
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Tue, 28 Aug 2018 14:56:38 +0100
+Subject: [PATCH] rombios: remove packed attribute for pushad_regs_t
+
+The structure already has explicitly padding.
+
+Removing the attribute silences a clang 6 warning:
+
+tcgbios.c:1519:34: error: taking address of packed member 'u' of class or structure 'pushad_regs_t' may result in an unaligned pointer value [-Werror,-Waddress-of-packed-member]
+                                                  ®s->u.r32.edx);
+                                                   ^~~~~~~~~~~~~~~
+
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ tools/firmware/rombios/32bit/rombios_compat.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/firmware/rombios/32bit/rombios_compat.h b/tools/firmware/rombios/32bit/rombios_compat.h
+index c0ae4151b5..3fe7d67721 100644
+--- a/tools/firmware/rombios/32bit/rombios_compat.h
++++ b/tools/firmware/rombios/32bit/rombios_compat.h
+@@ -52,7 +52,7 @@ typedef struct {
+     Bit16u filler4;
+     } r8;
+   } u;
+-} __attribute__((packed)) pushad_regs_t;
++} pushad_regs_t;
+ 
+ 
+ 
+-- 
+2.17.2
+

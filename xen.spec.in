@@ -193,6 +193,7 @@ Patch713: patch-tools-gdbsx-fix-Wstringop-truncation-warning.patch
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 # GCC9 fixes
 Patch715: patch-xen.gcc9.fixes.patch
+Patch716: patch-rombios-remove-packed-attribute-for-pushad_regs_t.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch

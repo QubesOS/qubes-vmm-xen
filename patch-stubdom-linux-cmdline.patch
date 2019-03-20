@@ -16,7 +16,7 @@
      int i;
      char *vm_path;
      char *dmargs, *path;
-+    const char arg_sep = linux_stubdom ? '\x1b' : ' ';
++    const char *arg_sep = linux_stubdom ? "\x1b" : " ";
      int dmargs_size;
      struct xs_permissions roperm[2];
      xs_transaction_t t;
@@ -37,13 +37,13 @@
 -            (strcmp(args[i], "-sdl") &&
 -             strcmp(args[i], "-M") && strcmp(args[i], "xenfv"))) {
 -            strcat(dmargs, " ");
-+        if (!strchr(args[i], arg_sep) &&
++        if (!strchr(args[i], arg_sep[0]) &&
 +            (linux_stubdom ||
 +             (strcmp(args[i], "-sdl") &&
 +              strcmp(args[i], "-M") && strcmp(args[i], "xenfv")))) {
              strcat(dmargs, args[i]);
 +            if (args[i + 1] != NULL) {
-+                strncat(dmargs, &arg_sep, 1);
++                strcat(dmargs, arg_sep);
 +            }
          }
          i++;
