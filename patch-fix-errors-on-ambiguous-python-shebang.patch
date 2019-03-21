@@ -41,15 +41,18 @@ diff --git a/tools/python/install-wrap b/tools/python/install-wrap
 index 00e2014016..fef24e0170 100755
 --- a/tools/python/install-wrap
 +++ b/tools/python/install-wrap
-@@ -44,7 +44,7 @@ shift
+@@ -44,9 +44,9 @@ shift
  destf="$dest"
  for srcf in ${srcs}; do
  	if test -d "$dest"; then
 -		destf="$dest/${srcf%%*/}"
 +		destf="$dest/${srcf##*/}"
  	fi
- 	org="$(sed -n '2q; /^#! *\/usr\/bin\/env python *$/p' $srcf)"
+-	org="$(sed -n '2q; /^#! *\/usr\/bin\/env python *$/p' $srcf)"
++	org="$(sed -n '2q; /^#! *\/usr\/bin\/\(env \)\?python *$/p' $srcf)"
  	if test "x$org" = x; then
+ 		eval "${install} $srcf $destf"
+ 		continue
 diff --git a/tools/xenmon/Makefile b/tools/xenmon/Makefile
 index e1712304d0..3e150b0659 100644
 --- a/tools/xenmon/Makefile
