@@ -1,3 +1,20 @@
+xen (2001:4.8.5-4) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Fix detecting PVH kernels
+  * rpm: export the same env variable during build and install
+
+  [ Frédéric Pierret (fepitre) ]
+  * Fix GCC9 warnings based on Fedora upstream patch
+  * Fix errors on ambiguous python shebangs
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: add fc30
+  * More fixes for build under gcc 9
+  * Adjust python path for scripts with #!/usr/bin/python too
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 22 Mar 2019 18:42:26 +0100
+
 xen (2001:4.8.5-3) wheezy; urgency=medium
 
   * Apply XSA-284, XSA-285, XSA-287, XSA-288, XSA-292
