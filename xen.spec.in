@@ -748,9 +748,9 @@ EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
 # FAT (on ESP) does not support symlinks
 # override the file on purpose
 if [ -d "/boot/efi${EFI_DIR}" ]; then
-  cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi${EFI_DIR}/xen.efi
+  cp -pf /boot/efi/EFI/qubes/xen-%{version}-%{release}.efi /boot/efi${EFI_DIR}/xen.efi
 else
-  cp -pf /boot/efi/EFI/qubes/xen-%{version}.efi /boot/efi/EFI/qubes/xen.efi
+  cp -pf /boot/efi/EFI/qubes/xen-%{version}-%{release}.efi /boot/efi/EFI/qubes/xen.efi
 fi
 %endif
 
