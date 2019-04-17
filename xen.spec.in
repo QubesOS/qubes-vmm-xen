@@ -217,6 +217,7 @@ Patch910: patch-vm-0001-hotplug-do-not-attempt-to-remove-containing-xenstore.pat
 Patch911: patch-xen-hotplug-qubesdb-update.patch
 Patch912: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
 Patch913: patch-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
+Patch914: patch-intel-undervolt.patch
 
 # python3
 Patch1001: patch-0001-python-check-return-value-of-PyErr_NewException.patch
@@ -300,10 +301,6 @@ BuildRequires: checkpolicy m4
 %if %build_crosshyp
 # cross compiler for building 64-bit hypervisor on ix86
 BuildRequires: gcc-x86_64-linux-gnu
-%endif
-# gcc with BTI mitigation, for dom0 build
-%if 0%{?fedora} == 25
-BuildRequires: gcc >= 6.4.1-1.qubes1
 %endif
 Requires: bridge-utils
 %if 0%{?fedora} >= 29

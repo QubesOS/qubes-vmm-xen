@@ -1,0 +1,33 @@
+Index: xen-4.8.5/xen/arch/x86/traps.c
+===================================================================
+--- xen-4.8.5.orig/xen/arch/x86/traps.c
++++ xen-4.8.5/xen/arch/x86/traps.c
+@@ -2684,6 +2684,15 @@ static int priv_op_write_msr(unsigned in
+             goto invalid;
+         return X86EMUL_OKAY;
+ 
++    // To-Do, restrict this to dom0 only
++    case MSR_IA32_VOLTAGE_OFFSET:
++    case MSR_IA32_TEMP_CONTROL:
++        if ( boot_cpu_data.x86_vendor != X86_VENDOR_INTEL )
++            break;
++        if ( wrmsr_safe(reg, val) == 0 )
++            return X86EMUL_OKAY;
++        break;
++
+     case MSR_IA32_MISC_ENABLE:
+         if ( rdmsr_safe(reg, temp) )
+             break;
+Index: xen-4.8.5/xen/include/asm-x86/msr-index.h
+===================================================================
+--- xen-4.8.5.orig/xen/include/asm-x86/msr-index.h
++++ xen-4.8.5/xen/include/asm-x86/msr-index.h
+@@ -346,6 +346,8 @@
+ #define MSR_IA32_THERM_INTERRUPT	0x0000019b
+ #define MSR_IA32_THERM_STATUS		0x0000019c
+ #define MSR_IA32_MISC_ENABLE		0x000001a0
++#define MSR_IA32_VOLTAGE_OFFSET		0x00000150
++#define MSR_IA32_TEMP_CONTROL		0x000001a2
+ #define MSR_IA32_MISC_ENABLE_PERF_AVAIL   (1<<7)
+ #define MSR_IA32_MISC_ENABLE_BTS_UNAVAIL  (1<<11)
+ #define MSR_IA32_MISC_ENABLE_PEBS_UNAVAIL (1<<12)
