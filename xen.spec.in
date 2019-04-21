@@ -306,6 +306,7 @@ BuildRequires: OVMF
 %else
 BuildRequires: edk2-ovmf
 %endif
+Requires: seabios-bin
 
 %description
 This package contains the XenD daemon and xm command line
