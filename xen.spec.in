@@ -134,6 +134,7 @@ Patch622: patch-minios-ignore-close-0.patch
 Patch624: patch-qemu-docs-utf8.patch
 Patch625: patch-minios-remove-net-device-instead-of-preparing-for-re.patch
 Patch627: patch-qemu-keyboard-leds.patch
+Patch628: patch-python-Adjust-xc_physinfo-wrapper-for-updated-virt_c.patch
 
 # GCC7 fixes
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
