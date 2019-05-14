@@ -1,3 +1,9 @@
+xen (2001:4.8.5-6) unstable; urgency=medium
+
+  * Apply XSA-297 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 15 May 2019 01:08:52 +0200
+
 xen (2001:4.8.5-5) unstable; urgency=medium
 
   [ M. Vefa Bicakci ]
