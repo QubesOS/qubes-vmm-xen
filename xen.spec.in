@@ -145,6 +145,14 @@ Patch501: patch-xsa285-4.11.patch
 Patch502: patch-xsa287-4.8.patch
 Patch503: patch-xsa288-4.8.patch
 Patch504: patch-xsa292.patch
+Patch505: patch-xsa297-4.8-1.patch
+Patch506: patch-xsa297-4.8-2.patch
+Patch507: patch-xsa297-4.8-3.patch
+Patch508: patch-xsa297-4.8-4.patch
+Patch509: patch-xsa297-4.8-5.patch
+Patch510: patch-xsa297-4.8-6.patch
+Patch511: patch-xsa297-4.8-7.patch
+Patch512: patch-xsa297-4.8-8.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
