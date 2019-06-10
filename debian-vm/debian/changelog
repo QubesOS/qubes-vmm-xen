@@ -1,3 +1,11 @@
+xen (4.12.0-2) unstable; urgency=medium
+
+  * Fix xc_physinfo python wrapper
+  * Remove obsolete patches from series-vm.conf
+  * Abort the major upgrade if any VM is running
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 10 Jun 2019 17:20:02 +0200
+
 xen (4.12.0-1) wheezy; urgency=medium
 
   * Revert "hvm: Use our SeaBIOS build"
