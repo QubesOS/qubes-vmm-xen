@@ -182,6 +182,11 @@ Patch624: patch-qemu-docs-utf8.patch
 Patch625: patch-minios-remove-net-device-instead-of-preparing-for-re.patch
 Patch626: patch-xenconsole-sanitize-ESC-in-log.patch
 Patch627: patch-qemu-keyboard-leds.patch
+Patch629: patch-0001-bitmap-fix-bitmap_fill-with-zero-sized-bitmap.patch
+Patch630: patch-0002-drivers-video-drop-unused-limits.patch
+Patch631: patch-0003-drivers-video-drop-framebuffer-size-constraints.patch
+Patch632: patch-0004-drivers-video-use-vlfb_info-consistently.patch
+Patch633: patch-0005-video-fix-handling-framebuffer-located-above-4GB.patch
 
 # GCC7 fixes
 Patch701: patch-0001-tools-include-sys-sysmacros.h-on-Linux.patch

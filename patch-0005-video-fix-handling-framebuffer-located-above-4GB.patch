@@ -1,0 +1,129 @@
+From 9cf11fdcd91ff8e9cd038f8336cf21f0701e8b7b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 17 May 2019 14:48:23 +0200
+Subject: [PATCH] video: fix handling framebuffer located above 4GB
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+On some machines (for example Thinkpad P52), UEFI GOP reports
+framebuffer located above 4GB (0x4000000000 on that machine). This
+address does not fit in {xen,dom0}_vga_console_info.u.vesa_lfb.lfb_base
+field, which is 32bit. The overflow here cause all kind of memory
+corruption when anything tries to write something on the screen,
+starting with zeroing the whole framebuffer in vesa_init().
+
+Fix this similar to how it's done in Linux: add ext_lfb_base field at
+the end of the structure, to hold upper 32bits of the address. Since the
+field is added at the end of the structure, it will work with older
+Linux versions too (other than using possibly truncated address - no
+worse than without this change). Thanks to ABI containing size of the
+structure (start_info.console.dom0.info_size), Linux can detect when
+this field is present and use it appropriately then.
+
+Since this change public interface and use __XEN_INTERFACE_VERSION__,
+bump __XEN_LATEST_INTERFACE_VERSION__.
+
+Note: if/when backporting this change to Xen <= 4.12, #if in xen.h needs
+to be extended with " || defined(__XEN__)".
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/efi/efi-boot.h     |  1 +
+ xen/drivers/video/vesa.c        | 14 +++++++++-----
+ xen/include/public/xen-compat.h |  2 +-
+ xen/include/public/xen.h        |  5 +++++
+ 4 files changed, 16 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/efi/efi-boot.h b/xen/arch/x86/efi/efi-boot.h
+index 5789d2cb70..7a13a30bc0 100644
+--- a/xen/arch/x86/efi/efi-boot.h
++++ b/xen/arch/x86/efi/efi-boot.h
+@@ -550,6 +550,7 @@ static void __init efi_arch_video_init(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop,
+         vga_console_info.u.vesa_lfb.bytes_per_line =
+             (mode_info->PixelsPerScanLine * bpp + 7) >> 3;
+         vga_console_info.u.vesa_lfb.lfb_base = gop->Mode->FrameBufferBase;
++        vga_console_info.u.vesa_lfb.ext_lfb_base = gop->Mode->FrameBufferBase >> 32;
+         vga_console_info.u.vesa_lfb.lfb_size =
+             (gop->Mode->FrameBufferSize + 0xffff) >> 16;
+     }
+diff --git a/xen/drivers/video/vesa.c b/xen/drivers/video/vesa.c
+index 26d4962b0e..fd2cb1312d 100644
+--- a/xen/drivers/video/vesa.c
++++ b/xen/drivers/video/vesa.c
+@@ -40,6 +40,11 @@ static int __init parse_font_height(const char *s)
+ }
+ custom_param("font", parse_font_height);
+ 
++static inline paddr_t lfb_base(void)
++{
++    return ((paddr_t)vlfb_info.ext_lfb_base << 32) | vlfb_info.lfb_base;
++}
++
+ void __init vesa_early_init(void)
+ {
+     unsigned int vram_vmode;
+@@ -97,15 +102,14 @@ void __init vesa_init(void)
+     lfbp.text_columns = vlfb_info.width / font->width;
+     lfbp.text_rows = vlfb_info.height / font->height;
+ 
+-    lfbp.lfb = lfb = ioremap(vlfb_info.lfb_base, vram_remap);
++    lfbp.lfb = lfb = ioremap(lfb_base(), vram_remap);
+     if ( !lfb )
+         return;
+ 
+     memset(lfb, 0, vram_remap);
+ 
+-    printk(XENLOG_INFO "vesafb: framebuffer at %#x, mapped to 0x%p, "
+-           "using %uk, total %uk\n",
+-           vlfb_info.lfb_base, lfb,
++    printk(XENLOG_INFO "vesafb: framebuffer at 0x%" PRIpaddr ", mapped to 0x%p, using %uk, total %uk\n",
++           lfb_base(), lfb,
+            vram_remap >> 10, vram_total >> 10);
+     printk(XENLOG_INFO "vesafb: mode is %dx%dx%u, linelength=%d, font %ux%u\n",
+            vlfb_info.width, vlfb_info.height,
+@@ -167,7 +171,7 @@ void __init vesa_mtrr_init(void)
+ 
+     /* Try and find a power of two to add */
+     do {
+-        rc = mtrr_add(vlfb_info.lfb_base, size_total, type, 1);
++        rc = mtrr_add(lfb_base(), size_total, type, 1);
+         size_total >>= 1;
+     } while ( (size_total >= PAGE_SIZE) && (rc == -EINVAL) );
+ }
+diff --git a/xen/include/public/xen-compat.h b/xen/include/public/xen-compat.h
+index 6fabca1889..6708132394 100644
+--- a/xen/include/public/xen-compat.h
++++ b/xen/include/public/xen-compat.h
+@@ -27,7 +27,7 @@
+ #ifndef __XEN_PUBLIC_XEN_COMPAT_H__
+ #define __XEN_PUBLIC_XEN_COMPAT_H__
+ 
+-#define __XEN_LATEST_INTERFACE_VERSION__ 0x00040800
++#define __XEN_LATEST_INTERFACE_VERSION__ 0x00040d00
+ 
+ #if defined(__XEN__) || defined(__XEN_TOOLS__)
+ /* Xen is built with matching headers and implements the latest interface. */
+diff --git a/xen/include/public/xen.h b/xen/include/public/xen.h
+index ccdffc0ad1..cb2917e74b 100644
+--- a/xen/include/public/xen.h
++++ b/xen/include/public/xen.h
+@@ -922,6 +922,11 @@ typedef struct dom0_vga_console_info {
+             uint32_t gbl_caps;
+             /* Mode attributes (offset 0x0, VESA command 0x4f01). */
+             uint16_t mode_attrs;
++            uint16_t pad;
++#endif
++#if __XEN_INTERFACE_VERSION__ >= 0x00040d00 || defined(__XEN__)
++            /* high 32 bits of lfb_base */
++            uint32_t ext_lfb_base;
+ #endif
+         } vesa_lfb;
+     } u;
+-- 
+2.20.1
