@@ -1,3 +1,9 @@
+xen (2001:4.8.5-7) unstable; urgency=medium
+
+  * Apply fixes for framebuffer placed over 4GB
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 28 Jun 2019 15:02:44 +0200
+
 xen (2001:4.8.5-6) unstable; urgency=medium
 
   * Apply XSA-297 patches
