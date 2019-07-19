@@ -1,0 +1,45 @@
+<!--
+## Copyright (C) 2010 - 2019 Qubes Contributors
+## See the file COPYING for copying conditions.
+-->
+<!--
+EDITORS NOTE:
+Please do not use relative links here, because this file is mirrored on github
+https://github.com/QubesOS/qubes-vmm-xen/blob/master/README.mediawiki
+and relative links won't work there.
+-->
+__TOC__
+= About Qubes VMM Xen =
+
+Virtualisation in Qubes is performed by Xen. Xen project creates a virtual
+machine monitor also knows as hypervisor.
+
+Several Xen libraries are required for Qubes. The ''xenstore'' commands should
+work before anything else. For this, Qubes git can be used as several patches
+are present impacting activity inside a VM. Say for ''archlinux'' the PKGBUILD
+file is present in the ''vmm-xen'' repository. After the package is succesffuly
+compiled and installed you should setup XEN filesystem.
+
+Find more information about [https://www.qubes-os.org/doc/disposablevm/ xenstore
+and DisposableVM].
+
+<img src="https://www.qubes-os.org/attachment/wiki/posts/qubes-components.png" alt="Qubes Components">
+
+= Building qubes-vmm-xen =
+
+You can build the entire qubes components as ''make qubes-vm''. The individual
+component ''make'' command is ''make vmm-xen''.
+
+You can find qube-builder [https://www.qubes-os.org/doc/qubes-builder-details/ documentation].
+
+= Build Status =
+<!--
+EDITORS NOTE:
+Please do not fix the picture links with html tags.
+-->
+
+* Status: <img src=https://travis-ci.com/QubesOS/qubes-vmm-xen.svg?branch=xen-4.6 alt="loading..."> | Branch: release3.2 (Qubes VMM Xen Package 3.2)
+
+* Status <img src="https://travis-ci.com/QubesOS/qubes-vmm-xen.svg?branch=xen-4.8" alt="loading..."> | Branch: release4.0 (Qubes VMM Xen Package 4.0)
+
+* Status <img src="https://travis-ci.com/QubesOS/qubes-vmm-xen.svg?branch=master" alt="loading..."> | Branch: master (Qubes VMM Xen Package)
