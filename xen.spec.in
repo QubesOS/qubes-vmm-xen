@@ -147,6 +147,7 @@ Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 # GCC9 fixes
 Patch715: patch-xen.gcc9.fixes.patch
+Patch716: patch-python-fix-Wsign-compare-warnings.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
