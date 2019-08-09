@@ -241,6 +241,8 @@ Patch1005: patch-0005-python-use-PyBytes-PyUnicode-instead-of-PyString.patch
 Patch1006: patch-0006-python-use-PyLong_-for-constructing-int-type-in-Pyth.patch
 Patch1007: patch-0007-python-adjust-module-initalization-for-Python3.patch
 Patch1008: patch-0008-python-handle-long-type-in-scripts.patch
+# GCC9 fix, applied over python3
+Patch1017: patch-python-fix-Wsign-compare-warnings.patch
 
 # Support for Linux based stubdom
 Patch1101: patch-stubdom-linux-0004.patch
