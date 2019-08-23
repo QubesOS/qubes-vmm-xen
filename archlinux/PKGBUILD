@@ -25,7 +25,7 @@ options=()
 install=
 changelog=
 
-source=(xen-$pkgver.tar.gz series-vm.conf apply-patches)
+source=(xen-$pkgver.tar.gz series-archlinux.conf series-common.conf apply-patches)
 
 noextract=()
 md5sums=() #generate with 'makepkg -g'
@@ -39,7 +39,8 @@ build() {
 
   for p in $srcdir/../patch-*; do ln -s $p; done
   
-  $srcdir/apply-patches $srcdir/series-vm.conf .  
+  $srcdir/apply-patches $srcdir/series-archlinux.conf .  
+  $srcdir/apply-patches $srcdir/series-common.conf .  
 
   export XEN_VENDORVERSION="-$pkgrel"
   export OCAML_TOOLS=n
@@ -53,10 +54,6 @@ build() {
               --disable-blktap2
 
 #  make prefix=/usr dist-xen
-
-  # Work around due to a GCC bug creating a warning: /usr/include/bits/string_fortified.h:106:10: error: '__builtin_strncpy' specified bound 16 equals destination size [-Werror=stringop-truncation]
-  sed -i 's/-Werror//g' ./tools/libxc/Makefile
-  
   make prefix=/usr dist-tools
 #  make prefix=/usr dist-docs
 

@@ -57,6 +57,7 @@ endif
 
 get-sources: $(ALL_FILES)
 	git submodule update --init --recursive
+	./generate_rpm_spec_patch_section.sh
 
 keyring := vmm-xen-trustedkeys.gpg
 keyring-file := $(if $(GNUPGHOME), $(GNUPGHOME)/, $(HOME)/.gnupg/)$(keyring)
