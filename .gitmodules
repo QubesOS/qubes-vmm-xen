@@ -6,4 +6,4 @@
 	url = git://github.com/QubesOS/qubes-gui-common
 [submodule "core-vchan-xen"]
 	path = core-vchan-xen
-	url = git://github.com/QubesOS/qubes-core-vchan-xen
+	url = git://github.com/neowutran/qubes-core-vchan-xen
