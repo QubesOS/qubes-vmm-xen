@@ -263,6 +263,7 @@ Patch1115: patch-stubdom-linux-cmdline.patch
 Patch1116: patch-xenstore-client-raw.patch
 
 Patch1200: patch-fix-errors-on-ambiguous-python-shebang.patch
+Patch1201: patch-xen-acpi-slic-support.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: transfig libidn-devel zlib-devel texi2html SDL-devel curl-devel
