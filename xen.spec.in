@@ -565,7 +565,8 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --with-system-ovmf=/usr/lib/xen/boot/ovmf.bin \
     --enable-vtpm-stubdom \
     --enable-vtpmmgr-stubdom \
-    --with-extra-qemuu-configure-args="--disable-spice"
+    --with-extra-qemuu-configure-args="--disable-spice" \
+    --disable-blktap2
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
@@ -919,26 +920,15 @@ rm -rf %{buildroot}
 %{_bindir}/pygrub
 %{_bindir}/xentrace*
 /usr/lib/%{name}/bin/init-xenstore-domain
-#%%{_bindir}/remus
-# blktap daemon
-%{_sbindir}/tapdisk*
 # XSM
 %if %build_xsm
 %{_sbindir}/flask-*
 %endif
-# Disk utils
-%{_sbindir}/qcow-create
-%{_sbindir}/qcow2raw
-%{_sbindir}/img2qcow
 # Misc stuff
 %{_bindir}/xen-detect
 %{_bindir}/xencov_split
 %{_sbindir}/gdbsx
 %{_sbindir}/kdd
-%{_sbindir}/lock-util
-%{_sbindir}/tap-ctl
-%{_sbindir}/td-util
-%{_sbindir}/vhd-*
 %{_sbindir}/xen-bugtool
 %{_sbindir}/xen-hptool
 %{_sbindir}/xen-hvmcrash
