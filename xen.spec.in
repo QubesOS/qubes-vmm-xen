@@ -4,7 +4,7 @@
 %define with_xsm 0
 %define build_xsm 0
 # cross compile 64-bit hypervisor on ix86 unless rpmbuild was run
-#	with --without crosshyp
+# with --without crosshyp
 %define build_crosshyp %{?_without_crosshyp: 0} %{?!_without_crosshyp: 1}
 %ifnarch %{ix86}
 %define build_crosshyp 0
@@ -29,7 +29,7 @@
 %define with_python3 1
 
 # Hypervisor ABI
-%define hv_abi  4.8
+%define hv_abi 4.8
 
 Summary: Xen is a virtual machine monitor
 Name:    xen
@@ -446,7 +446,6 @@ Group: Development/Libraries
 Requires: xen-libs = %{version}-%{release}
 Requires: libuuid-devel
 Provides: xen-devel = %{version}-%{release}
-Obsoletes: xen-qubes-vm-devel
 
 %description devel
 This package contains what's needed to develop applications
@@ -494,7 +493,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 %package qemu-tools
 Summary: Qemu disk tools bundled with Xen
 Requires: xen-hvm = %{version}-%{release}
-Provides: qemu-img
+Provides: qemu-img = 0.10.2
 Conflicts: qemu-img
 
 %description qemu-tools
@@ -659,7 +658,7 @@ for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
          pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
          vgabios.bin vgabios-cirrus.bin video.x openbios-ppc bamboo.dtb
 do
-	rm -f %{buildroot}/%{_datadir}/xen/qemu/$file
+    rm -f %{buildroot}/%{_datadir}/xen/qemu/$file
 done
 rm -f %{buildroot}/usr/libexec/qemu-bridge-helper
 
