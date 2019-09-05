@@ -28,6 +28,8 @@
 %define with_python2 1
 %define with_python3 1
 
+%define _missing_build_ids_terminate_build 0
+
 # Hypervisor ABI
 %define hv_abi 4.8
 
