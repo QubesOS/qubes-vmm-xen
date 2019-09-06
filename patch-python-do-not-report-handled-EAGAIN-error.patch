@@ -1,0 +1,46 @@
+From 944d5e53fa4d77dc98d7b7e8a580f939a66e2212 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 20 Aug 2019 00:54:04 +0200
+Subject: [PATCH] python: do not report handled EAGAIN error
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+match_watch_by_token() when returns an error, sets also exception within
+python. This is generally the right thing to do, but when
+xspy_read_watch() handle EAGAIN error internally, the exception needs to
+be cleared. Otherwise it will fail like this:
+
+    xen.lowlevel.xs.Error: (11, 'Resource temporarily unavailable')
+
+    The above exception was the direct cause of the following exception:
+
+    Traceback (most recent call last):
+      (...)
+        result = self.handle.read_watch()
+    SystemError: <method 'read_watch' of 'xen.lowlevel.xs.xs' objects> returned a result with an error set
+
+Fixes f6e1023412 "python: Extract registered watch search logic from xspy_read_watch()"
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/python/xen/lowlevel/xs/xs.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/python/xen/lowlevel/xs/xs.c b/tools/python/xen/lowlevel/xs/xs.c
+index ea50f86bc3..621039d7a7 100644
+--- a/tools/python/xen/lowlevel/xs/xs.c
++++ b/tools/python/xen/lowlevel/xs/xs.c
+@@ -531,6 +531,7 @@ again:
+     free(xsval);
+ 
+     if (!val && errno == EAGAIN) {
++        PyErr_Clear();
+         goto again;
+     }
+ 
+-- 
+2.20.1
+
