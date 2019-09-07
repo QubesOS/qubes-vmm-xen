@@ -728,17 +728,11 @@ done
 
 ############ all done now ############
 
-%postun
-%systemd_postun
-
 %post runtime
 %systemd_post xenstored.service xenconsoled.service xen-init-dom0.service
 
 %preun runtime
 %systemd_preun xenstored.service xenconsoled.service xen-init-dom0.service
-
-%postun runtime
-%systemd_postun
 
 %pretrans -p <lua> runtime
 -- prevent major upgrade if any VM is running - it will be impossible to shut
@@ -770,9 +764,6 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 
 %preun qubes-vm
 %systemd_preun xendriverdomain.service
-
-%postun qubes-vm
-%systemd_postun
 
 %post libs
 
@@ -845,9 +836,6 @@ fi
 
 %preun ocaml
 %systemd_preun oxenstored.service
-
-%postun ocaml
-%systemd_postun
 %endif
 
 %clean
