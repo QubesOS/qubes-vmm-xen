@@ -135,9 +135,6 @@ Patch624: patch-qemu-docs-utf8.patch
 Patch625: patch-minios-remove-net-device-instead-of-preparing-for-re.patch
 Patch627: patch-qemu-keyboard-leds.patch
 Patch628: patch-python-Adjust-xc_physinfo-wrapper-for-updated-virt_c.patch
-Patch629: patch-0001-bitmap-fix-bitmap_fill-with-zero-sized-bitmap.patch
-Patch630: patch-0002-drivers-video-drop-unused-limits.patch
-Patch631: patch-0003-drivers-video-drop-framebuffer-size-constraints.patch
 Patch632: patch-0004-drivers-video-use-vlfb_info-consistently.patch
 Patch633: patch-0005-video-fix-handling-framebuffer-located-above-4GB.patch
 Patch634: patch-python-do-not-report-handled-EAGAIN-error.patch
@@ -147,7 +144,6 @@ Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 # GCC9 fixes
-Patch715: patch-xen.gcc9.fixes.patch
 Patch716: patch-python-fix-Wsign-compare-warnings.patch
 
 # vchan for stubdom:
