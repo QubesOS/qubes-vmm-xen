@@ -1,3 +1,20 @@
+xen (2001:4.8.5-8) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Fix -Wsign-compare warning
+
+  [ Yukikoo ]
+  * Add GCC patch to fix archlinux template building
+
+  [ Ivan Kardykov ]
+  * add patch from OpenXT to additional support in ACPI builder to apply
+    SLIC and OEM installs
+
+  [ Frédéric Pierret (fepitre) ]
+  * Fix build for bullseye
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 07 Sep 2019 13:43:45 +0200
+
 xen (2001:4.8.5-7) unstable; urgency=medium
 
   * Apply fixes for framebuffer placed over 4GB
