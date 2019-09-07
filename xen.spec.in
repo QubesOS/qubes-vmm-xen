@@ -727,8 +727,6 @@ done
 %preun runtime
 %systemd_preun xenstored.service xenconsoled.service
 
-%postun runtime
-%systemd_postun
 
 %post qubes-vm
 # Unconditionally enable this service in Qubes VM
@@ -736,9 +734,6 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 
 %preun qubes-vm
 %systemd_preun xendriverdomain.service
-
-%postun qubes-vm
-%systemd_postun
 
 %post libs
 
@@ -810,9 +805,6 @@ fi
 
 %preun ocaml
 %systemd_preun oxenstored.service
-
-%postun ocaml
-%systemd_postun
 %endif
 
 %clean
