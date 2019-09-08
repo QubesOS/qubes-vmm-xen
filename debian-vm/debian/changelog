@@ -1,3 +1,13 @@
+xen (2001:4.8.5-9) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * travis: add bullseye and drop old Fedoras
+
+  [ Frédéric Pierret (fepitre) ]
+  * spec: drop systemd_postun
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 08 Sep 2019 16:29:59 +0200
+
 xen (2001:4.8.5-8) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
