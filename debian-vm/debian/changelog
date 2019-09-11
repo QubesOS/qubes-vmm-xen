@@ -1,3 +1,13 @@
+xen (2001:4.8.5-10) wheezy; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * spec: remove old constraint and fix qemu-img provided by xen
+  * spec: disable blktap2
+  * spec: don't fail on missing build-ids
+  * travis: add Fedora 31
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 11 Sep 2019 21:35:02 +0200
+
 xen (2001:4.8.5-9) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
