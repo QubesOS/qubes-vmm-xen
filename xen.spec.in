@@ -769,9 +769,6 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 
 /sbin/ldconfig
 
-# reload libxl library
-systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
-
 %ldconfig_scriptlets libs
 
 %if %build_hyp
@@ -837,6 +834,10 @@ fi
 %preun ocaml
 %systemd_preun oxenstored.service
 %endif
+
+%posttrans libs
+# reload libxl library
+systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
 
 %clean
 rm -rf %{buildroot}
