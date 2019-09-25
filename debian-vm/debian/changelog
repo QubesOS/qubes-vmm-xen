@@ -1,3 +1,13 @@
+xen (4.12.1-2) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * spec: drop systemd_postun
+
+  [ Marek Marczykowski-Górecki ]
+  * rpm: move libvirtd restart to posttrans
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 25 Sep 2019 05:22:05 +0200
+
 xen (4.12.1-1) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
