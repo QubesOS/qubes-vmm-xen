@@ -46,9 +46,6 @@ Source36: @gui-common@
 # Fedora
 
 # EFI workarounds
-Patch201: patch-0001-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServices.patch
-Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
-Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Security fixes
 
@@ -73,8 +70,6 @@ Patch624: patch-qemu-docs-utf8.patch
 Patch625: patch-minios-remove-net-device-instead-of-preparing-for-re.patch
 Patch627: patch-qemu-keyboard-leds.patch
 Patch628: patch-python-Adjust-xc_physinfo-wrapper-for-updated-virt_c.patch
-Patch632: patch-0004-drivers-video-use-vlfb_info-consistently.patch
-Patch633: patch-0005-video-fix-handling-framebuffer-located-above-4GB.patch
 Patch634: patch-python-do-not-report-handled-EAGAIN-error.patch
 
 # GCC7 fixes
