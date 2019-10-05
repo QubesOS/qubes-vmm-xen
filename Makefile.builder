@@ -1,5 +1,5 @@
 ifeq ($(PACKAGE_SET),dom0)
-  RPM_SPEC_FILES := xen.spec
+  RPM_SPEC_FILES := xen.spec xen-hvm-stubdom-legacy.spec
 
 else ifeq ($(PACKAGE_SET),vm)
   ARCH_BUILD_DIRS := archlinux
@@ -30,7 +30,7 @@ $(INCLUDED_SOURCES): VERSION=$(shell git -C $(ORIG_SRC)/$(PACKAGE) rev-parse --s
 $(INCLUDED_SOURCES):
 	$(BUILDER_DIR)/scripts/create-archive $(CHROOT_DIR)/$(DIST_SRC)/$(PACKAGE) $(PACKAGE)-$(VERSION).tar.gz $(PACKAGE)/
 	mv $(CHROOT_DIR)/$(DIST_SRC)/$(PACKAGE)/$(PACKAGE)-$(VERSION).tar.gz $(CHROOT_DIR)/$(DIST_SRC)
-	sed -i "s#@$(PACKAGE)@#$(PACKAGE)-$(VERSION).tar.gz#" $(CHROOT_DIR)/$(DIST_SRC)/xen.spec.in
+	sed -i "s#@$(PACKAGE)@#$(PACKAGE)-$(VERSION).tar.gz#" $(CHROOT_DIR)/$(DIST_SRC)/xen-hvm-stubdom-legacy.spec.in
 
 source-debian-xen-copy-in: VERSION = $(shell cat $(ORIG_SRC)/version)
 source-debian-xen-copy-in: ORIG_FILE = "$(CHROOT_DIR)/$(DIST_SRC)/xen_$(subst -,~,$(VERSION)).orig.tar.gz"
