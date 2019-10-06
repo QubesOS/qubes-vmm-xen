@@ -29,7 +29,7 @@ index 2d97dc5ecd..522cbe3b9c 100644
 @@ -972,11 +972,17 @@ static PyObject *pyxc_physinfo(XcObject *self)
      xc_physinfo_t pinfo;
      char cpu_cap[128], virt_caps[128], *p;
-     int i;
+     unsigned int i;
 -    const char *virtcap_names[] = { "hvm", "hvm_directio" };
 +    const char *virtcap_names[] = { "hvm", "pv" };
 +    const unsigned virtcaps_bits[] = { XEN_SYSCTL_PHYSCAP_hvm,

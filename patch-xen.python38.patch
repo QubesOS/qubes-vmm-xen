@@ -1,0 +1,94 @@
+--- xen-4.12.0/m4/python_devel.m4.orig	2019-05-31 23:30:42.489738121 +0100
++++ xen-4.12.0/m4/python_devel.m4	2019-06-01 17:02:38.886934441 +0100
+@@ -24,7 +24,8 @@
+     dnl If python-config is found use it
+     CPPFLAGS="$CFLAGS `$PYTHON-config --cflags`"
+     LDFLAGS="$LDFLAGS `$PYTHON-config --ldflags`"
+-    LIBS="$LIBS `$PYTHON-config --libs`"
++    LIBSTMP="`$PYTHON-config --libs --embed`" || LIBSTMP="`$PYTHON-config --libs`"
++    LIBS="$LIBS $LIBSTMP"
+ ])
+ 
+ AC_CHECK_HEADER([Python.h], [],
+--- xen-4.12.0/tools/configure.orig	2019-05-31 23:30:42.498738452 +0100
++++ xen-4.12.0/tools/configure	2019-06-01 17:08:26.100727658 +0100
+@@ -7482,7 +7482,8 @@
+ 
+         CPPFLAGS="$CFLAGS `$PYTHON-config --cflags`"
+     LDFLAGS="$LDFLAGS `$PYTHON-config --ldflags`"
+-    LIBS="$LIBS `$PYTHON-config --libs`"
++    LIBSTMP="`$PYTHON-config --libs --embed`" || LIBSTMP="`$PYTHON-config --libs`"
++    LIBS="$LIBS $LIBSTMP"
+ 
+ fi
+ 
+--- xen-4.12.0/tools/python/xen/lowlevel/xc/xc.c.orig	2019-04-01 12:03:23.000000000 +0100
++++ xen-4.12.0/tools/python/xen/lowlevel/xc/xc.c	2019-06-01 17:58:39.567729630 +0100
+@@ -118,7 +118,8 @@
+                                     PyObject *kwds)
+ {
+     uint32_t dom = 0, target = 0;
+-    int      ret, i;
++    int      ret;
++    unsigned int i;
+     PyObject *pyhandle = NULL;
+     struct xen_domctl_createdomain config = {
+         .handle = {
+@@ -296,7 +297,7 @@
+ 
+ static PyObject *pyxc_domain_sethandle(XcObject *self, PyObject *args)
+ {
+-    int i;
++    unsigned int i;
+     uint32_t dom;
+     PyObject *pyhandle;
+     xen_domain_handle_t handle;
+@@ -337,7 +338,8 @@
+     PyObject *list, *info_dict, *pyhandle;
+ 
+     uint32_t first_dom = 0;
+-    int max_doms = 1024, nr_doms, i, j;
++    int max_doms = 1024, nr_doms, i;
++    unsigned int j;
+     xc_dominfo_t *info;
+ 
+     static char *kwd_list[] = { "first_dom", "max_doms", NULL };
+@@ -632,7 +634,8 @@
+ {
+     uint32_t sbdf;
+     uint32_t max_sdevs, num_sdevs;
+-    int domid, seg, bus, dev, func, rc, i;
++    int domid, seg, bus, dev, func, rc;
++    unsigned int i;
+     PyObject *Pystr;
+     char *group_str;
+     char dev_str[9];
+@@ -972,7 +975,7 @@
+ {
+     xc_physinfo_t pinfo;
+     char cpu_cap[128], virt_caps[128], *p;
+-    int i;
++    unsigned int i;
+     const char *virtcap_names[] = { "hvm", "hvm_directio" };
+ 
+     if ( xc_physinfo(self->xc_handle, &pinfo) != 0 )
+--- xen-4.12.0/tools/python/xen/lowlevel/xs/xs.c.orig	2019-04-01 12:03:23.000000000 +0100
++++ xen-4.12.0/tools/python/xen/lowlevel/xs/xs.c	2019-06-01 18:59:46.316760561 +0100
+@@ -186,7 +186,7 @@
+     Py_END_ALLOW_THREADS
+ 
+     if (xsval) {
+-        int i;
++        unsigned int i;
+         PyObject *val = PyList_New(xsval_n);
+         for (i = 0; i < xsval_n; i++)
+ #if PY_MAJOR_VERSION >= 3
+@@ -276,7 +276,7 @@
+     struct xs_handle *xh = xshandle(self);
+     struct xs_permissions *perms;
+     unsigned int perms_n = 0;
+-    int i;
++    unsigned int i;
+ 
+     xs_transaction_t th;
+     char *thstr;
