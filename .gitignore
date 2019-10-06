@@ -5,3 +5,4 @@
 *.sign
 xen-?.?.?/
 deb/
+pkgs/
