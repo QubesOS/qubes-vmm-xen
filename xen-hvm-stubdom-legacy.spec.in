@@ -30,34 +30,8 @@ Source34: @core-vchan-xen@
 Source35: @stubdom-dhcp@
 Source36: @gui-common@
 
-# Out-of-tree patches.
-#
-# Use the following patch numbers:
-# 100+:  Fedora
-# 200+:  EFI workarounds
-# 500+:  Security fixes
-# 600+:  Upstreamable patches
-# 700+:  GCC7+ fixes
-# 800+:  vchan for stubdom
-# 900+:  Support for Linux based stubdom
-# 1000+: Qubes specific patches
-# 1100+: Others
-
-# Fedora
-
-# EFI workarounds
-
-# Security fixes
-
-# Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
-#TODO: simplified script instead:
-# Patch604: patch-libxl-Revert-libxl-Remove-redundant-setting-of-phyical-dev.patch
-# Patch605: patch-libxl-allow-PHY-backend-for-files-allocate-loop-devi.patch
-# Patch606: patch-libxl-do-not-call-default-block-script.patch
-Patch607: patch-libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
 Patch610: patch-stubdom-gmp-compile-fix.patch
-Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch615: patch-hvmpt01-minios-exprom-size.patch
 Patch616: patch-hvmpt02-disable-msix-caps.patch
 Patch617: patch-hvmpt03-passthrough-log.patch
@@ -69,15 +43,6 @@ Patch622: patch-minios-ignore-close-0.patch
 Patch624: patch-qemu-docs-utf8.patch
 Patch625: patch-minios-remove-net-device-instead-of-preparing-for-re.patch
 Patch627: patch-qemu-keyboard-leds.patch
-Patch628: patch-python-Adjust-xc_physinfo-wrapper-for-updated-virt_c.patch
-Patch634: patch-python-do-not-report-handled-EAGAIN-error.patch
-
-# GCC7 fixes
-Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
-# GCC8 fixes
-Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
-# GCC9 fixes
-Patch716: patch-python-fix-Wsign-compare-warnings.patch
 
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
@@ -86,57 +51,9 @@ Patch804: patch-0103-minios-implement-gntalloc-interface.patch
 Patch805: patch-0104-libxc-implement-gntshr-for-minios.patch
 Patch806: patch-0105-stubdom-make-libvchan-available-in-stubdom.patch
 
-# Support for Linux based stubdom
-#    patch-stubdom-linux-v3-0000-cover-letter.patch
-Patch900: patch-stubdom-linux-v3-0001-Document-ioemu-MiniOS-stubdomain-protocol.patch
-Patch901: patch-stubdom-linux-v3-0002-Document-ioemu-Linux-stubdomain-protocol.patch
-Patch902: patch-stubdom-linux-v3-0003-libxl-fix-qemu-trad-cmdline-for-no-sdl-vnc-case.patch
-Patch903: patch-stubdom-linux-v3-0004-libxl-Allow-running-qemu-xen-in-stubdomain.patch
-Patch904: patch-stubdom-linux-v3-0005-libxl-Handle-Linux-stubdomain-specific-QEMU-options.patch
-Patch905: patch-stubdom-linux-v3-0006-libxl-write-qemu-arguments-into-separate-xenstore-keys.patch
-Patch906: patch-stubdom-linux-v3-0007-libxl-create-vkb-device-only-for-guests-with-graphics-output.patch
-Patch907: patch-stubdom-linux-v3-0008-xl-add-stubdomain-related-options-to-xl-config-parser.patch
-Patch908: patch-stubdom-linux-v3-0009-tools-libvchan-notify-server-when-client-is-connected.patch
-Patch909: patch-stubdom-linux-v3-0010-libxl-typo-fix-in-comment.patch
-Patch910: patch-stubdom-linux-v3-0011-libxl-move-xswait-declaration-up-in-libxl_internal.h.patch
-Patch911: patch-stubdom-linux-v3-0012-libxl-use-vchan-for-QMP-access-with-Linux-stubdomain-libxl__ev_qmp_-version.patch
-Patch912: patch-stubdom-linux-v3-0013-libxl-use-vchan-for-QMP-access-with-Linux-stubdomain-non-async-version.patch
-Patch913: patch-stubdom-linux-v3-0014-libxl-add-save-restore-support-for-qemu-xen-in-stubdomain.patch
-Patch914: patch-stubdom-linux-v3-0015-tools-add-missing-libxenvchan-cflags.patch
-Patch915: patch-stubdom-linux-v3-0016-libxl-add-locking-for-libvchan-QMP-connection.patch
-# modified vs upstream
-Patch916: patch-stubdom-linux-v3-0017-libxl-require-qemu-in-dom0-even-if-stubdomain-is-in-use.patch
-
-# MSI fixes
-Patch920: patch-stubdom-msi-0001-libxl-do-not-attach-xen-pciback-to-HVM-domain-if-stu.patch
-Patch921: patch-stubdom-msi-0002-libxl-attach-PCI-device-to-qemu-only-after-setting-p.patch
-Patch922: patch-stubdom-msi-0003-libxl-don-t-try-to-manipulate-json-config-for-stubdo.patch
-Patch923: patch-stubdom-msi-0004-xen-x86-Allow-stubdom-access-to-irq-created-for-msi.patch
-Patch924: patch-stubdom-msi-0005-xen-x86-add-PHYSDEVOP_msi_set_enable.patch
-Patch925: patch-stubdom-msi-0006-tools-libxc-add-wrapper-for-PHYSDEVOP_msi_set_enable.patch
-
-# Qubes specific patches
-Patch1001: patch-stubdom-vbd-non-dom0-backend.patch
 Patch1002: patch-xen-no-downloads.patch
-Patch1003: patch-xen-hotplug-external-store.patch
 Patch1004: patch-xen-stubdom-qubes-gui.patch
 Patch1005: patch-stubdom-lwip-fix-for-dhcp.patch
-Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
-Patch1007: patch-xen-disable-dom0-qemu.patch
-Patch1009: patch-xenconsoled-enable-logging.patch
-#TODO Patch1110: patch-stubdom-linux-libxl-suspend.patch
-Patch1011: patch-xen-hotplug-qubesdb-update.patch
-Patch1012: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
-Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.patch
-Patch1014: patch-allow-kernelopts-stubdom.patch
-Patch1015: patch-libxl-readonly-disk-scsi.patch
-Patch1016: patch-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
-
-Patch1020: patch-stubdom-linux-config-qubes-gui.patch
-Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
-Patch1022: patch-xen-acpi-slic-support.patch
-
-Patch1100: patch-fix-errors-on-ambiguous-python-shebang.patch
 
 BuildRequires: xen-devel = %{epoch}:%{version}-%{release}
 BuildRequires: bison
@@ -192,10 +109,6 @@ patch -d tools/qemu-xen-traditional -p4 < stubdom-dhcp/lwip-dhcp-qemu-glue.patch
 
 
 %build
-
-%define efi_flags EFI_VENDOR=qubes
-mkdir -p dist/install/boot/efi/efi/qubes
-
 export XEN_VENDORVERSION="-%{release}"
 export EXTRA_CFLAGS_XEN_TOOLS="$RPM_OPT_FLAGS"
 export EXTRA_CFLAGS_QEMU_TRADITIONAL="$RPM_OPT_FLAGS"
