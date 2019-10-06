@@ -30,7 +30,6 @@ Source34: @core-vchan-xen@
 Source35: @stubdom-dhcp@
 Source36: @gui-common@
 
-Patch601: patch-xen-libxl-error-write-perm.patch
 Patch610: patch-stubdom-gmp-compile-fix.patch
 Patch615: patch-hvmpt01-minios-exprom-size.patch
 Patch616: patch-hvmpt02-disable-msix-caps.patch
