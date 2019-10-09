@@ -336,8 +336,6 @@ Requires: xen-libs = %{version}-%{release}
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
 Provides: xen-runtime = %{version}-%{release}
-Provides: xen-hvm = %{epoch}:%{version}-%{release}
-Obsoletes: xen-hvm < %{epoch}:4.11-1
 
 %description runtime
 This package contains the runtime programs and daemons which
