@@ -52,6 +52,13 @@
 %define with_systemd_presets 0
 %endif
 
+%if 0%{?centos} >= 8
+%define with_systemd_presets 1
+%define build_docs 0
+%define build_hyp 0
+%define build_ovmf 0
+%endif
+
 # Hypervisor ABI
 %define hv_abi 4.12
 

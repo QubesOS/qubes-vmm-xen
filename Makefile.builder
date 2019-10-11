@@ -3,6 +3,9 @@ ifeq ($(PACKAGE_SET),dom0)
 
 else ifeq ($(PACKAGE_SET),vm)
   ARCH_BUILD_DIRS := archlinux
+  ifeq ($(DIST),centos8)
+  RPM_SPEC_FILES := xen.spec
+  endif
 
   ifeq ($(DISTRIBUTION),qubuntu)
     DEBIAN_BUILD_DIRS := debian-vm/debian
