@@ -113,8 +113,6 @@ Patch634: patch-python-do-not-report-handled-EAGAIN-error.patch
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
-# GCC9 fixes
-#Patch716: patch-python-fix-Wsign-compare-warnings.patch
 
 # Support for Linux based stubdom
 #    patch-stubdom-linux-v3-0000-cover-letter.patch
