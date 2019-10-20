@@ -469,8 +469,9 @@ find %{buildroot} -print | xargs ls -ld | sed -e 's|.*%{buildroot}||' > f1.list
 rm -rf %{buildroot}/usr/*-xen-elf
 
 # hypervisor symlinks
-rm -rf %{buildroot}/boot/xen-4.0.gz
+rm -rf %{buildroot}/boot/xen-%{hv_abi}.gz
 rm -rf %{buildroot}/boot/xen-4.gz
+rm -rf %{buildroot}/boot/xen.gz
 %if !%build_hyp
 rm -rf %{buildroot}/boot
 %endif
@@ -578,23 +579,25 @@ done
 
 ############ all done now ############
 
-%post
-%if %with_systemd_presets
-%systemd_post xendomains.service
-%else
-if [ $1 == 1 ]; then
-  /bin/systemctl enable xendomains.service
-fi
-%endif
+# BEGIN QUBES SPECIFIC PART
+# %post
+# %if %with_systemd_presets
+# %systemd_post xendomains.service
+# %else
+# if [ $1 == 1 ]; then
+#   /bin/systemctl enable xendomains.service
+# fi
+# %endif
 
-%preun
-%if %with_systemd_presets
-%systemd_preun xendomains.service
-%else
-if [ $1 == 0 ]; then
-/bin/systemctl disable xendomains.service
-fi
-%endif
+# %preun
+# %if %with_systemd_presets
+# %systemd_preun xendomains.service
+# %else
+# if [ $1 == 0 ]; then
+# /bin/systemctl disable xendomains.service
+# fi
+# %endif
+# END QUBES SPECIFIC PART
 
 %post runtime
 %if %with_systemd_presets
@@ -943,7 +946,9 @@ fi
 %defattr(-,root,root)
 %ifnarch armv7hl aarch64
 /boot/xen-*.gz
-/boot/xen.gz
+# BEGIN QUBES SPECIFIC PART
+# /boot/xen.gz
+# END QUBES SPECIFIC PART
 /boot/xen*.config
 %else
 /boot/xen*
