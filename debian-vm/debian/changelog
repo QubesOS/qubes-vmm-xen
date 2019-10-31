@@ -1,3 +1,9 @@
+xen (2001:4.8.5-11) unstable; urgency=medium
+
+  * Apply XSA-299, XSA-302, and XSA-290, XSA-291 as prerequisites
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 31 Oct 2019 13:02:42 +0100
+
 xen (2001:4.8.5-10) wheezy; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
