@@ -1,0 +1,335 @@
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Subject: x86/tsx: Introduce tsx= to use MSR_TSX_CTRL when available
+
+To protect against the TSX Async Abort speculative vulnerability, Intel have
+released new microcode for affected parts which introduce the MSR_TSX_CTRL
+control, which allows TSX to be turned off.  This will be architectural on
+future parts.
+
+Introduce tsx= to provide a global on/off for TSX, including its enumeration
+via CPUID.  Provide stub virtualisation of this MSR, as it is not exposed to
+guests at the moment.
+
+VMs may have booted before microcode is loaded, or before hosts have rebooted,
+and they still want to migrate freely.  A VM which booted seeing TSX can
+migrate safely to hosts with TSX disabled - TSX will start unconditionally
+aborting, but still behave in a manner compatible with the ABI.
+
+The guest-visible behaviour is equivalent to late loading the microcode and
+setting the RTM_DISABLE bit in the course of live patching.
+
+This is part of XSA-305 / CVE-2019-11135
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index 7f60ddbbc6..28fcceb6fc 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1727,6 +1727,20 @@ pages) must also be specified via the tbuf\_size parameter.
+ ### tsc
+ > `= unstable | skewed | stable:socket`
+ 
++### tsx
++    = <bool>
++
++    Applicability: x86
++    Default: true
++
++Controls for the use of Transactional Synchronization eXtensions.
++
++On Intel parts released in Q3 2019 (with updated microcode), and future parts,
++a control has been introduced which allows TSX to be turned off.
++
++On systems with the ability to turn TSX off, this boolean offers system wide
++control of whether TSX is enabled or disabled.
++
+ ### ucode
+ > `= [<integer> | scan]`
+ 
+diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
+index fc90449ea3..09e7a1096d 100644
+--- a/xen/arch/x86/Makefile
++++ b/xen/arch/x86/Makefile
+@@ -62,6 +62,7 @@ obj-y += sysctl.o
+ obj-y += time.o
+ obj-y += trace.o
+ obj-y += traps.o
++obj-y += tsx.o
+ obj-y += usercopy.o
+ obj-y += x86_emulate.o
+ obj-$(CONFIG_TBOOT) += tboot.o
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 5338d20c41..85350b33aa 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -3600,9 +3600,22 @@ void hvm_cpuid(unsigned int input, unsigned int *eax, unsigned int *ebx,
+     case 0x7:
+         if ( count == 0 )
+         {
+-            /* Fold host's FDP_EXCP_ONLY and NO_FPU_SEL into guest's view. */
+-            *ebx &= (hvm_featureset[FEATURESET_7b0] &
+-                     ~special_features[FEATURESET_7b0]);
++            /*
++             * Fold host's FDP_EXCP_ONLY and NO_FPU_SEL into guest's view.
++             *
++             * On hardware with MSR_TSX_CTRL, the admin may have elected to
++             * disable TSX and hide the feature bits.  Migrating-in VMs may
++             * have been booted pre-mitigation when the TSX features were
++             * visbile.
++             *
++             * This situation is compatible (albeit with a perf hit to any TSX
++             * code in the guest), so allow the feature bits to remain set.
++             */
++            *ebx &= ((hvm_featureset[FEATURESET_7b0] &
++                      ~special_features[FEATURESET_7b0]) |
++                     (cpu_has_tsx_ctrl ?
++                      (cpufeat_mask(X86_FEATURE_HLE) |
++                       cpufeat_mask(X86_FEATURE_RTM)) : 0));
+             *ebx |= (host_featureset[FEATURESET_7b0] &
+                      special_features[FEATURESET_7b0]);
+ 
+@@ -3955,6 +3968,7 @@ int hvm_msr_read_intercept(unsigned int msr, uint64_t *msr_content)
+     case MSR_FLUSH_CMD:
+         /* Write-only */
+     case MSR_TSX_FORCE_ABORT:
++    case MSR_TSX_CTRL:
+         /* Not offered to guests. */
+         goto gp_fault;
+ 
+@@ -4201,6 +4215,7 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
+     case MSR_ARCH_CAPABILITIES:
+         /* Read-only */
+     case MSR_TSX_FORCE_ABORT:
++    case MSR_TSX_CTRL:
+         /* Not offered to guests. */
+         goto gp_fault;
+ 
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 3a7b36251c..a3fb9251b5 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -1484,6 +1484,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ 
+     early_microcode_init();
+ 
++    tsx_init(); /* Needs microcode.  May change HLE/RTM feature bits. */
++
+     identify_cpu(&boot_cpu_data);
+ 
+     set_in_cr4(X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT);
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 4c602491ba..4a3e080f78 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -361,6 +361,8 @@ void start_secondary(void *unused)
+     if ( boot_cpu_has(X86_FEATURE_IBRSB) )
+         wrmsrl(MSR_SPEC_CTRL, default_xen_spec_ctrl);
+ 
++    tsx_init(); /* Needs microcode.  May change HLE/RTM feature bits. */
++
+     smp_callin();
+ 
+     init_percpu_time();
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 3c1c4e2c2d..2d5dbcaa3a 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -1141,9 +1141,22 @@ void pv_cpuid(uint32_t leaf, uint32_t subleaf,
+     case 0x00000007:
+         if ( subleaf == 0 )
+         {
+-            /* Fold host's FDP_EXCP_ONLY and NO_FPU_SEL into guest's view. */
+-            b &= (pv_featureset[FEATURESET_7b0] &
+-                  ~special_features[FEATURESET_7b0]);
++            /*
++             * Fold host's FDP_EXCP_ONLY and NO_FPU_SEL into guest's view.
++             *
++             * On hardware with MSR_TSX_CTRL, the admin may have elected to
++             * disable TSX and hide the feature bits.  Migrating-in VMs may
++             * have been booted pre-mitigation when the TSX features were
++             * visbile.
++             *
++             * This situation is compatible (albeit with a perf hit to any TSX
++             * code in the guest), so allow the feature bits to remain set.
++             */
++            b &= ((pv_featureset[FEATURESET_7b0] &
++                   ~special_features[FEATURESET_7b0]) |
++                  (cpu_has_tsx_ctrl ?
++                   (cpufeat_mask(X86_FEATURE_HLE) |
++                    cpufeat_mask(X86_FEATURE_RTM)) : 0));
+             b |= (host_featureset[FEATURESET_7b0] &
+                   special_features[FEATURESET_7b0]);
+ 
+@@ -2531,6 +2544,7 @@ static int priv_op_read_msr(unsigned int reg, uint64_t *val,
+     case MSR_FLUSH_CMD:
+         /* Write-only */
+     case MSR_TSX_FORCE_ABORT:
++    case MSR_TSX_CTRL:
+         /* Not offered to guests. */
+         break;
+ 
+@@ -2762,6 +2776,7 @@ static int priv_op_write_msr(unsigned int reg, uint64_t val,
+     case MSR_ARCH_CAPABILITIES:
+         /* The MSR is read-only. */
+     case MSR_TSX_FORCE_ABORT:
++    case MSR_TSX_CTRL:
+         /* Not offered to guests. */
+         break;
+ 
+diff --git a/xen/arch/x86/tsx.c b/xen/arch/x86/tsx.c
+new file mode 100644
+index 0000000000..3a853d38f6
+--- /dev/null
++++ b/xen/arch/x86/tsx.c
+@@ -0,0 +1,74 @@
++#include <xen/init.h>
++#include <asm/msr.h>
++
++/*
++ * Valid values:
++ *   1 => Explicit tsx=1
++ *   0 => Explicit tsx=0
++ *  -1 => Default, implicit tsx=1
++ *
++ * This is arranged such that the bottom bit encodes whether TSX is actually
++ * disabled, while identifying various explicit (>=0) and implicit (<0)
++ * conditions.
++ */
++int8_t __read_mostly opt_tsx = -1;
++int8_t __read_mostly cpu_has_tsx_ctrl = -1;
++
++static int __init parse_tsx(const char *s)
++{
++    int rc = 0, val = parse_bool(s);
++
++    if ( val >= 0 )
++        opt_tsx = val;
++    else
++        rc = -EINVAL;
++
++    return rc;
++}
++custom_param("tsx", parse_tsx);
++
++void tsx_init(void)
++{
++    /*
++     * This function is first called between microcode being loaded, and CPUID
++     * being scanned generally.  Calculate from raw data whether MSR_TSX_CTRL
++     * is available.
++     */
++    if ( unlikely(cpu_has_tsx_ctrl < 0) )
++    {
++        uint64_t caps = 0;
++
++        if ( boot_cpu_data.cpuid_level >= 7 &&
++             (cpuid_count_edx(7, 0) & cpufeat_mask(X86_FEATURE_ARCH_CAPS)) )
++            rdmsrl(MSR_ARCH_CAPABILITIES, caps);
++
++        cpu_has_tsx_ctrl = !!(caps & ARCH_CAPS_TSX_CTRL);
++    }
++
++    if ( cpu_has_tsx_ctrl )
++    {
++        uint64_t val;
++
++        rdmsrl(MSR_TSX_CTRL, val);
++
++        val &= ~(TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR);
++        /* Check bottom bit only.  Higher bits are various sentinals. */
++        if ( !(opt_tsx & 1) )
++            val |= TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR;
++
++        wrmsrl(MSR_TSX_CTRL, val);
++    }
++    else if ( opt_tsx >= 0 )
++        printk_once(XENLOG_WARNING
++                    "MSR_TSX_CTRL not available - Ignoring tsx= setting\n");
++}
++
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * tab-width: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index 0a596f7489..1982137a33 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -55,6 +55,7 @@
+ #define ARCH_CAPS_SKIP_L1DFL		(_AC(1, ULL) << 3)
+ #define ARCH_CAPS_SSB_NO		(_AC(1, ULL) << 4)
+ #define ARCH_CAPS_MDS_NO		(_AC(1, ULL) << 5)
++#define ARCH_CAPS_TSX_CTRL		(_AC(1, ULL) << 7)
+ 
+ #define MSR_FLUSH_CMD			0x0000010b
+ #define FLUSH_CMD_L1D			(_AC(1, ULL) << 0)
+@@ -62,6 +63,10 @@
+ #define MSR_TSX_FORCE_ABORT             0x0000010f
+ #define TSX_FORCE_ABORT_RTM             (_AC(1, ULL) <<  0)
+ 
++#define MSR_TSX_CTRL                    0x00000122
++#define TSX_CTRL_RTM_DISABLE            (_AC(1, ULL) <<  0)
++#define TSX_CTRL_CPUID_CLEAR            (_AC(1, ULL) <<  1)
++
+ /* Intel MSRs. Some also available on other CPUs */
+ #define MSR_IA32_PERFCTR0		0x000000c1
+ #define MSR_IA32_A_PERFCTR0		0x000004c1
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index a5319e3aaf..dc3f4f8490 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -339,6 +339,16 @@ static always_inline unsigned int cpuid_edx(unsigned int op)
+     return edx;
+ }
+ 
++static always_inline unsigned int cpuid_count_edx(
++    unsigned int leaf, unsigned int subleaf)
++{
++    unsigned int edx, tmp;
++
++    cpuid_count(leaf, subleaf, &tmp, &tmp, &tmp, &edx);
++
++    return edx;
++}
++
+ static inline unsigned long read_cr0(void)
+ {
+     unsigned long cr0;
+@@ -692,6 +702,9 @@ static inline void pv_cpuid_regs(struct cpu_user_regs *regs)
+              &regs->_eax, &regs->_ebx, &regs->_ecx, &regs->_edx);
+ }
+ 
++extern int8_t opt_tsx, cpu_has_tsx_ctrl;
++void tsx_init(void);
++
+ #endif /* !__ASSEMBLY__ */
+ 
+ #endif /* __ASM_X86_PROCESSOR_H */
+diff --git a/xen/include/xen/lib.h b/xen/include/xen/lib.h
+index b9d1c87ffd..b9d2ef0c79 100644
+--- a/xen/include/xen/lib.h
++++ b/xen/include/xen/lib.h
+@@ -103,6 +103,16 @@ extern int printk_ratelimit(void);
+ #define gprintk(lvl, fmt, args...) \
+     printk(XENLOG_GUEST lvl "%pv " fmt, current, ## args)
+ 
++#define printk_once(fmt, args...)               \
++({                                              \
++    static bool __read_mostly once_;            \
++    if ( unlikely(!once_) )                     \
++    {                                           \
++        once_ = true;                           \
++        printk(fmt, ## args);                   \
++    }                                           \
++})
++
+ #ifdef NDEBUG
+ 
+ static inline void

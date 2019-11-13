@@ -175,6 +175,8 @@ Patch529: patch-xsa299-0011-x86-mm-Fix-nested-de-validation-on-error.patch
 Patch530: patch-xsa299-0012-x86-mm-Don-t-drop-a-type-ref-unless-you-held-a-ref-t.patch
 Patch531: patch-xsa302-0001-IOMMU-add-missing-HVM-check.patch
 Patch532: patch-xsa302-0002-passthrough-quarantine-PCI-devices.patch
+Patch533: patch-xsa305-4.8-1.patch
+Patch534: patch-xsa305-4.8-2.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
