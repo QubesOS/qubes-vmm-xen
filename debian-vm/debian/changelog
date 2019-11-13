@@ -1,3 +1,10 @@
+xen (2001:4.8.5-12) wheezy; urgency=medium
+
+  * Apply XSA-293 as a contextual dependency for XSA-305
+  * Apply XSA-305 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 13 Nov 2019 15:34:23 +0100
+
 xen (2001:4.8.5-11) unstable; urgency=medium
 
   * Apply XSA-299, XSA-302, and XSA-290, XSA-291 as prerequisites
