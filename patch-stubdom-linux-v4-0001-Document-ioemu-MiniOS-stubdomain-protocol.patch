@@ -1,21 +1,24 @@
-From 22895a1b49ce3f75cf7ffe008f94266e311cee50 Mon Sep 17 00:00:00 2001
-Message-Id: <22895a1b49ce3f75cf7ffe008f94266e311cee50.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+From e4f7ccb62749c9c35286a6acc272a300492db3b7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
 Date: Sun, 13 Jan 2019 12:43:03 +0100
-Subject: [PATCH v3 01/17] Document ioemu MiniOS stubdomain protocol
+Subject: [PATCH v4 01/14] Document ioemu MiniOS stubdomain protocol
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 Add documentation based on reverse-engineered toolstack-ioemu stubdomain
 protocol.
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- docs/misc/stubdom.txt | 53 ++++++++++++++++++++++++++++++++++++++++++++-
+ docs/misc/stubdom.txt | 53 +++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 53 insertions(+)
 
 diff --git a/docs/misc/stubdom.txt b/docs/misc/stubdom.txt
-index de7b6c7..4c524f2 100644
+index de7b6c7d96..4c524f2b93 100644
 --- a/docs/misc/stubdom.txt
 +++ b/docs/misc/stubdom.txt
 @@ -23,6 +23,59 @@ and http://wiki.xen.org/wiki/Device_Model_Stub_Domains for more
@@ -79,4 +82,5 @@ index de7b6c7..4c524f2 100644
                                     =======
  
 -- 
-git-series 0.9.1
+2.21.0
+

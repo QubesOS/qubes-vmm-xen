@@ -1,10 +1,13 @@
-From 0158b07cdae7a2a7bb592f11d5df408285efb7c6 Mon Sep 17 00:00:00 2001
-Message-Id: <0158b07cdae7a2a7bb592f11d5df408285efb7c6.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+From 58dd8416e828c73b68864bb0937aa2258eafe2d2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
 Date: Mon, 28 Jan 2019 22:29:01 +0100
-Subject: [PATCH v3 04/17] libxl: Allow running qemu-xen in stubdomain
+Subject: [PATCH v4 04/14] libxl: Allow running qemu-xen in stubdomain
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 Do not prohibit anymore using stubdomain with qemu-xen.
 To help distingushing MiniOS and Linux stubdomain, add helper inline
@@ -19,16 +22,18 @@ Changes in v3:
  - new patch, instead of "libxl: Add "stubdomain_version" to
  domain_build_info"
  - helper functions as suggested by Ian Jackson
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
  tools/libxl/libxl_create.c   |  9 ---------
  tools/libxl/libxl_internal.h | 17 +++++++++++++++++
  2 files changed, 17 insertions(+), 9 deletions(-)
 
 diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
-index a4e74a5..bb62542 100644
+index 32d45dcef0..142b960d48 100644
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -160,15 +160,6 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -169,15 +169,6 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
          }
      }
  
@@ -45,10 +50,10 @@ index a4e74a5..bb62542 100644
          b_info->max_vcpus = 1;
      if (!b_info->avail_vcpus.size) {
 diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
-index 459f9bf..b8c698a 100644
+index b5adbfe4b7..a2a8f1dfb2 100644
 --- a/tools/libxl/libxl_internal.h
 +++ b/tools/libxl/libxl_internal.h
-@@ -2195,6 +2195,23 @@ _hidden int libxl__device_model_version_running(libxl__gc *gc, uint32_t domid);
+@@ -2299,6 +2299,23 @@ _hidden int libxl__device_model_version_running(libxl__gc *gc, uint32_t domid);
    /* Return the system-wide default device model */
  _hidden libxl_device_model_version libxl__default_device_model(libxl__gc *gc);
  
@@ -73,4 +78,5 @@ index 459f9bf..b8c698a 100644
      libxl__sprintf(gc, "/local/domain/%u/device-model/%u" fmt, dm_domid,   \
                     domid, ##_a)
 -- 
-git-series 0.9.1
+2.21.0
+

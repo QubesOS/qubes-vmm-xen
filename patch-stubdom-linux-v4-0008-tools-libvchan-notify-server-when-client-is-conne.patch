@@ -1,10 +1,14 @@
-From 02ae82eafc7e64ba7fad883cb5f66cbe888e799d Mon Sep 17 00:00:00 2001
-Message-Id: <02ae82eafc7e64ba7fad883cb5f66cbe888e799d.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+From e8d7d4c4661cbb094496ee7bc3b87130582ba3fa Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
 Date: Sun, 13 Jan 2019 12:44:41 +0100
-Subject: [PATCH v3 09/17] tools/libvchan: notify server when client is connected
+Subject: [PATCH v4 08/14] tools/libvchan: notify server when client is
+ connected
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 Let the server know when the client is connected. Otherwise server will
 notice only when client send some data.
@@ -21,7 +25,7 @@ upstream thing...
  1 file changed, 3 insertions(+)
 
 diff --git a/tools/libvchan/init.c b/tools/libvchan/init.c
-index 180833d..50a64c1 100644
+index 180833dc2f..50a64c14b7 100644
 --- a/tools/libvchan/init.c
 +++ b/tools/libvchan/init.c
 @@ -447,6 +447,9 @@ struct libxenvchan *libxenvchan_client_init(struct xentoollog_logger *logger,
@@ -35,4 +39,5 @@ index 180833d..50a64c1 100644
  	if (xs)
  		xs_daemon_close(xs);
 -- 
-git-series 0.9.1
+2.21.0
+

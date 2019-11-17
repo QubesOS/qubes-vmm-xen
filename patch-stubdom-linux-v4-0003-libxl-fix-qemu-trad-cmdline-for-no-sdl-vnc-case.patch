@@ -1,10 +1,13 @@
-From a6540882b8174a49ae4c37b180c7f33589baf872 Mon Sep 17 00:00:00 2001
-Message-Id: <a6540882b8174a49ae4c37b180c7f33589baf872.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+From b83a61d6eb2b505d5360e19c3432452d31da21a4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
 Date: Tue, 31 Jul 2018 04:16:02 +0200
-Subject: [PATCH v3 03/17] libxl: fix qemu-trad cmdline for no sdl/vnc case
+Subject: [PATCH v4 03/14] libxl: fix qemu-trad cmdline for no sdl/vnc case
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 When qemu is running in stubdomain, any attempt to initialize vnc/sdl
 there will crash it (on failed attempt to load a keymap from a file). If
@@ -30,7 +33,7 @@ Changes in v3:
  1 file changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
-index b245956..3601b14 100644
+index dac1b8ddb8..14e6618834 100644
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
 @@ -715,14 +715,15 @@ static int libxl__build_device_model_args_old(libxl__gc *gc,
@@ -55,4 +58,5 @@ index b245956..3601b14 100644
      if (sdl) {
          flexarray_append(dm_args, "-sdl");
 -- 
-git-series 0.9.1
+2.21.0
+

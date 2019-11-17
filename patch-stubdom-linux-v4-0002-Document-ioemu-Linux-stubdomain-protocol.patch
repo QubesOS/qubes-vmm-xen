@@ -1,20 +1,23 @@
-From 27fbf2868a07046d4287a35d2b93483ae4a1f6dd Mon Sep 17 00:00:00 2001
-Message-Id: <27fbf2868a07046d4287a35d2b93483ae4a1f6dd.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+From 3682cd43764cf561564456523dfba42978b2a8c2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Jan 2019 02:54:15 +0100
-Subject: [PATCH v3 02/17] Document ioemu Linux stubdomain protocol
+Subject: [PATCH v4 02/14] Document ioemu Linux stubdomain protocol
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 Add documentation for upcoming Linux stubdomain for qemu-upstream.
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- docs/misc/stubdom.txt | 50 ++++++++++++++++++++++++++++++++++++++++++++-
+ docs/misc/stubdom.txt | 50 +++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 50 insertions(+)
 
 diff --git a/docs/misc/stubdom.txt b/docs/misc/stubdom.txt
-index 4c524f2..9c94c6b 100644
+index 4c524f2b93..9c94c6bb02 100644
 --- a/docs/misc/stubdom.txt
 +++ b/docs/misc/stubdom.txt
 @@ -75,6 +75,56 @@ Defined commands:
@@ -75,4 +78,5 @@ index 4c524f2..9c94c6b 100644
                                     PV-GRUB
                                     =======
 -- 
-git-series 0.9.1
+2.21.0
+

@@ -1,12 +1,13 @@
-From 060e89a5cca415871c19d05853a31e7d7bc7f6cc Mon Sep 17 00:00:00 2001
-Message-Id: <060e89a5cca415871c19d05853a31e7d7bc7f6cc.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
-Date: Tue,  3 Feb 2015 23:06:13 -0500
-Subject: [PATCH v3 05/17] libxl: Handle Linux stubdomain specific QEMU options.
-
+From 3cb70e4a23b079b22e5779fd21270e786313e645 Mon Sep 17 00:00:00 2001
 From: Eric Shelton <eshelton@pobox.com>
+Date: Tue, 3 Feb 2015 23:06:13 -0500
+Subject: [PATCH v4 05/14] libxl: Handle Linux stubdomain specific QEMU
+ options.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 This patch creates an appropriate command line for the QEMU instance
 running in a Linux-based stubdomain.
@@ -44,19 +45,21 @@ Changes in v3:
    b_info.u.serial(_list)
  - add error checking for more than 26 emulated disks ("/dev/xvd%c"
    format string)
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- tools/libxl/libxl_create.c   |  40 +++++++-
- tools/libxl/libxl_dm.c       | 176 +++++++++++++++++++++++++-----------
- tools/libxl/libxl_internal.h |   1 +-
+ tools/libxl/libxl_create.c   |  36 +++++++
+ tools/libxl/libxl_dm.c       | 190 ++++++++++++++++++++++++-----------
+ tools/libxl/libxl_internal.h |   1 +
  tools/libxl/libxl_mem.c      |   6 +-
- tools/libxl/libxl_types.idl  |   3 +-
- 5 files changed, 171 insertions(+), 55 deletions(-)
+ tools/libxl/libxl_types.idl  |   3 +
+ 5 files changed, 175 insertions(+), 61 deletions(-)
 
 diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
-index bb62542..13fc304 100644
+index 142b960d48..a6d40b753e 100644
 --- a/tools/libxl/libxl_create.c
 +++ b/tools/libxl/libxl_create.c
-@@ -160,6 +160,31 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -169,6 +169,31 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
          }
      }
  
@@ -88,7 +91,7 @@ index bb62542..13fc304 100644
      if (!b_info->max_vcpus)
          b_info->max_vcpus = 1;
      if (!b_info->avail_vcpus.size) {
-@@ -195,6 +220,17 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -204,6 +229,17 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
      if (b_info->target_memkb == LIBXL_MEMKB_DEFAULT)
          b_info->target_memkb = b_info->max_memkb;
  
@@ -106,19 +109,8 @@ index bb62542..13fc304 100644
      libxl_defbool_setdefault(&b_info->claim_mode, false);
  
      libxl_defbool_setdefault(&b_info->localtime, false);
-@@ -1538,7 +1574,9 @@ static void domcreate_devmodel_started(libxl__egc *egc,
-     if (dcs->sdss.dm.guest_domid) {
-         if (d_config->b_info.device_model_version
-             == LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN) {
--            libxl__qmp_initializations(gc, domid, d_config);
-+            if (!libxl_defbool_val(d_config->b_info.device_model_stubdomain)) {
-+                libxl__qmp_initializations(gc, domid, d_config);
-+            }
-         }
-     }
- 
 diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
-index 3601b14..1fa4fa8 100644
+index 14e6618834..1ef38f119a 100644
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
 @@ -1169,6 +1169,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
@@ -138,7 +130,14 @@ index 3601b14..1fa4fa8 100644
 -        flexarray_append(dm_args,
 -            GCSPRINTF("socket,id=libxl-cmd,fd=%d,server,nowait",
 -                      state->dm_monitor_fd));
--
++    /* There is currently no way to access the QMP socket in the stubdom */
++    if (!is_stubdom) {
++        flexarray_append(dm_args, "-chardev");
++        if (state->dm_monitor_fd >= 0) {
++            flexarray_append(dm_args,
++                GCSPRINTF("socket,id=libxl-cmd,fd=%d,server,nowait",
++                          state->dm_monitor_fd));
+ 
 -        /*
 -         * Start QEMU with its "CPU" paused, it will not start any emulation
 -         * until the QMP command "cont" is used. This also prevent QEMU from
@@ -152,14 +151,6 @@ index 3601b14..1fa4fa8 100644
 -                                   "path=%s,server,nowait",
 -                                   libxl__qemu_qmp_path(gc, guest_domid)));
 -    }
-+    /* There is currently no way to access the QMP socket in the stubdom */
-+    if (!is_stubdom) {
-+        flexarray_append(dm_args, "-chardev");
-+        if (state->dm_monitor_fd >= 0) {
-+            flexarray_append(dm_args,
-+                GCSPRINTF("socket,id=libxl-cmd,fd=%d,server,nowait",
-+                          state->dm_monitor_fd));
-+
 +            /*
 +             * Start QEMU with its "CPU" paused, it will not start any emulation
 +             * until the QMP command "cont" is used. This also prevent QEMU from
@@ -200,7 +191,7 @@ index 3601b14..1fa4fa8 100644
  
      for (i = 0; i < guest_config->num_channels; i++) {
          connection = guest_config->channels[i].connection;
-@@ -1246,7 +1250,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1254,7 +1258,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
          flexarray_vappend(dm_args, "-name", c_info->name, NULL);
      }
  
@@ -209,7 +200,7 @@ index 3601b14..1fa4fa8 100644
          char *vncarg = NULL;
  
          flexarray_append(dm_args, "-vnc");
-@@ -1285,7 +1289,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1293,7 +1297,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
          }
  
          flexarray_append(dm_args, vncarg);
@@ -218,7 +209,7 @@ index 3601b14..1fa4fa8 100644
          /*
           * Ensure that by default no vnc server is created.
           */
-@@ -1297,7 +1301,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1305,7 +1309,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
       */
      flexarray_append_pair(dm_args, "-display", "none");
  
@@ -227,7 +218,7 @@ index 3601b14..1fa4fa8 100644
          flexarray_append(dm_args, "-sdl");
          if (sdl->display)
              flexarray_append_pair(dm_envs, "DISPLAY", sdl->display);
-@@ -1339,18 +1343,34 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1347,18 +1351,34 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
              {
                  LOGD(ERROR, guest_domid, "Both serial and serial_list set");
                  return ERROR_INVAL;
@@ -274,7 +265,7 @@ index 3601b14..1fa4fa8 100644
                  }
              }
          }
-@@ -1359,7 +1379,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1367,7 +1387,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
              flexarray_append(dm_args, "-nographic");
          }
  
@@ -283,7 +274,7 @@ index 3601b14..1fa4fa8 100644
              const libxl_spice_info *spice = &b_info->u.hvm.spice;
              char *spiceoptions = dm_spice_options(gc, spice);
              if (!spiceoptions)
-@@ -1784,7 +1804,9 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1794,7 +1814,9 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
               * If qemu isn't doing the interpreting, the parameter is
               * always raw
               */
@@ -294,7 +285,7 @@ index 3601b14..1fa4fa8 100644
                  format = libxl__qemu_disk_format_string(disks[i].format);
              else
                  format = libxl__qemu_disk_format_string(LIBXL_DISK_FORMAT_RAW);
-@@ -1795,6 +1817,16 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1805,6 +1827,16 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
                           disks[i].vdev);
                      continue;
                  }
@@ -311,7 +302,7 @@ index 3601b14..1fa4fa8 100644
              } else {
                  if (format == NULL) {
                      LOGD(WARN, guest_domid,
-@@ -1946,7 +1978,7 @@ static int libxl__build_device_model_args(libxl__gc *gc,
+@@ -1945,7 +1977,7 @@ static int libxl__build_device_model_args(libxl__gc *gc,
                                          char ***args, char ***envs,
                                          const libxl__domain_build_state *state,
                                          int *dm_state_fd)
@@ -320,7 +311,7 @@ index 3601b14..1fa4fa8 100644
   * and therefore will be passing a filename rather than a fd. */
  {
      switch (guest_config->b_info.device_model_version) {
-@@ -1956,8 +1988,10 @@ static int libxl__build_device_model_args(libxl__gc *gc,
+@@ -1955,8 +1987,10 @@ static int libxl__build_device_model_args(libxl__gc *gc,
                                                    args, envs,
                                                    state);
      case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
@@ -333,7 +324,7 @@ index 3601b14..1fa4fa8 100644
          return libxl__build_device_model_args_new(gc, dm,
                                                    guest_domid, guest_config,
                                                    args, envs,
-@@ -2062,6 +2096,16 @@ retry_transaction:
+@@ -2061,6 +2095,16 @@ retry_transaction:
      return 0;
  }
  
@@ -350,9 +341,9 @@ index 3601b14..1fa4fa8 100644
  static void dmss_init(libxl__dm_spawn_state *dmss)
  {
      libxl__ev_qmp_init(&dmss->qmp);
-@@ -2112,10 +2156,14 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
-     libxl__domain_build_state_init(stubdom_state);
-     dmss_init(&sdss->dm);
+@@ -2119,10 +2163,14 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+     dmss_init(&sdss->pvqemu);
+     libxl__xswait_init(&sdss->xswait);
  
 -    if (guest_config->b_info.device_model_version !=
 -        LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL) {
@@ -369,9 +360,9 @@ index 3601b14..1fa4fa8 100644
      }
  
      sdss->pvqemu.guest_domid = 0;
-@@ -2136,8 +2184,8 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
-     libxl_domain_build_info_init_type(&dm_config->b_info, LIBXL_DOMAIN_TYPE_PV);
+@@ -2144,8 +2192,8 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
  
+     dm_config->b_info.shadow_memkb = 0;
      dm_config->b_info.max_vcpus = 1;
 -    dm_config->b_info.max_memkb = 28 * 1024 +
 -        guest_config->b_info.video_memkb;
@@ -380,7 +371,7 @@ index 3601b14..1fa4fa8 100644
      dm_config->b_info.target_memkb = dm_config->b_info.max_memkb;
  
      dm_config->b_info.max_grant_frames = guest_config->b_info.max_grant_frames;
-@@ -2178,10 +2226,8 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+@@ -2184,10 +2232,8 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
          dm_config->num_vkbs = 1;
      }
  
@@ -393,7 +384,7 @@ index 3601b14..1fa4fa8 100644
  
      /* fixme: this function can leak the stubdom if it fails */
      ret = libxl__domain_make(gc, dm_config, stubdom_state,
-@@ -2201,6 +2247,8 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+@@ -2207,6 +2253,8 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
          goto out;
      }
  
@@ -402,7 +393,7 @@ index 3601b14..1fa4fa8 100644
      libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args);
      libxl__xs_printf(gc, XBT_NULL,
                       GCSPRINTF("%s/image/device-model-domid",
-@@ -2210,6 +2258,15 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+@@ -2216,6 +2264,15 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
                       GCSPRINTF("%s/target",
                                 libxl__xs_get_dompath(gc, dm_domid)),
                       "%d", guest_domid);
@@ -418,7 +409,7 @@ index 3601b14..1fa4fa8 100644
      ret = xc_domain_set_target(ctx->xch, dm_domid, guest_domid);
      if (ret<0) {
          LOGED(ERROR, guest_domid, "setting target domain %d -> %d",
-@@ -2291,6 +2348,11 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+@@ -2297,6 +2354,11 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
  
      if (guest_config->b_info.u.hvm.serial)
          num_console++;
@@ -430,7 +421,7 @@ index 3601b14..1fa4fa8 100644
  
      console = libxl__calloc(gc, num_console, sizeof(libxl__device_console));
  
-@@ -2324,8 +2386,18 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+@@ -2330,8 +2392,18 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
                      console[i].output =
                          GCSPRINTF("pipe:%s", d_state->saved_state);
                  break;
@@ -451,10 +442,10 @@ index 3601b14..1fa4fa8 100644
          }
      }
 diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
-index b8c698a..a26d36e 100644
+index a2a8f1dfb2..c97e102dd9 100644
 --- a/tools/libxl/libxl_internal.h
 +++ b/tools/libxl/libxl_internal.h
-@@ -118,6 +118,7 @@
+@@ -119,6 +119,7 @@
  #define STUBDOM_CONSOLE_RESTORE 2
  #define STUBDOM_CONSOLE_SERIAL 3
  #define STUBDOM_SPECIAL_CONSOLES 3
@@ -463,13 +454,13 @@ index b8c698a..a26d36e 100644
  #define DOMID_XS_PATH "domid"
  #define INVALID_DOMID ~0
 diff --git a/tools/libxl/libxl_mem.c b/tools/libxl/libxl_mem.c
-index 448a2af..368377e 100644
+index 7c01fac7e5..65957a4ef5 100644
 --- a/tools/libxl/libxl_mem.c
 +++ b/tools/libxl/libxl_mem.c
-@@ -465,8 +465,10 @@ int libxl_domain_need_memory(libxl_ctx *ctx,
+@@ -459,8 +459,10 @@ int libxl__domain_need_memory_calculate(libxl__gc *gc,
      case LIBXL_DOMAIN_TYPE_PVH:
      case LIBXL_DOMAIN_TYPE_HVM:
-         *need_memkb += b_info->shadow_memkb + LIBXL_HVM_EXTRA_MEMORY;
+         *need_memkb += LIBXL_HVM_EXTRA_MEMORY;
 -        if (libxl_defbool_val(b_info->device_model_stubdomain))
 -            *need_memkb += 32 * 1024;
 +        if (libxl_defbool_val(b_info->device_model_stubdomain)) {
@@ -478,12 +469,12 @@ index 448a2af..368377e 100644
 +        }
          break;
      case LIBXL_DOMAIN_TYPE_PV:
-         *need_memkb += b_info->shadow_memkb + LIBXL_PV_EXTRA_MEMORY;
+         *need_memkb += LIBXL_PV_EXTRA_MEMORY;
 diff --git a/tools/libxl/libxl_types.idl b/tools/libxl/libxl_types.idl
-index b685ac4..35092f2 100644
+index 0546d7865a..3ebd1d8a82 100644
 --- a/tools/libxl/libxl_types.idl
 +++ b/tools/libxl/libxl_types.idl
-@@ -498,6 +498,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
+@@ -516,6 +516,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
      
      ("device_model_version", libxl_device_model_version),
      ("device_model_stubdomain", libxl_defbool),
@@ -494,4 +485,5 @@ index b685ac4..35092f2 100644
      ("device_model",     string),
      ("device_model_ssidref", uint32),
 -- 
-git-series 0.9.1
+2.21.0
+

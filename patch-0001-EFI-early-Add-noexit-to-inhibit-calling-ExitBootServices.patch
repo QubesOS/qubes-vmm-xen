@@ -28,8 +28,8 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
  static const EFI_BOOT_SERVICES *__initdata efi_bs;
  static UINT32 __initdata efi_bs_revision;
 @@ -856,7 +856,7 @@
-         efi_arch_video_init(gop, info_size, mode_info);
- }
+ #define INVALID_VIRTUAL_ADDRESS (0xBAAADUL << \
+                                  (EFI_PAGE_SHIFT + BITS_PER_LONG - 32))
 
 -static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 +static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool exit_boot_services)

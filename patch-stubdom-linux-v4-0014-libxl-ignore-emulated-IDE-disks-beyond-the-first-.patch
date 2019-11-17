@@ -1,0 +1,53 @@
+From cdf190137110d059ff214328dc7230b64f5fb0b3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sun, 1 Dec 2019 18:08:41 +0100
+Subject: [PATCH v4 14/14] libxl: ignore emulated IDE disks beyond the first 4
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Qemu supports only 4 emulated IDE disks, when given more (or with higher
+indexes), it will fail to start. Since the disks can still be accessible
+using PV interface, just ignore emulated path and log a warning, instead
+of rejecting the configuration altogether.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dm.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index 3956b3990e..3867aa9d94 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -1868,6 +1868,13 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+             }
+ 
+             if (disks[i].is_cdrom) {
++                if (disk > 4) {
++                    LOGD(WARN, guest_domid, "Emulated CDROM can be only one of the first 4 disks.\n"
++                         "Disk %s will be available via PV drivers but not as an "
++                         "emulated disk.",
++                         disks[i].vdev);
++                    continue;
++                }
+                 drive = libxl__sprintf(gc,
+                          "if=ide,index=%d,readonly=on,media=cdrom,id=ide-%i",
+                          disk, dev_number);
+@@ -1945,6 +1952,10 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+                                                        &disks[i],
+                                                        colo_mode);
+                 } else {
++                    LOGD(WARN, guest_domid, "Only 4 emulated IDE disks are supported.\n"
++                         "Disk %s will be available via PV drivers but not as an "
++                         "emulated disk.",
++                         disks[i].vdev);
+                     continue; /* Do not emulate this disk */
+                 }
+ 
+-- 
+2.21.0
+

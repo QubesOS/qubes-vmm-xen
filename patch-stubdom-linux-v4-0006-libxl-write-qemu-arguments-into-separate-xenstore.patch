@@ -1,10 +1,14 @@
-From 38e82f6a138caf9efbce2589954423daf27c44d4 Mon Sep 17 00:00:00 2001
-Message-Id: <38e82f6a138caf9efbce2589954423daf27c44d4.1548765755.git-series.marmarek@invisiblethingslab.com>
-In-Reply-To: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-References: <cover.8f900c4839866ee551e8ebf221cfc7b9310cecd6.1548765755.git-series.marmarek@invisiblethingslab.com>
-From: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+From 5671912f60c80108cad22d2475b022e7b7fa2400 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
 Date: Mon, 30 Jul 2018 01:38:04 +0200
-Subject: [PATCH v3 06/17] libxl: write qemu arguments into separate xenstore keys
+Subject: [PATCH v4 06/14] libxl: write qemu arguments into separate xenstore
+ keys
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 
 This allows using arguments with spaces, like -append, without
 nominating any special "separator" character.
@@ -16,15 +20,17 @@ Changes in v3:
    arguments for linux stubdomain" used specific non-printable
    separator, but it was rejected as xenstore doesn't cope well with
    non-printable chars
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
  tools/libxl/libxl_dm.c | 39 ++++++++++++++++++++++++++++++++++++++-
  1 file changed, 38 insertions(+), 1 deletion(-)
 
 diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
-index 1fa4fa8..6cfc256 100644
+index 1ef38f119a..86975ce24c 100644
 --- a/tools/libxl/libxl_dm.c
 +++ b/tools/libxl/libxl_dm.c
-@@ -2047,6 +2047,40 @@ static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
+@@ -2046,6 +2046,40 @@ static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
      return 0;
  }
  
@@ -65,7 +71,7 @@ index 1fa4fa8..6cfc256 100644
  static int libxl__write_stub_dmargs(libxl__gc *gc,
                                      int dm_domid, int guest_domid,
                                      char **args)
-@@ -2249,7 +2283,10 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
+@@ -2255,7 +2289,10 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
  
      libxl__store_libxl_entry(gc, guest_domid, "dm-version",
          libxl_device_model_version_to_string(dm_config->b_info.device_model_version));
@@ -78,4 +84,5 @@ index 1fa4fa8..6cfc256 100644
                       GCSPRINTF("%s/image/device-model-domid",
                                 libxl__xs_get_dompath(gc, guest_domid)),
 -- 
-git-series 0.9.1
+2.21.0
+
