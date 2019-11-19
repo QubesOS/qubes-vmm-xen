@@ -121,8 +121,8 @@ index 0f05369..78c1ae6 100644
             xen_compiler(), debug_build() ? 'y' : 'n', xen_compile_date());
 -    printk("Latest ChangeSet: %s\n", xen_changeset());
  
-     if ( opt_sync_console )
-     {
+     /* Locate and print the buildid, if applicable. */
+     xen_build_init();
 diff --git a/xen/include/xen/compile.h.in b/xen/include/xen/compile.h.in
 index 440ecb2..0c3ca58 100644
 --- a/xen/include/xen/compile.h.in

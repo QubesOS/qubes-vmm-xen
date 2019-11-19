@@ -217,10 +217,6 @@ override_dh_auto_install: $(TEMPLATED_FILES)
 	$(MAKE) $(make_args_xen) DESTDIR=$t $(make_args_xen) \
 		-C tools/firmware install-shim
 	:
-	@# pkgconfig files contain arch-specific paths so must
-	@# be in /usr/lib/<triplet>, not /usr/share.
-	mv $t/usr/share/pkgconfig $t/usr/lib/$(DEB_HOST_MULTIARCH)/
-	:
 	@# Inexplicably, upstream pots the efi binares in usr/lib64
 	case $(flavour) in \
 		armhf) ;; \

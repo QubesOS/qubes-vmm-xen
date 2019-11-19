@@ -17,7 +17,7 @@ index dd0c8f7..0977879 100755
  import platform
 -import xen.lowlevel.xc
  
- import curses, _curses, curses.wrapper, curses.textpad, curses.ascii
+ import curses, _curses, curses.textpad, curses.ascii
  import getopt
 @@ -666,51 +665,6 @@ def run_grub(file, entry, fs, cfg_args):
  
