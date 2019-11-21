@@ -181,6 +181,8 @@ BuildRequires: /usr/include/gnu/stubs-32.h
 # BEGIN QUBES SPECIFIC PART
 BuildRequires: autoconf
 BuildRequires: automake
+BuildRequires: flex
+BuildRequires: bison
 # END QUBES SPECIFIC PART
 BuildRequires: gettext
 BuildRequires: gnutls-devel
