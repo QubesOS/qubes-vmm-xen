@@ -52,6 +52,13 @@
 %define with_systemd_presets 0
 %endif
 
+%if 0%{?centos} >= 8
+%define with_systemd_presets 1
+%define build_docs 0
+%define build_hyp 0
+%define build_ovmf 0
+%endif
+
 # Hypervisor ABI
 %define hv_abi 4.12
 
@@ -210,7 +217,7 @@ BuildRequires: gcc-x86_64-linux-gnu
 BuildRequires: gcc
 Requires: iproute
 Requires: python3-lxml
-Requires: xen-runtime = %{version}-%{release}
+Requires: xen-runtime = %{epoch}:%{version}-%{release}
 # Not strictly a dependency, but kpartx is by far the most useful tool right
 # now for accessing domU data from within a dom0 so bring it in when the user
 # installs xen.
@@ -249,7 +256,7 @@ which manage Xen virtual machines.
 
 %package runtime
 Summary: Core Xen runtime environment
-Requires: xen-libs = %{version}-%{release}
+Requires: xen-libs = %{epoch}:%{version}-%{release}
 #Requires: /usr/bin/qemu-img /usr/bin/qemu-nbd
 Requires: /usr/bin/qemu-img
 # Ensure we at least have a suitable kernel installed, though we can't
@@ -292,7 +299,7 @@ This package contains the Xen documentation.
 
 %package devel
 Summary: Development libraries for Xen tools
-Requires: xen-libs = %{version}-%{release}
+Requires: xen-libs = %{epoch}:%{version}-%{release}
 Requires: libuuid-devel
 
 %description devel
@@ -311,7 +318,7 @@ to build the xen packages.
 %if %build_ocaml
 %package ocaml
 Summary: Ocaml libraries for Xen tools
-Requires: ocaml-runtime, xen-libs = %{version}-%{release}
+Requires: ocaml-runtime, xen-libs = %{epoch}:%{version}-%{release}
 
 %description ocaml
 This package contains libraries for ocaml tools to manage Xen
@@ -320,7 +327,7 @@ virtual machines.
 
 %package ocaml-devel
 Summary: Ocaml development libraries for Xen tools
-Requires: xen-ocaml = %{version}-%{release}
+Requires: xen-ocaml = %{epoch}:%{version}-%{release}
 
 %description ocaml-devel
 This package contains libraries for developing ocaml tools to
