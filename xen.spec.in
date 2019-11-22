@@ -188,6 +188,8 @@ BuildRequires: /usr/include/gnu/stubs-32.h
 # BEGIN QUBES SPECIFIC PART
 BuildRequires: autoconf
 BuildRequires: automake
+BuildRequires: flex
+BuildRequires: bison
 # END QUBES SPECIFIC PART
 BuildRequires: gettext
 BuildRequires: gnutls-devel
@@ -244,6 +246,19 @@ BuildRequires: edk2-ovmf
 This package contains the XenD daemon and xm command line
 tools, needed to manage virtual machines running under the
 Xen hypervisor
+
+# BEGIN QUBES SPECIFIC PART
+%package -n python%{python3_pkgversion}-%{name}
+Summary: Python3 bindings for Xen tools
+Group: Development/Libraries
+Requires: xen-libs = %{epoch}:%{version}-%{release}
+Requires: python3
+%{?python_provide:%python_provide python%{python3_pkgversion}-%{name}}
+
+%description -n python%{python3_pkgversion}-%{name}
+This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
+and xen.lowlevel.xc modules.
+# END QUBES SPECIFIC PART
 
 %package libs
 Summary: Libraries for Xen tools
@@ -746,8 +761,12 @@ fi
 %files
 %doc COPYING README
 %{_bindir}/xencons
+
+# BEGIN QUBES SPECIFIC PART
+%files -n python%{python3_pkgversion}-%{name}
 %{python3_sitearch}/%{name}
 %{python3_sitearch}/xen-*.egg-info
+# END QUBES SPECIFIC PART
 
 %files libs
 %{_libdir}/*.so.*
