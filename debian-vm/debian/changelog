@@ -1,3 +1,10 @@
+xen (2001:4.8.5-13) unstable; urgency=medium
+
+  * travis: switch to bionic, drop jessie build
+  * Apply XSA-306 fix
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 26 Nov 2019 15:13:03 +0100
+
 xen (2001:4.8.5-12) wheezy; urgency=medium
 
   * Apply XSA-293 as a contextual dependency for XSA-305
