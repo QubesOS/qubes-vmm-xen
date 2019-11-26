@@ -177,6 +177,7 @@ Patch531: patch-xsa302-0001-IOMMU-add-missing-HVM-check.patch
 Patch532: patch-xsa302-0002-passthrough-quarantine-PCI-devices.patch
 Patch533: patch-xsa305-4.8-1.patch
 Patch534: patch-xsa305-4.8-2.patch
+Patch535: patch-xsa306-4.9.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
