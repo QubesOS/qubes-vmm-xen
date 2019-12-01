@@ -62,16 +62,17 @@
 # Hypervisor ABI
 %define hv_abi 4.12
 
-%define upstream_version %(echo @VERSION@ | tr '~' '-')
+%define upstream_version @VERSION@
+%define rctag %(echo @VERSION@ | sed -n -e 's/.*-\\(rc[0-9]*\\).*/0.\\1./;/rc/p')
 
 Summary: Xen is a virtual machine monitor
 Name:    xen
-Version: @VERSION@
-Release: @REL@%{?dist}
+Version: %(echo @VERSION@ | sed 's/-rc.*//')
+Release: %{?rctag}@REL@%{?dist}
 Epoch:   2001
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
-Source0: https://downloads.xenproject.org/release/xen/%{version}/xen-%{upstream_version}.tar.gz
+Source0: https://downloads.xenproject.org/release/xen/%{upstream_version}/xen-%{upstream_version}.tar.gz
 Source2: %{name}.logrotate
 # .config file for xen hypervisor
 Source3: config
@@ -684,7 +685,7 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 %if %build_hyp
 %post hypervisor
 %if %build_efi
-XEN_EFI_VERSION=$(echo %{upstream_version} | sed -e 's/rc./rc/')-%{release}
+XEN_EFI_VERSION=$(echo %{upstream_version} | sed -e 's/rc./rc/')
 EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
       /^BootCurrent:/ { current=$2; }
       /^Boot....\* / {
