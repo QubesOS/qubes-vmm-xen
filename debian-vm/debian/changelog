@@ -1,3 +1,9 @@
+xen (2001:4.8.5-14) unstable; urgency=medium
+
+  * Apply XSA-310, XSA-311
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 11 Dec 2019 13:23:37 +0100
+
 xen (2001:4.8.5-13) unstable; urgency=medium
 
   * travis: switch to bionic, drop jessie build
