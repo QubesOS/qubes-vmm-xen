@@ -241,6 +241,7 @@ BuildRequires: libfdt-devel
 %if %build_ovmf
 BuildRequires: edk2-ovmf
 %endif
+Requires: seabios-bin
 
 %description
 This package contains the XenD daemon and xm command line
