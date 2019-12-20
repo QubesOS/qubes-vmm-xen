@@ -296,7 +296,7 @@ BuildRequires: texlive-times texlive-courier texlive-helvetic texlive-ntgclass
 BuildRequires: transfig texi2html ghostscript texlive-latex
 BuildRequires: perl(Pod::Man) perl(Pod::Text) texinfo graphviz
 # optional requires for more documentation
-#BuildRequires: pandoc discount
+BuildRequires: pandoc discount
 BuildRequires: discount
 
 %description doc
