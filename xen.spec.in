@@ -974,7 +974,6 @@ fi
 %files qemu-tools
 /usr/bin/qemu-img
 /usr/bin/qemu-nbd
-/usr/share/locale/*/LC_MESSAGES/qemu.mo
 
 %files qubes-vm
 %{_bindir}/xenstore
