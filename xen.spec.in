@@ -137,6 +137,7 @@ Patch911: patch-stubdom-linux-v4-0012-libxl-use-vchan-for-QMP-access-with-Linux-
 # 912 modified vs upstream
 Patch912: patch-stubdom-linux-v4-0013-libxl-require-qemu-in-dom0-even-if-stubdomain-is-.patch
 Patch913: patch-stubdom-linux-v4-0014-libxl-ignore-emulated-IDE-disks-beyond-the-first-.patch
+Patch914: patch-stubdom-linux-v4-0015-libxl-consider-also-qemu-in-stubdomain-in-libxl__dm_.patch
 
 # MSI fixes
 #TODO: write to allow-interrupt-control

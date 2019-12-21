@@ -67,6 +67,14 @@ diff --git a/tools/libvchan/Makefile b/tools/libvchan/Makefile
 index f5f35bba95..314fa0531f 100644
 --- a/tools/libvchan/Makefile
 +++ b/tools/libvchan/Makefile
+@@ -13,6 +13,7 @@
+ LIBVCHAN_LIBS = $(LDLIBS_libxenstore) $(LDLIBS_libxengnttab) $(LDLIBS_libxenevtchn)
+ $(LIBVCHAN_OBJS) $(LIBVCHAN_PIC_OBJS): CFLAGS += $(CFLAGS_libxenstore) $(CFLAGS_libxengnttab) $(CFLAGS_libxenevtchn)
+ $(NODE_OBJS) $(NODE2_OBJS): CFLAGS += $(CFLAGS_libxengnttab) $(CFLAGS_libxenevtchn)
++vchan-socket-proxy.o: CFLAGS += $(CFLAGS_libxenstore) $(CFLAGS_libxenctrl) $(CFLAGS_libxengnttab) $(CFLAGS_libxenevtchn)
+ 
+ MAJOR = 4.13
+ MINOR = 0
 @@ -39,7 +39,7 @@ $(PKG_CONFIG_LOCAL): PKG_CONFIG_LIBDIR = $(CURDIR)
  $(PKG_CONFIG_LOCAL): PKG_CONFIG_CFLAGS_LOCAL = $(CFLAGS_xeninclude)
  
