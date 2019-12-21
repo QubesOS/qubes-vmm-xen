@@ -269,6 +269,10 @@ Requires: /usr/bin/qemu-img
 # Ensure we at least have a suitable kernel installed, though we can't
 # force user to actually boot it.
 Requires: xen-hypervisor-abi = %{hv_abi}
+%if %with_systemd_presets
+Requires(post): systemd
+Requires(preun): systemd
+%endif
 
 %description runtime
 This package contains the runtime programs and daemons which
