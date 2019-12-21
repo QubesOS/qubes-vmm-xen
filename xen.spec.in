@@ -637,30 +637,6 @@ if [ $1 == 0 ]; then
 fi
 %endif
 
-%pretrans -p <lua> runtime
--- prevent major upgrade if any VM is running - it will be impossible to shut
--- them down
-
--- this needs to be in lua, because other interpreters are not available in
--- early installation stage (xen-runtime needs to be installed early too)
-
-xl_info=io.popen('/usr/sbin/xl info 2>/dev/null|grep ^xen_version'):read()
-if xl_info then
-    old_version=xl_info:match('xen_version *: (%d+%.%d+)')
-    new_version="%{version}"
-    new_version=new_version:match('(%d+%.%d+)')
-    if new_version ~= old_version then
-        vms_list=io.popen('/usr/sbin/xl list | tail -n +3'):read()
-        if vms_list then
-            io.stderr:write('\n\027[1m***** USER ACTION REQUIRED *****\n')
-            io.stderr:write('Major Xen upgrade detected (' .. old_version .. ' -> ' .. new_version .. ') and some VMs are running.\n')
-            io.stderr:write('Please shutdown all of them, then resume upgrade by executing \'sudo dnf update\' from dom0 console and restart the system afterwards\027[0m\n\n')
-            -- using just error() is not enough, because it will not abort the rpm transaction
-            posix.kill(posix.getprocessid('pid'))
-        end
-    end
-end
-
 %post qubes-vm
 # Unconditionally enable this service in Qubes VM
 systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
