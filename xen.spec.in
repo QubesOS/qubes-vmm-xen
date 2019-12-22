@@ -140,7 +140,7 @@ Patch913: patch-stubdom-linux-v4-0014-libxl-ignore-emulated-IDE-disks-beyond-the
 Patch914: patch-stubdom-linux-v4-0015-libxl-consider-also-qemu-in-stubdomain-in-libxl__dm_.patch
 
 # MSI fixes
-#TODO: write to allow-interrupt-control
+Patch950: patch-stubdom-allow-msi-enable.patch
 
 # Qubes specific patches
 Patch1001: patch-stubdom-vbd-non-dom0-backend.patch
