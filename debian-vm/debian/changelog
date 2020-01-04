@@ -1,3 +1,41 @@
+xen (4.13.0-0.1) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * Add spec for building legacy stubdom apart
+  * Remove build of stubdom in xen.spec and update
+  * specs: drop/keep stubdom related patches
+  * xen-hvm-stubdom-legacy.spec: remove useless patches from Marek's
+    comments
+  * xen.spec: adjust patches list from Marek's comments
+  * specs: refine the patches list
+  * Remove stubdom legacy related content
+  * xen.spec: remove xen-hvm related in package
+  * xen.spec: sync with Fedora upstream
+  * Drop patch included in Fedora python3 upstream patch
+  * Fixes from Marek's comments
+  * Drop Fedora grub2 workaround
+  * Enforce Epoch in xen subpackages requirements
+  * Support CentOS 8 build as currently no Xen is available
+  * spec: fix missing dependencies for Fedora 31
+  * spec: separate python bindings from main package
+
+  [ Marek Marczykowski-Górecki ]
+  * Restore seabios-bin dependency
+  * travis: switch to bionic
+  * Improve -rc handling once again
+  * Update to 4.13.0
+  * Update Debian packaging for 4.13
+  * Don't use distfiles mirror anymore
+  * travis: switch dom0 to fc31
+  * rpm: re-enable BR: pandoc
+  * Revert "Abort the major upgrade if any VM is running"
+  * rpm: add R(post,preun) to xen-runtime package too
+  * Fix stubdom-linux patch series
+  * rpm: Fix file list
+  * Allow stubdomain to control interupts of PCI device
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 04 Jan 2020 19:35:35 +0100
+
 xen (4.12.1-2) unstable; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
