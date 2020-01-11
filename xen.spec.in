@@ -87,6 +87,7 @@ Source32: xen.modules-load.conf
 # Use the following patch numbers:
 # 100+:  Fedora
 # 200+:  EFI workarounds
+# 300+:  Backports
 # 500+:  Security fixes
 # 600+:  Upstreamable patches
 # 700+:  GCC7+ fixes
@@ -102,6 +103,9 @@ Patch101: patch-xen.python.env.patch
 Patch201: patch-0001-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServices.patch
 Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
+
+# Backports
+Patch301: patch-sched-fix-resuming-from-S3-with-smt-0.patch
 
 # Security fixes
 
