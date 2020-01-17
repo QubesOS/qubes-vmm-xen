@@ -1,3 +1,9 @@
+xen (4.13.0-0.2) unstable; urgency=medium
+
+  * Add a patch for crash after resume
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 17 Jan 2020 06:03:40 +0100
+
 xen (4.13.0-0.1) unstable; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
