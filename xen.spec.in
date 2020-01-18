@@ -160,6 +160,7 @@ Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.pa
 Patch1014: patch-allow-kernelopts-stubdom.patch
 Patch1015: patch-libxl-readonly-disk-scsi.patch
 Patch1016: patch-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
+Patch1017: patch-libxl-disable-vkb-by-default.patch
 
 Patch1020: patch-stubdom-linux-config-qubes-gui.patch
 Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
