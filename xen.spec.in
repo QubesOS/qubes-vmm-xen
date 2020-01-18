@@ -153,7 +153,7 @@ Patch1003: patch-xen-hotplug-external-store.patch
 Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
 Patch1007: patch-xen-disable-dom0-qemu.patch
 Patch1009: patch-xenconsoled-enable-logging.patch
-#TODO Patch1110: patch-stubdom-linux-libxl-suspend.patch
+Patch1010: patch-stubdom-linux-libxl-suspend.patch
 Patch1011: patch-xen-hotplug-qubesdb-update.patch
 Patch1012: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
 Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.patch
