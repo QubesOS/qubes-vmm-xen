@@ -26,8 +26,8 @@ index 3d26d4be31..e8fb3f6f31 100644
  
      microcode_resume_cpu(0);
  
-+    if ( !recheck_cpu_features(0) )
-+        panic("Missing previously available feature(s).");
++ if ( !recheck_cpu_features(0) )
++ printk(XENLOG_ERR "Missing previously available feature(s). Ignoring.\n");
 +
      /* Re-enabled default NMI/#MC use of MSR_SPEC_CTRL. */
      ci->spec_ctrl_flags |= (default_spec_ctrl_flags & SCF_ist_wrmsr);
