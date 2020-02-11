@@ -106,6 +106,7 @@ Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
 Patch301: patch-sched-fix-resuming-from-S3-with-smt-0.patch
+Patch302: patch-4.13-0001-x86-amd-Avoid-cpu_has_hypervisor-evaluating-true-on-.patch
 
 # Security fixes
 
