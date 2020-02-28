@@ -688,11 +688,18 @@ if [ -f /boot/efi/EFI/qubes/xen.cfg ]; then
     if ! grep -q smt=off /boot/efi/EFI/qubes/xen.cfg; then
         sed -i -e 's:^options=.*:\0 smt=off:' /boot/efi/EFI/qubes/xen.cfg
     fi
+    if ! grep -q gnttab_max_frames /boot/efi/EFI/qubes/xen.cfg; then
+        sed -i -e 's:^options=.*:\0 gnttab_max_frames=2048 gnttab_max_maptrack_frames=4096:' /boot/efi/EFI/qubes/xen.cfg
+    fi
 fi
 
 if [ -f /etc/default/grub ]; then
     if ! grep -q smt=off /etc/default/grub; then
         echo 'GRUB_CMDLINE_XEN_DEFAULT="$GRUB_CMDLINE_XEN_DEFAULT smt=off"' >> /etc/default/grub
+        grub2-mkconfig -o /boot/grub2/grub.cfg
+    fi
+    if ! grep -q gnttab_max_frames /etc/default/grub; then
+        echo 'GRUB_CMDLINE_XEN_DEFAULT="$GRUB_CMDLINE_XEN_DEFAULT gnttab_max_frames=2048 gnttab_max_maptrack_frames=4096"' >> /etc/default/grub
         grub2-mkconfig -o /boot/grub2/grub.cfg
     fi
 fi
