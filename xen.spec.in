@@ -219,6 +219,7 @@ Patch631: patch-0003-drivers-video-drop-framebuffer-size-constraints.patch
 Patch632: patch-0004-drivers-video-use-vlfb_info-consistently.patch
 Patch633: patch-0005-video-fix-handling-framebuffer-located-above-4GB.patch
 Patch634: patch-xen-disable-efi-gettime.patch
+Patch635: patch-libxl-console.patch
 
 # GCC7 fixes
 Patch701: patch-0001-tools-include-sys-sysmacros.h-on-Linux.patch
