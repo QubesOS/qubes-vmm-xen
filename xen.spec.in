@@ -120,6 +120,7 @@ Patch607: patch-libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
 Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-xen-disable-efi-gettime.patch
+Patch623: patch-libxl-console.patch
 
 # GCC7 fixes
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
