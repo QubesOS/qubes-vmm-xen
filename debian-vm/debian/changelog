@@ -1,3 +1,10 @@
+xen (4.13.0-2) unstable; urgency=medium
+
+  [ Paweł Marczewski ]
+  * libxl: fix cleanup bug in initiate_domain_create()
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 11 Mar 2020 19:04:50 +0100
+
 xen (4.13.0-1) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
