@@ -1,0 +1,32 @@
+commit 33c89fa972f099c502238748d67c00fc32ac08c2 (HEAD -> console-watch-4.13)
+Author: Paweł Marczewski <pawel@invisiblethingslab.com>
+Date:   Wed Mar 11 16:51:09 2020 +0100
+
+    libxl: fix cleanup bug in initiate_domain_create()
+    
+    In case of errors, we immediately call domcreate_complete()
+    which cleans up the console_xswait object. Make sure it is initialized
+    first.
+
+diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
+index 4512791f3a..80fe5acbc3 100644
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -1093,6 +1093,8 @@ static void initiate_domain_create(libxl__egc *egc,
+     libxl_domain_config *const d_config = dcs->guest_config;
+     const int restore_fd = dcs->restore_fd;
+ 
++    libxl__xswait_init(&dcs->console_xswait);
++
+     domid = dcs->domid_soft_reset;
+     libxl__domain_build_state_init(&dcs->build_state);
+ 
+@@ -1143,8 +1145,6 @@ static void initiate_domain_create(libxl__egc *egc,
+     if (ret)
+         goto error_out;
+ 
+-    libxl__xswait_init(&dcs->console_xswait);
+-
+     if (restore_fd >= 0 || dcs->domid_soft_reset != INVALID_DOMID) {
+         LOGD(DEBUG, domid, "restoring, not running bootloader");
+         domcreate_bootloader_done(egc, &dcs->bl, 0);
