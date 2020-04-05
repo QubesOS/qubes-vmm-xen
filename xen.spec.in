@@ -245,6 +245,9 @@ Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 Patch715: patch-xen.gcc9.fixes.patch
 Patch716: patch-rombios-remove-packed-attribute-for-pushad_regs_t.patch
 
+# GCC10 fixes
+Patch717: patch-xen-gcc10-fixes.patch
+
 # vchan for stubdom:
 Patch801: patch-0100-minios-enhance-xenstore-available-for-stubdoms.patch
 Patch802: patch-0101-libvchan-create-xenstore-entries-in-one-transaction.patch
@@ -599,8 +602,8 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --libexecdir=/usr/lib \
     --with-system-seabios=/usr/lib/xen/boot/seabios-256k.bin \
     --with-system-ovmf=/usr/lib/xen/boot/ovmf.bin \
-    --enable-vtpm-stubdom \
-    --enable-vtpmmgr-stubdom \
+    --disable-vtpm-stubdom \
+    --disable-vtpmmgr-stubdom \
     --with-extra-qemuu-configure-args="--disable-spice" \
     --disable-blktap2
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
@@ -937,8 +940,6 @@ rm -rf %{buildroot}
 %dir /usr/lib/%{name}/boot
 /usr/lib/xen/boot/xenstore-stubdom.gz
 /usr/lib/xen/boot/pv-grub*.gz
-/usr/lib/xen/boot/vtpm-stubdom.gz
-/usr/lib/xen/boot/vtpmmgr-stubdom.gz
 %endif
 # General Xen state
 %dir %{_localstatedir}/lib/%{name}
