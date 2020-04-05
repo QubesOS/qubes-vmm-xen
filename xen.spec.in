@@ -122,6 +122,9 @@ Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-xen-disable-efi-gettime.patch
 Patch623: patch-libxl-console.patch
 Patch624: patch-libxl-console-fix.patch
+Patch625: patch-xen-gcc10-fixes.patch
+Patch626: patch-xen-ocaml-4.10.patch
+Patch627: patch-xen-pygrubfix.patch
 
 # GCC7 fixes
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch

@@ -1,0 +1,65 @@
+--- xen-4.13.0/tools/xenstore/utils.h.orig	2019-12-17 14:23:09.000000000 +0000
++++ xen-4.13.0/tools/xenstore/utils.h	2020-01-21 21:13:05.108957447 +0000
+@@ -24,7 +24,7 @@
+ void barf(const char *fmt, ...) __attribute__((noreturn));
+ void barf_perror(const char *fmt, ...) __attribute__((noreturn));
+ 
+-void (*xprintf)(const char *fmt, ...);
++extern void (*xprintf)(const char *fmt, ...);
+ 
+ #define eprintf(_fmt, _args...) xprintf("[ERR] %s" _fmt, __FUNCTION__, ##_args)
+ 
+--- xen-4.13.0/tools/xenstore/xenstored_core.h.orig	2020-01-21 21:15:19.243931307 +0000
++++ xen-4.13.0/tools/xenstore/xenstored_core.h	2020-01-21 21:38:35.340617819 +0000
+@@ -204,7 +204,7 @@
+ /* Open a pipe for signal handling */
+ void init_pipe(int reopen_log_pipe[2]);
+ 
+-xengnttab_handle **xgt_handle;
++extern xengnttab_handle **xgt_handle;
+ 
+ int remember_string(struct hashtable *hash, const char *str);
+ 
+--- xen-4.13.0/tools/libxl/libxlu_pci.c.orig	2019-12-17 14:23:09.000000000 +0000
++++ xen-4.13.0/tools/libxl/libxlu_pci.c	2020-01-21 21:56:26.812212916 +0000
+@@ -48,7 +48,7 @@
+ int xlu_pci_parse_bdf(XLU_Config *cfg, libxl_device_pci *pcidev, const char *str)
+ {
+     unsigned state = STATE_DOMAIN;
+-    unsigned dom, bus, dev, func, vslot = 0;
++    unsigned dom = 0, bus = 0, dev = 0, func = 0, vslot = 0;
+     char *buf2, *tok, *ptr, *end, *optkey = NULL;
+ 
+     if ( NULL == (buf2 = ptr = strdup(str)) )
+--- xen-4.13.0/tools/libxl/libxl_utils.c.orig	2019-12-17 14:23:09.000000000 +0000
++++ xen-4.13.0/tools/libxl/libxl_utils.c	2020-01-21 22:34:52.096300774 +0000
+@@ -1259,7 +1259,7 @@
+     }
+     memset(un, 0, sizeof(struct sockaddr_un));
+     un->sun_family = AF_UNIX;
+-    strncpy(un->sun_path, path, sizeof(un->sun_path));
++    strncpy(un->sun_path, path, sizeof(un->sun_path)-1);
+     return 0;
+ }
+ 
+--- xen-4.13.0/tools/debugger/kdd/kdd.h.orig	2019-12-17 14:23:09.000000000 +0000
++++ xen-4.13.0/tools/debugger/kdd/kdd.h	2020-01-21 23:35:55.458605582 +0000
+@@ -323,7 +323,7 @@
+         kdd_msg msg;
+         kdd_reg reg;
+         kdd_stc stc;
+-        uint8_t payload[0];
++        uint8_t payload[65535];
+     };
+ } PACKED kdd_pkt;
+ 
+--- xen-4.13.0/tools/xenpmd/Makefile.orig	2019-12-17 14:23:09.000000000 +0000
++++ xen-4.13.0/tools/xenpmd/Makefile	2020-01-22 22:13:16.564873608 +0000
+@@ -3,6 +3,7 @@
+ 
+ CFLAGS += -Werror
+ CFLAGS += $(CFLAGS_libxenstore)
++CFLAGS += -Wno-error=format-truncation
+ 
+ LDLIBS += $(LDLIBS_libxenstore)
+ 
