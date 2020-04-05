@@ -1,6 +1,6 @@
 --- a/tools/libxl/libxl_pci.c
 +++ b/tools/libxl/libxl_pci.c
-@@ -1110,6 +1110,13 @@ static int do_pci_add(libxl__gc *gc, uin
+@@ -1110,6 +1110,16 @@ static int do_pci_add(libxl__gc *gc, uin
              LOG(ERROR, "Setting permissive for device");
              return ERROR_FAIL;
          }
@@ -8,8 +8,11 @@
 +        /* Allow acces to MSI enable flag in PCI config space for the stubdom */
 +        if ( sysfs_write_bdf(gc, SYSFS_PCIBACK_DRIVER"/allow_msi_enable",
 +                             pcidev) < 0 ) {
-+            LOG(ERROR, "Setting allow_msi_enable for device");
-+            return ERROR_FAIL;
++            if ( sysfs_write_bdf(gc, SYSFS_PCIBACK_DRIVER"/allow_interrupt_control",
++                                 pcidev) < 0 ) {
++                LOG(ERROR, "Setting allow_msi_enable for device");
++                return ERROR_FAIL;
++            }
 +        }
      }
  
