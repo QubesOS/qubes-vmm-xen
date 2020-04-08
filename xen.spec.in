@@ -25,6 +25,9 @@
 %ifnarch x86_64
 %define build_efi 0
 %endif
+%if 0%{?rhel} == 7
+%define build_efi 0
+%endif
 %define with_python2 1
 %define with_python3 1
 
