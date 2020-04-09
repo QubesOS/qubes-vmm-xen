@@ -1,3 +1,19 @@
+xen (2001:4.8.5-15) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Disable commonly broken EFI GetTime() call
+  * Support also allow_interrupt_control sysfs entry, in addition to
+    allow_msi_enable
+
+  [ Paweł Marczewski ]
+  * libxl: wait for console path before firing console_available
+  * libxl: fix cleanup bug in initiate_domain_create()
+
+  [ Frédéric Pierret (fepitre) ]
+  * Currently disable building EFI for CentOS 7
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 09 Apr 2020 03:10:48 +0200
+
 xen (2001:4.8.5-14) unstable; urgency=medium
 
   * Apply XSA-310, XSA-311
