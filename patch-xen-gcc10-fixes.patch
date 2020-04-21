@@ -38,18 +38,6 @@ index 2cd793d223..993e128b39 100644
      char *buf2, *tok, *ptr, *end, *optkey = NULL;
  
      if ( NULL == (buf2 = ptr = strdup(str)) )
-diff --git a/tools/xenpmd/Makefile b/tools/xenpmd/Makefile
-index 55e8fc5f0f..58cc9b49dd 100644
---- a/tools/xenpmd/Makefile
-+++ b/tools/xenpmd/Makefile
-@@ -3,6 +3,7 @@ include $(XEN_ROOT)/tools/Rules.mk
- 
- CFLAGS += -Werror
- CFLAGS += $(CFLAGS_libxenstore)
-+CFLAGS += -Wno-error=format-truncation
- 
- LDLIBS += $(LDLIBS_libxenstore)
- 
 diff --git a/tools/xenstore/utils.h b/tools/xenstore/utils.h
 index 2effd17b61..8732ea36f0 100644
 --- a/tools/xenstore/utils.h
