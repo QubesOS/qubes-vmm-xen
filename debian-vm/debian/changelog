@@ -1,3 +1,11 @@
+xen (2001:4.8.5-16) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * Add gcc-10 fixes and disable vtm build for stubdom
+  * Fix gcc-10: remove -Wno-error=format-truncation
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 22 Apr 2020 05:54:24 +0200
+
 xen (2001:4.8.5-15) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
