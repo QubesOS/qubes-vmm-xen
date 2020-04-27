@@ -1,0 +1,114 @@
+From ae8c3889f987e19be5cec1ecdee80329286c1351 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 16 May 2017 08:59:24 +0100
+Subject: [PATCH] libxl/devd: correctly manipulate the dguest list
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Current code in backend_watch_callback has two issues when manipulating the
+dguest list:
+
+1. backend_watch_callback forgets to remove a libxl__ddomain_guest from the
+list of tracked domains when the related data is freed, causing dereferences
+later on when the list is traversed. Make sure that a domain is always removed
+from the list when freed.
+
+2. A spurious device state change can cause a dguest to be freed, with active
+devices and without being removed from the list. Fix this by always checking if
+a dguest has active devices before freeing and removing it.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reported-by: Reinis Martinsons <admin@frp.lv>
+Suggested-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Release-acked-by: Julien Grall <julien.grall@arm.com>
+Backported-by: M. Vefa Bicakci <m.v.b@runbox.com>
+(cherry picked from commit 536ec5f13c066f10b5e8851392e622cc99f969f7)
+---
+ tools/libxl/libxl.c | 40 ++++++++++++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index dcd58c703f84..4a6c9c8ff241 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -3735,6 +3735,25 @@ static void qdisk_spawn_outcome(libxl__egc *egc, libxl__dm_spawn_state *dmss,
+     libxl__nested_ao_free(dmss->spawn.ao);
+ }
+ 
++static void check_and_maybe_remove_guest(libxl__gc *gc,
++                                         libxl__ddomain *ddomain,
++                                         libxl__ddomain_guest *dguest)
++{
++    assert(ddomain);
++
++    if (dguest != NULL &&
++        dguest->num_vifs + dguest->num_vbds + dguest->num_qdisks == 0) {
++        LIBXL_SLIST_REMOVE(&ddomain->guests, dguest, libxl__ddomain_guest,
++                           next);
++        LOG(DEBUG, "Removed domain %u from the list of active guests",
++                   dguest->domid);
++        /* Clear any leftovers in libxl/<domid> */
++        libxl__xs_rm_checked(gc, XBT_NULL,
++                             GCSPRINTF("libxl/%u", dguest->domid));
++        free(dguest);
++    }
++}
++
+ /*
+  * The following comment applies to both add_device and remove_device.
+  *
+@@ -3844,7 +3863,7 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+     STATE_AO_GC(nested_ao);
+     char *p, *path;
+     const char *sstate, *sonline;
+-    int state, online, rc, num_devs;
++    int state, online, rc;
+     libxl__device *dev;
+     libxl__ddomain_device *ddev = NULL;
+     libxl__ddomain_guest *dguest = NULL;
+@@ -3919,6 +3938,10 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+         /*
+          * Removal of an active device, remove it from the list and
+          * free it's data structures if they are no longer needed.
++         *
++         * NB: the freeing is safe because all the async ops launched from
++         * backend_watch_callback make a copy of the data they use, so
++         * there's no risk of dereferencing.
+          */
+         LIBXL_SLIST_REMOVE(&dguest->devices, ddev, libxl__ddomain_device,
+                            next);
+@@ -3929,18 +3952,7 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+ 
+         free(ddev->dev);
+         free(ddev);
+-        /* If this was the last device in the domain, remove it from the list */
+-        num_devs = dguest->num_vifs + dguest->num_vbds + dguest->num_qdisks;
+-        if (num_devs == 0) {
+-            LIBXL_SLIST_REMOVE(&ddomain->guests, dguest, libxl__ddomain_guest,
+-                               next);
+-            LOG(DEBUG, "removed domain %u from the list of active guests",
+-                       dguest->domid);
+-            /* Clear any leftovers in libxl/<domid> */
+-            libxl__xs_rm_checked(gc, XBT_NULL,
+-                                 GCSPRINTF("libxl/%u", dguest->domid));
+-            free(dguest);
+-        }
++        check_and_maybe_remove_guest(gc, ddomain, dguest);
+     }
+ 
+     if (free_ao)
+@@ -3953,7 +3965,7 @@ skip:
+     if (ddev)
+         free(ddev->dev);
+     free(ddev);
+-    free(dguest);
++    check_and_maybe_remove_guest(gc, ddomain, dguest);
+     return;
+ }
+ 
+-- 
+2.21.3
+

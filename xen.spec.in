@@ -100,6 +100,8 @@ Patch304: patch-448c03b3-tools-xenstore-try-to-get-minimum-thread-stack-size-.pa
 Patch305: patch-c9bd8a73-tools-xenstore-add-libdl-dependency-to-libxenstore.patch
 Patch306: patch-1a373194-tools-xenstore-fix-linking-libxenstore-with-ldl.patch
 Patch307: patch-xen-AMD-IOMMU-Support-IOAPIC-IDs-larger-than-128.patch
+Patch308: patch-0001-libxl-devd-fix-a-race-with-concurrent-device-additio.patch
+Patch309: patch-0002-libxl-devd-correctly-manipulate-the-dguest-list.patch
 
 
 # PVH backports

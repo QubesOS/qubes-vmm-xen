@@ -1,0 +1,169 @@
+From 7f04e79880a9eefcc542a91886c5a7d38001c775 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Tue, 16 May 2017 08:59:23 +0100
+Subject: [PATCH] libxl/devd: fix a race with concurrent device
+ addition/removal
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Current code can free the libxl__device inside of the libxl__ddomain_device
+before the addition has finished if a removal happens while an addition is
+still in process:
+
+  backend_watch_callback
+            |
+            v
+       add_device
+            |                 backend_watch_callback
+    (async operation)                   |
+            |                           v
+            |                     remove_device
+            |                           |
+            |                           V
+            |                    device_complete
+            |                 (free libxl__device)
+            v
+     device_complete
+  (deref libxl__device)
+
+Fix this by creating a temporary copy of the libxl__device, that's tracked by
+the GC of the nested async operation. This ensures that the libxl__device used
+by the async operations cannot be freed while being used.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reported-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: Ian Jackson <ian.jackson@eu.citrix.com>
+Release-acked-by: Julien Grall <julien.grall@arm.com>
+Backported-by: M. Vefa Bicakci <m.v.b@runbox.com>
+(cherry picked from commit fd519a51192b97168ab1a9ca3405d75d89341ee2)
+---
+ tools/libxl/libxl.c          | 32 +++++++++++++++++++-------------
+ tools/libxl/libxl_internal.h |  4 ++++
+ 2 files changed, 23 insertions(+), 13 deletions(-)
+
+diff --git a/tools/libxl/libxl.c b/tools/libxl/libxl.c
+index acf714e1f918..dcd58c703f84 100644
+--- a/tools/libxl/libxl.c
++++ b/tools/libxl/libxl.c
+@@ -3721,9 +3721,6 @@ static void device_complete(libxl__egc *egc, libxl__ao_device *aodev)
+                libxl__device_action_to_string(aodev->action),
+                aodev->rc ? "failed" : "succeed");
+ 
+-    if (aodev->action == LIBXL__DEVICE_ACTION_REMOVE)
+-        free(aodev->dev);
+-
+     libxl__nested_ao_free(aodev->ao);
+ }
+ 
+@@ -3763,7 +3760,12 @@ static int add_device(libxl__egc *egc, libxl__ao *ao,
+ 
+         GCNEW(aodev);
+         libxl__prepare_ao_device(ao, aodev);
+-        aodev->dev = dev;
++        /*
++         * Clone the libxl__device to avoid races if remove_device is called
++         * before the device addition has finished.
++         */
++        GCNEW(aodev->dev);
++        *aodev->dev = *dev;
+         aodev->action = LIBXL__DEVICE_ACTION_ADD;
+         aodev->callback = device_complete;
+         libxl__wait_device_connection(egc, aodev);
+@@ -3806,7 +3808,12 @@ static int remove_device(libxl__egc *egc, libxl__ao *ao,
+ 
+         GCNEW(aodev);
+         libxl__prepare_ao_device(ao, aodev);
+-        aodev->dev = dev;
++        /*
++         * Clone the libxl__device to avoid races if there's a add_device
++         * running in parallel.
++         */
++        GCNEW(aodev->dev);
++        *aodev->dev = *dev;
+         aodev->action = LIBXL__DEVICE_ACTION_REMOVE;
+         aodev->callback = device_complete;
+         libxl__initiate_device_generic_remove(egc, aodev);
+@@ -3818,7 +3825,6 @@ static int remove_device(libxl__egc *egc, libxl__ao *ao,
+                 goto out;
+         }
+         libxl__device_destroy(gc, dev);
+-        free(dev);
+         /* Fall through to return > 0, no ao has been dispatched */
+     default:
+         rc = 1;
+@@ -3839,7 +3845,7 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+     char *p, *path;
+     const char *sstate, *sonline;
+     int state, online, rc, num_devs;
+-    libxl__device *dev = NULL;
++    libxl__device *dev;
+     libxl__ddomain_device *ddev = NULL;
+     libxl__ddomain_guest *dguest = NULL;
+     bool free_ao = false;
+@@ -3867,7 +3873,7 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+         goto skip;
+     online = atoi(sonline);
+ 
+-    dev = libxl__zalloc(NOGC, sizeof(*dev));
++    GCNEW(dev);
+     rc = libxl__parse_backend_path(gc, path, dev);
+     if (rc)
+         goto skip;
+@@ -3902,7 +3908,8 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+          * to the list of active devices for a given guest.
+          */
+         ddev = libxl__zalloc(NOGC, sizeof(*ddev));
+-        ddev->dev = dev;
++        ddev->dev = libxl__zalloc(NOGC, sizeof(*ddev->dev));
++        *ddev->dev = *dev;
+         LIBXL_SLIST_INSERT_HEAD(&dguest->devices, ddev, next);
+         LOG(DEBUG, "added device %s to the list of active devices", path);
+         rc = add_device(egc, nested_ao, dguest, ddev);
+@@ -3912,9 +3919,6 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+         /*
+          * Removal of an active device, remove it from the list and
+          * free it's data structures if they are no longer needed.
+-         *
+-         * The free of the associated libxl__device is left to the
+-         * helper remove_device function.
+          */
+         LIBXL_SLIST_REMOVE(&dguest->devices, ddev, libxl__ddomain_device,
+                            next);
+@@ -3923,6 +3927,7 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+         if (rc > 0)
+             free_ao = true;
+ 
++        free(ddev->dev);
+         free(ddev);
+         /* If this was the last device in the domain, remove it from the list */
+         num_devs = dguest->num_vifs + dguest->num_vbds + dguest->num_qdisks;
+@@ -3945,7 +3950,8 @@ static void backend_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+ 
+ skip:
+     libxl__nested_ao_free(nested_ao);
+-    free(dev);
++    if (ddev)
++        free(ddev->dev);
+     free(ddev);
+     free(dguest);
+     return;
+diff --git a/tools/libxl/libxl_internal.h b/tools/libxl/libxl_internal.h
+index c32a40576a9d..dd23f369f52e 100644
+--- a/tools/libxl/libxl_internal.h
++++ b/tools/libxl/libxl_internal.h
+@@ -490,6 +490,10 @@ struct libxl__ctx {
+     libxl_version_info version_info;
+ };
+ 
++/*
++ * libxl__device is a transparent structure that doesn't contain private fields
++ * or external memory references, and as such can be copied by assignment.
++ */
+ typedef struct {
+     uint32_t backend_devid;
+     uint32_t backend_domid;
+-- 
+2.21.3
+
