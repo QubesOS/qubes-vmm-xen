@@ -30,7 +30,7 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	dh_clean --keep
-	make dist-tools
+	make debug_symbols=y dist-tools
 
 override_dh_auto_install:
 	make DESTDIR=$(DESTDIR) install-tools

@@ -606,7 +606,7 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --disable-vtpmmgr-stubdom \
     --with-extra-qemuu-configure-args="--disable-spice" \
     --disable-blktap2
-make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr dist-tools
+make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr debug_symbols=y dist-tools
 make                 prefix=/usr dist-docs
 unset CFLAGS
 make %{?ocaml_flags} dist-stubdom
