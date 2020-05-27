@@ -105,8 +105,6 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
-Patch301: patch-sched-fix-resuming-from-S3-with-smt-0.patch
-Patch302: patch-4.13-0001-x86-amd-Avoid-cpu_has_hypervisor-evaluating-true-on-.patch
 
 # Security fixes
 
@@ -124,7 +122,6 @@ Patch623: patch-libxl-console.patch
 Patch624: patch-libxl-console-fix.patch
 Patch625: patch-xen-gcc10-fixes.patch
 Patch626: patch-xen-ocaml-4.10.patch
-Patch627: patch-xen-pygrubfix.patch
 
 # GCC7 fixes
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
