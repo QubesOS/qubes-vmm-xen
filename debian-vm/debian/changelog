@@ -1,3 +1,9 @@
+xen (2001:4.8.5-18) unstable; urgency=medium
+
+  * Apply TSX related fixes for Haswell/Broadwell CPUs
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 28 May 2020 16:17:47 +0200
+
 xen (2001:4.8.5-17) unstable; urgency=medium
 
   [ M. Vefa Bicakci ]
