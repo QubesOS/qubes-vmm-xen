@@ -1,0 +1,229 @@
+From f9758b58a26253977c494d7509f63d9c93918590 Mon Sep 17 00:00:00 2001
+From: Sergey Dyasli <sergey.dyasli@citrix.com>
+Date: Thu, 23 Feb 2017 09:33:27 +0000
+Subject: [PATCH 1/5] x86/vmx: fix vmentry failure with TSX bits in LBR
+
+During VM entry, H/W will automatically load guest's MSRs from MSR-load
+area in the same way as they would be written by WRMSR.
+
+However, under the following conditions:
+
+    1. LBR (Last Branch Record) MSRs were placed in the MSR-load area
+    2. Address format of LBR includes TSX bits 61:62
+    3. CPU has TSX support disabled
+
+VM entry will fail with a message in the log similar to:
+
+    (XEN) [   97.239514] d1v0 vmentry failure (reason 0x80000022): MSR loading (entry 3)
+    (XEN) [   97.239516]   msr 00000680 val 1fff800000102e60 (mbz 0)
+
+This happens because of the following behaviour:
+
+    - When capturing branches, LBR H/W will always clear bits 61:62
+      regardless of the sign extension
+    - For WRMSR, bits 61:62 are considered the part of the sign extension
+
+This bug affects only certain pCPUs (e.g. Haswell) with vCPUs that
+use LBR.  Fix it by sign-extending TSX bits in all LBR entries during
+VM entry in affected cases.
+
+LBR MSRs are currently not Live Migrated. In order to implement such
+functionality, the MSR levelling work has to be done first because
+hosts can have different LBR formats.
+
+Signed-off-by: Sergey Dyasli <sergey.dyasli@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Kevin Tian <kevin.tian@intel.com>
+(cherry picked from commit d6e9f8d4f35d938417f9dc2ea50f6e8004e26725)
+[Also extra pieces of "x86/vmx: Improvements to LBR MSR handling", already backported]
+(cherry picked from commit be73a842e642772d7372004c9c105de35b771020)
+---
+ xen/arch/x86/hvm/vmx/vmx.c       | 100 +++++++++++++++++++++++++++++++
+ xen/include/asm-x86/cpufeature.h |   3 +
+ xen/include/asm-x86/msr-index.h  |   2 +
+ 3 files changed, 105 insertions(+)
+
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 9a8807e53e..28f668d40d 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2407,6 +2407,8 @@ static void pi_notification_interrupt(struct cpu_user_regs *regs)
+     raise_softirq(VCPU_KICK_SOFTIRQ);
+ }
+ 
++static void __init lbr_tsx_fixup_check(void);
++
+ const struct hvm_function_table * __init start_vmx(void)
+ {
+     set_in_cr4(X86_CR4_VMXE);
+@@ -2579,6 +2581,8 @@ const struct hvm_function_table * __init start_vmx(void)
+ 
+     setup_vmcs_dump();
+ 
++    lbr_tsx_fixup_check();
++
+     return &vmx_function_table;
+ }
+ 
+@@ -2771,6 +2775,14 @@ static int vmx_cr_access(unsigned long exit_qualification)
+     return X86EMUL_OKAY;
+ }
+ 
++/* This defines the layout of struct lbr_info[] */
++#define LBR_LASTINT_FROM_IDX    0
++#define LBR_LASTINT_TO_IDX      1
++#define LBR_LASTBRANCH_TOS_IDX  2
++#define LBR_LASTBRANCH_FROM_IDX 3
++#define LBR_LASTBRANCH_TO_IDX   4
++#define LBR_LASTBRANCH_INFO     5
++
+ static const struct lbr_info {
+     u32 base, count;
+ } p4_lbr[] = {
+@@ -2876,7 +2888,59 @@ static const struct lbr_info *last_branch_msr_get(void)
+     return NULL;
+ }
+ 
++enum
++{
++    LBR_FORMAT_32                 = 0x0, /* 32-bit record format */
++    LBR_FORMAT_LIP                = 0x1, /* 64-bit LIP record format */
++    LBR_FORMAT_EIP                = 0x2, /* 64-bit EIP record format */
++    LBR_FORMAT_EIP_FLAGS          = 0x3, /* 64-bit EIP, Flags */
++    LBR_FORMAT_EIP_FLAGS_TSX      = 0x4, /* 64-bit EIP, Flags, TSX */
++    LBR_FORMAT_EIP_FLAGS_TSX_INFO = 0x5, /* 64-bit EIP, Flags, TSX, LBR_INFO */
++    LBR_FORMAT_EIP_FLAGS_CYCLES   = 0x6, /* 64-bit EIP, Flags, Cycles */
++};
++
++#define LBR_FROM_SIGNEXT_2MSB  ((1ULL << 59) | (1ULL << 60))
++
+ #define LBR_MSRS_INSERTED      (1u << 0)
++#define LBR_FIXUP_TSX          (1u << 1)
++#define LBR_FIXUP_MASK         (LBR_FIXUP_TSX)
++
++static bool __read_mostly lbr_tsx_fixup_needed;
++static uint32_t __read_mostly lbr_from_start;
++static uint32_t __read_mostly lbr_from_end;
++static uint32_t __read_mostly lbr_lastint_from;
++
++static void __init lbr_tsx_fixup_check(void)
++{
++    bool tsx_support = cpu_has_hle || cpu_has_rtm;
++    uint64_t caps;
++    uint32_t lbr_format;
++
++    /* Fixup is needed only when TSX support is disabled ... */
++    if ( tsx_support )
++        return;
++
++    if ( !cpu_has_pdcm )
++        return;
++
++    rdmsrl(MSR_IA32_PERF_CAPABILITIES, caps);
++    lbr_format = caps & MSR_IA32_PERF_CAP_LBR_FORMAT;
++
++    /* ... and the address format of LBR includes TSX bits 61:62 */
++    if ( lbr_format == LBR_FORMAT_EIP_FLAGS_TSX )
++    {
++        const struct lbr_info *lbr = last_branch_msr_get();
++
++        if ( lbr == NULL )
++            return;
++
++        lbr_lastint_from = lbr[LBR_LASTINT_FROM_IDX].base;
++        lbr_from_start = lbr[LBR_LASTBRANCH_FROM_IDX].base;
++        lbr_from_end = lbr_from_start + lbr[LBR_LASTBRANCH_FROM_IDX].count;
++
++        lbr_tsx_fixup_needed = true;
++    }
++}
+ 
+ static int is_last_branch_msr(u32 ecx)
+ {
+@@ -3191,6 +3255,10 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
+                                                   MSR_TYPE_R | MSR_TYPE_W);
+                 }
+             }
++
++            v->arch.hvm_vmx.lbr_flags |= LBR_MSRS_INSERTED;
++            if ( lbr_tsx_fixup_needed )
++                v->arch.hvm_vmx.lbr_flags |= LBR_FIXUP_TSX;
+         }
+ 
+         __vmwrite(GUEST_IA32_DEBUGCTL, msr_content);
+@@ -4272,6 +4340,35 @@ out:
+     }
+ }
+ 
++static void lbr_tsx_fixup(void)
++{
++    struct vcpu *curr = current;
++    unsigned int msr_count = curr->arch.hvm_vmx.msr_load_count;
++    struct vmx_msr_entry *msr_area = curr->arch.hvm_vmx.msr_area;
++    struct vmx_msr_entry *msr;
++
++    if ( (msr = vmx_find_msr(curr, lbr_from_start, VMX_MSR_GUEST)) != NULL )
++    {
++        /*
++         * Sign extend into bits 61:62 while preserving bit 63
++         * The loop relies on the fact that MSR array is sorted.
++         */
++        for ( ; msr < msr_area + msr_count && msr->index < lbr_from_end; msr++ )
++            msr->data |= ((LBR_FROM_SIGNEXT_2MSB & msr->data) << 2);
++    }
++
++    if ( (msr = vmx_find_msr(curr, lbr_lastint_from, VMX_MSR_GUEST)) != NULL )
++        msr->data |= ((LBR_FROM_SIGNEXT_2MSB & msr->data) << 2);
++}
++
++static void lbr_fixup(void)
++{
++    struct vcpu *curr = current;
++
++    if ( curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_TSX )
++        lbr_tsx_fixup();
++}
++
+ void vmx_vmenter_helper(const struct cpu_user_regs *regs)
+ {
+     struct vcpu *curr = current;
+@@ -4328,6 +4425,9 @@ void vmx_vmenter_helper(const struct cpu_user_regs *regs)
+     }
+ 
+  out:
++    if ( unlikely(curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_MASK) )
++        lbr_fixup();
++
+     HVMTRACE_ND(VMENTRY, 0, 1/*cycles*/, 0, 0, 0, 0, 0, 0, 0);
+ 
+     __vmwrite(GUEST_RIP,    regs->rip);
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index 677f414f5c..fc953da2aa 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -112,6 +112,9 @@ XEN_CPUFEATURE(SC_VERW_IDLE,    (FSCAPINTS+0)*32+27) /* VERW used by Xen for idl
+ #define cpu_has_eist		boot_cpu_has(X86_FEATURE_EIST)
+ #define cpu_has_hypervisor	boot_cpu_has(X86_FEATURE_HYPERVISOR)
+ #define cpu_has_cmp_legacy	boot_cpu_has(X86_FEATURE_CMP_LEGACY)
++#define cpu_has_hle		boot_cpu_has(X86_FEATURE_HLE)
++#define cpu_has_rtm		boot_cpu_has(X86_FEATURE_RTM)
++#define cpu_has_pdcm		boot_cpu_has(X86_FEATURE_PDCM)
+ #define cpu_has_lfence_dispatch boot_cpu_has(X86_FEATURE_LFENCE_DISPATCH)
+ #define cpu_has_no_xpti         boot_cpu_has(X86_FEATURE_NO_XPTI)
+ #define cpu_has_xen_lbr         boot_cpu_has(X86_FEATURE_XEN_LBR)
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index ad5e90f020..5d636cc250 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -92,6 +92,8 @@
+ #define MSR_IA32_PEBS_ENABLE		0x000003f1
+ #define MSR_IA32_DS_AREA		0x00000600
+ #define MSR_IA32_PERF_CAPABILITIES	0x00000345
++/* Lower 6 bits define the format of the address in the LBR stack */
++#define MSR_IA32_PERF_CAP_LBR_FORMAT	0x3f
+ 
+ #define MSR_IA32_BNDCFGS		0x00000d90
+ #define IA32_BNDCFGS_ENABLE		0x00000001
+-- 
+2.25.4
+

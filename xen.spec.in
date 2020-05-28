@@ -102,7 +102,11 @@ Patch306: patch-1a373194-tools-xenstore-fix-linking-libxenstore-with-ldl.patch
 Patch307: patch-xen-AMD-IOMMU-Support-IOAPIC-IDs-larger-than-128.patch
 Patch308: patch-0001-libxl-devd-fix-a-race-with-concurrent-device-additio.patch
 Patch309: patch-0002-libxl-devd-correctly-manipulate-the-dguest-list.patch
-
+Patch310: patch-0011-x86-vmx-fix-vmentry-failure-with-TSX-bits-in-LBR.patch
+Patch311: patch-0012-x86-vmx-Fix-vmentry-failure-because-of-invalid-LER-o.patch
+Patch312: patch-0013-x86-vtx-Corrections-to-BDF93-errata-workaround.patch
+Patch313: patch-0014-x86-vtx-Fixes-to-Haswell-Broadwell-LBR-TSX-errata.patch
+Patch314: patch-0015-VT-x-extend-LBR-Broadwell-errata-coverage.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch

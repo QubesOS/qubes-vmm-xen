@@ -1,0 +1,142 @@
+From 228dd68e43a1c75f1c4bee0a3834b450b527c8c4 Mon Sep 17 00:00:00 2001
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Date: Wed, 20 Dec 2017 15:49:23 +0100
+Subject: [PATCH 2/5] x86/vmx: Fix vmentry failure because of invalid LER on
+ Broadwell
+
+Occasionally, on certain Broadwell CPUs MSR_IA32_LASTINTTOIP has been
+observed to have the top three bits corrupted as though the MSR is using
+the LBR_FORMAT_EIP_FLAGS_TSX format. This is incorrect and causes a
+vmentry failure -- the MSR should contain an offset into the current
+code segment. This is assumed to be erratum BDF14. Workaround the issue
+by sign-extending into bits 48:63 for MSR_IA32_LASTINT{FROM,TO}IP.
+
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+(cherry picked from 20f1976b44199d1e7a15fe5d2c8c1a4375b74997)
+[Also extra pieces of "x86/vmx: Improvements to LBR MSR handling", already backported]
+(cherry picked from commit be73a842e642772d7372004c9c105de35b771020)
+---
+ xen/arch/x86/hvm/vmx/vmx.c        | 47 ++++++++++++++++++++++++++++++-
+ xen/include/asm-x86/x86_64/page.h |  3 ++
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 28f668d40d..99992fac95 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2408,6 +2408,7 @@ static void pi_notification_interrupt(struct cpu_user_regs *regs)
+ }
+ 
+ static void __init lbr_tsx_fixup_check(void);
++static void __init bdw_erratum_bdf14_fixup_check(void);
+ 
+ const struct hvm_function_table * __init start_vmx(void)
+ {
+@@ -2582,6 +2583,7 @@ const struct hvm_function_table * __init start_vmx(void)
+     setup_vmcs_dump();
+ 
+     lbr_tsx_fixup_check();
++    bdw_erratum_bdf14_fixup_check();
+ 
+     return &vmx_function_table;
+ }
+@@ -2903,9 +2905,11 @@ enum
+ 
+ #define LBR_MSRS_INSERTED      (1u << 0)
+ #define LBR_FIXUP_TSX          (1u << 1)
+-#define LBR_FIXUP_MASK         (LBR_FIXUP_TSX)
++#define LBR_FIXUP_BDF14        (1u << 2)
++#define LBR_FIXUP_MASK         (LBR_FIXUP_TSX | LBR_FIXUP_BDF14)
+ 
+ static bool __read_mostly lbr_tsx_fixup_needed;
++static bool __read_mostly bdw_erratum_bdf14_fixup_needed;
+ static uint32_t __read_mostly lbr_from_start;
+ static uint32_t __read_mostly lbr_from_end;
+ static uint32_t __read_mostly lbr_lastint_from;
+@@ -2942,6 +2946,13 @@ static void __init lbr_tsx_fixup_check(void)
+     }
+ }
+ 
++static void __init bdw_erratum_bdf14_fixup_check(void)
++{
++    /* Broadwell E5-2600 v4 processors need to work around erratum BDF14. */
++    if ( boot_cpu_data.x86 == 6 && boot_cpu_data.x86_model == 79 )
++        bdw_erratum_bdf14_fixup_needed = true;
++}
++
+ static int is_last_branch_msr(u32 ecx)
+ {
+     const struct lbr_info *lbr = last_branch_msr_get();
+@@ -3259,6 +3270,8 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
+             v->arch.hvm_vmx.lbr_flags |= LBR_MSRS_INSERTED;
+             if ( lbr_tsx_fixup_needed )
+                 v->arch.hvm_vmx.lbr_flags |= LBR_FIXUP_TSX;
++            if ( bdw_erratum_bdf14_fixup_needed )
++                v->arch.hvm_vmx.lbr_flags |= LBR_FIXUP_BDF14;
+         }
+ 
+         __vmwrite(GUEST_IA32_DEBUGCTL, msr_content);
+@@ -4361,12 +4374,44 @@ static void lbr_tsx_fixup(void)
+         msr->data |= ((LBR_FROM_SIGNEXT_2MSB & msr->data) << 2);
+ }
+ 
++static void sign_extend_msr(struct vcpu *v, u32 msr, int type)
++{
++    struct vmx_msr_entry *entry;
++
++    if ( (entry = vmx_find_msr(v, msr, type)) != NULL )
++    {
++        if ( entry->data & VADDR_TOP_BIT )
++            entry->data |= CANONICAL_MASK;
++        else
++            entry->data &= ~CANONICAL_MASK;
++    }
++}
++
++static void bdw_erratum_bdf14_fixup(void)
++{
++    struct vcpu *curr = current;
++
++    /*
++     * Occasionally, on certain Broadwell CPUs MSR_IA32_LASTINTTOIP has
++     * been observed to have the top three bits corrupted as though the
++     * MSR is using the LBR_FORMAT_EIP_FLAGS_TSX format. This is
++     * incorrect and causes a vmentry failure -- the MSR should contain
++     * an offset into the current code segment. This is assumed to be
++     * erratum BDF14. Fix up MSR_IA32_LASTINT{FROM,TO}IP by
++     * sign-extending into bits 48:63.
++     */
++    sign_extend_msr(curr, MSR_IA32_LASTINTFROMIP, VMX_MSR_GUEST);
++    sign_extend_msr(curr, MSR_IA32_LASTINTTOIP, VMX_MSR_GUEST);
++}
++
+ static void lbr_fixup(void)
+ {
+     struct vcpu *curr = current;
+ 
+     if ( curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_TSX )
+         lbr_tsx_fixup();
++    if ( curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_BDF14 )
++        bdw_erratum_bdf14_fixup();
+ }
+ 
+ void vmx_vmenter_helper(const struct cpu_user_regs *regs)
+diff --git a/xen/include/asm-x86/x86_64/page.h b/xen/include/asm-x86/x86_64/page.h
+index afc77c3237..49092d5d81 100644
+--- a/xen/include/asm-x86/x86_64/page.h
++++ b/xen/include/asm-x86/x86_64/page.h
+@@ -28,6 +28,9 @@
+ #define PADDR_MASK              ((_AC(1,UL) << PADDR_BITS) - 1)
+ #define VADDR_MASK              ((_AC(1,UL) << VADDR_BITS) - 1)
+ 
++#define VADDR_TOP_BIT           (1UL << (VADDR_BITS - 1))
++#define CANONICAL_MASK          (~0UL & ~VADDR_MASK)
++
+ #define is_canonical_address(x) (((long)(x) >> 47) == ((long)(x) >> 63))
+ 
+ #ifndef __ASSEMBLY__
+-- 
+2.25.4
+

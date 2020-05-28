@@ -1,0 +1,156 @@
+From b561beb8c8d4440dd6937488998d5268397f3d5f Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 28 May 2020 12:03:25 +0200
+Subject: [PATCH 5/5] VT-x: extend LBR Broadwell errata coverage
+
+For lbr_tsx_fixup_check() simply name a few more specific erratum
+numbers.
+
+For bdf93_fixup_check(), however, more models are affected. Oddly enough
+despite being the same model and stepping, the erratum is listed for
+Xeon E3 but not its Core counterpart. Apply the workaround uniformly,
+and also for Xeon D, which only has the LBR-from one listed in its spec
+update.
+
+Seeing this broader applicability, rename anything BDF93-related to more
+generic names.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+(cherry picked from commit 724913de8ac8426d313a4645741d86c1169ae406)
+---
+ xen/arch/x86/hvm/vmx/vmx.c | 52 +++++++++++++++++++++++++-------------
+ 1 file changed, 34 insertions(+), 18 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 81a28c7137..2fcbefa2a7 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2408,7 +2408,7 @@ static void pi_notification_interrupt(struct cpu_user_regs *regs)
+ }
+ 
+ static void __init lbr_tsx_fixup_check(void);
+-static void __init bdf93_fixup_check(void);
++static void __init ler_to_fixup_check(void);
+ 
+ const struct hvm_function_table * __init start_vmx(void)
+ {
+@@ -2583,7 +2583,7 @@ const struct hvm_function_table * __init start_vmx(void)
+     setup_vmcs_dump();
+ 
+     lbr_tsx_fixup_check();
+-    bdf93_fixup_check();
++    ler_to_fixup_check();
+ 
+     return &vmx_function_table;
+ }
+@@ -2897,11 +2897,11 @@ enum
+ 
+ #define LBR_MSRS_INSERTED      (1u << 0)
+ #define LBR_FIXUP_TSX          (1u << 1)
+-#define LBR_FIXUP_BDF93        (1u << 2)
+-#define LBR_FIXUP_MASK         (LBR_FIXUP_TSX | LBR_FIXUP_BDF93)
++#define LBR_FIXUP_LER_TO       (1u << 2)
++#define LBR_FIXUP_MASK         (LBR_FIXUP_TSX | LBR_FIXUP_LER_TO)
+ 
+ static bool __read_mostly lbr_tsx_fixup_needed;
+-static bool __read_mostly bdf93_fixup_needed;
++static bool __read_mostly ler_to_fixup_needed;
+ 
+ static void __init lbr_tsx_fixup_check(void)
+ {
+@@ -2909,7 +2909,7 @@ static void __init lbr_tsx_fixup_check(void)
+     uint32_t lbr_format;
+ 
+     /*
+-     * HSM182, HSD172, HSE117, BDM127, BDD117, BDF85, BDE105:
++     * Haswell erratum HSM182 et al, Broadwell erratum BDM127 et al:
+      *
+      * On processors that do not support Intel Transactional Synchronization
+      * Extensions (Intel TSX) (CPUID.07H.EBX bits 4 and 11 are both zero),
+@@ -2933,8 +2933,11 @@ static void __init lbr_tsx_fixup_check(void)
+     case 0x45: /* HSM182 - 4th gen Core */
+     case 0x46: /* HSM182, HSD172 - 4th gen Core (GT3) */
+     case 0x3d: /* BDM127 - 5th gen Core */
+-    case 0x47: /* BDD117 - 5th gen Core (GT3) */
+-    case 0x4f: /* BDF85  - Xeon E5-2600 v4 */
++    case 0x47: /* BDD117 - 5th gen Core (GT3)
++                  BDW117 - Xeon E3-1200 v4 */
++    case 0x4f: /* BDF85  - Xeon E5-2600 v4
++                  BDH75  - Core-i7 for LGA2011-v3 Socket
++                  BDX88  - Xeon E7-x800 v4 */
+     case 0x56: /* BDE105 - Xeon D-1500 */
+         break;
+     default:
+@@ -2955,18 +2958,31 @@ static void __init lbr_tsx_fixup_check(void)
+         lbr_tsx_fixup_needed = true;
+ }
+ 
+-static void __init bdf93_fixup_check(void)
++static void __init ler_to_fixup_check(void)
+ {
+     /*
+-     * Broadwell erratum BDF93:
++     * Broadwell erratum BDF93 et al:
+      *
+      * Reads from MSR_LER_TO_LIP (MSR 1DEH) may return values for bits[63:61]
+      * that are not equal to bit[47].  Attempting to context switch this value
+      * may cause a #GP.  Software should sign extend the MSR.
+      */
+-    if ( boot_cpu_data.x86_vendor == X86_VENDOR_INTEL &&
+-         boot_cpu_data.x86 == 6 && boot_cpu_data.x86_model == 0x4f )
+-        bdf93_fixup_needed = true;
++    if ( boot_cpu_data.x86_vendor != X86_VENDOR_INTEL ||
++         boot_cpu_data.x86 != 6 )
++        return;
++
++    switch ( boot_cpu_data.x86_model )
++    {
++    case 0x3d: /* BDM131 - 5th gen Core */
++    case 0x47: /* BDD??? - 5th gen Core (H-Processor line)
++                  BDW120 - Xeon E3-1200 v4 */
++    case 0x4f: /* BDF93  - Xeon E5-2600 v4
++                  BDH80  - Core-i7 for LGA2011-v3 Socket
++                  BDX93  - Xeon E7-x800 v4 */
++    case 0x56: /* BDE??? - Xeon D-1500 */
++        ler_to_fixup_needed = true;
++        break;
++    }
+ }
+ 
+ static int is_last_branch_msr(u32 ecx)
+@@ -3286,8 +3302,8 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
+             v->arch.hvm_vmx.lbr_flags |= LBR_MSRS_INSERTED;
+             if ( lbr_tsx_fixup_needed )
+                 v->arch.hvm_vmx.lbr_flags |= LBR_FIXUP_TSX;
+-            if ( bdf93_fixup_needed )
+-                v->arch.hvm_vmx.lbr_flags |= LBR_FIXUP_BDF93;
++            if ( ler_to_fixup_needed )
++                v->arch.hvm_vmx.lbr_flags |= LBR_FIXUP_LER_TO;
+         }
+ 
+         __vmwrite(GUEST_IA32_DEBUGCTL, msr_content);
+@@ -4408,7 +4424,7 @@ static void sign_extend_msr(struct vcpu *v, u32 msr, int type)
+     }
+ }
+ 
+-static void bdf93_fixup(void)
++static void ler_to_fixup(void)
+ {
+     struct vcpu *curr = current;
+ 
+@@ -4421,8 +4437,8 @@ static void lbr_fixup(void)
+ 
+     if ( curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_TSX )
+         lbr_tsx_fixup();
+-    if ( curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_BDF93 )
+-        bdf93_fixup();
++    if ( curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_LER_TO )
++        ler_to_fixup();
+ }
+ 
+ void vmx_vmenter_helper(const struct cpu_user_regs *regs)
+-- 
+2.25.4
+
