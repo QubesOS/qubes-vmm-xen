@@ -105,6 +105,7 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
+Patch300: patch-ioreq-handle-pending-emulation-racing-with-ioreq-ser.patch
 
 # Security fixes
 
