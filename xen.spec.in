@@ -123,6 +123,7 @@ Patch623: patch-libxl-console.patch
 Patch624: patch-libxl-console-fix.patch
 Patch625: patch-xen-gcc10-fixes.patch
 Patch626: patch-xen-ocaml-4.10.patch
+Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
 
 # GCC7 fixes
 Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch

@@ -1,0 +1,141 @@
+From ad97c5cad0d2b65dbf7141085e7ae7d4cb690d83 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 6 Jun 2020 05:02:33 +0200
+Subject: [PATCH] libxl: automatically enable gfx_passthru if IGD is assigned
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+The gfx_passthru option needs to be enabled whenever IGD is assigned,
+otherwise qemu refuses to start. Similarly, if gfx_passthru is enabled,
+IGD needs to be assigned, otherwise libxl refuses to start the guest.
+This means the gfx_passthru is fully redundant to assigning IGD (besides
+enabling various non-bootable configurations).
+Change the default value to follow IGD assignment state. For that, use
+existing libxl__detect_gfx_passthru_kind (move from libxl_dm.c to
+libxl_create.c).
+
+While the option is designed with various GFX in mind, only IGD ever got
+a special treatment. PCI passthrough of other GFX devices (some AMD and
+Nvidia at least) works just fine without setting gfx_passthru at all.
+
+This change simplifies configuration, but also fixes IGD passthrough
+when using libvirt (which doesn't expose gfx_passthru option).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/man/xl.cfg.5.pod.in   |  3 +++
+ tools/libxl/libxl_create.c | 27 ++++++++++++++++++++++++++-
+ tools/libxl/libxl_dm.c     | 20 +-------------------
+ 3 files changed, 30 insertions(+), 20 deletions(-)
+
+diff --git a/docs/man/xl.cfg.5.pod.in b/docs/man/xl.cfg.5.pod.in
+index 245d3f9472..2a52224dc6 100644
+--- a/docs/man/xl.cfg.5.pod.in
++++ b/docs/man/xl.cfg.5.pod.in
+@@ -1237,6 +1237,9 @@ Intel Graphics Device.
+ 
+ =back
+ 
++By default, this option is enabled if Intel Graphics Device is assigned to the
++VM.
++
+ Note that some graphics cards (AMD/ATI cards, for example) do not
+ necessarily require the B<gfx_passthru> option, so you can use the normal Xen
+ PCI passthrough to assign the graphics card as a secondary graphics
+diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
+index 32d45dcef0..850b031509 100644
+--- a/tools/libxl/libxl_create.c
++++ b/tools/libxl/libxl_create.c
+@@ -70,6 +70,22 @@ void libxl__rdm_setdefault(libxl__gc *gc, libxl_domain_build_info *b_info)
+                             LIBXL_RDM_MEM_BOUNDARY_MEMKB_DEFAULT;
+ }
+ 
++static enum libxl_gfx_passthru_kind
++libxl__detect_gfx_passthru_kind(libxl__gc *gc,
++                                const libxl_domain_config *guest_config)
++{
++    const libxl_domain_build_info *b_info = &guest_config->b_info;
++
++    if (b_info->u.hvm.gfx_passthru_kind != LIBXL_GFX_PASSTHRU_KIND_DEFAULT)
++        return b_info->u.hvm.gfx_passthru_kind;
++
++    if (libxl__is_igd_vga_passthru(gc, guest_config)) {
++        return LIBXL_GFX_PASSTHRU_KIND_IGD;
++    }
++
++    return LIBXL_GFX_PASSTHRU_KIND_DEFAULT;
++}
++
+ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+                                         libxl_domain_build_info *b_info)
+ {
+@@ -373,7 +389,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+ 
+         libxl_defbool_setdefault(&b_info->u.hvm.nographic, false);
+ 
+-        libxl_defbool_setdefault(&b_info->u.hvm.gfx_passthru, false);
++        libxl_defbool_setdefault(&b_info->u.hvm.gfx_passthru,
++                b_info->u.hvm.gfx_passthru_kind != LIBXL_GFX_PASSTHRU_KIND_DEFAULT);
+ 
+         libxl__rdm_setdefault(gc, b_info);
+         break;
+@@ -1049,6 +1066,14 @@ int libxl__domain_config_setdefault(libxl__gc *gc,
+             ? libxl__get_required_iommu_memory(d_config->b_info.max_memkb)
+             : 0;
+ 
++    if (d_config->b_info.type == LIBXL_DOMAIN_TYPE_HVM) {
++        if (d_config->b_info.u.hvm.gfx_passthru_kind == LIBXL_GFX_PASSTHRU_KIND_DEFAULT) {
++            /* this may also keep LIBXL_GFX_PASSTHRU_KIND_DEFAULT */
++            d_config->b_info.u.hvm.gfx_passthru_kind =
++                libxl__detect_gfx_passthru_kind(gc, d_config);
++        }
++    }
++
+     ret = libxl__domain_build_info_setdefault(gc, &d_config->b_info);
+     if (ret) {
+         LOGD(ERROR, domid, "Unable to set domain build info defaults");
+diff --git a/tools/libxl/libxl_dm.c b/tools/libxl/libxl_dm.c
+index dac1b8ddb8..ec5d4dda07 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -961,22 +961,6 @@ static char *dm_spice_options(libxl__gc *gc,
+     return opt;
+ }
+ 
+-static enum libxl_gfx_passthru_kind
+-libxl__detect_gfx_passthru_kind(libxl__gc *gc,
+-                                const libxl_domain_config *guest_config)
+-{
+-    const libxl_domain_build_info *b_info = &guest_config->b_info;
+-
+-    if (b_info->u.hvm.gfx_passthru_kind != LIBXL_GFX_PASSTHRU_KIND_DEFAULT)
+-        return b_info->u.hvm.gfx_passthru_kind;
+-
+-    if (libxl__is_igd_vga_passthru(gc, guest_config)) {
+-        return LIBXL_GFX_PASSTHRU_KIND_IGD;
+-    }
+-
+-    return LIBXL_GFX_PASSTHRU_KIND_DEFAULT;
+-}
+-
+ /* colo mode */
+ enum {
+     LIBXL__COLO_NONE = 0,
+@@ -1744,9 +1728,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+         }
+ 
+         if (libxl_defbool_val(b_info->u.hvm.gfx_passthru)) {
+-            enum libxl_gfx_passthru_kind gfx_passthru_kind =
+-                            libxl__detect_gfx_passthru_kind(gc, guest_config);
+-            switch (gfx_passthru_kind) {
++            switch (b_info->u.hvm.gfx_passthru_kind) {
+             case LIBXL_GFX_PASSTHRU_KIND_IGD:
+                 machinearg = GCSPRINTF("%s,igd-passthru=on", machinearg);
+                 break;
+-- 
+2.25.4
+
