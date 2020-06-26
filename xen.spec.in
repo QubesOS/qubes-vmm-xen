@@ -112,6 +112,15 @@ Patch316: patch-0002-passthrough-don-t-migrate-pirq-when-it-is-delivered-.patch
 Patch317: patch-0003-VT-d-introduce-new-fields-in-msi_desc-to-track-bindi.patch
 Patch318: patch-0004-VT-d-some-cleanups.patch
 Patch319: patch-0005-VT-d-introduce-update_irte-to-update-irte-safely.patch
+Patch320: patch-0001-xen-sched-call-cpu_disable_scheduler-via-cpu-notifie.patch
+Patch321: patch-0002-xen-add-helper-for-calling-notifier_call_chain-to-co.patch
+Patch322: patch-0003-xen-add-new-cpu-notifier-action-CPU_RESUME_FAILED.patch
+Patch323: patch-0004-xen-don-t-free-percpu-areas-during-suspend.patch
+Patch324: patch-0005-xen-cpupool-simplify-suspend-resume-handling.patch
+Patch325: patch-0006-x86-ACPI-re-park-previously-parked-CPUs-upon-resume-.patch
+Patch326: patch-0007-sched-populate-cpupool0-only-after-all-cpus-are-up.patch
+Patch327: patch-0008-x86-clear-per-cpu-stub-page-information-in-cpu_smpbo.patch
+Patch328: patch-0009-x86-S3-put-data-segment-registers-into-known-state-u.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch

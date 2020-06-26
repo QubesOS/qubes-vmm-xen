@@ -1,0 +1,125 @@
+From 07ce5bd2e892dfd2d6931d67caac714cf0c23e77 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Tue, 2 Apr 2019 18:19:05 +0200
+Subject: [PATCH 1/9] xen/sched: call cpu_disable_scheduler() via cpu notifier
+
+cpu_disable_scheduler() is being called from __cpu_disable() today.
+There is no need to execute it on the cpu just being disabled, so use
+the CPU_DEAD case of the cpu notifier chain. Moving the call out of
+stop_machine() context is fine, as we just need to hold the domain RCU
+lock and need the scheduler percpu data to be still allocated.
+
+Add another hook for CPU_DOWN_PREPARE to bail out early in case
+cpu_disable_scheduler() would fail. This will avoid crashes in rare
+cases for cpu hotplug or suspend.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Julien Grall <julien.grall@arm.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 9b28696502d400832c012c3b3fecfebee6c75648)
+---
+ xen/arch/arm/smpboot.c |  2 --
+ xen/arch/x86/smpboot.c |  3 ---
+ xen/common/schedule.c  | 36 +++++++++++++++++++++++++++++-------
+ 3 files changed, 29 insertions(+), 12 deletions(-)
+
+diff --git a/xen/arch/arm/smpboot.c b/xen/arch/arm/smpboot.c
+index 32e87221c096..92980bda1f27 100644
+--- a/xen/arch/arm/smpboot.c
++++ b/xen/arch/arm/smpboot.c
+@@ -341,8 +341,6 @@ void __cpu_disable(void)
+     /* It's now safe to remove this processor from the online map */
+     cpumask_clear_cpu(cpu, &cpu_online_map);
+ 
+-    if ( cpu_disable_scheduler(cpu) )
+-        BUG();
+     smp_mb();
+ 
+     /* Return to caller; eventually the IPI mechanism will unwind and the 
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index ef7858fdeebc..afac724d1d33 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -1211,9 +1211,6 @@ void __cpu_disable(void)
+     cpumask_clear_cpu(cpu, &cpu_online_map);
+     fixup_irqs(&cpu_online_map, 1);
+     fixup_eoi();
+-
+-    if ( cpu_disable_scheduler(cpu) )
+-        BUG();
+ }
+ 
+ void __cpu_die(unsigned int cpu)
+diff --git a/xen/common/schedule.c b/xen/common/schedule.c
+index 6069b3278cc2..e92faa40959b 100644
+--- a/xen/common/schedule.c
++++ b/xen/common/schedule.c
+@@ -745,8 +745,9 @@ void restore_vcpu_affinity(struct domain *d)
+ }
+ 
+ /*
+- * This function is used by cpu_hotplug code from stop_machine context
++ * This function is used by cpu_hotplug code via cpu notifier chain
+  * and from cpupools to switch schedulers on a cpu.
++ * Caller must get domlist_read_lock.
+  */
+ int cpu_disable_scheduler(unsigned int cpu)
+ {
+@@ -761,12 +762,6 @@ int cpu_disable_scheduler(unsigned int cpu)
+     if ( c == NULL )
+         return ret;
+ 
+-    /*
+-     * We'd need the domain RCU lock, but:
+-     *  - when we are called from cpupool code, it's acquired there already;
+-     *  - when we are called for CPU teardown, we're in stop-machine context,
+-     *    so that's not be a problem.
+-     */
+     for_each_domain_in_cpupool ( d, c )
+     {
+         for_each_vcpu ( d, v )
+@@ -865,6 +860,24 @@ int cpu_disable_scheduler(unsigned int cpu)
+     return ret;
+ }
+ 
++static int cpu_disable_scheduler_check(unsigned int cpu)
++{
++    struct domain *d;
++    struct vcpu *v;
++    struct cpupool *c;
++
++    c = per_cpu(cpupool, cpu);
++    if ( c == NULL )
++        return 0;
++
++    for_each_domain_in_cpupool ( d, c )
++        for_each_vcpu ( d, v )
++            if ( v->affinity_broken )
++                return -EADDRINUSE;
++
++    return 0;
++}
++
+ static int vcpu_set_affinity(
+     struct vcpu *v, const cpumask_t *affinity, cpumask_t *which)
+ {
+@@ -1676,7 +1689,16 @@ static int cpu_schedule_callback(
+     case CPU_UP_PREPARE:
+         rc = cpu_schedule_up(cpu);
+         break;
++    case CPU_DOWN_PREPARE:
++        rcu_read_lock(&domlist_read_lock);
++        rc = cpu_disable_scheduler_check(cpu);
++        rcu_read_unlock(&domlist_read_lock);
++        break;
+     case CPU_DEAD:
++        rcu_read_lock(&domlist_read_lock);
++        rc = cpu_disable_scheduler(cpu);
++        BUG_ON(rc);
++        rcu_read_unlock(&domlist_read_lock);
+         SCHED_OP(sched, deinit_pdata, sd->sched_priv, cpu);
+         /* Fallthrough */
+     case CPU_UP_CANCELED:
+-- 
+2.26.2
+

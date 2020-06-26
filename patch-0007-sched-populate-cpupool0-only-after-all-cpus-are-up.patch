@@ -1,0 +1,61 @@
+From b3541dd6cdb0ef9f31b8860e59bf0ee524a2c6e6 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Tue, 17 Sep 2019 16:09:50 +0200
+Subject: [PATCH 7/9] sched: populate cpupool0 only after all cpus are up
+
+Simplify cpupool initialization by populating cpupool0 with cpus only
+after all cpus are up. This avoids having to call the cpu notifier
+directly for cpu 0.
+
+With that in place there is no need to create cpupool0 earlier, so
+do that just before assigning the cpus. Initialize free cpus with all
+online cpus at that time in order to be able to add the cpu notifier
+late, too.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Dario Faggioli <dfaggioli@suse.com>
+(cherry picked from commit b0000b128adb07f4107c6e324d32ab025a73a6c8)
+---
+ xen/common/cpupool.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/xen/common/cpupool.c b/xen/common/cpupool.c
+index cae19fda6e11..7ab13d25ab0e 100644
+--- a/xen/common/cpupool.c
++++ b/xen/common/cpupool.c
+@@ -768,18 +768,28 @@ static struct notifier_block cpu_nfb = {
+     .notifier_call = cpu_callback
+ };
+ 
+-static int __init cpupool_presmp_init(void)
++static int __init cpupool_init(void)
+ {
++    unsigned int cpu;
+     int err;
+-    void *cpu = (void *)(long)smp_processor_id();
++
+     cpupool0 = cpupool_create(0, 0, &err);
+     BUG_ON(cpupool0 == NULL);
+     cpupool_put(cpupool0);
+-    cpu_callback(&cpu_nfb, CPU_ONLINE, cpu);
+     register_cpu_notifier(&cpu_nfb);
++
++    spin_lock(&cpupool_lock);
++
++    cpumask_copy(&cpupool_free_cpus, &cpu_online_map);
++
++    for_each_cpu ( cpu, &cpupool_free_cpus )
++        cpupool_assign_cpu_locked(cpupool0, cpu);
++
++    spin_unlock(&cpupool_lock);
++
+     return 0;
+ }
+-presmp_initcall(cpupool_presmp_init);
++__initcall(cpupool_init);
+ 
+ /*
+  * Local variables:
+-- 
+2.26.2
+

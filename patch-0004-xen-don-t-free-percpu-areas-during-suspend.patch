@@ -1,0 +1,46 @@
+From 60584e7ad08703fcdacf6d3f9c1e0b5065e97bd2 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Tue, 2 Apr 2019 07:34:55 +0200
+Subject: [PATCH 4/9] xen: don't free percpu areas during suspend
+
+Instead of freeing percpu areas during suspend and allocating them
+again when resuming keep them. Only free an area in case a cpu didn't
+come up again when resuming.
+
+It should be noted that there is a potential change in behaviour as
+the percpu areas are no longer zeroed out during suspend/resume. While
+I have checked the called cpu notifier hooks to cope with that there
+might be some well hidden dependency on the previous behaviour. OTOH
+a component not registering itself for cpu down/up and expecting to
+see a zeroed percpu variable after suspend/resume is kind of broken
+already. And the opposite case, where a component is not registered
+to be called for cpu down/up and is not expecting a percpu variable
+suddenly to be zero due to suspend/resume is much more probable,
+especially as the suspend/resume functionality seems not to be tested
+that often.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Dario Faggioli <dfaggioli@suse.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit aca2a985a55ad9a0fcc1a9f23c8c4755598928ec)
+---
+ xen/arch/x86/percpu.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/percpu.c b/xen/arch/x86/percpu.c
+index bd87855a9cce..d7f5440928c0 100644
+--- a/xen/arch/x86/percpu.c
++++ b/xen/arch/x86/percpu.c
+@@ -70,7 +70,8 @@ static int cpu_percpu_callback(
+         break;
+     case CPU_UP_CANCELED:
+     case CPU_DEAD:
+-        if ( !park_offline_cpus )
++    case CPU_RESUME_FAILED:
++        if ( !park_offline_cpus && system_state != SYS_STATE_suspend )
+             free_percpu_area(cpu);
+         break;
+     case CPU_REMOVE:
+-- 
+2.26.2
+

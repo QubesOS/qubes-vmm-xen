@@ -1,0 +1,41 @@
+From 654c767b3f8f8e27562aee8622e633a1cd4f4a1b Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Thu, 9 Jan 2020 11:07:38 +0100
+Subject: [PATCH 8/9] x86: clear per cpu stub page information in
+ cpu_smpboot_free()
+
+cpu_smpboot_free() removes the stubs for the cpu going offline, but it
+isn't clearing the related percpu variables. This will result in
+crashes when a stub page is released due to all related cpus gone
+offline and one of those cpus going online later.
+
+Fix that by clearing stubs.addr and stubs.mfn in order to allocate a
+new stub page when needed, irrespective of whether the CPU gets parked
+or removed.
+
+Fixes: 2e6c8f182c9c50 ("x86: distinguish CPU offlining from CPU removal")
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wl@xen.org>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Tested-by: Tao Xu <tao3.xu@intel.com>
+(cherry picked from commit 774901788c5614798931a1cb2e20dd8b885f97ab)
+---
+ xen/arch/x86/smpboot.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index afac724d1d33..83b3bf70b706 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -946,6 +946,8 @@ static void cpu_smpboot_free(unsigned int cpu, bool remove)
+         unmap_domain_page(stub_page);
+         destroy_xen_mappings(per_cpu(stubs.addr, cpu) & PAGE_MASK,
+                              (per_cpu(stubs.addr, cpu) | ~PAGE_MASK) + 1);
++        per_cpu(stubs.addr, cpu) = 0;
++        per_cpu(stubs.mfn, cpu) = 0;
+         if ( i == STUBS_PER_PAGE )
+             free_domheap_page(mfn_to_page(mfn));
+     }
+-- 
+2.26.2
+

@@ -1,0 +1,49 @@
+From 55ffc4e5acaccb6dc47e5b51a9c6db32440616b3 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Fri, 7 Aug 2020 17:31:16 +0200
+Subject: [PATCH] x86/S3: put data segment registers into known state upon
+ resume
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+wakeup_32 sets %ds and %es to BOOT_DS, while leaving %fs at what
+wakeup_start did set it to, and %gs at whatever BIOS did load into it.
+All of this may end up confusing the first load_segments() to run on
+the BSP after resume, in particular allowing a non-nul selector value
+to be left in %fs.
+
+Alongside %ss, also put all other data segment registers into the same
+state that the boot and CPU bringup paths put them in.
+
+Reported-by: M. Vefa Bicakci <m.v.b@runbox.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: 55f8c389d4348cc517946fdcb10794112458e81e
+master date: 2020-07-24 10:17:26 +0200
+(cherry picked from commit 85ce36d12b43ed15e556265c6204858d3b52d747)
+---
+ xen/arch/x86/acpi/wakeup_prot.S | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xen/arch/x86/acpi/wakeup_prot.S b/xen/arch/x86/acpi/wakeup_prot.S
+index def86d2f4572..5f8ef8ce0c83 100644
+--- a/xen/arch/x86/acpi/wakeup_prot.S
++++ b/xen/arch/x86/acpi/wakeup_prot.S
+@@ -84,6 +84,12 @@ ENTRY(__ret_point)
+         mov     REF(saved_ss), %ss
+         LOAD_GREG(sp)
+ 
++        mov     $__HYPERVISOR_DS64, %eax
++        mov     %eax, %ds
++        mov     %eax, %es
++        mov     %eax, %fs
++        mov     %eax, %gs
++
+         /* Reload code selector */
+         pushq   $(__HYPERVISOR_CS64)
+         leaq    1f(%rip),%rax
+-- 
+2.26.2
+

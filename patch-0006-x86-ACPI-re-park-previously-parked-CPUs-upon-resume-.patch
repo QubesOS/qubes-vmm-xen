@@ -1,0 +1,61 @@
+From c2d8f6a77fe7da9d12613729693301265581521b Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Fri, 30 Aug 2019 10:24:13 +0200
+Subject: [PATCH 6/9] x86/ACPI: re-park previously parked CPUs upon resume from
+ S3
+
+Aiui when resuming from S3, CPUs come back out of RESET/INIT. Therefore
+they need to undergo the same procedure as was added elsewhere by
+commits d8f974f1a6 ("x86: command line option to avoid use of secondary
+hyper-threads") and 8797d20a6e ("x86: possibly bring up all CPUs even
+if not all are supposed to be used").
+
+Just like done at boot time, avoid (at least pointlessly) using
+stop-machine logic.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit eb912011076e76f6c5e4013616a61ba670e7fc15)
+---
+ xen/common/cpu.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/xen/common/cpu.c b/xen/common/cpu.c
+index 8dca74cbb0bd..ecd63aa9a92c 100644
+--- a/xen/common/cpu.c
++++ b/xen/common/cpu.c
+@@ -110,7 +110,7 @@ int cpu_down(unsigned int cpu)
+     if ( err )
+         goto fail;
+ 
+-    if ( unlikely(system_state < SYS_STATE_active) )
++    if ( system_state < SYS_STATE_active || system_state == SYS_STATE_resume )
+         on_selected_cpus(cpumask_of(cpu), _take_cpu_down, NULL, true);
+     else if ( (err = stop_machine_run(take_cpu_down, NULL, cpu)) < 0 )
+         goto fail;
+@@ -208,15 +208,19 @@ void enable_nonboot_cpus(void)
+ 
+     printk("Enabling non-boot CPUs  ...\n");
+ 
+-    for_each_cpu ( cpu, &frozen_cpus )
++    for_each_present_cpu ( cpu )
+     {
++        if ( park_offline_cpus ? cpu == smp_processor_id()
++                               : !cpumask_test_cpu(cpu, &frozen_cpus) )
++            continue;
+         if ( (error = cpu_up(cpu)) )
+         {
+             printk("Error bringing CPU%d up: %d\n", cpu, error);
+             BUG_ON(error == -EBUSY);
+         }
+-        else
+-            __cpumask_clear_cpu(cpu, &frozen_cpus);
++        else if ( !__cpumask_test_and_clear_cpu(cpu, &frozen_cpus) &&
++                  (error = cpu_down(cpu)) )
++            printk("Error re-offlining CPU%d: %d\n", cpu, error);
+     }
+ 
+     for_each_cpu ( cpu, &frozen_cpus )
+-- 
+2.26.2
+
