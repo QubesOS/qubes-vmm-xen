@@ -1,0 +1,324 @@
+From a5e25908d18d30722a99f0e2e75985634ab0933c Mon Sep 17 00:00:00 2001
+From: Feng Wu <feng.wu@intel.com>
+Date: Fri, 7 Apr 2017 15:37:07 +0200
+Subject: [PATCH 1/2] VT-d: introduce new fields in msi_desc to track binding
+ with guest interrupt
+
+msi_msg_to_remap_entry() is buggy when the live IRTE is in posted format. It
+wrongly inherits the 'im' field meaning the IRTE is in posted format but
+updates all the other fields to remapping format.
+
+There are also two situations that lead to the above issue. One is some callers
+really want to change the IRTE to remapped format. The other is some callers
+only want to update msi message (e.g. set msi affinity) for they don't aware
+that this msi is binded with a guest interrupt. We should suppress update
+in the second situation. To distinguish them, straightforwardly, we can let
+caller specify which format of IRTE they want update to. It isn't feasible for
+making all callers be aware of the binding with guest interrupt will cause a
+far more complicated change (including the interfaces exposed to IOAPIC and
+MSI). Also some callings happen in interrupt context where we can't acquire
+d->event_lock to read struct hvm_pirq_dpci.
+
+This patch introduces two new fields in msi_desc to track binding with a guest
+interrupt such that msi_msg_to_remap_entry() can get the binding and update
+IRTE accordingly. After that change, pi_update_irte() can utilize
+msi_msg_to_remap_entry() to update IRTE to posted format.
+
+Signed-off-by: Feng Wu <feng.wu@intel.com>
+Signed-off-by: Chao Gao <chao.gao@intel.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/msi.c                     |   1 +
+ xen/drivers/passthrough/io.c           |   5 +-
+ xen/drivers/passthrough/vtd/intremap.c | 151 +++++--------------------
+ xen/include/asm-x86/iommu.h            |   4 +-
+ xen/include/asm-x86/msi.h              |   4 +
+ 5 files changed, 43 insertions(+), 122 deletions(-)
+
+diff --git a/xen/arch/x86/msi.c b/xen/arch/x86/msi.c
+index a868007b11..3374cd4597 100644
+--- a/xen/arch/x86/msi.c
++++ b/xen/arch/x86/msi.c
+@@ -578,6 +578,7 @@ static struct msi_desc *alloc_msi_entry(unsigned int nr)
+         entry[nr].dev = NULL;
+         entry[nr].irq = -1;
+         entry[nr].remap_index = -1;
++        entry[nr].pi_desc = NULL;
+     }
+ 
+     return entry;
+diff --git a/xen/drivers/passthrough/io.c b/xen/drivers/passthrough/io.c
+index 4d1941374d..3e0a10e2c6 100644
+--- a/xen/drivers/passthrough/io.c
++++ b/xen/drivers/passthrough/io.c
+@@ -415,7 +415,8 @@ int pt_irq_create_bind(
+         if ( iommu_intpost )
+         {
+             if ( vcpu )
+-                pi_update_irte(vcpu, info, pirq_dpci->gmsi.gvec);
++                pi_update_irte(&vcpu->arch.hvm_vmx.pi_desc, info,
++                               pirq_dpci->gmsi.gvec);
+             else
+                 dprintk(XENLOG_G_INFO,
+                         "%pv: deliver interrupt in remapping mode,gvec:%02x\n",
+@@ -619,6 +620,8 @@ int pt_irq_destroy_bind(
+         else
+             what = "bogus";
+     }
++    else if ( pirq_dpci && pirq_dpci->gmsi.posted )
++        pi_update_irte(NULL, pirq, 0);
+ 
+     if ( pirq_dpci && (pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) &&
+          list_empty(&pirq_dpci->digl_list) )
+diff --git a/xen/drivers/passthrough/vtd/intremap.c b/xen/drivers/passthrough/vtd/intremap.c
+index bfd468baf0..6314cbffd9 100644
+--- a/xen/drivers/passthrough/vtd/intremap.c
++++ b/xen/drivers/passthrough/vtd/intremap.c
+@@ -551,12 +551,12 @@ static int msi_msg_to_remap_entry(
+     struct iommu *iommu, struct pci_dev *pdev,
+     struct msi_desc *msi_desc, struct msi_msg *msg)
+ {
+-    struct iremap_entry *iremap_entry = NULL, *iremap_entries;
+-    struct iremap_entry new_ire;
++    struct iremap_entry *iremap_entry = NULL, *iremap_entries, new_ire = { };
+     struct msi_msg_remap_entry *remap_rte;
+     unsigned int index, i, nr = 1;
+     unsigned long flags;
+     struct ir_ctrl *ir_ctrl = iommu_ir_ctrl(iommu);
++    const struct pi_desc *pi_desc = msi_desc->pi_desc;
+ 
+     if ( msi_desc->msi_attrib.type == PCI_CAP_ID_MSI )
+         nr = msi_desc->msi.nvec;
+@@ -595,33 +595,35 @@ static int msi_msg_to_remap_entry(
+     GET_IREMAP_ENTRY(ir_ctrl->iremap_maddr, index,
+                      iremap_entries, iremap_entry);
+ 
+-    memcpy(&new_ire, iremap_entry, sizeof(struct iremap_entry));
+-
+-    /* Set interrupt remapping table entry */
+-    new_ire.remap.fpd = 0;
+-    new_ire.remap.dm = (msg->address_lo >> MSI_ADDR_DESTMODE_SHIFT) & 0x1;
+-    new_ire.remap.tm = (msg->data >> MSI_DATA_TRIGGER_SHIFT) & 0x1;
+-    new_ire.remap.dlm = (msg->data >> MSI_DATA_DELIVERY_MODE_SHIFT) & 0x1;
+-    /* Hardware require RH = 1 for LPR delivery mode */
+-    new_ire.remap.rh = (new_ire.remap.dlm == dest_LowestPrio);
+-    new_ire.remap.avail = 0;
+-    new_ire.remap.res_1 = 0;
+-    new_ire.remap.vector = (msg->data >> MSI_DATA_VECTOR_SHIFT) &
+-                            MSI_DATA_VECTOR_MASK;
+-    new_ire.remap.res_2 = 0;
+-    if ( x2apic_enabled )
+-        new_ire.remap.dst = msg->dest32;
++    if ( !pi_desc )
++    {
++        new_ire.remap.dm = msg->address_lo >> MSI_ADDR_DESTMODE_SHIFT;
++        new_ire.remap.tm = msg->data >> MSI_DATA_TRIGGER_SHIFT;
++        new_ire.remap.dlm = msg->data >> MSI_DATA_DELIVERY_MODE_SHIFT;
++        /* Hardware requires RH = 1 for lowest priority delivery mode */
++        new_ire.remap.rh = (new_ire.remap.dlm == dest_LowestPrio);
++        new_ire.remap.vector = (msg->data >> MSI_DATA_VECTOR_SHIFT) &
++                                MSI_DATA_VECTOR_MASK;
++        if ( x2apic_enabled )
++            new_ire.remap.dst = msg->dest32;
++        else
++            new_ire.remap.dst =
++                MASK_EXTR(msg->address_lo, MSI_ADDR_DEST_ID_MASK) << 8;
++        new_ire.remap.p = 1;
++    }
+     else
+-        new_ire.remap.dst = ((msg->address_lo >> MSI_ADDR_DEST_ID_SHIFT)
+-                             & 0xff) << 8;
++    {
++        new_ire.post.im = 1;
++        new_ire.post.vector = msi_desc->gvec;
++        new_ire.post.pda_l = virt_to_maddr(pi_desc) >> (32 - PDA_LOW_BIT);
++        new_ire.post.pda_h = virt_to_maddr(pi_desc) >> 32;
++        new_ire.post.p = 1;
++    }
+ 
+     if ( pdev )
+         set_msi_source_id(pdev, &new_ire);
+     else
+         set_hpet_source_id(msi_desc->hpet_id, &new_ire);
+-    new_ire.remap.res_3 = 0;
+-    new_ire.remap.res_4 = 0;
+-    new_ire.remap.p = 1;    /* finally, set present bit */
+ 
+     /* now construct new MSI/MSI-X rte entry */
+     remap_rte = (struct msi_msg_remap_entry *)msg;
+@@ -902,61 +904,16 @@ void iommu_disable_x2apic_IR(void)
+         disable_qinval(drhd->iommu);
+ }
+ 
+-static void setup_posted_irte(
+-    struct iremap_entry *new_ire, const struct iremap_entry *old_ire,
+-    const struct pi_desc *pi_desc, const uint8_t gvec)
+-{
+-    memset(new_ire, 0, sizeof(*new_ire));
+-
+-    /*
+-     * 'im' filed decides whether the irte is in posted format (with value 1)
+-     * or remapped format (with value 0), if the old irte is in remapped format,
+-     * we copy things from remapped part in 'struct iremap_entry', otherwise,
+-     * we copy from posted part.
+-     */
+-    if ( !old_ire->remap.im )
+-    {
+-        new_ire->post.p = old_ire->remap.p;
+-        new_ire->post.fpd = old_ire->remap.fpd;
+-        new_ire->post.sid = old_ire->remap.sid;
+-        new_ire->post.sq = old_ire->remap.sq;
+-        new_ire->post.svt = old_ire->remap.svt;
+-    }
+-    else
+-    {
+-        new_ire->post.p = old_ire->post.p;
+-        new_ire->post.fpd = old_ire->post.fpd;
+-        new_ire->post.sid = old_ire->post.sid;
+-        new_ire->post.sq = old_ire->post.sq;
+-        new_ire->post.svt = old_ire->post.svt;
+-        new_ire->post.urg = old_ire->post.urg;
+-    }
+-
+-    new_ire->post.im = 1;
+-    new_ire->post.vector = gvec;
+-    new_ire->post.pda_l = virt_to_maddr(pi_desc) >> (32 - PDA_LOW_BIT);
+-    new_ire->post.pda_h = virt_to_maddr(pi_desc) >> 32;
+-}
+-
+ /*
+  * This function is used to update the IRTE for posted-interrupt
+  * when guest changes MSI/MSI-X information.
+  */
+-int pi_update_irte(const struct vcpu *v, const struct pirq *pirq,
++int pi_update_irte(const struct pi_desc *pi_desc, const struct pirq *pirq,
+     const uint8_t gvec)
+ {
+     struct irq_desc *desc;
+-    const struct msi_desc *msi_desc;
+-    int remap_index;
+-    int rc = 0;
+-    const struct pci_dev *pci_dev;
+-    const struct acpi_drhd_unit *drhd;
+-    struct iommu *iommu;
+-    struct ir_ctrl *ir_ctrl;
+-    struct iremap_entry *iremap_entries = NULL, *p = NULL;
+-    struct iremap_entry new_ire, old_ire;
+-    const struct pi_desc *pi_desc = &v->arch.hvm_vmx.pi_desc;
+-    __uint128_t ret;
++    struct msi_desc *msi_desc;
++    int rc;
+ 
+     desc = pirq_spin_lock_irq_desc(pirq, NULL);
+     if ( !desc )
+@@ -968,59 +925,13 @@ int pi_update_irte(const struct vcpu *v, const struct pirq *pirq,
+         rc = -ENODEV;
+         goto unlock_out;
+     }
+-
+-    pci_dev = msi_desc->dev;
+-    if ( !pci_dev )
+-    {
+-        rc = -ENODEV;
+-        goto unlock_out;
+-    }
+-
+-    remap_index = msi_desc->remap_index;
++    msi_desc->pi_desc = pi_desc;
++    msi_desc->gvec = gvec;
+ 
+     spin_unlock_irq(&desc->lock);
+ 
+     ASSERT(pcidevs_locked());
+-
+-    /*
+-     * FIXME: For performance reasons we should store the 'iommu' pointer in
+-     * 'struct msi_desc' in some other place, so we don't need to waste
+-     * time searching it here.
+-     */
+-    drhd = acpi_find_matched_drhd_unit(pci_dev);
+-    if ( !drhd )
+-        return -ENODEV;
+-
+-    iommu = drhd->iommu;
+-    ir_ctrl = iommu_ir_ctrl(iommu);
+-    if ( !ir_ctrl )
+-        return -ENODEV;
+-
+-    spin_lock_irq(&ir_ctrl->iremap_lock);
+-
+-    GET_IREMAP_ENTRY(ir_ctrl->iremap_maddr, remap_index, iremap_entries, p);
+-
+-    old_ire = *p;
+-
+-    /* Setup/Update interrupt remapping table entry. */
+-    setup_posted_irte(&new_ire, &old_ire, pi_desc, gvec);
+-    ret = cmpxchg16b(p, &old_ire, &new_ire);
+-
+-    /*
+-     * In the above, we use cmpxchg16 to atomically update the 128-bit IRTE,
+-     * and the hardware cannot update the IRTE behind us, so the return value
+-     * of cmpxchg16 should be the same as old_ire. This ASSERT validate it.
+-     */
+-    ASSERT(ret == old_ire.val);
+-
+-    iommu_flush_cache_entry(p, sizeof(*p));
+-    iommu_flush_iec_index(iommu, 0, remap_index);
+-
+-    unmap_vtd_domain_page(iremap_entries);
+-
+-    spin_unlock_irq(&ir_ctrl->iremap_lock);
+-
+-    return 0;
++    return iommu_update_ire_from_msi(msi_desc, &msi_desc->msg);
+ 
+  unlock_out:
+     spin_unlock_irq(&desc->lock);
+diff --git a/xen/include/asm-x86/iommu.h b/xen/include/asm-x86/iommu.h
+index 0008505699..043123333e 100644
+--- a/xen/include/asm-x86/iommu.h
++++ b/xen/include/asm-x86/iommu.h
+@@ -18,6 +18,7 @@
+ #include <xen/list.h>
+ #include <xen/spinlock.h>
+ #include <asm/processor.h>
++#include <asm/hvm/vmx/vmcs.h>
+ 
+ #define DEFAULT_DOMAIN_ADDRESS_WIDTH 48
+ #define MAX_IOMMUS 32
+@@ -91,7 +92,8 @@ bool_t iommu_supports_eim(void);
+ int iommu_enable_x2apic_IR(void);
+ void iommu_disable_x2apic_IR(void);
+ 
+-int pi_update_irte(const struct vcpu *v, const struct pirq *pirq, const uint8_t gvec);
++int pi_update_irte(const struct pi_desc *pi_desc, const struct pirq *pirq,
++                   const uint8_t gvec);
+ 
+ #endif /* !__ARCH_X86_IOMMU_H__ */
+ /*
+diff --git a/xen/include/asm-x86/msi.h b/xen/include/asm-x86/msi.h
+index 9c02945893..bf243f8a35 100644
+--- a/xen/include/asm-x86/msi.h
++++ b/xen/include/asm-x86/msi.h
+@@ -4,6 +4,7 @@
+ #include <xen/cpumask.h>
+ #include <xen/pci.h>
+ #include <asm/byteorder.h>
++#include <asm/hvm/vmx/vmcs.h>
+ 
+ /*
+  * Constants for Intel APIC based MSI messages.
+@@ -102,6 +103,9 @@ struct msi_desc {
+ 		__u16	entry_nr;	/* specific enabled entry 	  */
+ 	} msi_attrib;
+ 
++	uint8_t gvec;			/* guest vector. valid when pi_desc isn't NULL */
++	const struct pi_desc *pi_desc;	/* pointer to posted descriptor */
++
+ 	struct list_head list;
+ 
+ 	union {
+-- 
+2.25.4
+

@@ -1,0 +1,149 @@
+From 1066331913c9f37856dcbc161e9833dc43650c64 Mon Sep 17 00:00:00 2001
+From: Chao Gao <chao.gao@intel.com>
+Date: Fri, 7 Apr 2017 15:36:20 +0200
+Subject: [PATCH] passthrough: don't migrate pirq when it is delivered through
+ VT-d PI
+
+When a vCPU was migrated to another pCPU, pt irqs binded to this vCPU might
+also need migration as a optimization to reduce IPI between pCPUs. When VT-d
+PI is enabled, interrupt vector will be recorded to a main memory resident
+data-structure and a notification whose destination is decided by NDST is
+generated. NDST is properly adjusted during vCPU migration so pirq directly
+injected to guest needn't be migrated.
+
+This patch adds a indicator, @posted, to show whether the pt irq is delivered
+through VT-d PI. Also this patch fixes a bug that hvm_migrate_pirq() accesses
+pirq_dpci->gmsi.dest_vcpu_id without checking the pirq_dpci's type.
+
+Signed-off-by: Chao Gao <chao.gao@intel.com>
+[jb: remove an extranious check from hvm_migrate_pirq()]
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/hvm/hvm.c       |  2 ++
+ xen/drivers/passthrough/io.c | 63 ++++++++----------------------------
+ xen/include/xen/hvm/irq.h    |  1 +
+ 3 files changed, 16 insertions(+), 50 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 8c423f8d1c..b67b853511 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -438,6 +438,8 @@ static int hvm_migrate_pirq(struct domain *d, struct hvm_pirq_dpci *pirq_dpci,
+     struct vcpu *v = arg;
+ 
+     if ( (pirq_dpci->flags & HVM_IRQ_DPCI_MACH_MSI) &&
++         /* Needn't migrate pirq if this pirq is delivered to guest directly.*/
++         !pirq_dpci->gmsi.posted &&
+          (pirq_dpci->gmsi.dest_vcpu_id == v->vcpu_id) )
+     {
+         struct irq_desc *desc =
+diff --git a/xen/drivers/passthrough/io.c b/xen/drivers/passthrough/io.c
+index 83e096131e..4d1941374d 100644
+--- a/xen/drivers/passthrough/io.c
++++ b/xen/drivers/passthrough/io.c
+@@ -259,52 +259,6 @@ static struct vcpu *vector_hashing_dest(const struct domain *d,
+     return dest;
+ }
+ 
+-/*
+- * The purpose of this routine is to find the right destination vCPU for
+- * an interrupt which will be delivered by VT-d posted-interrupt. There
+- * are several cases as below:
+- *
+- * - For lowest-priority interrupts, use vector-hashing mechanism to find
+- *   the destination.
+- * - Otherwise, for single destination interrupt, it is straightforward to
+- *   find the destination vCPU and return true.
+- * - For multicast/broadcast vCPU, we cannot handle it via interrupt posting,
+- *   so return NULL.
+- */
+-static struct vcpu *pi_find_dest_vcpu(const struct domain *d, uint32_t dest_id,
+-                                      bool_t dest_mode, uint8_t delivery_mode,
+-                                      uint8_t gvec)
+-{
+-    unsigned int dest_vcpus = 0;
+-    struct vcpu *v, *dest = NULL;
+-
+-    switch ( delivery_mode )
+-    {
+-    case dest_LowestPrio:
+-        return vector_hashing_dest(d, dest_id, dest_mode, gvec);
+-    case dest_Fixed:
+-        for_each_vcpu ( d, v )
+-        {
+-            if ( !vlapic_match_dest(vcpu_vlapic(v), NULL, APIC_DEST_NOSHORT,
+-                                    dest_id, dest_mode) )
+-                continue;
+-
+-            dest_vcpus++;
+-            dest = v;
+-        }
+-
+-        /* For fixed mode, we only handle single-destination interrupts. */
+-        if ( dest_vcpus == 1 )
+-            return dest;
+-
+-        break;
+-    default:
+-        break;
+-    }
+-
+-    return NULL;
+-}
+-
+ int pt_irq_create_bind(
+     struct domain *d, xen_domctl_bind_pt_irq_t *pt_irq_bind)
+ {
+@@ -365,6 +319,7 @@ int pt_irq_create_bind(
+     {
+         uint8_t dest, dest_mode, delivery_mode;
+         int dest_vcpu_id;
++        const struct vcpu *vcpu;
+ 
+         if ( !(pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) )
+         {
+@@ -442,17 +397,25 @@ int pt_irq_create_bind(
+         dest_vcpu_id = hvm_girq_dest_2_vcpu_id(d, dest, dest_mode);
+         pirq_dpci->gmsi.dest_vcpu_id = dest_vcpu_id;
+         spin_unlock(&d->event_lock);
++
++        pirq_dpci->gmsi.posted = false;
++        vcpu = (dest_vcpu_id >= 0) ? d->vcpu[dest_vcpu_id] : NULL;
++        if ( iommu_intpost )
++        {
++            if ( delivery_mode == dest_LowestPrio )
++                vcpu = vector_hashing_dest(d, dest, dest_mode,
++                                           pirq_dpci->gmsi.gvec);
++            if ( vcpu )
++                pirq_dpci->gmsi.posted = true;
++        }
+         if ( dest_vcpu_id >= 0 )
+             hvm_migrate_pirqs(d->vcpu[dest_vcpu_id]);
+ 
+         /* Use interrupt posting if it is supported. */
+         if ( iommu_intpost )
+         {
+-            const struct vcpu *vcpu = pi_find_dest_vcpu(d, dest, dest_mode,
+-                                          delivery_mode, pirq_dpci->gmsi.gvec);
+-
+             if ( vcpu )
+-                pi_update_irte( vcpu, info, pirq_dpci->gmsi.gvec );
++                pi_update_irte(vcpu, info, pirq_dpci->gmsi.gvec);
+             else
+                 dprintk(XENLOG_G_INFO,
+                         "%pv: deliver interrupt in remapping mode,gvec:%02x\n",
+diff --git a/xen/include/xen/hvm/irq.h b/xen/include/xen/hvm/irq.h
+index f04125248e..671a6f2e06 100644
+--- a/xen/include/xen/hvm/irq.h
++++ b/xen/include/xen/hvm/irq.h
+@@ -63,6 +63,7 @@ struct hvm_gmsi_info {
+     uint32_t gvec;
+     uint32_t gflags;
+     int dest_vcpu_id; /* -1 :multi-dest, non-negative: dest_vcpu_id */
++    bool posted; /* directly deliver to guest via VT-d PI? */
+ };
+ 
+ struct hvm_girq_dpci_mapping {
+-- 
+2.25.4
+

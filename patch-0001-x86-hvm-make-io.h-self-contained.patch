@@ -1,0 +1,29 @@
+From 60bbae0502003e90886bf84758d695b88c1763d7 Mon Sep 17 00:00:00 2001
+From: Chao Gao <chao.gao@intel.com>
+Date: Fri, 7 Apr 2017 12:06:18 +0200
+Subject: [PATCH] x86/hvm: make io.h self-contained
+
+io.h uses structure npfec without including the file xen/mm.h where the
+structure is defined.
+
+Signed-off-by: Chao Gao <chao.gao@intel.com>
+Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+---
+ xen/include/asm-x86/hvm/io.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xen/include/asm-x86/hvm/io.h b/xen/include/asm-x86/hvm/io.h
+index 5ae9225baa..2484eb1c75 100644
+--- a/xen/include/asm-x86/hvm/io.h
++++ b/xen/include/asm-x86/hvm/io.h
+@@ -19,6 +19,7 @@
+ #ifndef __ASM_X86_HVM_IO_H__
+ #define __ASM_X86_HVM_IO_H__
+ 
++#include <xen/mm.h>
+ #include <asm/hvm/vpic.h>
+ #include <asm/hvm/vioapic.h>
+ #include <public/hvm/ioreq.h>
+-- 
+2.25.4
+

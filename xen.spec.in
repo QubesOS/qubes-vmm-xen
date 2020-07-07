@@ -107,6 +107,11 @@ Patch311: patch-0012-x86-vmx-Fix-vmentry-failure-because-of-invalid-LER-o.patch
 Patch312: patch-0013-x86-vtx-Corrections-to-BDF93-errata-workaround.patch
 Patch313: patch-0014-x86-vtx-Fixes-to-Haswell-Broadwell-LBR-TSX-errata.patch
 Patch314: patch-0015-VT-x-extend-LBR-Broadwell-errata-coverage.patch
+Patch315: patch-0001-x86-hvm-make-io.h-self-contained.patch
+Patch316: patch-0002-passthrough-don-t-migrate-pirq-when-it-is-delivered-.patch
+Patch317: patch-0003-VT-d-introduce-new-fields-in-msi_desc-to-track-bindi.patch
+Patch318: patch-0004-VT-d-some-cleanups.patch
+Patch319: patch-0005-VT-d-introduce-update_irte-to-update-irte-safely.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
@@ -192,6 +197,16 @@ Patch537: patch-xsa310-4.9-0002-x86-mm-alloc-free_lN_table-Retain-partial_flags-
 Patch538: patch-xsa310-4.9-0003-x86-mm-relinquish_memory-Grab-an-extra-type-ref-when.patch
 Patch539: patch-xsa311-4.8-1.patch
 Patch540: patch-xsa311-4.8-2.patch
+# the ordering is intentional - XSA-328 is a dependency of XSA-321
+Patch541: patch-xsa328-4.9-1.patch
+Patch542: patch-xsa328-4.9-2.patch
+Patch543: patch-xsa321-4.9-1.patch
+Patch544: patch-xsa321-4.9-2.patch
+Patch545: patch-xsa321-4.9-3.patch
+Patch546: patch-xsa321-4.9-4.patch
+Patch547: patch-xsa321-4.9-5.patch
+Patch548: patch-xsa321-4.9-6.patch
+Patch549: patch-xsa321-4.9-7.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch

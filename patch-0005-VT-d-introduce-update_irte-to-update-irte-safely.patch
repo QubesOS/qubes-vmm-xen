@@ -1,0 +1,169 @@
+From 93358e8e83db01d6e5b7fb40ab96082fe31447b1 Mon Sep 17 00:00:00 2001
+From: Chao Gao <chao.gao@intel.com>
+Date: Fri, 7 Apr 2017 15:38:17 +0200
+Subject: [PATCH] VT-d: introduce update_irte to update irte safely
+
+We used structure assignment to update irte which was non-atomic when the
+whole IRTE was to be updated. It is unsafe when a interrupt happened during
+update. Furthermore, no bug or warning would be reported when this happened.
+
+This patch introduces two variants, atomic and non-atomic, to update irte.
+For initialization and release case, the non-atomic variant will be used. for
+other cases (such as reprogramming to set irq affinity), the atomic variant
+will be used. If the caller requests an atomic update but we can't meet it, we
+raise a bug.
+
+Signed-off-by: Chao Gao <chao.gao@intel.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+Acked-by: Jan Beulich <jbeulich@suse.com> [x86]
+---
+ xen/arch/x86/msi.c                     |  1 +
+ xen/drivers/passthrough/vtd/intremap.c | 61 ++++++++++++++++++++++++--
+ xen/include/asm-x86/msi.h              |  1 +
+ 3 files changed, 59 insertions(+), 4 deletions(-)
+
+diff --git a/xen/arch/x86/msi.c b/xen/arch/x86/msi.c
+index 3374cd4597..d98f400699 100644
+--- a/xen/arch/x86/msi.c
++++ b/xen/arch/x86/msi.c
+@@ -579,6 +579,7 @@ static struct msi_desc *alloc_msi_entry(unsigned int nr)
+         entry[nr].irq = -1;
+         entry[nr].remap_index = -1;
+         entry[nr].pi_desc = NULL;
++        entry[nr].irte_initialized = false;
+     }
+ 
+     return entry;
+diff --git a/xen/drivers/passthrough/vtd/intremap.c b/xen/drivers/passthrough/vtd/intremap.c
+index a18717bcc4..699239b006 100644
+--- a/xen/drivers/passthrough/vtd/intremap.c
++++ b/xen/drivers/passthrough/vtd/intremap.c
+@@ -169,10 +169,55 @@ bool_t __init iommu_supports_eim(void)
+     return 1;
+ }
+ 
++/*
++ * Assume iremap_lock has been acquired. It is to make sure software will not
++ * change the same IRTE behind us. With this assumption, if only high qword or
++ * low qword in IRTE is to be updated, this function's atomic variant can
++ * present an atomic update to VT-d hardware even when cmpxchg16b
++ * instruction is not supported.
++ */
++static void update_irte(struct iommu *iommu, struct iremap_entry *entry,
++                        const struct iremap_entry *new_ire, bool atomic)
++{
++    ASSERT(spin_is_locked(&iommu_ir_ctrl(iommu)->iremap_lock));
++
++    if ( cpu_has_cx16 )
++    {
++        __uint128_t ret;
++        struct iremap_entry old_ire;
++
++        old_ire = *entry;
++        ret = cmpxchg16b(entry, &old_ire, new_ire);
++
++        /*
++         * In the above, we use cmpxchg16 to atomically update the 128-bit
++         * IRTE, and the hardware cannot update the IRTE behind us, so
++         * the return value of cmpxchg16 should be the same as old_ire.
++         * This ASSERT validate it.
++         */
++        ASSERT(ret == old_ire.val);
++    }
++    else
++    {
++        /*
++         * If the caller requests an atomic update but we can't meet it, 
++         * a bug will be raised.
++         */
++        if ( entry->lo == new_ire->lo )
++            write_atomic(&entry->hi, new_ire->hi);
++        else if ( entry->hi == new_ire->hi )
++            write_atomic(&entry->lo, new_ire->lo);
++        else if ( !atomic )
++            *entry = *new_ire;
++        else
++            BUG();
++    }
++}
++
+ /* Mark specified intr remap entry as free */
+ static void free_remap_entry(struct iommu *iommu, int index)
+ {
+-    struct iremap_entry *iremap_entry = NULL, *iremap_entries;
++    struct iremap_entry *iremap_entry = NULL, *iremap_entries, new_ire = { };
+     struct ir_ctrl *ir_ctrl = iommu_ir_ctrl(iommu);
+ 
+     if ( index < 0 || index > IREMAP_ENTRY_NR - 1 )
+@@ -183,7 +228,7 @@ static void free_remap_entry(struct iommu *iommu, int index)
+     GET_IREMAP_ENTRY(ir_ctrl->iremap_maddr, index,
+                      iremap_entries, iremap_entry);
+ 
+-    memset(iremap_entry, 0, sizeof(*iremap_entry));
++    update_irte(iommu, iremap_entry, &new_ire, false);
+     iommu_flush_cache_entry(iremap_entry, sizeof(*iremap_entry));
+     iommu_flush_iec_index(iommu, 0, index);
+ 
+@@ -286,6 +331,7 @@ static int ioapic_rte_to_remap_entry(struct iommu *iommu,
+     int index;
+     unsigned long flags;
+     struct ir_ctrl *ir_ctrl = iommu_ir_ctrl(iommu);
++    bool init = false;
+ 
+     remap_rte = (struct IO_APIC_route_remap_entry *) old_rte;
+     spin_lock_irqsave(&ir_ctrl->iremap_lock, flags);
+@@ -296,6 +342,7 @@ static int ioapic_rte_to_remap_entry(struct iommu *iommu,
+         index = alloc_remap_entry(iommu, 1);
+         if ( index < IREMAP_ENTRY_NR )
+             apic_pin_2_ir_idx[apic][ioapic_pin] = index;
++        init = true;
+     }
+ 
+     if ( index > IREMAP_ENTRY_NR - 1 )
+@@ -353,7 +400,7 @@ static int ioapic_rte_to_remap_entry(struct iommu *iommu,
+         remap_rte->format = 1;    /* indicate remap format */
+     }
+ 
+-    *iremap_entry = new_ire;
++    update_irte(iommu, iremap_entry, &new_ire, !init);
+     iommu_flush_cache_entry(iremap_entry, sizeof(*iremap_entry));
+     iommu_flush_iec_index(iommu, 0, index);
+ 
+@@ -567,7 +614,10 @@ static int msi_msg_to_remap_entry(
+     {
+         /* Free specified unused IRTEs */
+         for ( i = 0; i < nr; ++i )
++        {
+             free_remap_entry(iommu, msi_desc->remap_index + i);
++            msi_desc[i].irte_initialized = false;
++        }
+         spin_unlock_irqrestore(&ir_ctrl->iremap_lock, flags);
+         return 0;
+     }
+@@ -639,7 +689,10 @@ static int msi_msg_to_remap_entry(
+     remap_rte->address_hi = 0;
+     remap_rte->data = index - i;
+ 
+-    *iremap_entry = new_ire;
++    update_irte(iommu, iremap_entry, &new_ire, msi_desc->irte_initialized);
++    if ( !msi_desc->irte_initialized )
++        msi_desc->irte_initialized = true;
++
+     iommu_flush_cache_entry(iremap_entry, sizeof(*iremap_entry));
+     iommu_flush_iec_index(iommu, 0, index);
+ 
+diff --git a/xen/include/asm-x86/msi.h b/xen/include/asm-x86/msi.h
+index bf243f8a35..a5de6a1328 100644
+--- a/xen/include/asm-x86/msi.h
++++ b/xen/include/asm-x86/msi.h
+@@ -103,6 +103,7 @@ struct msi_desc {
+ 		__u16	entry_nr;	/* specific enabled entry 	  */
+ 	} msi_attrib;
+ 
++	bool irte_initialized;
+ 	uint8_t gvec;			/* guest vector. valid when pi_desc isn't NULL */
+ 	const struct pi_desc *pi_desc;	/* pointer to posted descriptor */
+ 
+-- 
+2.25.4
+
