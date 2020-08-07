@@ -1,16 +1,4 @@
-sudo: required
-dist: bionic
-language: minimal
-install: git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
-script: ~/qubes-builder/scripts/travis-build
-# keep the log under 4MB limit
-env:
- - DIST_DOM0=fc31 USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1 VERBOSE=0
- - DISTS_VM=stretch USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1
- - DISTS_VM=buster USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1
- - DISTS_VM=bullseye USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1
- - DISTS_VM=archlinux USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1
-
-matrix:
-  allow_failures:
-    - env: DISTS_VM=archlinux USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1
+import:
+  - source: QubesOS/qubes-continuous-integration:R4.1/travis-base-r4.1.yml
+  - source: QubesOS/qubes-continuous-integration:R4.1/travis-dom0-r4.1.yml
+  - source: QubesOS/qubes-continuous-integration:R4.1/travis-vms-r4.1.yml
