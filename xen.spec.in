@@ -182,7 +182,7 @@ BuildRequires: seabios-bin ipxe-roms-qemu
 BuildRequires: dev86
 %endif
 %endif
-BuildRequires: python3-devel ncurses-devel
+BuildRequires: python%{python3_pkgversion}-devel ncurses-devel
 BuildRequires: perl-interpreter perl-generators
 %ifarch %{ix86} x86_64
 # so that x86_64 builds pick up glibc32 correctly
@@ -221,7 +221,7 @@ BuildRequires: gcc-x86_64-linux-gnu
 %endif
 BuildRequires: gcc
 Requires: iproute
-Requires: python3-lxml
+Requires: python%{python3_pkgversion}-lxml
 Requires: xen-runtime = %{epoch}:%{version}-%{release}
 # Not strictly a dependency, but kpartx is by far the most useful tool right
 # now for accessing domU data from within a dom0 so bring it in when the user
@@ -253,14 +253,14 @@ Xen hypervisor
 
 # BEGIN QUBES SPECIFIC PART
 %package -n python%{python3_pkgversion}-%{name}
-Summary: Python3 bindings for Xen tools
+Summary: python%{python3_pkgversion} bindings for Xen tools
 Group: Development/Libraries
 Requires: xen-libs = %{epoch}:%{version}-%{release}
-Requires: python3
+Requires: python%{python3_pkgversion}
 %{?python_provide:%python_provide python%{python3_pkgversion}-%{name}}
 
 %description -n python%{python3_pkgversion}-%{name}
-This package contains Python3 bindings to Xen tools. Especially xen.lowlevel.xs
+This package contains python%{python3_pkgversion} bindings to Xen tools. Especially xen.lowlevel.xs
 and xen.lowlevel.xc modules.
 # END QUBES SPECIFIC PART
 
@@ -404,7 +404,7 @@ mkdir -p dist/install%{_libdir}/ocaml/stublibs
 export EXTRA_CFLAGS_XEN_TOOLS="$RPM_OPT_FLAGS -Wno-error=declaration-after-statement"
 export EXTRA_CFLAGS_QEMU_TRADITIONAL="$RPM_OPT_FLAGS"
 export EXTRA_CFLAGS_QEMU_XEN="$RPM_OPT_FLAGS"
-export PYTHON="/usr/bin/python3"
+export PYTHON="%{__python3}"
 export KCONFIG_CONFIG=%{SOURCE3}
 export XEN_CONFIG_EXPERT=y
 %if %build_hyp
