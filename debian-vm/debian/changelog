@@ -1,3 +1,10 @@
+xen (2001:4.8.5-20) unstable; urgency=medium
+
+  [ M. Vefa Bicakci ]
+  * Park unused CPU threads after suspend-to-RAM
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 08 Aug 2020 14:41:09 +0200
+
 xen (2001:4.8.5-19) unstable; urgency=medium
 
   * Apply XSA-321 and its dependencies
