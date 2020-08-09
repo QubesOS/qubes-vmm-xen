@@ -121,6 +121,7 @@ Patch325: patch-0006-x86-ACPI-re-park-previously-parked-CPUs-upon-resume-.patch
 Patch326: patch-0007-sched-populate-cpupool0-only-after-all-cpus-are-up.patch
 Patch327: patch-0008-x86-clear-per-cpu-stub-page-information-in-cpu_smpbo.patch
 Patch328: patch-0009-x86-S3-put-data-segment-registers-into-known-state-u.patch
+Patch329: patch-0001-tools-xenstore-fix-a-use-after-free-problem-in-xenst.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
