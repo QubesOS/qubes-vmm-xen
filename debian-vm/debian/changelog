@@ -1,3 +1,9 @@
+xen (2001:4.8.5-21) unstable; urgency=medium
+
+  * Backport xenstored fix
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 10 Aug 2020 11:12:47 +0200
+
 xen (2001:4.8.5-20) unstable; urgency=medium
 
   [ M. Vefa Bicakci ]
