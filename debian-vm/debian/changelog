@@ -1,3 +1,10 @@
+xen (2001:4.8.5-22) unstable; urgency=medium
+
+  * Fix startup PVH domain with xl
+  * Include GCC 10 build fixes in debian and arch too
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 15 Aug 2020 23:48:43 +0200
+
 xen (2001:4.8.5-21) unstable; urgency=medium
 
   * Backport xenstored fix
