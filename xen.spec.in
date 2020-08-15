@@ -165,6 +165,8 @@ Patch437: patch-60efd677-xl-Don-t-warn-on-using-deprecated-mode-selection.patch
 Patch438: patch-x86-check-feature-flags-after-resume.patch
 Patch439: patch-2dd3e22949-tools-libelf-fix-elf-notes-check-for-PVH-guest.patch
 
+Patch440: patch-xl-pvh-fixups.patch
+
 # Security fixes
 Patch500: patch-xsa284.patch
 Patch501: patch-xsa285-4.11.patch

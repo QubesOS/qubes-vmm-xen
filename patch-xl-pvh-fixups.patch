@@ -1,0 +1,10 @@
+--- xen-4.8.5/tools/libxl/xl_cmdimpl.c	2020-08-09 19:25:28.495000000 +0200
++++ xen-4.8.5/tools/libxl/xl_cmdimpl.c.new	2020-08-15 18:00:22.198000000 +0200
+@@ -5925,6 +5925,7 @@ void apply_global_affinity_masks(libxl_d
+         type_mask = &global_hvm_affinity_mask;
+         break;
+     case LIBXL_DOMAIN_TYPE_PV:
++    case LIBXL_DOMAIN_TYPE_PVH:
+         type_mask = &global_pv_affinity_mask;
+         break;
+     default:
