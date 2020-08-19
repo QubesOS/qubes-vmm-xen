@@ -1,0 +1,27 @@
+libxl: do not start qemu in dom0 just for extra consoles
+
+We prefer to have broken extra consoles (breaking also saving/restoring HVM to
+a savefile), than running qemu in dom0.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+--- a/tools/libxl/libxl_dm.c	2020-08-16 21:59:38.909000000 +0200
++++ b/tools/libxl/libxl_dm.c	2020-08-19 00:54:58.039000000 +0200
+@@ -2519,7 +2519,7 @@ static void spawn_stub_launch_dm(libxl__
+      * Until xenconsoled learns how to handle multiple consoles, require qemu
+      * in dom0 to serve consoles for a stubdomain - it require at least 3 of them.
+      */
+-    need_qemu = 1 || libxl__need_xenpv_qemu(gc, &sdss->dm_config);
++    need_qemu = libxl__need_xenpv_qemu(gc, &sdss->dm_config);
+ 
+     for (i = 0; i < num_console; i++) {
+         libxl__device device;
+@@ -2655,7 +2655,7 @@ static void qmp_proxy_spawn_outcome(libx
+      * Until xenconsoled learns how to handle multiple consoles, require qemu
+      * in dom0 to serve consoles for a stubdomain - it require at least 3 of them.
+      */
+-    int need_pvqemu = 1 || libxl__need_xenpv_qemu(gc, &sdss->dm_config);
++    int need_pvqemu = libxl__need_xenpv_qemu(gc, &sdss->dm_config);
+ 
+     if (rc) goto out;
+ 

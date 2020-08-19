@@ -82,8 +82,8 @@ Signed-off-by: Marcus of Wetware Labs <marcus@wetwa.re>
 -    efi_exit_boot(ImageHandle, SystemTable);
 +    efi_exit_boot(ImageHandle, SystemTable, exit_boot_services);
 
-     efi_arch_post_exit_boot();
-     for( ; ; ); /* not reached */
+     efi_arch_post_exit_boot(); /* Doesn't return. */
+ }
 --- a/xen/arch/x86/efi/efi-boot.h	2018-07-19 01:26:13.842000000 +0200
 +++ b/xen/arch/x86/efi/efi-boot.h	2018-07-19 01:27:49.641000000 +0200
 @@ -706,7 +706,7 @@

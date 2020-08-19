@@ -4,10 +4,10 @@
 %define build_ocaml 0
 # Build with docs unless rpmbuild was run with --without docs
 %define build_docs %{?_without_docs: 0} %{?!_without_docs: 1}
-# Build with stubdom unless rpmbuild was run with --without stubdom
-%define build_stubdom 0
-# Build with qemu-traditional unless rpmbuild was run with --without qemutrad
-%define build_qemutrad %{?_without_qemutrad: 0} %{?!_without_qemutrad: 1}
+# Build without stubdom unless rpmbuild was run with --with stubdom
+%define build_stubdom %{?_with_stubdom: 1} %{?!_with_stubdom: 0}
+# Build without qemu-traditional unless rpmbuild was run with --with qemutrad
+%define build_qemutrad %{?_with_qemutrad: 1} %{?!_with_qemutrad: 0}
 # build with ovmf from edk2-ovmf unless rpmbuild was run with --without ovmf
 %define build_ovmf %{?_without_ovmf: 0} %{?!_without_ovmf: 1}
 # set to 0 for archs that don't use qemu or ovmf (reduces build dependencies)
@@ -64,7 +64,7 @@
 %define _unpackaged_files_terminate_build 0
 
 # Hypervisor ABI
-%define hv_abi 4.13
+%define hv_abi 4.14
 
 %define upstream_version @VERSION@
 %define rctag %(echo @VERSION@ | sed -n -e 's/.*-\\(rc[0-9]*\\).*/0.\\1./;/rc/p')
@@ -96,16 +96,12 @@ Source32: xen.modules-load.conf
 # 1000+: Qubes specific patches
 # 1100+: Others
 
-# Fedora
-Patch101: patch-xen.python.env.patch
-
 # EFI workarounds
 Patch201: patch-0001-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServices.patch
 Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
-Patch300: patch-ioreq-handle-pending-emulation-racing-with-ioreq-ser.patch
 
 # Security fixes
 
@@ -119,35 +115,15 @@ Patch607: patch-libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
 Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-xen-disable-efi-gettime.patch
-Patch623: patch-libxl-console.patch
-Patch624: patch-libxl-console-fix.patch
-Patch625: patch-xen-gcc10-fixes.patch
-Patch626: patch-xen-ocaml-4.10.patch
 Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
+Patch628: patch-libxl-workaround-gcc-10.2-maybe-uninitialized-warnin.patch
+Patch629: patch-libxl-fix-Werror-stringop-truncation-in-libxl__prepa.patch
 
-# GCC7 fixes
-Patch706: patch-mini-os-link-to-libgcc.a-to-fix-build-with-gcc7.patch
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 
 # Support for Linux based stubdom
-#    patch-stubdom-linux-v3-0000-cover-letter.patch
-Patch900: patch-stubdom-linux-v4-0001-Document-ioemu-MiniOS-stubdomain-protocol.patch
-Patch901: patch-stubdom-linux-v4-0002-Document-ioemu-Linux-stubdomain-protocol.patch
-Patch902: patch-stubdom-linux-v4-0003-libxl-fix-qemu-trad-cmdline-for-no-sdl-vnc-case.patch
-Patch903: patch-stubdom-linux-v4-0004-libxl-Allow-running-qemu-xen-in-stubdomain.patch
-Patch904: patch-stubdom-linux-v4-0005-libxl-Handle-Linux-stubdomain-specific-QEMU-optio.patch
-Patch905: patch-stubdom-linux-v4-0006-libxl-write-qemu-arguments-into-separate-xenstore.patch
-Patch906: patch-stubdom-linux-v4-0007-xl-add-stubdomain-related-options-to-xl-config-pa.patch
-Patch907: patch-stubdom-linux-v4-0008-tools-libvchan-notify-server-when-client-is-conne.patch
-Patch908: patch-stubdom-linux-v4-0009-libxl-add-save-restore-support-for-qemu-xen-in-st.patch
-Patch909: patch-stubdom-linux-v4-0010-tools-add-missing-libxenvchan-cflags.patch
-Patch910: patch-stubdom-linux-v4-0011-tools-add-simple-vchan-socket-proxy.patch
-Patch911: patch-stubdom-linux-v4-0012-libxl-use-vchan-for-QMP-access-with-Linux-stubdom.patch
-# 912 modified vs upstream
-Patch912: patch-stubdom-linux-v4-0013-libxl-require-qemu-in-dom0-even-if-stubdomain-is-.patch
-Patch913: patch-stubdom-linux-v4-0014-libxl-ignore-emulated-IDE-disks-beyond-the-first-.patch
-Patch914: patch-stubdom-linux-v4-0015-libxl-consider-also-qemu-in-stubdomain-in-libxl__dm_.patch
+Patch900: patch-disable-dom0-qemu.patch
 
 # MSI fixes
 Patch950: patch-stubdom-allow-msi-enable.patch
@@ -161,7 +137,6 @@ Patch1007: patch-xen-disable-dom0-qemu.patch
 Patch1009: patch-xenconsoled-enable-logging.patch
 Patch1010: patch-stubdom-linux-libxl-suspend.patch
 Patch1011: patch-xen-hotplug-qubesdb-update.patch
-Patch1012: patch-tools-hotplug-drop-perl-usage-in-locking-mechanism.patch
 Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.patch
 Patch1014: patch-allow-kernelopts-stubdom.patch
 Patch1015: patch-libxl-readonly-disk-scsi.patch
@@ -182,6 +157,8 @@ BuildRequires: seabios-bin ipxe-roms-qemu
 BuildRequires: dev86
 %endif
 %endif
+# qemu-xen
+BuildRequires: glib2-devel pixman-devel
 BuildRequires: python%{python3_pkgversion}-devel ncurses-devel
 BuildRequires: perl-interpreter perl-generators
 %ifarch %{ix86} x86_64
@@ -431,10 +408,11 @@ CONFIG_EXTRA=""
 %if %build_ovmf
 CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.bin"
 %endif
-%ifnarch armv7hl aarch64
-CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe"
-%endif
 # BEGIN QUBES SPECIFIC PART
+%ifnarch armv7hl aarch64
+#CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe"
+CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
+%endif
 CONFIG_EXTRA="$CONFIG_EXTRA --with-extra-qemuu-configure-args='--disable-spice'"
 export PATH="/usr/bin:$PATH"
 autoreconf
@@ -518,8 +496,8 @@ rm -rf %{buildroot}/usr/share/xen/man
 rm -rf %{buildroot}/usr/share/qemu-xen/icons
 rm -rf %{buildroot}/usr/share/qemu-xen/applications
 # BEGIN QUBES SPECIFIC PART
-ln -s qemu-img-xen %{buildroot}/%{_bindir}/qemu-img
-ln -s qemu-nbd-xen %{buildroot}/%{_bindir}/qemu-nbd
+ln -s ../libexec/%{name}/bin/qemu-img %{buildroot}/%{_bindir}/qemu-img
+ln -s ../libexec/%{name}/bin/qemu-nbd %{buildroot}/%{_bindir}/qemu-nbd
 # END QUBES SPECIFIC PART
 for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
          pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
@@ -575,6 +553,9 @@ cp %{SOURCE32} %{buildroot}/usr/lib/modules-load.d/xen.conf
 # get rid of standard domain starting scripts
 rm %{buildroot}%{_unitdir}/xen-qemu-dom0-disk-backend.service
 rm %{buildroot}%{_unitdir}/xendomains.service
+
+# unused and dangerous
+rm -f %{buildroot}/%{_bindir}/pygrub
 # END QUBES SPECIFIC PART
 
 ############ create dirs in /var ############
@@ -835,7 +816,6 @@ fi
 
 %{python3_sitearch}/xenfsimage*.so
 %{python3_sitearch}/grub
-%{python3_sitearch}/pygrub-*.egg-info
 
 # The firmware
 %ifarch %{ix86} x86_64
@@ -868,10 +848,8 @@ fi
 %ghost %{_localstatedir}/run/xenstored
 
 # All xenstore CLI tools
-%{_bindir}/qemu-*-xen
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
-%{_bindir}/pygrub
 %{_bindir}/xentrace*
 #%%{_bindir}/remus
 # XSM
