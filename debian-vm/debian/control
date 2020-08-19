@@ -13,8 +13,10 @@ Build-Depends:
    python-dev,
    dh-python,
    bcc [i386 amd64],
+   bison,
    gcc-multilib [i386 amd64],
    e2fslibs-dev,
+   flex,
    iasl,
    seabios (>= 1.7.4-2~) [i386 amd64],
    libaio-dev,
@@ -26,6 +28,7 @@ Build-Depends:
    libsystemd-dev,
    libyajl-dev,
    pkg-config,
+   python3-dev,
    uuid-dev,
    zlib1g-dev,
    pandoc,
@@ -71,7 +74,7 @@ Description: Xen administrative tools - common files
 Package: xen-utils-guest
 Section: admin
 Architecture: amd64 i386 armhf arm64
-Depends: xen-utils-4.13,
+Depends: xen-utils-4.14,
     ${shlibs:Depends}, ${python:Depends}, ${misc:Depends}
 Conflicts: xen-hypervisor-common
 Description: Xen administrative tools - guest files
@@ -106,12 +109,12 @@ Description: XEN documentation
  Xen control utilities, as those are in the xen-utils-common package.
 # Yes, arch-specific.  See xen-doc.lintian-overrides.
 
-Package: xen-utils-4.13
+Package: xen-utils-4.14
 Section: admin
 Architecture: amd64 arm64 armhf i386
 Provides: xen-utils
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xen-utils-common (>= ${source:Version})
-Recommends: bridge-utils, libc6-xen [i386], xen-hypervisor-4.13, qemu-system-x86, grub-xen-host [i386 amd64]
+Recommends: bridge-utils, libc6-xen [i386], xen-hypervisor-4.14, qemu-system-x86, grub-xen-host [i386 amd64]
 Suggests: qemu-utils [i386 amd64], seabios [i386 amd64], ovmf
 Description: XEN administrative tools
  The userspace tools to manage a system virtualized through the XEN virtual
@@ -120,12 +123,12 @@ Description: XEN administrative tools
  qemu-utils and seabios are neded for "Xen HVM" (amd64 and i386)
 Built-Using: ${misc:Built-Using}
 
-Package: xen-hypervisor-4.13-amd64
+Package: xen-hypervisor-4.14-amd64
 Section: kernel
 Architecture: amd64 i386
-Provides: xen-hypervisor, xen-hypervisor-4.13, xen-hypervisor-amd64
+Provides: xen-hypervisor, xen-hypervisor-4.14, xen-hypervisor-amd64
 Depends: ${misc:Depends}
-Recommends: xen-utils-4.13, xen-hypervisor-common
+Recommends: xen-utils-4.14, xen-hypervisor-common
 Description: Xen Hypervisor on AMD64
  The hypervisor is the "core" for XEN itself.  It gets booted by the boot
  loader and controls cpu and memory, sharing them between your
@@ -139,17 +142,17 @@ Package: xen-system-amd64
 Section: admin
 Architecture: amd64 i386
 Provides: xen-system
-Depends: xen-hypervisor-4.13-amd64, xen-hypervisor-common, xen-utils-4.12, ${misc:Depends}
+Depends: xen-hypervisor-4.14-amd64, xen-hypervisor-common, xen-utils-4.12, ${misc:Depends}
 Description: Xen System on AMD64 (metapackage)
  This package depends on the latest Xen hypervisor for use on AMD64 and the
  Xen utils.
 
-Package: xen-hypervisor-4.13-arm64
+Package: xen-hypervisor-4.14-arm64
 Section: kernel
 Architecture: arm64
-Provides: xen-hypervisor, xen-hypervisor-4.13, xen-hypervisor-arm64
+Provides: xen-hypervisor, xen-hypervisor-4.14, xen-hypervisor-arm64
 Depends: ${misc:Depends}
-Recommends: xen-utils-4.13, xen-hypervisor-common
+Recommends: xen-utils-4.14, xen-hypervisor-common
 Description: Xen Hypervisor on ARM64
  The hypervisor is the "core" for XEN itself.  It gets booted by the boot
  loader and controls cpu and memory, sharing them between your
@@ -163,17 +166,17 @@ Package: xen-system-arm64
 Section: admin
 Architecture: arm64
 Provides: xen-system
-Depends: xen-hypervisor-4.13-arm64, xen-hypervisor-common, xen-utils-4.12, ${misc:Depends}
+Depends: xen-hypervisor-4.14-arm64, xen-hypervisor-common, xen-utils-4.12, ${misc:Depends}
 Description: Xen System on ARM64 (metapackage)
  This package depends on the latest Xen hypervisor for use on ARM64 and the
  Xen utils.
 
-Package: xen-hypervisor-4.13-armhf
+Package: xen-hypervisor-4.14-armhf
 Section: kernel
 Architecture: armhf
-Provides: xen-hypervisor, xen-hypervisor-4.13, xen-hypervisor-armhf
+Provides: xen-hypervisor, xen-hypervisor-4.14, xen-hypervisor-armhf
 Depends: ${misc:Depends}
-Recommends: xen-utils-4.13, xen-hypervisor-common
+Recommends: xen-utils-4.14, xen-hypervisor-common
 Description: Xen Hypervisor on ARMHF
  The hypervisor is the "core" for XEN itself.  It gets booted by the boot
  loader and controls cpu and memory, sharing them between your
@@ -187,7 +190,7 @@ Package: xen-system-armhf
 Section: admin
 Architecture: armhf
 Provides: xen-system
-Depends: xen-hypervisor-4.13-armhf, xen-hypervisor-common, xen-utils-4.12, ${misc:Depends}
+Depends: xen-hypervisor-4.14-armhf, xen-hypervisor-common, xen-utils-4.12, ${misc:Depends}
 Description: Xen System on ARMHF (metapackage)
  This package depends on the latest Xen hypervisor for use on ARMHF and the
  Xen utils.
@@ -196,7 +199,7 @@ Package: libxen-dev
 Section: libdevel
 Architecture: amd64 arm64 armhf i386
 Depends: ${shlibs:Depends}, ${misc:Depends},
-	 libxenmisc4.13 (= ${binary:Version}),
+	 libxenmisc4.14 (= ${binary:Version}),
 	 libxencall1 (= ${binary:Version}),
 	 libxendevicemodel1 (= ${binary:Version}),
 	 libxenevtchn1 (= ${binary:Version}),
@@ -219,7 +222,7 @@ Description: Public headers and libs for Xen
  Most of the other included libraries are internal, and intended for
  use by the Xen toolstack, rather than directly.
 
-Package: libxenmisc4.13
+Package: libxenmisc4.14
 Section: libs
 Architecture: amd64 arm64 armhf i386
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -291,5 +294,13 @@ Section: libs
 Architecture: amd64 arm64 armhf i386
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Xen runtime libraries - libxentoollog
+ Shared library for Xen utilities.
+Multi-Arch: same
+
+Package: libxenhypfs1
+Section: libs
+Architecture: amd64 arm64 armhf i386
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Xen runtime library - libxenhypfs
  Shared library for Xen utilities.
 Multi-Arch: same

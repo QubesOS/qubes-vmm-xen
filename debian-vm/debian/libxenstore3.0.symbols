@@ -2,7 +2,6 @@ libxenstore.so.3.0 libxenstore3.0 #MINVER#
  expanding_buffer_ensure@Base 3.2.0
  sanitise_value@Base 3.2.0
  unsanitise_value@Base 3.2.0
- xprintf@Base 3.2.0
  xs_check_watch@Base 4.2~
  xs_close@Base 4.1.0~rc6
  xs_control_command@Base 4.9.0

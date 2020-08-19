@@ -33,7 +33,7 @@ md5sums=() #generate with 'makepkg -g'
 
 build() {
 
-  export PYTHON=/usr/bin/python2
+  export PYTHON=/usr/bin/python
 
   cd xen-$pkgver
 

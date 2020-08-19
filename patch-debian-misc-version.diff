@@ -35,7 +35,7 @@ index c07b2c3..1009d87 100644
 +	    -e 's/@@system_version@@/$(shell cd ../../../..; dpkg-parsechangelog | awk '/^Version:/ {print $$2}')/g' \
  	    < include/xen/compile.h.in > $@.new
 -	@cat .banner
--	@$(PYTHON) tools/fig-to-oct.py < .banner >> $@.new
+-	@sed -rf tools/process-banner.sed < .banner >> $@.new
  	@mv -f $@.new $@
  
  include/asm-$(TARGET_ARCH)/asm-offsets.h: arch/$(TARGET_ARCH)/asm-offsets.s
@@ -43,7 +43,19 @@ diff --git a/xen/common/kernel.c b/xen/common/kernel.c
 index 5766a0f..1cf4cd8 100644
 --- a/xen/common/kernel.c
 +++ b/xen/common/kernel.c
-@@ -357,8 +357,8 @@ DO(xen_version)(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+@@ -398,9 +398,9 @@ static int __init buildinfo_init(void)
+ 
+     hypfs_add_dir(&buildinfo, &compileinfo, true);
+     hypfs_string_set_reference(&compiler, xen_compiler());
+-    hypfs_string_set_reference(&compile_by, xen_compile_by());
++    hypfs_string_set_reference(&compile_by, xen_compile_system_maintainer_local());
+     hypfs_string_set_reference(&compile_date, xen_compile_date());
+-    hypfs_string_set_reference(&compile_domain, xen_compile_domain());
++    hypfs_string_set_reference(&compile_domain, xen_compile_system_maintainer_domain());
+     hypfs_add_leaf(&compileinfo, &compiler, true);
+     hypfs_add_leaf(&compileinfo, &compile_by, true);
+     hypfs_add_leaf(&compileinfo, &compile_date, true);
+@@ -481,8 +481,8 @@ DO(xen_version)(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
  
          memset(&info, 0, sizeof(info));
          safe_strcpy(info.compiler,       deny ? xen_deny() : xen_compiler());

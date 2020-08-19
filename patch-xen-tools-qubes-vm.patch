@@ -2,7 +2,7 @@ Index: debian-vm/tools/Makefile
 ===================================================================
 --- debian-vm.orig/tools/Makefile
 +++ debian-vm/tools/Makefile
-@@ -7,45 +7,18 @@ include $(XEN_ROOT)/tools/Rules.mk
+@@ -7,43 +7,18 @@ include $(XEN_ROOT)/tools/Rules.mk
  SUBDIRS-y :=
  SUBDIRS-y += libs
  SUBDIRS-y += libxc
@@ -18,8 +18,6 @@ Index: debian-vm/tools/Makefile
 -SUBDIRS-y += console
 -SUBDIRS-y += xenmon
 -SUBDIRS-y += xenstat
--SUBDIRS-$(CONFIG_Linux) += memshr 
--SUBDIRS-$(CONFIG_BLKTAP2) += blktap2
 -SUBDIRS-$(CONFIG_NetBSD) += xenbackendd
 -SUBDIRS-y += libfsimage
  SUBDIRS-$(CONFIG_Linux) += libvchan

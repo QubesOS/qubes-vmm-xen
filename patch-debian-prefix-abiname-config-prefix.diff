@@ -26,7 +26,7 @@ index 8a518d5..b262e84 100644
 --- a/config/Paths.mk.in
 +++ b/config/Paths.mk.in
 @@ -13,6 +13,7 @@
- # http://wiki.xen.org/wiki/Category:Host_Configuration#System_wide_xen_configuration
+ # https://wiki.xen.org/wiki/Category:Host_Configuration#System_wide_xen_configuration
  
  PACKAGE_TARNAME          := @PACKAGE_TARNAME@
 +PACKAGE_VERSION          := @PACKAGE_VERSION@
