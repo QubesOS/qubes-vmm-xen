@@ -244,6 +244,8 @@ and xen.lowlevel.xc modules.
 %package libs
 Summary: Libraries for Xen tools
 Requires: xen-licenses
+# toolstack <-> stubdomain API change
+Conflicts: xen-hvm-stubdom-linux < 1.1.0
 
 %description libs
 This package contains the libraries needed to run applications
