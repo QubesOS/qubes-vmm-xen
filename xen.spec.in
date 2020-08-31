@@ -147,6 +147,8 @@ Patch1020: patch-stubdom-linux-config-qubes-gui.patch
 Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
 Patch1022: patch-xen-acpi-slic-support.patch
 
+Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
+
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
 BuildRequires: libX11-devel gtk2-devel libaio-devel
