@@ -3,7 +3,6 @@ From: Grzegorz Uriasz <gorbak25@gmail.com>
 Date: Thu, 13 Feb 2020 02:30:36 +0000
 Subject: [PATCH] Fix IGD passthrough with linux stubdomain
 
-- Fix errno
 - Give permissions for VGA IOPORTS
 - Give permission for opregions
 - Map vbios to stubdom
@@ -15,15 +14,6 @@ diff --git a/tools/libxl/libxl_pci.c b/tools/libxl/libxl_pci.c
 index 957ff5c8e9..6feab9602e 100644
 --- a/tools/libxl/libxl_pci.c
 +++ b/tools/libxl/libxl_pci.c
-@@ -1561,7 +1561,7 @@ void libxl__device_pci_add(libxl__egc *egc, uint32_t domid,
-             LOGD(ERROR, domid,
-                  "PCI device %04x:%02x:%02x.%u %s?",
-                  pcidev->domain, pcidev->bus, pcidev->dev, pcidev->func,
--                 errno == ENOSYS ? "cannot be assigned - no IOMMU"
-+                 errno == EOPNOTSUPP ? "cannot be assigned - no IOMMU"
-                  : "already assigned to a different guest");
-             goto out;
-         }
 @@ -2441,17 +2441,128 @@ void libxl__device_pci_destroy_all(libxl__egc *egc, uint32_t domid,
      }
  }
