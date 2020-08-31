@@ -1,3 +1,24 @@
+xen (4.14.0-1) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * spec: user python3_pkgversion macro
+
+  [ Marek Marczykowski-Górecki ]
+  * Update to Xen 4.14.0
+  * Update Debian and Arch packaging and patches for Xen 4.14
+  * rpm: adjust dependencies for stubdomain API change
+
+  [ Artur Puzio ]
+  * IGD passthrough fix
+
+  [ Marek Marczykowski-Górecki ]
+  * Adjust "Fix IGD passthrough with linux stubdomain" for Xen 4.14
+
+  [ Frédéric Pierret (fepitre) ]
+  * Update travis
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 31 Aug 2020 03:04:12 +0200
+
 xen (4.13.1-4) unstable; urgency=medium
 
   * 
