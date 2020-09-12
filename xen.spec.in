@@ -376,11 +376,7 @@ mkdir -p dist/install/boot/efi/efi/qubes
 %if %build_ocaml
 mkdir -p dist/install%{_libdir}/ocaml/stublibs
 %endif
-%if %(test -f /usr/share/seabios/bios-256k.bin && echo 1|| echo 0)
 %define seabiosloc /usr/share/seabios/bios-256k.bin
-%else
-%define seabiosloc /usr/share/seabios/bios.bin
-%endif
 #export XEN_VENDORVERSION="-%{release}"
 export EXTRA_CFLAGS_XEN_TOOLS="$RPM_OPT_FLAGS -Wno-error=declaration-after-statement"
 export EXTRA_CFLAGS_QEMU_TRADITIONAL="$RPM_OPT_FLAGS"
