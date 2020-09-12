@@ -1,3 +1,14 @@
+xen (4.14.0-2) unstable; urgency=medium
+
+  * Add gcc warnings fixes to Debian package too
+  * Fix seabios path
+  * rpm: skip stubdom build at configure stage too
+  * rpm: remove remaining pygrub part
+  * rpm: fix qemu-xen packaging
+  * rpm: include xenhypfs tool
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 12 Sep 2020 22:04:44 +0200
+
 xen (4.14.0-1) unstable; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
