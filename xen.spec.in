@@ -405,6 +405,9 @@ CONFIG_EXTRA="--disable-qemu-traditional"
 %else
 CONFIG_EXTRA=""
 %endif
+%if ! %build_stubdom
+CONFIG_EXTRA="$CONFIG_EXTRA --disable-stubdom"
+%endif
 %if %build_ovmf
 CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.bin"
 %endif
