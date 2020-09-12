@@ -789,13 +789,13 @@ fi
 %dir %{_datadir}/%{name}/qemu
 %dir %{_datadir}/%{name}/qemu/keymaps
 %{_datadir}/%{name}/qemu/keymaps/*
+%endif
+%endif
 # BEGIN QUBES SPECIFIC PART
 %dir %{_datadir}/qemu-xen
 %dir %{_datadir}/qemu-xen/qemu
 %{_datadir}/qemu-xen/qemu/*
 # END QUBES SPECIFIC PART
-%endif
-%endif
 
 # man pages
 %if %build_docs
