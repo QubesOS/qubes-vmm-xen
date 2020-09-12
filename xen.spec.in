@@ -807,6 +807,7 @@ fi
 %{_mandir}/man5/xl.conf.5*
 %{_mandir}/man5/xlcpupool.cfg.5*
 %{_mandir}/man1/xenstore*
+%{_mandir}/man1/xenhypfs.1*
 %{_mandir}/man5/xl-disk-configuration.5.gz
 %{_mandir}/man7/xen-pci-device-reservations.7.gz
 %{_mandir}/man7/xen-tscmode.7.gz
@@ -888,6 +889,7 @@ fi
 %{_sbindir}/xenwatchdogd
 %{_sbindir}/xl
 %{_sbindir}/xen-ucode
+%{_sbindir}/xenhypfs
 %ifnarch armv7hl aarch64
 %{_sbindir}/xen-lowmemd
 %endif
