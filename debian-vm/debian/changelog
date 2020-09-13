@@ -1,3 +1,9 @@
+xen (4.14.0-3) unstable; urgency=medium
+
+  * debian: fix in-vm assumed xen-utils package version
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 14 Sep 2020 00:49:21 +0200
+
 xen (4.14.0-2) unstable; urgency=medium
 
   * Add gcc warnings fixes to Debian package too
