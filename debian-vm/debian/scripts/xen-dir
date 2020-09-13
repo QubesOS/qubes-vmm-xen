@@ -2,7 +2,7 @@
 
 # don't run autodetection in guest
 if grep -q [^0-] /sys/hypervisor/uuid 2>/dev/null; then
-    VERSION=4.13
+    VERSION=4.14
 else
     VERSION=$(. /usr/lib/xen-common/bin/xen-version); RET=$?; [ $RET -eq 0 ] || exit $RET
 fi
