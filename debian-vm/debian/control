@@ -10,7 +10,6 @@ Build-Depends:
    dpkg-dev (>= 1.16.0~),
    rdfind,
    lsb-release,
-   python-dev,
    dh-python,
    bcc [i386 amd64],
    bison,
@@ -62,7 +61,7 @@ Package: xen-utils-common
 Section: admin
 Architecture: amd64 i386 armhf arm64
 Depends: lsb-base, udev, xenstore-utils,
-    ${shlibs:Depends}, ${python:Depends}, ${misc:Depends}
+    ${shlibs:Depends}, ${python3:Depends}, ${misc:Depends}
 Suggests: xen-doc
 Description: Xen administrative tools - common files
  The userspace tools to manage a system virtualized through the Xen virtual
@@ -75,7 +74,7 @@ Package: xen-utils-guest
 Section: admin
 Architecture: amd64 i386 armhf arm64
 Depends: xen-utils-4.14,
-    ${shlibs:Depends}, ${python:Depends}, ${misc:Depends}
+    ${shlibs:Depends}, ${python3:Depends}, ${misc:Depends}
 Conflicts: xen-hypervisor-common
 Description: Xen administrative tools - guest files
  The userspace tools to manage a system virtualized through the Xen virtual
@@ -113,7 +112,7 @@ Package: xen-utils-4.14
 Section: admin
 Architecture: amd64 arm64 armhf i386
 Provides: xen-utils
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xen-utils-common (>= ${source:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, xen-utils-common (>= ${source:Version})
 Recommends: bridge-utils, libc6-xen [i386], xen-hypervisor-4.14, qemu-system-x86, grub-xen-host [i386 amd64]
 Suggests: qemu-utils [i386 amd64], seabios [i386 amd64], ovmf
 Description: XEN administrative tools

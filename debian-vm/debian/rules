@@ -137,7 +137,7 @@ make_args_tools= $(make_args_common) \
 	PREPEND_LDFLAGS_XEN_TOOLS='$(dpkg_LDFLAGS)'
 
 %:
-	dh $@ --with=python2
+	dh $@ --with=python3
 
 # Without this, something on stretch passes CFLAGS in the environment
 # to the Xen build system, which then (with 4.11) chokes printing
@@ -255,11 +255,11 @@ override_dh_install:
 	:
 	debian/installsharedlibs
 
-# dh_python2 does not know to look in the funny directory where
+# dh_python3 does not know to look in the funny directory where
 # we put the versioned /usr/lib files including some python scripts.
-override_dh_python2:
-	dh_python2
-	dh_python2 -pxen-utils-$(upstream_version) \
+override_dh_python3:
+	dh_python3
+	dh_python3 -pxen-utils-$(upstream_version) \
 		usr/lib/xen-$(upstream_version)/bin
 
 # We have two init scripts.  (There used to be xend too.)

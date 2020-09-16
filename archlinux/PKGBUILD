@@ -13,7 +13,7 @@ arch=("x86_64")
 url="http://qubes-os.org/"
 license=('GPL')
 groups=()
-depends=(python2 bridge-utils python2-lxml libutil-linux lzo libsystemd yajl)
+depends=(python bridge-utils python-lxml libutil-linux lzo libsystemd yajl)
 makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config openssl pixman)
 checkdepends=()
 optdepends=()
@@ -43,7 +43,6 @@ build() {
 
   export XEN_VENDORVERSION="-$pkgrel"
   export OCAML_TOOLS=n
-  export PYTHON=/usr/bin/python2
   unset LDFLAGS
 
   autoreconf
@@ -64,7 +63,6 @@ package() {
   cd xen-$pkgver
 
   export OCAML_TOOLS=n
-  export PYTHON=python2
   # Note: Archlinux removed use of directory such as /sbin /bin /usr/sbin (https://mailman.archlinux.org/pipermail/arch-dev-public/2012-March/022625.html)
   make DESTDIR=$pkgdir LIBDIR=/usr/lib/ SBINDIR=/usr/bin prefix=/usr install-tools
 
