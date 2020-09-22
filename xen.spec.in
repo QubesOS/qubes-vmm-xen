@@ -104,6 +104,14 @@ Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 # Backports
 
 # Security fixes
+Patch500: patch-xsa337-1.patch
+Patch501: patch-xsa337-2.patch
+Patch502: patch-xsa338.patch
+Patch503: patch-xsa340.patch
+Patch504: patch-xsa342.patch
+Patch505: patch-xsa343-1.patch
+Patch506: patch-xsa343-2.patch
+Patch507: patch-xsa343-3.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
