@@ -219,6 +219,13 @@ Patch546: patch-xsa321-4.9-4.patch
 Patch547: patch-xsa321-4.9-5.patch
 Patch548: patch-xsa321-4.9-6.patch
 Patch549: patch-xsa321-4.9-7.patch
+Patch550: patch-xsa337-4.8-1.patch
+Patch551: patch-xsa337-4.8-2.patch
+Patch552: patch-xsa340-4.8.patch
+Patch553: patch-xsa343-4.8-1.patch
+Patch554: patch-xsa343-4.8-2.patch
+Patch555: patch-xsa343-4.8-3.patch
+
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
