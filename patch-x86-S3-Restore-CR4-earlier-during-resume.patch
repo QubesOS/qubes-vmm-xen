@@ -1,0 +1,66 @@
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 2 Oct 2020 17:49:32 +0000 (+0100)
+Subject: x86/S3: Restore CR4 earlier during resume
+X-Git-Url: https://xenbits.xen.org/gitweb/?p=people%2Fandrewcoop%2Fxen.git;a=commitdiff_plain;h=eb2dd26a5060012377368cfe7edb38b76ba04058
+
+x86/S3: Restore CR4 earlier during resume
+
+c/s 4304ff420e5 "x86/S3: Drop {save,restore}_rest_processor_state()
+completely" moved CR4 restoration up into C, to account for the fact that MCE
+was explicitly handled later.
+
+However, time_resume() ends up making an EFI Runtime Service call, and EFI
+explodes without OSFXSR, presumably when trying to spill %xmm registers onto
+the stack.
+
+Given this codepath, and the potential for other issues of a similar kind (TLB
+flushing vs INVPCID, HVM logic vs VMXE, etc), restore CR4 in asm before
+entering C.
+
+Ignore the previous MCE special case, because its not actually necessary.  The
+handler is already suitably configured from before suspend.
+
+Fixes: 4304ff420e5 ("x86/S3: Drop {save,restore}_rest_processor_state() completely")
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+
+diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
+index 4fb1e7a148..7f162a4df9 100644
+--- a/xen/arch/x86/acpi/power.c
++++ b/xen/arch/x86/acpi/power.c
+@@ -276,9 +276,6 @@ static int enter_state(u32 state)
+ 
+     mcheck_init(&boot_cpu_data, false);
+ 
+-    /* Restore CR4 from cached value, now MCE is set up. */
+-    write_cr4(read_cr4());
+-
+     printk(XENLOG_INFO "Finishing wakeup from ACPI S%d state.\n", state);
+ 
+     if ( (state == ACPI_STATE_S3) && error )
+diff --git a/xen/arch/x86/acpi/wakeup_prot.S b/xen/arch/x86/acpi/wakeup_prot.S
+index c6b3fcc93d..15052c300f 100644
+--- a/xen/arch/x86/acpi/wakeup_prot.S
++++ b/xen/arch/x86/acpi/wakeup_prot.S
+@@ -1,3 +1,4 @@
++#include <asm/asm_defns.h>
+ #include <asm/msr-index.h>
+ #include <asm/page.h>
+ #include <asm/processor.h>
+@@ -110,6 +111,11 @@ ENTRY(s3_resume)
+ 
+         call    load_system_tables
+ 
++        /* Restore CR4 from the cpuinfo block. */
++        GET_STACK_END(bx)
++        mov     STACK_CPUINFO_FIELD(cr4)(%rbx), %rax
++        mov     %rax, %cr4
++
+ .Lsuspend_err:
+         pop     %r15
+         pop     %r14
+-- 
+2.11.0
+

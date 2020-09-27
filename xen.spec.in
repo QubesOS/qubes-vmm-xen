@@ -126,6 +126,10 @@ Patch622: patch-xen-disable-efi-gettime.patch
 Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
 Patch628: patch-libxl-workaround-gcc-10.2-maybe-uninitialized-warnin.patch
 Patch629: patch-libxl-fix-Werror-stringop-truncation-in-libxl__prepa.patch
+Patch630: patch-x86-S3-Fix-Shadow-Stack-resume-path.patch
+Patch631: patch-Revert-xen-credit2-limit-the-max-number-of-CPUs-in-a.patch
+Patch632: patch-x86-S3-Restore-CR4-earlier-during-resume.patch
+Patch633: patch-x86-smpboot-Unconditionally-call-memguard_unguard_stack.patch
 
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch

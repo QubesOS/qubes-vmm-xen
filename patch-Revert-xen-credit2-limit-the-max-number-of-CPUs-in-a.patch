@@ -1,0 +1,296 @@
+From cca3d7e05bc31c03bf573a1572aa0e913fc6cd94 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 3 Oct 2020 14:48:45 +0200
+Subject: [PATCH] Revert "xen: credit2: limit the max number of CPUs in a
+ runqueue"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Organization: Invisible Things Lab
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+This triggers assert failure in sched2.c:2273. The bug itself is
+somewhere else (under investigation), for now revert the commit that
+makes it much more likely to happen it on S3 resume.
+
+This reverts commit 8e2aa76dc1670e82eaa15683353853bc66bf54fc.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/misc/xen-command-line.pandoc |  14 ---
+ xen/common/sched/credit2.c        | 145 ++----------------------------
+ xen/include/asm-arm/cpufeature.h  |   5 --
+ xen/include/asm-x86/processor.h   |   5 --
+ 4 files changed, 6 insertions(+), 163 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.pandoc b/docs/misc/xen-command-line.pandoc
+index 4ae9391fcd3d..1f754d3ec1d7 100644
+--- a/docs/misc/xen-command-line.pandoc
++++ b/docs/misc/xen-command-line.pandoc
+@@ -1880,20 +1880,6 @@ with read and write permissions.
+ 
+ Choose the default scheduler.
+ 
+-### sched_credit2_max_cpus_runqueue
+-> `= <integer>`
+-
+-> Default: `16`
+-
+-Defines how many CPUs will be put, at most, in each Credit2 runqueue.
+-
+-Runqueues are still arranged according to the host topology (and following
+-what indicated by the 'credit2_runqueue' parameter). But we also have a cap
+-to the number of CPUs that share each runqueues.
+-
+-A value that is a submultiple of the number of online CPUs is recommended,
+-as that would likely produce a perfectly balanced runqueue configuration.
+-
+ ### sched_credit2_migrate_resist
+ > `= <integer>`
+ 
+diff --git a/xen/common/sched/credit2.c b/xen/common/sched/credit2.c
+index eb5e5a78c5e7..8a4f28b9f546 100644
+--- a/xen/common/sched/credit2.c
++++ b/xen/common/sched/credit2.c
+@@ -25,8 +25,6 @@
+ #include <xen/trace.h>
+ #include <xen/cpu.h>
+ #include <xen/keyhandler.h>
+-#include <asm/cpufeature.h>
+-#include <asm/processor.h>
+ 
+ #include "private.h"
+ 
+@@ -473,22 +471,6 @@ static int __init parse_credit2_runqueue(const char *s)
+ }
+ custom_param("credit2_runqueue", parse_credit2_runqueue);
+ 
+-/*
+- * How many CPUs will be put, at most, in each runqueue.
+- *
+- * Runqueues are still arranged according to the host topology (and according
+- * to the value of the 'credit2_runqueue' parameter). But we also have a cap
+- * to the number of CPUs that share runqueues.
+- *
+- * This should be considered an upper limit. In fact, we also try to balance
+- * the number of CPUs in each runqueue. And, when doing that, it is possible
+- * that fewer CPUs than what this parameters mandates will actually be put
+- * in each runqueue.
+- */
+-#define MAX_CPUS_RUNQ 16
+-static unsigned int __read_mostly opt_max_cpus_runqueue = MAX_CPUS_RUNQ;
+-integer_param("sched_credit2_max_cpus_runqueue", opt_max_cpus_runqueue);
+-
+ /*
+  * Per-runqueue data
+  */
+@@ -870,83 +852,18 @@ cpu_runqueue_match(const struct csched2_runqueue_data *rqd, unsigned int cpu)
+            (opt_runqueue == OPT_RUNQUEUE_NODE && same_node(peer_cpu, cpu));
+ }
+ 
+-/*
+- * Additional checks, to avoid separating siblings in different runqueues.
+- * This deals with both Intel's HTs and AMD's CUs. An arch that does not have
+- * any similar concept will just have cpu_nr_siblings() always return 1, and
+- * setup the cpu_sibling_mask-s acordingly (as currently does ARM), and things
+- * will just work as well.
+- */
+-static bool
+-cpu_runqueue_siblings_match(const struct csched2_runqueue_data *rqd,
+-                            unsigned int cpu, unsigned int max_cpus_runq)
+-{
+-    unsigned int nr_sibls = cpu_nr_siblings(cpu);
+-    unsigned int rcpu, tot_sibls = 0;
+-
+-    /*
+-     * If we put the CPU in this runqueue, we must be sure that there will
+-     * be enough room for accepting its sibling(s) as well.
+-     */
+-    cpumask_clear(cpumask_scratch_cpu(cpu));
+-    for_each_cpu ( rcpu, &rqd->active )
+-    {
+-        ASSERT(rcpu != cpu);
+-        if ( !cpumask_intersects(per_cpu(cpu_sibling_mask, rcpu), cpumask_scratch_cpu(cpu)) )
+-        {
+-            /*
+-             * For each CPU already in the runqueue, account for it and for
+-             * its sibling(s), independently from whether they are in the
+-             * runqueue or not. Of course, we do this only once, for each CPU
+-             * that is already inside the runqueue and all its siblings!
+-             *
+-             * This way, even if there are CPUs in the runqueue with siblings
+-             * in a different cpupools, we still count all of them here.
+-             * The reason for this is that, if at some future point we will
+-             * move those sibling CPUs to this cpupool, we want them to land
+-             * in this runqueue. Hence we must be sure to leave space for them.
+-             */
+-            cpumask_or(cpumask_scratch_cpu(cpu), cpumask_scratch_cpu(cpu),
+-                       per_cpu(cpu_sibling_mask, rcpu));
+-            tot_sibls += cpu_nr_siblings(rcpu);
+-        }
+-    }
+-    /*
+-     * We know that neither the CPU, nor any of its sibling are here,
+-     * or we wouldn't even have entered the function.
+-     */
+-    ASSERT(!cpumask_intersects(cpumask_scratch_cpu(cpu),
+-                               per_cpu(cpu_sibling_mask, cpu)));
+-
+-    /* Try adding CPU and its sibling(s) to the count and check... */
+-    return tot_sibls + nr_sibls <= max_cpus_runq;
+-}
+-
+ static struct csched2_runqueue_data *
+-cpu_add_to_runqueue(const struct scheduler *ops, unsigned int cpu)
++cpu_add_to_runqueue(struct csched2_private *prv, unsigned int cpu)
+ {
+-    struct csched2_private *prv = csched2_priv(ops);
+     struct csched2_runqueue_data *rqd, *rqd_new;
+-    struct csched2_runqueue_data *rqd_valid = NULL;
+     struct list_head *rqd_ins;
+     unsigned long flags;
+     int rqi = 0;
+-    unsigned int min_rqs, max_cpus_runq;
+-    bool rqi_unused = false;
++    bool rqi_unused = false, rqd_valid = false;
+ 
+     /* Prealloc in case we need it - not allowed with interrupts off. */
+     rqd_new = xzalloc(struct csched2_runqueue_data);
+ 
+-    /*
+-     * While respecting the limit of not having more than the max number of
+-     * CPUs per runqueue, let's also try to "spread" the CPU, as evenly as
+-     * possible, among the runqueues. For doing that, we need to know upfront
+-     * how many CPUs we have, so let's use the number of CPUs that are online
+-     * for that.
+-     */
+-    min_rqs = ((num_online_cpus() - 1) / opt_max_cpus_runqueue) + 1;
+-    max_cpus_runq = num_online_cpus() / min_rqs;
+-
+     write_lock_irqsave(&prv->lock, flags);
+ 
+     rqd_ins = &prv->rql;
+@@ -956,59 +873,10 @@ cpu_add_to_runqueue(const struct scheduler *ops, unsigned int cpu)
+         if ( !rqi_unused && rqd->id > rqi )
+             rqi_unused = true;
+ 
+-        /*
+-         * First of all, let's check whether, according to the system
+-         * topology, this CPU belongs in this runqueue.
+-         */
+         if ( cpu_runqueue_match(rqd, cpu) )
+         {
+-            /*
+-             * If the CPU has any siblings, they are online and they are
+-             * being added to this cpupool, always keep them together. Even
+-             * if that means violating what the opt_max_cpus_runqueue param
+-             * indicates. However, if this happens, chances are high that a
+-             * too small value was used for the parameter, so warn the user
+-             * about that.
+-             *
+-             * Note that we cannot check this once and for all, say, during
+-             * scheduler initialization. In fact, at least in theory, the
+-             * number of siblings a CPU has may not be the same for all the
+-             * CPUs.
+-             */
+-            if ( cpumask_intersects(&rqd->active, per_cpu(cpu_sibling_mask, cpu)) )
+-            {
+-                if ( cpumask_weight(&rqd->active) >= opt_max_cpus_runqueue )
+-                {
+-                        printk("WARNING: %s: more than opt_max_cpus_runqueue "
+-                               "in a runqueue (%u vs %u), due to topology constraints.\n"
+-                               "Consider raising it!\n",
+-                               __func__, opt_max_cpus_runqueue,
+-                               cpumask_weight(&rqd->active));
+-                }
+-                rqd_valid = rqd;
+-                break;
+-            }
+-
+-            /*
+-             * If we're using core (or socket) scheduling, no need to do any
+-             * further checking beyond the number of CPUs already in this
+-             * runqueue respecting our upper bound.
+-             *
+-             * Otherwise, let's try to make sure that siblings stay in the
+-             * same runqueue, pretty much under any cinrcumnstances.
+-             */
+-            if ( rqd->refcnt < max_cpus_runq && (ops->cpupool->gran != SCHED_GRAN_cpu ||
+-                  cpu_runqueue_siblings_match(rqd, cpu, max_cpus_runq)) )
+-            {
+-                /*
+-                 * This runqueue is ok, but as we said, we also want an even
+-                 * distribution of the CPUs. So, unless this is the very first
+-                 * match, we go on, check all runqueues and actually add the
+-                 * CPU into the one that is less full.
+-                 */
+-                if ( !rqd_valid || rqd->refcnt < rqd_valid->refcnt )
+-                    rqd_valid = rqd;
+-            }
++            rqd_valid = true;
++            break;
+         }
+ 
+         if ( !rqi_unused )
+@@ -1032,8 +900,6 @@ cpu_add_to_runqueue(const struct scheduler *ops, unsigned int cpu)
+         rqd->pick_bias = cpu;
+         rqd->id = rqi;
+     }
+-    else
+-        rqd = rqd_valid;
+ 
+     rqd->refcnt++;
+ 
+@@ -3878,6 +3744,7 @@ csched2_dump(const struct scheduler *ops)
+ static void *
+ csched2_alloc_pdata(const struct scheduler *ops, int cpu)
+ {
++    struct csched2_private *prv = csched2_priv(ops);
+     struct csched2_pcpu *spc;
+     struct csched2_runqueue_data *rqd;
+ 
+@@ -3887,7 +3754,7 @@ csched2_alloc_pdata(const struct scheduler *ops, int cpu)
+     if ( spc == NULL )
+         return ERR_PTR(-ENOMEM);
+ 
+-    rqd = cpu_add_to_runqueue(ops, cpu);
++    rqd = cpu_add_to_runqueue(prv, cpu);
+     if ( IS_ERR(rqd) )
+     {
+         xfree(spc);
+diff --git a/xen/include/asm-arm/cpufeature.h b/xen/include/asm-arm/cpufeature.h
+index 10878ead8a27..6bff5ce13110 100644
+--- a/xen/include/asm-arm/cpufeature.h
++++ b/xen/include/asm-arm/cpufeature.h
+@@ -64,11 +64,6 @@ static inline bool cpus_have_cap(unsigned int num)
+     return test_bit(num, cpu_hwcaps);
+ }
+ 
+-static inline int cpu_nr_siblings(unsigned int cpu)
+-{
+-    return 1;
+-}
+-
+ /* System capability check for constant cap */
+ #define cpus_have_const_cap(num) ({                 \
+         register_t __ret;                           \
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 9acb80fdcd37..badd7e60e506 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -171,11 +171,6 @@ extern void init_intel_cacheinfo(struct cpuinfo_x86 *c);
+ 
+ unsigned int apicid_to_socket(unsigned int);
+ 
+-static inline int cpu_nr_siblings(unsigned int cpu)
+-{
+-    return cpu_data[cpu].x86_num_siblings;
+-}
+-
+ /*
+  * Generic CPUID function
+  * clear %ecx since some cpus (Cyrix MII) do not set or clear %ecx
+-- 
+2.25.4
+

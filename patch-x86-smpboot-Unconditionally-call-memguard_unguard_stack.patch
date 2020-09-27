@@ -1,0 +1,57 @@
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Subject: [PATCH] x86/smpboot: Unconditionally call memguard_unguard_stack() in cpu_smpboot_free()
+Date: Mon, 5 Oct 2020 13:23:25 +0100
+
+For simplicity between various configuration, Xen always uses shadow stack
+mappings (Read-only + Dirty) for the guard page, irrespective of whether
+CET-SS is enabled.
+
+memguard_guard_stack() writes shadow stack tokens with plain writes.  This is
+necessary to configure the BSP shadow stack correctly, and cannot be
+implemented with WRSS.
+
+Therefore, unconditionally call memguard_unguard_stack() to return the
+mappings to fully writeable, so a subsequent call to memguard_guard_stack()
+will succeed.
+
+Fixes: 91d26ed304f ("x86/shstk: Create shadow stacks")
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+CC: Jan Beulich <JBeulich@suse.com>
+CC: Roger Pau Monné <roger.pau@citrix.com>
+CC: Wei Liu <wl@xen.org>
+
+This can more easily be demonstrated with CPU hotplug than S3, and the absence
+of bug reports goes to show how rarely hotplug is used.
+---
+ xen/arch/x86/smpboot.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 5708573c41..c193cc0fb8 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -971,16 +971,16 @@ static void cpu_smpboot_free(unsigned int cpu, bool remove)
+     if ( IS_ENABLED(CONFIG_PV32) )
+         FREE_XENHEAP_PAGE(per_cpu(compat_gdt, cpu));
+ 
++    if ( stack_base[cpu] )
++        memguard_unguard_stack(stack_base[cpu]);
++
+     if ( remove )
+     {
+         FREE_XENHEAP_PAGE(per_cpu(gdt, cpu));
+         FREE_XENHEAP_PAGE(idt_tables[cpu]);
+ 
+         if ( stack_base[cpu] )
+-        {
+-            memguard_unguard_stack(stack_base[cpu]);
+             FREE_XENHEAP_PAGES(stack_base[cpu], STACK_ORDER);
+-        }
+     }
+ }
+ 
+-- 
+2.11.0
+
