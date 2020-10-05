@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import json
 import re
@@ -65,7 +65,7 @@ class DataSXP(Data):
 
 
 if __name__ == '__main__':
-    p = subprocess.check_output(('xen', 'list', '-l'))
+    p = subprocess.check_output(('xen', 'list', '-l')).decode()
     if p[0] == '(':
         d = DataSXP(p)
     else:
