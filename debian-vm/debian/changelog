@@ -1,3 +1,11 @@
+xen (4.14.0-5) unstable; urgency=medium
+
+  * Fix S3 resume
+  * Allow executable super-pages in EPT
+  * deb, arch: migrate to python3 completely
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 06 Oct 2020 04:45:31 +0200
+
 xen (4.14.0-4) wheezy; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
