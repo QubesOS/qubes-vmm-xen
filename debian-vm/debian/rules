@@ -15,6 +15,7 @@ BUILD_DIR = debian/build
 	dh $@ --with autoreconf,autotools-dev,python2,systemd
 
 override_dh_auto_configure:
+	PYTHON=/usr/bin/python2 \
 	dh_auto_configure -- --prefix=/usr \
 		--includedir=/usr/include \
 		--mandir=/usr/share/man \
