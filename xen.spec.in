@@ -571,7 +571,7 @@ This package contains files for HVM domains, especially stubdomain with device m
 
 %package qemu-tools
 Summary: Qemu disk tools bundled with Xen
-Requires: xen-hvm = %{version}-%{release}
+Requires: xen-hvm = %{epoch}:%{version}-%{release}
 Provides: qemu-img = 0.10.2
 Conflicts: qemu-img
 
