@@ -1,3 +1,11 @@
+xen (2001:4.8.5-24) unstable; urgency=medium
+
+  * debian: force python2
+  * travis: update
+  * rpm: add missing epoch to xen-qemu-tools dependency
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 18 Oct 2020 06:22:59 +0200
+
 xen (2001:4.8.5-23) wheezy; urgency=medium
 
   * Apply XSA-337, XSA-340, XSA-343
