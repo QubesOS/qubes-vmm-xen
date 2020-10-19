@@ -225,6 +225,13 @@ Patch552: patch-xsa340-4.8.patch
 Patch553: patch-xsa343-4.8-1.patch
 Patch554: patch-xsa343-4.8-2.patch
 Patch555: patch-xsa343-4.8-3.patch
+Patch556: patch-xsa345-4.10-0001-x86-mm-Refactor-map_pages_to_xen-to-have-only-a-sing.patch
+Patch557: patch-xsa345-4.10-0002-x86-mm-Refactor-modify_xen_mappings-to-have-one-exit.patch
+Patch558: patch-xsa345-4.10-0003-x86-mm-Prevent-some-races-in-hypervisor-mapping-upda.patch
+Patch559: patch-xsa346-4.10-1.patch
+Patch560: patch-xsa346-4.10-2.patch
+Patch561: patch-xsa347-4.11-1.patch
+Patch562: patch-xsa347-4.11-2.patch
 
 
 # Upstreamable patches
