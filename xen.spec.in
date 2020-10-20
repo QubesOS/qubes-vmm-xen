@@ -112,6 +112,14 @@ Patch504: patch-xsa342.patch
 Patch505: patch-xsa343-1.patch
 Patch506: patch-xsa343-2.patch
 Patch507: patch-xsa343-3.patch
+Patch508: patch-xsa345-4.14-0001-x86-mm-Refactor-map_pages_to_xen-to-have-only-a-sing.patch
+Patch509: patch-xsa345-4.14-0002-x86-mm-Refactor-modify_xen_mappings-to-have-one-exit.patch
+Patch510: patch-xsa345-4.14-0003-x86-mm-Prevent-some-races-in-hypervisor-mapping-upda.patch
+Patch511: patch-xsa346-1.patch
+Patch512: patch-xsa346-2.patch
+Patch513: patch-xsa347-4.14-1.patch
+Patch514: patch-xsa347-4.14-2.patch
+Patch515: patch-xsa347-4.14-3.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
