@@ -444,6 +444,7 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.
 %ifnarch armv7hl aarch64
 #CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe"
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
+CONFIG_EXTRA="$CONFIG_EXTRA --disable-pvshim"
 %endif
 CONFIG_EXTRA="$CONFIG_EXTRA --with-extra-qemuu-configure-args='--disable-spice'"
 export PATH="/usr/bin:$PATH"
@@ -856,8 +857,6 @@ fi
 %dir %{_libexecdir}/%{name}/boot
 %{_libexecdir}/xen/boot/hvmloader
 %ifnarch %{ix86}
-%{_libexecdir}/%{name}/boot/xen-shim
-/usr/lib/debug%{_libexecdir}/xen/boot/xen-shim-syms
 %endif
 %if %build_ovmf
 %{_libexecdir}/xen/boot/ovmf.bin

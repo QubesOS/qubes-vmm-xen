@@ -49,6 +49,7 @@ build() {
   ./configure --prefix=/usr \
               --sbindir=/usr/bin \
               --disable-ocamltools \
+              --disable-pvshim \
               --disable-blktap2
 
 #  make prefix=/usr dist-xen
