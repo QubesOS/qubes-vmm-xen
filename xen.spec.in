@@ -310,6 +310,7 @@ Patch633: patch-0005-video-fix-handling-framebuffer-located-above-4GB.patch
 Patch634: patch-xen-disable-efi-gettime.patch
 Patch635: patch-libxl-console.patch
 Patch636: patch-libxl-console-fix.patch
+Patch637: patch-libxl-cleanup-remaining-backend-xs-dirs-after-driver.patch
 
 # GCC7 fixes
 Patch701: patch-0001-tools-include-sys-sysmacros.h-on-Linux.patch
