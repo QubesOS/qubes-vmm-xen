@@ -453,7 +453,7 @@ autoreconf
 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-seabios=%{seabiosloc} --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" $CONFIG_EXTRA
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr tools
 %if %build_docs
-make                 prefix=/usr docs
+make prefix=/usr docs
 %endif
 export RPM_OPT_FLAGS_RED=`echo $RPM_OPT_FLAGS | sed -e 's/-m64//g' -e 's/--param=ssp-buffer-size=4//g' -e's/-fstack-protector-strong//'`
 %ifarch %{ix86}
