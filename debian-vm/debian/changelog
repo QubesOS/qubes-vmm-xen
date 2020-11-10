@@ -1,3 +1,9 @@
+xen (4.14.0-7) unstable; urgency=medium
+
+  * Apply XSA-351 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 10 Nov 2020 21:38:26 +0100
+
 xen (4.14.0-6) unstable; urgency=medium
 
   * Update one of recent S3 fixes to the final upstream version
