@@ -1,3 +1,9 @@
+xen (2001:4.8.5-26) unstable; urgency=medium
+
+  * Apply XSA-351 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 11 Nov 2020 04:15:55 +0100
+
 xen (2001:4.8.5-25) unstable; urgency=medium
 
   * Apply XSA-345, XSA-346, XSA-347
