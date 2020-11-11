@@ -232,6 +232,8 @@ Patch559: patch-xsa346-4.10-1.patch
 Patch560: patch-xsa346-4.10-2.patch
 Patch561: patch-xsa347-4.11-1.patch
 Patch562: patch-xsa347-4.11-2.patch
+Patch563: patch-xsa351-x86-4.8-1.patch
+Patch564: patch-xsa351-x86-4.8-2.patch
 
 
 # Upstreamable patches
