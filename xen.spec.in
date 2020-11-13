@@ -63,6 +63,9 @@
 # hardlinked sources)
 %define _unpackaged_files_terminate_build 0
 
+# build-id is skipped for reproducibility, at least for now
+%undefine _missing_build_ids_terminate_build
+
 # Hypervisor ABI
 %define hv_abi 4.14
 
