@@ -176,6 +176,7 @@ override_dh_auto_configure:
 		--sysconfdir=/etc \
 		--localstatedir=/var \
 		--with-libexec-leaf-dir=xen-$(upstream_version) \
+		--disable-pvshim \
 		--disable-blktap1 \
 		--disable-blktap2 \
 		--disable-ocamltools \
@@ -194,10 +195,6 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	$(MAKE) $(make_args_xen) xen
 	$(MAKE) $(make_args_tools) tools docs CONFIG_PV_SHIM=n
-	case $(flavour) in \
-	amd64|i386) \
-		$(MAKE) $(make_args_xen) -C tools/firmware/xen-dir ;; \
-	esac
 	touch debian/xen-tools-built.stamp
 
 # We keep the amount of fixup and messing about with debian/tmp/
@@ -208,14 +205,6 @@ override_dh_auto_install: $(TEMPLATED_FILES)
 	$(MAKE) $(make_args_xen) DESTDIR=$t install-xen
 	$(MAKE) $(make_args_tools) DESTDIR=$t \
 		install-{tools,docs} CONFIG_PV_SHIM=n
-	:
-	@# shim install target needs to be run separately because we
-	@# need to pass it the make_args_xen settings, in particular
-	@# on i386 bwe need to pass x86_64 here to actually build it.
-	@# Luckily this target, unlike the build, is a noop on
-	@# shimless arches, so it does not need to be conditional.
-	$(MAKE) $(make_args_xen) DESTDIR=$t $(make_args_xen) \
-		-C tools/firmware install-shim
 	:
 	@# Inexplicably, upstream pots the efi binares in usr/lib64
 	case $(flavour) in \

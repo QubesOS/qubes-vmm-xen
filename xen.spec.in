@@ -171,6 +171,15 @@ Patch1022: patch-xen-acpi-slic-support.patch
 
 Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
 
+# Reproducible builds
+Patch1050: patch-0001-No-insert-of-the-build-timestamp-into-the-x86-xen-ef.patch
+Patch1051: patch-0002-common-remove-gzip-timestamp.patch
+Patch1052: patch-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
+Patch1053: patch-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
+Patch1054: patch-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
+Patch1055: patch-Disable-build-id.patch
+Patch1056: patch-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
+
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
 BuildRequires: libX11-devel gtk2-devel libaio-devel
@@ -437,6 +446,7 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.
 %ifnarch armv7hl aarch64
 #CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe"
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
+CONFIG_EXTRA="$CONFIG_EXTRA --disable-pvshim"
 %endif
 CONFIG_EXTRA="$CONFIG_EXTRA --with-extra-qemuu-configure-args='--disable-spice'"
 export PATH="/usr/bin:$PATH"
@@ -445,7 +455,7 @@ autoreconf
 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-seabios=%{seabiosloc} --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" $CONFIG_EXTRA
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr tools
 %if %build_docs
-make                 prefix=/usr docs
+make prefix=/usr docs
 %endif
 export RPM_OPT_FLAGS_RED=`echo $RPM_OPT_FLAGS | sed -e 's/-m64//g' -e 's/--param=ssp-buffer-size=4//g' -e's/-fstack-protector-strong//'`
 %ifarch %{ix86}
@@ -849,8 +859,6 @@ fi
 %dir %{_libexecdir}/%{name}/boot
 %{_libexecdir}/xen/boot/hvmloader
 %ifnarch %{ix86}
-%{_libexecdir}/%{name}/boot/xen-shim
-/usr/lib/debug%{_libexecdir}/xen/boot/xen-shim-syms
 %endif
 %if %build_ovmf
 %{_libexecdir}/xen/boot/ovmf.bin

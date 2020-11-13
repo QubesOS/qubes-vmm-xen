@@ -1,0 +1,64 @@
+From 5fb3493773b5c2f8b03f55ddf79520bb66cdbc45 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.pierret@qubes-os.org>
+Date: Sun, 8 Nov 2020 16:17:29 +0100
+Subject: [PATCH] Strip build path directories in tools, xen and xen/arch/x86
+
+Ensure to have a realpath for XEN_ROOT else it fails to substitute
+properly pathes in strings sections
+---
+ tools/Rules.mk        | 2 ++
+ xen/Makefile          | 4 +++-
+ xen/arch/x86/Makefile | 1 +
+ 3 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/tools/Rules.mk b/tools/Rules.mk
+index 67747110b8..cecef42d12 100644
+--- a/tools/Rules.mk
++++ b/tools/Rules.mk
+@@ -204,6 +204,8 @@ endif
+ CFLAGS-$(CONFIG_X86_32) += $(call cc-option,$(CC),-mno-tls-direct-seg-refs)
+ CFLAGS += $(CFLAGS-y)
+ 
++CFLAGS += -ffile-prefix-map=$(XEN_ROOT)=.
++
+ CFLAGS += $(EXTRA_CFLAGS_XEN_TOOLS)
+ 
+ INSTALL_PYTHON_PROG = \
+diff --git a/xen/Makefile b/xen/Makefile
+index 2f3f8b9deb..03809e5d76 100644
+--- a/xen/Makefile
++++ b/xen/Makefile
+@@ -18,7 +18,7 @@ PYTHON_INTERPRETER	:= $(word 1,$(shell which python3 python python2 2>/dev/null)
+ export PYTHON		?= $(PYTHON_INTERPRETER)
+ 
+ export BASEDIR := $(CURDIR)
+-export XEN_ROOT := $(BASEDIR)/..
++export XEN_ROOT := $(realpath $(BASEDIR)/..)
+ 
+ # Do not use make's built-in rules and variables
+ MAKEFLAGS += -rR
+@@ -219,6 +219,8 @@ ifneq ($(CONFIG_CC_IS_CLANG),y)
+ CFLAGS += -Wa,--strip-local-absolute
+ endif
+ 
++CFLAGS += -ffile-prefix-map=$(XEN_ROOT)=.
++
+ AFLAGS += -D__ASSEMBLY__
+ 
+ CFLAGS += $(CFLAGS-y)
+diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
+index b388861679..cbed7d9a16 100644
+--- a/xen/arch/x86/Makefile
++++ b/xen/arch/x86/Makefile
+@@ -176,6 +176,7 @@ export XEN_BUILD_EFI := $(shell $(CC) $(XEN_CFLAGS) -c efi/check.c -o efi/check.
+ # Check if the linker supports PE.
+ XEN_BUILD_PE := $(if $(XEN_BUILD_EFI),$(shell $(LD) -mi386pep --subsystem=10 -o efi/check.efi efi/check.o 2>/dev/null && echo y))
+ CFLAGS-$(XEN_BUILD_EFI) += -DXEN_BUILD_EFI
++CFLAGS-$(XEN_BUILD_EFI) += -ffile-prefix-map=$(XEN_ROOT)=.
+ 
+ $(TARGET).efi: VIRT_BASE = 0x$(shell $(NM) efi/relocs-dummy.o | sed -n 's, A VIRT_START$$,,p')
+ $(TARGET).efi: ALT_BASE = 0x$(shell $(NM) efi/relocs-dummy.o | sed -n 's, A ALT_START$$,,p')
+-- 
+2.26.2
+
