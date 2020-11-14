@@ -177,8 +177,7 @@ Patch1051: patch-0002-common-remove-gzip-timestamp.patch
 Patch1052: patch-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
 Patch1053: patch-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
 Patch1054: patch-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
-Patch1055: patch-Disable-build-id.patch
-Patch1056: patch-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
+Patch1055: patch-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
