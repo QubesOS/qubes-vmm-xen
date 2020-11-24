@@ -1,3 +1,18 @@
+xen (4.14.0-8) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * Refactor Makefile
+  * Add patches for improving reproducibility
+  * Disable pvshim
+  * spec: fix indentations for make docs
+  * Reenable build id as it's computed on reproducible content
+  * Add .gitlab-ci.yml
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA-355 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 24 Nov 2020 13:25:18 +0100
+
 xen (4.14.0-7) unstable; urgency=medium
 
   * Apply XSA-351 patch
