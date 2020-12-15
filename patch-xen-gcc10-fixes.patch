@@ -62,7 +62,7 @@ index 9e9d960247..11aeabbbda 100644
 -xengnttab_handle **xgt_handle;
 +extern xengnttab_handle **xgt_handle;
  
- #endif /* _XENSTORED_CORE_H */
+ int remember_string(struct hashtable *hash, const char *str);
  
 -- 
 2.25.2

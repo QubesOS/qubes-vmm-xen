@@ -1,0 +1,172 @@
+From fe3566c92073e9e655a64f8894957f6003b05f37 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:42 +0100
+Subject: [PATCH 01/25] xenstore: modify add_change_node() parameter types
+
+In order to prepare adding a generation count to each node modify
+add_change_node() to take the connection pointer and a node pointer
+instead of the transaction pointer and node name as parameters. This
+requires moving the call of add_change_node() from do_rm() to
+delete_node_single().
+
+While at it correct the comment for the prototype: there is no
+longjmp() involved.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c        | 22 +++++++++++++---------
+ tools/xenstore/xenstored_transaction.c | 11 +++++++----
+ tools/xenstore/xenstored_transaction.h |  4 ++--
+ 3 files changed, 22 insertions(+), 15 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index dc9a26f1dcc6..5d8afd6f3044 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -827,7 +827,8 @@ static void do_read(struct connection *conn, struct buffered_data *in)
+ 	send_reply(conn, XS_READ, node->data, node->datalen);
+ }
+ 
+-static void delete_node_single(struct connection *conn, struct node *node)
++static void delete_node_single(struct connection *conn, struct node *node,
++			       bool changed)
+ {
+ 	TDB_DATA key;
+ 
+@@ -839,6 +840,9 @@ static void delete_node_single(struct connection *conn, struct node *node)
+ 		return;
+ 	}
+ 
++	if (changed)
++		add_change_node(conn, node, true);
++
+ 	domain_entry_dec(conn, node);
+ }
+ 
+@@ -977,7 +981,7 @@ static void do_write(struct connection *conn, struct buffered_data *in)
+ 		}
+ 	}
+ 
+-	add_change_node(conn->transaction, name, false);
++	add_change_node(conn, node, false);
+ 	wrl_apply_debit_direct(conn);
+ 	fire_watches(conn, in, name, false);
+ 	send_ack(conn, XS_WRITE);
+@@ -1009,21 +1013,22 @@ static void do_mkdir(struct connection *conn, struct buffered_data *in)
+ 			send_error(conn, errno);
+ 			return;
+ 		}
+-		add_change_node(conn->transaction, name, false);
++		add_change_node(conn, node, false);
+ 		wrl_apply_debit_direct(conn);
+ 		fire_watches(conn, in, name, false);
+ 	}
+ 	send_ack(conn, XS_MKDIR);
+ }
+ 
+-static void delete_node(struct connection *conn, struct node *node)
++static void delete_node(struct connection *conn, struct node *node,
++			bool changed)
+ {
+ 	unsigned int i;
+ 
+ 	/* Delete self, then delete children.  If we crash, then the worst
+ 	   that can happen is the children will continue to take up space, but
+ 	   will otherwise be unreachable. */
+-	delete_node_single(conn, node);
++	delete_node_single(conn, node, changed);
+ 
+ 	/* Delete children, too. */
+ 	for (i = 0; i < node->childlen; i += strlen(node->children+i) + 1) {
+@@ -1033,7 +1038,7 @@ static void delete_node(struct connection *conn, struct node *node)
+ 				  talloc_asprintf(node, "%s/%s", node->name,
+ 						  node->children + i));
+ 		if (child) {
+-			delete_node(conn, child);
++			delete_node(conn, child, false);
+ 		}
+ 		else {
+ 			trace("delete_node: No child '%s/%s' found!\n",
+@@ -1092,7 +1097,7 @@ static int _rm(struct connection *conn, struct node *node, const char *name)
+ 		return 0;
+ 	}
+ 
+-	delete_node(conn, node);
++	delete_node(conn, node, true);
+ 	return 1;
+ }
+ 
+@@ -1136,7 +1141,6 @@ static void do_rm(struct connection *conn, struct buffered_data *in)
+ 	}
+ 
+ 	if (_rm(conn, node, name)) {
+-		add_change_node(conn->transaction, name, true);
+ 		wrl_apply_debit_direct(conn);
+ 		fire_watches(conn, in, name, true);
+ 		send_ack(conn, XS_RM);
+@@ -1213,7 +1217,7 @@ static void do_set_perms(struct connection *conn, struct buffered_data *in)
+ 		return;
+ 	}
+ 
+-	add_change_node(conn->transaction, name, false);
++	add_change_node(conn, node, false);
+ 	wrl_apply_debit_direct(conn);
+ 	fire_watches(conn, in, name, false);
+ 	send_ack(conn, XS_SET_PERMS);
+diff --git a/tools/xenstore/xenstored_transaction.c b/tools/xenstore/xenstored_transaction.c
+index 5059a11b6b0b..ee4bd3e68624 100644
+--- a/tools/xenstore/xenstored_transaction.c
++++ b/tools/xenstore/xenstored_transaction.c
+@@ -92,18 +92,21 @@ TDB_CONTEXT *tdb_transaction_context(struct transaction *trans)
+ 
+ /* Callers get a change node (which can fail) and only commit after they've
+  * finished.  This way they don't have to unwind eg. a write. */
+-void add_change_node(struct transaction *trans, const char *node, bool recurse)
++void add_change_node(struct connection *conn, struct node *node, bool recurse)
+ {
+ 	struct changed_node *i;
++	struct transaction *trans;
+ 
+-	if (!trans) {
++	if (!conn || !conn->transaction) {
+ 		/* They're changing the global database. */
+ 		generation++;
+ 		return;
+ 	}
+ 
++	trans = conn->transaction;
++
+ 	list_for_each_entry(i, &trans->changes, list) {
+-		if (streq(i->node, node)) {
++		if (streq(i->node, node->name)) {
+ 			if (recurse)
+ 				i->recurse = recurse;
+ 			return;
+@@ -111,7 +114,7 @@ void add_change_node(struct transaction *trans, const char *node, bool recurse)
+ 	}
+ 
+ 	i = talloc(trans, struct changed_node);
+-	i->node = talloc_strdup(i, node);
++	i->node = talloc_strdup(i, node->name);
+ 	i->recurse = recurse;
+ 	list_add_tail(&i->list, &trans->changes);
+ }
+diff --git a/tools/xenstore/xenstored_transaction.h b/tools/xenstore/xenstored_transaction.h
+index 0c868ee504ee..7f0a78179235 100644
+--- a/tools/xenstore/xenstored_transaction.h
++++ b/tools/xenstore/xenstored_transaction.h
+@@ -30,8 +30,8 @@ struct transaction *transaction_lookup(struct connection *conn, uint32_t id);
+ void transaction_entry_inc(struct transaction *trans, unsigned int domid);
+ void transaction_entry_dec(struct transaction *trans, unsigned int domid);
+ 
+-/* This node was changed: can fail and longjmp. */
+-void add_change_node(struct transaction *trans, const char *node,
++/* This node was changed. */
++void add_change_node(struct connection *conn, struct node *node,
+                      bool recurse);
+ 
+ /* Return tdb context to use for this connection. */
+-- 
+2.25.4
+

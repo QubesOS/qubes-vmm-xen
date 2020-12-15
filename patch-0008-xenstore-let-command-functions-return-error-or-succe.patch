@@ -1,0 +1,1044 @@
+From ea13030de9bfb18a54c2d73d3f1c2e5b6f499d43 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:49 +0100
+Subject: [PATCH 08/25] xenstore: let command functions return error or success
+
+Add a return value to all wire command functions of xenstored. If such
+a function returns an error send the error message in
+process_message().
+
+Only code refactoring, no change in behavior expected.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c        | 215 +++++++++++--------------
+ tools/xenstore/xenstored_domain.c      | 170 ++++++++-----------
+ tools/xenstore/xenstored_domain.h      |  14 +-
+ tools/xenstore/xenstored_transaction.c |  50 +++---
+ tools/xenstore/xenstored_transaction.h |   4 +-
+ tools/xenstore/xenstored_watch.c       |  46 +++---
+ tools/xenstore/xenstored_watch.h       |   4 +-
+ 7 files changed, 213 insertions(+), 290 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index aef72f37c48a..f7760cc8fe1e 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -775,33 +775,31 @@ bool check_event_node(const char *node)
+ 	return true;
+ }
+ 
+-static void send_directory(struct connection *conn, struct buffered_data *in)
++static int send_directory(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+ 	const char *name = onearg(in);
+ 
+ 	name = canonicalize(conn, name);
+ 	node = get_node(conn, in, name, XS_PERM_READ);
+-	if (!node) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!node)
++		return errno;
+ 
+ 	send_reply(conn, XS_DIRECTORY, node->children, node->childlen);
++
++	return 0;
+ }
+ 
+-static void send_directory_part(struct connection *conn,
+-				struct buffered_data *in)
++static int send_directory_part(struct connection *conn,
++			       struct buffered_data *in)
+ {
+ 	unsigned int off, len, maxlen, genlen;
+ 	char *name, *child, *data;
+ 	struct node *node;
+ 	char gen[24];
+ 
+-	if (xs_count_strings(in->buffer, in->used) != 2) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (xs_count_strings(in->buffer, in->used) != 2)
++		return EINVAL;
+ 
+ 	/* First arg is node name. */
+ 	name = canonicalize(conn, in->buffer);
+@@ -810,10 +808,8 @@ static void send_directory_part(struct connection *conn,
+ 	off = atoi(in->buffer + strlen(in->buffer) + 1);
+ 
+ 	node = get_node(conn, in, name, XS_PERM_READ);
+-	if (!node) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!node)
++		return errno;
+ 
+ 	genlen = snprintf(gen, sizeof(gen), "%"PRIu64, node->generation) + 1;
+ 
+@@ -821,7 +817,7 @@ static void send_directory_part(struct connection *conn,
+ 	if (off >= node->childlen) {
+ 		gen[genlen] = 0;
+ 		send_reply(conn, XS_DIRECTORY_PART, gen, genlen + 1);
+-		return;
++		return 0;
+ 	}
+ 
+ 	len = 0;
+@@ -836,10 +832,8 @@ static void send_directory_part(struct connection *conn,
+ 	}
+ 
+ 	data = talloc_array(in, char, genlen + len + 1);
+-	if (!data) {
+-		send_error(conn, ENOMEM);
+-		return;
+-	}
++	if (!data)
++		return ENOMEM;
+ 
+ 	memcpy(data, gen, genlen);
+ 	memcpy(data + genlen, node->children + off, len);
+@@ -849,21 +843,23 @@ static void send_directory_part(struct connection *conn,
+ 	}
+ 
+ 	send_reply(conn, XS_DIRECTORY_PART, data, genlen + len);
++
++	return 0;
+ }
+ 
+-static void do_read(struct connection *conn, struct buffered_data *in)
++static int do_read(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+ 	const char *name = onearg(in);
+ 
+ 	name = canonicalize(conn, name);
+ 	node = get_node(conn, in, name, XS_PERM_READ);
+-	if (!node) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!node)
++		return errno;
+ 
+ 	send_reply(conn, XS_READ, node->data, node->datalen);
++
++	return 0;
+ }
+ 
+ static void delete_node_single(struct connection *conn, struct node *node,
+@@ -982,7 +978,7 @@ static struct node *create_node(struct connection *conn,
+ }
+ 
+ /* path, data... */
+-static void do_write(struct connection *conn, struct buffered_data *in)
++static int do_write(struct connection *conn, struct buffered_data *in)
+ {
+ 	unsigned int offset, datalen;
+ 	struct node *node;
+@@ -990,10 +986,8 @@ static void do_write(struct connection *conn, struct buffered_data *in)
+ 	char *name;
+ 
+ 	/* Extra "strings" can be created by binary data. */
+-	if (get_strings(in, vec, ARRAY_SIZE(vec)) < ARRAY_SIZE(vec)) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (get_strings(in, vec, ARRAY_SIZE(vec)) < ARRAY_SIZE(vec))
++		return EINVAL;
+ 
+ 	offset = strlen(vec[0]) + 1;
+ 	datalen = in->used - offset;
+@@ -1002,39 +996,32 @@ static void do_write(struct connection *conn, struct buffered_data *in)
+ 	node = get_node(conn, in, name, XS_PERM_WRITE);
+ 	if (!node) {
+ 		/* No permissions, invalid input? */
+-		if (errno != ENOENT) {
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (errno != ENOENT)
++			return errno;
+ 		node = create_node(conn, name, in->buffer + offset, datalen);
+-		if (!node) {
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (!node)
++			return errno;
+ 	} else {
+ 		node->data = in->buffer + offset;
+ 		node->datalen = datalen;
+-		if (!write_node(conn, node)){
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (!write_node(conn, node))
++			return errno;
+ 	}
+ 
+ 	wrl_apply_debit_direct(conn);
+ 	fire_watches(conn, in, name, false);
+ 	send_ack(conn, XS_WRITE);
++
++	return 0;
+ }
+ 
+-static void do_mkdir(struct connection *conn, struct buffered_data *in)
++static int do_mkdir(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+ 	const char *name = onearg(in);
+ 
+-	if (!name) {
+-		errno = EINVAL;
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!name)
++		return EINVAL;
+ 
+ 	name = canonicalize(conn, name);
+ 	node = get_node(conn, in, name, XS_PERM_WRITE);
+@@ -1042,19 +1029,17 @@ static void do_mkdir(struct connection *conn, struct buffered_data *in)
+ 	/* If it already exists, fine. */
+ 	if (!node) {
+ 		/* No permissions? */
+-		if (errno != ENOENT) {
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (errno != ENOENT)
++			return errno;
+ 		node = create_node(conn, name, NULL, 0);
+-		if (!node) {
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (!node)
++			return errno;
+ 		wrl_apply_debit_direct(conn);
+ 		fire_watches(conn, in, name, false);
+ 	}
+ 	send_ack(conn, XS_MKDIR);
++
++	return 0;
+ }
+ 
+ static void delete_node(struct connection *conn, struct node *node,
+@@ -1124,18 +1109,14 @@ static int _rm(struct connection *conn, struct node *node, const char *name)
+ 	   happen is the child will continue to take up space, but will
+ 	   otherwise be unreachable. */
+ 	struct node *parent = read_node(conn, name, get_parent(name, name));
+-	if (!parent) {
+-		send_error(conn, EINVAL);
+-		return 0;
+-	}
++	if (!parent)
++		return EINVAL;
+ 
+-	if (!delete_child(conn, parent, basename(name))) {
+-		send_error(conn, EINVAL);
+-		return 0;
+-	}
++	if (!delete_child(conn, parent, basename(name)))
++		return EINVAL;
+ 
+ 	delete_node(conn, node, true);
+-	return 1;
++	return 0;
+ }
+ 
+ 
+@@ -1150,9 +1131,10 @@ static void internal_rm(const char *name)
+ }
+ 
+ 
+-static void do_rm(struct connection *conn, struct buffered_data *in)
++static int do_rm(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
++	int ret;
+ 	const char *name = onearg(in);
+ 
+ 	name = canonicalize(conn, name);
+@@ -1163,29 +1145,30 @@ static void do_rm(struct connection *conn, struct buffered_data *in)
+ 			node = read_node(conn, in, get_parent(in, name));
+ 			if (node) {
+ 				send_ack(conn, XS_RM);
+-				return;
++				return 0;
+ 			}
+ 			/* Restore errno, just in case. */
+ 			errno = ENOENT;
+ 		}
+-		send_error(conn, errno);
+-		return;
++		return errno;
+ 	}
+ 
+-	if (streq(name, "/")) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (streq(name, "/"))
++		return EINVAL;
+ 
+-	if (_rm(conn, node, name)) {
+-		wrl_apply_debit_direct(conn);
+-		fire_watches(conn, in, name, true);
+-		send_ack(conn, XS_RM);
+-	}
++	ret = _rm(conn, node, name);
++	if (ret)
++		return ret;
++
++    wrl_apply_debit_direct(conn);
++	fire_watches(conn, in, name, true);
++	send_ack(conn, XS_RM);
++
++	return 0;
+ }
+ 
+ 
+-static void do_get_perms(struct connection *conn, struct buffered_data *in)
++static int do_get_perms(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+ 	const char *name = onearg(in);
+@@ -1194,19 +1177,19 @@ static void do_get_perms(struct connection *conn, struct buffered_data *in)
+ 
+ 	name = canonicalize(conn, name);
+ 	node = get_node(conn, in, name, XS_PERM_READ);
+-	if (!node) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!node)
++		return errno;
+ 
+ 	strings = perms_to_strings(node, node->perms, node->num_perms, &len);
+ 	if (!strings)
+-		send_error(conn, errno);
+-	else
+-		send_reply(conn, XS_GET_PERMS, strings, len);
++		return errno;
++
++	send_reply(conn, XS_GET_PERMS, strings, len);
++
++	return 0;
+ }
+ 
+-static void do_set_perms(struct connection *conn, struct buffered_data *in)
++static int do_set_perms(struct connection *conn, struct buffered_data *in)
+ {
+ 	unsigned int num;
+ 	struct xs_permissions *perms;
+@@ -1214,10 +1197,8 @@ static void do_set_perms(struct connection *conn, struct buffered_data *in)
+ 	struct node *node;
+ 
+ 	num = xs_count_strings(in->buffer, in->used);
+-	if (num < 2) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (num < 2)
++		return EINVAL;
+ 
+ 	/* First arg is node name. */
+ 	name = canonicalize(conn, in->buffer);
+@@ -1226,55 +1207,44 @@ static void do_set_perms(struct connection *conn, struct buffered_data *in)
+ 
+ 	/* We must own node to do this (tools can do this too). */
+ 	node = get_node(conn, in, name, XS_PERM_WRITE|XS_PERM_OWNER);
+-	if (!node) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!node)
++		return errno;
+ 
+ 	perms = talloc_array(node, struct xs_permissions, num);
+-	if (!xs_strings_to_perms(perms, num, permstr)) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!xs_strings_to_perms(perms, num, permstr))
++		return errno;
+ 
+ 	/* Unprivileged domains may not change the owner. */
+-	if (domain_is_unprivileged(conn) &&
+-	    perms[0].id != node->perms[0].id) {
+-		send_error(conn, EPERM);
+-		return;
+-	}
++	if (domain_is_unprivileged(conn) && perms[0].id != node->perms[0].id)
++		return EPERM;
+ 
+ 	domain_entry_dec(conn, node);
+ 	node->perms = perms;
+ 	node->num_perms = num;
+ 	domain_entry_inc(conn, node);
+ 
+-	if (!write_node(conn, node)) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!write_node(conn, node))
++		return errno;
+ 
+ 	wrl_apply_debit_direct(conn);
+ 	fire_watches(conn, in, name, false);
+ 	send_ack(conn, XS_SET_PERMS);
++
++	return 0;
+ }
+ 
+-static void do_debug(struct connection *conn, struct buffered_data *in)
++static int do_debug(struct connection *conn, struct buffered_data *in)
+ {
+ 	int num;
+ 
+-	if (conn->id != 0) {
+-		send_error(conn, EACCES);
+-		return;
+-	}
++	if (conn->id != 0)
++		return EACCES;
+ 
+ 	num = xs_count_strings(in->buffer, in->used);
+ 
+ 	if (streq(in->buffer, "print")) {
+-		if (num < 2) {
+-			send_error(conn, EINVAL);
+-			return;
+-		}
++		if (num < 2)
++			return EINVAL;
+ 		xprintf("debug: %s", in->buffer + get_string(in, 0));
+ 	}
+ 
+@@ -1282,11 +1252,13 @@ static void do_debug(struct connection *conn, struct buffered_data *in)
+ 		check_store();
+ 
+ 	send_ack(conn, XS_DEBUG);
++
++	return 0;
+ }
+ 
+ static struct {
+ 	const char *str;
+-	void (*func)(struct connection *conn, struct buffered_data *in);
++	int (*func)(struct connection *conn, struct buffered_data *in);
+ } const wire_funcs[XS_TYPE_COUNT] = {
+ 	[XS_DEBUG]             = { "DEBUG",             do_debug },
+ 	[XS_DIRECTORY]         = { "DIRECTORY",         send_directory },
+@@ -1329,6 +1301,7 @@ static void process_message(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct transaction *trans;
+ 	enum xsd_sockmsg_type type = in->hdr.msg.type;
++	int ret;
+ 
+ 	trans = transaction_lookup(conn, in->hdr.msg.tx_id);
+ 	if (IS_ERR(trans)) {
+@@ -1340,11 +1313,13 @@ static void process_message(struct connection *conn, struct buffered_data *in)
+ 	conn->transaction = trans;
+ 
+ 	if ((unsigned)type < XS_TYPE_COUNT && wire_funcs[type].func)
+-		wire_funcs[type].func(conn, in);
++		ret = wire_funcs[type].func(conn, in);
+ 	else {
+ 		eprintf("Client unknown operation %i", type);
+-		send_error(conn, ENOSYS);
++		ret = ENOSYS;
+ 	}
++	if (ret)
++		send_error(conn, ret);
+ 
+ 	conn->transaction = NULL;
+ }
+diff --git a/tools/xenstore/xenstored_domain.c b/tools/xenstore/xenstored_domain.c
+index 17a66be33929..3fc997fafed9 100644
+--- a/tools/xenstore/xenstored_domain.c
++++ b/tools/xenstore/xenstored_domain.c
+@@ -357,7 +357,7 @@ static void domain_conn_reset(struct domain *domain)
+ }
+ 
+ /* domid, mfn, evtchn, path */
+-void do_introduce(struct connection *conn, struct buffered_data *in)
++int do_introduce(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct domain *domain;
+ 	char *vec[3];
+@@ -367,40 +367,32 @@ void do_introduce(struct connection *conn, struct buffered_data *in)
+ 	int rc;
+ 	struct xenstore_domain_interface *interface;
+ 
+-	if (get_strings(in, vec, ARRAY_SIZE(vec)) < ARRAY_SIZE(vec)) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (get_strings(in, vec, ARRAY_SIZE(vec)) < ARRAY_SIZE(vec))
++		return EINVAL;
+ 
+-	if (domain_is_unprivileged(conn) || !conn->can_write) {
+-		send_error(conn, EACCES);
+-		return;
+-	}
++	if (domain_is_unprivileged(conn) || !conn->can_write)
++		return EACCES;
+ 
+ 	domid = atoi(vec[0]);
+ 	mfn = atol(vec[1]);
+ 	port = atoi(vec[2]);
+ 
+ 	/* Sanity check args. */
+-	if (port <= 0) { 
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (port <= 0)
++		return EINVAL;
+ 
+ 	domain = find_domain_by_domid(domid);
+ 
+ 	if (domain == NULL) {
+ 		interface = map_interface(domid, mfn);
+-		if (!interface) {
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (!interface)
++			return errno;
+ 		/* Hang domain off "in" until we're finished. */
+ 		domain = new_domain(in, domid, port);
+ 		if (!domain) {
++			rc = errno;
+ 			unmap_interface(interface);
+-			send_error(conn, errno);
+-			return;
++			return rc;
+ 		}
+ 		domain->interface = interface;
+ 		domain->mfn = mfn;
+@@ -416,165 +408,137 @@ void do_introduce(struct connection *conn, struct buffered_data *in)
+ 		rc = xenevtchn_bind_interdomain(xce_handle, domid, port);
+ 		domain->port = (rc == -1) ? 0 : rc;
+ 		domain->remote_port = port;
+-	} else {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	} else
++		return EINVAL;
+ 
+ 	domain_conn_reset(domain);
+ 
+ 	send_ack(conn, XS_INTRODUCE);
++
++	return 0;
+ }
+ 
+-void do_set_target(struct connection *conn, struct buffered_data *in)
++int do_set_target(struct connection *conn, struct buffered_data *in)
+ {
+ 	char *vec[2];
+ 	unsigned int domid, tdomid;
+         struct domain *domain, *tdomain;
+-	if (get_strings(in, vec, ARRAY_SIZE(vec)) < ARRAY_SIZE(vec)) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (get_strings(in, vec, ARRAY_SIZE(vec)) < ARRAY_SIZE(vec))
++		return EINVAL;
+ 
+-	if (domain_is_unprivileged(conn) || !conn->can_write) {
+-		send_error(conn, EACCES);
+-		return;
+-	}
++	if (domain_is_unprivileged(conn) || !conn->can_write)
++		return EACCES;
+ 
+ 	domid = atoi(vec[0]);
+ 	tdomid = atoi(vec[1]);
+ 
+         domain = find_domain_by_domid(domid);
+-	if (!domain) {
+-		send_error(conn, ENOENT);
+-		return;
+-	}
+-        if (!domain->conn) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domain)
++		return ENOENT;
++        if (!domain->conn)
++		return EINVAL;
+ 
+         tdomain = find_domain_by_domid(tdomid);
+-	if (!tdomain) {
+-		send_error(conn, ENOENT);
+-		return;
+-	}
++	if (!tdomain)
++		return ENOENT;
+ 
+-        if (!tdomain->conn) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++        if (!tdomain->conn)
++		return EINVAL;
+ 
+         talloc_reference(domain->conn, tdomain->conn);
+         domain->conn->target = tdomain->conn;
+ 
+ 	send_ack(conn, XS_SET_TARGET);
++
++	return 0;
+ }
+ 
+ /* domid */
+-void do_release(struct connection *conn, struct buffered_data *in)
++int do_release(struct connection *conn, struct buffered_data *in)
+ {
+ 	const char *domid_str = onearg(in);
+ 	struct domain *domain;
+ 	unsigned int domid;
+ 
+-	if (!domid_str) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domid_str)
++		return EINVAL;
+ 
+ 	domid = atoi(domid_str);
+-	if (!domid) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domid)
++		return EINVAL;
+ 
+-	if (domain_is_unprivileged(conn)) {
+-		send_error(conn, EACCES);
+-		return;
+-	}
++	if (domain_is_unprivileged(conn))
++		return EACCES;
+ 
+ 	domain = find_domain_by_domid(domid);
+-	if (!domain) {
+-		send_error(conn, ENOENT);
+-		return;
+-	}
++	if (!domain)
++		return ENOENT;
+ 
+-	if (!domain->conn) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domain->conn)
++		return EINVAL;
+ 
+ 	talloc_free(domain->conn);
+ 
+ 	send_ack(conn, XS_RELEASE);
++
++	return 0;
+ }
+ 
+-void do_resume(struct connection *conn, struct buffered_data *in)
++int do_resume(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct domain *domain;
+ 	unsigned int domid;
+ 	const char *domid_str = onearg(in);
+ 
+-	if (!domid_str) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domid_str)
++		return EINVAL;
+ 
+ 	domid = atoi(domid_str);
+-	if (!domid) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domid)
++		return EINVAL;
+ 
+-	if (domain_is_unprivileged(conn)) {
+-		send_error(conn, EACCES);
+-		return;
+-	}
++	if (domain_is_unprivileged(conn))
++		return EACCES;
+ 
+ 	domain = find_domain_by_domid(domid);
+-	if (!domain) {
+-		send_error(conn, ENOENT);
+-		return;
+-	}
++	if (!domain)
++		return ENOENT;
+ 
+-	if (!domain->conn) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domain->conn)
++		return EINVAL;
+ 
+ 	domain->shutdown = 0;
+ 	
+ 	send_ack(conn, XS_RESUME);
++
++	return 0;
+ }
+ 
+-void do_get_domain_path(struct connection *conn, struct buffered_data *in)
++int do_get_domain_path(struct connection *conn, struct buffered_data *in)
+ {
+ 	char *path;
+ 	const char *domid_str = onearg(in);
+ 
+-	if (!domid_str) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domid_str)
++		return EINVAL;
+ 
+ 	path = talloc_domain_path(conn, atoi(domid_str));
+ 
+ 	send_reply(conn, XS_GET_DOMAIN_PATH, path, strlen(path) + 1);
+ 
+ 	talloc_free(path);
++
++	return 0;
+ }
+ 
+-void do_is_domain_introduced(struct connection *conn, struct buffered_data *in)
++int do_is_domain_introduced(struct connection *conn, struct buffered_data *in)
+ {
+ 	int result;
+ 	unsigned int domid;
+ 	const char *domid_str = onearg(in);
+ 
+-	if (!domid_str) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!domid_str)
++		return EINVAL;
+ 
+ 	domid = atoi(domid_str);
+ 	if (domid == DOMID_SELF)
+@@ -583,15 +547,19 @@ void do_is_domain_introduced(struct connection *conn, struct buffered_data *in)
+ 		result = (find_domain_by_domid(domid) != NULL);
+ 
+ 	send_reply(conn, XS_IS_DOMAIN_INTRODUCED, result ? "T" : "F", 2);
++
++	return 0;
+ }
+ 
+ /* Allow guest to reset all watches */
+-void do_reset_watches(struct connection *conn, struct buffered_data *in)
++int do_reset_watches(struct connection *conn, struct buffered_data *in)
+ {
+ 	conn_delete_all_watches(conn);
+ 	conn_delete_all_transactions(conn);
+ 
+ 	send_ack(conn, XS_RESET_WATCHES);
++
++	return 0;
+ }
+ 
+ static int close_xc_handle(void *_handle)
+diff --git a/tools/xenstore/xenstored_domain.h b/tools/xenstore/xenstored_domain.h
+index 561ab5daff3d..4aa80db2c92a 100644
+--- a/tools/xenstore/xenstored_domain.h
++++ b/tools/xenstore/xenstored_domain.h
+@@ -22,25 +22,25 @@
+ void handle_event(void);
+ 
+ /* domid, mfn, eventchn, path */
+-void do_introduce(struct connection *conn, struct buffered_data *in);
++int do_introduce(struct connection *conn, struct buffered_data *in);
+ 
+ /* domid */
+-void do_is_domain_introduced(struct connection *conn, struct buffered_data *in);
++int do_is_domain_introduced(struct connection *conn, struct buffered_data *in);
+ 
+ /* domid */
+-void do_release(struct connection *conn, struct buffered_data *in);
++int do_release(struct connection *conn, struct buffered_data *in);
+ 
+ /* domid */
+-void do_resume(struct connection *conn, struct buffered_data *in);
++int do_resume(struct connection *conn, struct buffered_data *in);
+ 
+ /* domid, target */
+-void do_set_target(struct connection *conn, struct buffered_data *in);
++int do_set_target(struct connection *conn, struct buffered_data *in);
+ 
+ /* domid */
+-void do_get_domain_path(struct connection *conn, struct buffered_data *in);
++int do_get_domain_path(struct connection *conn, struct buffered_data *in);
+ 
+ /* Allow guest to reset all watches */
+-void do_reset_watches(struct connection *conn, struct buffered_data *in);
++int do_reset_watches(struct connection *conn, struct buffered_data *in);
+ 
+ void domain_init(void);
+ 
+diff --git a/tools/xenstore/xenstored_transaction.c b/tools/xenstore/xenstored_transaction.c
+index 3d1090197a48..9797fa501692 100644
+--- a/tools/xenstore/xenstored_transaction.c
++++ b/tools/xenstore/xenstored_transaction.c
+@@ -150,21 +150,17 @@ struct transaction *transaction_lookup(struct connection *conn, uint32_t id)
+ 	return ERR_PTR(-ENOENT);
+ }
+ 
+-void do_transaction_start(struct connection *conn, struct buffered_data *in)
++int do_transaction_start(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct transaction *trans, *exists;
+ 	char id_str[20];
+ 
+ 	/* We don't support nested transactions. */
+-	if (conn->transaction) {
+-		send_error(conn, EBUSY);
+-		return;
+-	}
++	if (conn->transaction)
++		return EBUSY;
+ 
+-	if (conn->id && conn->transaction_started > quota_max_transaction) {
+-		send_error(conn, ENOSPC);
+-		return;
+-	}
++	if (conn->id && conn->transaction_started > quota_max_transaction)
++		return ENOSPC;
+ 
+ 	/* Attach transaction to input for autofree until it's complete */
+ 	trans = talloc_zero(in, struct transaction);
+@@ -174,10 +170,8 @@ void do_transaction_start(struct connection *conn, struct buffered_data *in)
+ 	trans->tdb_name = talloc_asprintf(trans, "%s.%p",
+ 					  xs_daemon_tdb(), trans);
+ 	trans->tdb = tdb_copy(tdb_context(conn), trans->tdb_name);
+-	if (!trans->tdb) {
+-		send_error(conn, errno);
+-		return;
+-	}
++	if (!trans->tdb)
++		return errno;
+ 	/* Make it close if we go away. */
+ 	talloc_steal(trans, trans->tdb);
+ 
+@@ -196,24 +190,22 @@ void do_transaction_start(struct connection *conn, struct buffered_data *in)
+ 
+ 	snprintf(id_str, sizeof(id_str), "%u", trans->id);
+ 	send_reply(conn, XS_TRANSACTION_START, id_str, strlen(id_str)+1);
++
++	return 0;
+ }
+ 
+-void do_transaction_end(struct connection *conn, struct buffered_data *in)
++int do_transaction_end(struct connection *conn, struct buffered_data *in)
+ {
+ 	const char *arg = onearg(in);
+ 	struct changed_node *i;
+ 	struct changed_domain *d;
+ 	struct transaction *trans;
+ 
+-	if (!arg || (!streq(arg, "T") && !streq(arg, "F"))) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (!arg || (!streq(arg, "T") && !streq(arg, "F")))
++		return EINVAL;
+ 
+-	if ((trans = conn->transaction) == NULL) {
+-		send_error(conn, ENOENT);
+-		return;
+-	}
++	if ((trans = conn->transaction) == NULL)
++		return ENOENT;
+ 
+ 	conn->transaction = NULL;
+ 	list_del(&trans->list);
+@@ -224,17 +216,13 @@ void do_transaction_end(struct connection *conn, struct buffered_data *in)
+ 
+ 	if (streq(arg, "T")) {
+ 		/* FIXME: Merge, rather failing on any change. */
+-		if (trans->generation != generation) {
+-			send_error(conn, EAGAIN);
+-			return;
+-		}
++		if (trans->generation != generation)
++			return EAGAIN;
+ 
+ 		wrl_apply_debit_trans_commit(conn);
+ 
+-		if (!replace_tdb(trans->tdb_name, trans->tdb)) {
+-			send_error(conn, errno);
+-			return;
+-		}
++		if (!replace_tdb(trans->tdb_name, trans->tdb))
++			return errno;
+ 		/* Don't close this: we won! */
+ 		trans->tdb = NULL;
+ 
+@@ -248,6 +236,8 @@ void do_transaction_end(struct connection *conn, struct buffered_data *in)
+ 		generation += trans->trans_gen;
+ 	}
+ 	send_ack(conn, XS_TRANSACTION_END);
++
++	return 0;
+ }
+ 
+ void transaction_entry_inc(struct transaction *trans, unsigned int domid)
+diff --git a/tools/xenstore/xenstored_transaction.h b/tools/xenstore/xenstored_transaction.h
+index 7f0a78179235..aeeac3dcedb4 100644
+--- a/tools/xenstore/xenstored_transaction.h
++++ b/tools/xenstore/xenstored_transaction.h
+@@ -21,8 +21,8 @@
+ 
+ struct transaction;
+ 
+-void do_transaction_start(struct connection *conn, struct buffered_data *node);
+-void do_transaction_end(struct connection *conn, struct buffered_data *in);
++int do_transaction_start(struct connection *conn, struct buffered_data *node);
++int do_transaction_end(struct connection *conn, struct buffered_data *in);
+ 
+ struct transaction *transaction_lookup(struct connection *conn, uint32_t id);
+ 
+diff --git a/tools/xenstore/xenstored_watch.c b/tools/xenstore/xenstored_watch.c
+index 856750ebcd9b..8cfc5b088234 100644
+--- a/tools/xenstore/xenstored_watch.c
++++ b/tools/xenstore/xenstored_watch.c
+@@ -121,46 +121,36 @@ static int destroy_watch(void *_watch)
+ 	return 0;
+ }
+ 
+-void do_watch(struct connection *conn, struct buffered_data *in)
++int do_watch(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct watch *watch;
+ 	char *vec[2];
+ 	bool relative;
+ 
+-	if (get_strings(in, vec, ARRAY_SIZE(vec)) != ARRAY_SIZE(vec)) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (get_strings(in, vec, ARRAY_SIZE(vec)) != ARRAY_SIZE(vec))
++		return EINVAL;
+ 
+ 	if (strstarts(vec[0], "@")) {
+ 		relative = false;
+-		if (strlen(vec[0]) > XENSTORE_REL_PATH_MAX) {
+-			send_error(conn, EINVAL);
+-			return;
+-		}
++		if (strlen(vec[0]) > XENSTORE_REL_PATH_MAX)
++			return EINVAL;
+ 		/* check if valid event */
+ 	} else {
+ 		relative = !strstarts(vec[0], "/");
+ 		vec[0] = canonicalize(conn, vec[0]);
+-		if (!is_valid_nodename(vec[0])) {
+-			send_error(conn, EINVAL);
+-			return;
+-		}
++		if (!is_valid_nodename(vec[0]))
++			return EINVAL;
+ 	}
+ 
+ 	/* Check for duplicates. */
+ 	list_for_each_entry(watch, &conn->watches, list) {
+ 		if (streq(watch->node, vec[0]) &&
+-		    streq(watch->token, vec[1])) {
+-			send_error(conn, EEXIST);
+-			return;
+-		}
++		    streq(watch->token, vec[1]))
++			return EEXIST;
+ 	}
+ 
+-	if (domain_watch(conn) > quota_nb_watch_per_domain) {
+-		send_error(conn, E2BIG);
+-		return;
+-	}
++	if (domain_watch(conn) > quota_nb_watch_per_domain)
++		return E2BIG;
+ 
+ 	watch = talloc(conn, struct watch);
+ 	watch->node = talloc_strdup(watch, vec[0]);
+@@ -180,17 +170,17 @@ void do_watch(struct connection *conn, struct buffered_data *in)
+ 
+ 	/* We fire once up front: simplifies clients and restart. */
+ 	add_event(conn, in, watch, watch->node);
++
++	return 0;
+ }
+ 
+-void do_unwatch(struct connection *conn, struct buffered_data *in)
++int do_unwatch(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct watch *watch;
+ 	char *node, *vec[2];
+ 
+-	if (get_strings(in, vec, ARRAY_SIZE(vec)) != ARRAY_SIZE(vec)) {
+-		send_error(conn, EINVAL);
+-		return;
+-	}
++	if (get_strings(in, vec, ARRAY_SIZE(vec)) != ARRAY_SIZE(vec))
++		return EINVAL;
+ 
+ 	node = canonicalize(conn, vec[0]);
+ 	list_for_each_entry(watch, &conn->watches, list) {
+@@ -199,10 +189,10 @@ void do_unwatch(struct connection *conn, struct buffered_data *in)
+ 			talloc_free(watch);
+ 			domain_watch_dec(conn);
+ 			send_ack(conn, XS_UNWATCH);
+-			return;
++			return 0;
+ 		}
+ 	}
+-	send_error(conn, ENOENT);
++	return ENOENT;
+ }
+ 
+ void conn_delete_all_watches(struct connection *conn)
+diff --git a/tools/xenstore/xenstored_watch.h b/tools/xenstore/xenstored_watch.h
+index 8ed1ddef612e..546a5c30f056 100644
+--- a/tools/xenstore/xenstored_watch.h
++++ b/tools/xenstore/xenstored_watch.h
+@@ -21,8 +21,8 @@
+ 
+ #include "xenstored_core.h"
+ 
+-void do_watch(struct connection *conn, struct buffered_data *in);
+-void do_unwatch(struct connection *conn, struct buffered_data *in);
++int do_watch(struct connection *conn, struct buffered_data *in);
++int do_unwatch(struct connection *conn, struct buffered_data *in);
+ 
+ /* Fire all watches: recurse means all the children are affected (ie. rm). */
+ void fire_watches(struct connection *conn, void *tmp, const char *name,
+-- 
+2.25.4
+

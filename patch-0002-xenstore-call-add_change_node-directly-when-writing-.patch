@@ -1,0 +1,71 @@
+From bb39decb3d9842ee99d888675c6ed5ca48639c02 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:43 +0100
+Subject: [PATCH 02/25] xenstore: call add_change_node() directly when writing
+ node
+
+Instead of calling add_change_node() at places where write_node() is
+called, do that inside write_node().
+
+Note that there is one case where add_change_node() is called now when
+a later failure will prohibit the changed node to be written: in case
+of a write_node failing due to an error in tdb_store(). As the only
+visible change of behavior is a stale event fired for the node, while
+the failing tdb_store() signals a corrupted xenstore database, the
+stale event will be the least problem of this case.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 5d8afd6f3044..518a55805e7f 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -461,7 +461,7 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 	return node;
+ }
+ 
+-static bool write_node(struct connection *conn, const struct node *node)
++static bool write_node(struct connection *conn, struct node *node)
+ {
+ 	/*
+ 	 * conn will be null when this is called from manual_node.
+@@ -481,6 +481,8 @@ static bool write_node(struct connection *conn, const struct node *node)
+ 	if (domain_is_unprivileged(conn) && data.dsize >= quota_max_entry_size)
+ 		goto error;
+ 
++	add_change_node(conn, node, false);
++
+ 	data.dptr = talloc_size(node, data.dsize);
+ 	((uint32_t *)data.dptr)[0] = node->num_perms;
+ 	((uint32_t *)data.dptr)[1] = node->datalen;
+@@ -981,7 +983,6 @@ static void do_write(struct connection *conn, struct buffered_data *in)
+ 		}
+ 	}
+ 
+-	add_change_node(conn, node, false);
+ 	wrl_apply_debit_direct(conn);
+ 	fire_watches(conn, in, name, false);
+ 	send_ack(conn, XS_WRITE);
+@@ -1013,7 +1014,6 @@ static void do_mkdir(struct connection *conn, struct buffered_data *in)
+ 			send_error(conn, errno);
+ 			return;
+ 		}
+-		add_change_node(conn, node, false);
+ 		wrl_apply_debit_direct(conn);
+ 		fire_watches(conn, in, name, false);
+ 	}
+@@ -1217,7 +1217,6 @@ static void do_set_perms(struct connection *conn, struct buffered_data *in)
+ 		return;
+ 	}
+ 
+-	add_change_node(conn, node, false);
+ 	wrl_apply_debit_direct(conn);
+ 	fire_watches(conn, in, name, false);
+ 	send_ack(conn, XS_SET_PERMS);
+-- 
+2.25.4
+

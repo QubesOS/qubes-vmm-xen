@@ -1,0 +1,119 @@
+From 8757f7bd268d6323dceed3040c5bc6d34340aae2 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:47 +0100
+Subject: [PATCH 06/25] xenstore: support XS_DIRECTORY_PART in libxenstore
+
+This will enable all users of libxenstore to handle xenstore nodes
+with a huge amount of children.
+
+In order to not depend completely on the XS_DIRECTORY_PART
+functionality use it only in case of E2BIG returned by XS_DIRECTORY.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xs.c | 80 ++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 72 insertions(+), 8 deletions(-)
+
+diff --git a/tools/xenstore/xs.c b/tools/xenstore/xs.c
+index d1e01babb6a5..40e32750dad3 100644
+--- a/tools/xenstore/xs.c
++++ b/tools/xenstore/xs.c
+@@ -558,15 +558,10 @@ static bool xs_bool(char *reply)
+ 	return true;
+ }
+ 
+-char **xs_directory(struct xs_handle *h, xs_transaction_t t,
+-		    const char *path, unsigned int *num)
++static char **xs_directory_common(char *strings, unsigned int len,
++				  unsigned int *num)
+ {
+-	char *strings, *p, **ret;
+-	unsigned int len;
+-
+-	strings = xs_single(h, t, XS_DIRECTORY, path, &len);
+-	if (!strings)
+-		return NULL;
++	char *p, **ret;
+ 
+ 	/* Count the strings. */
+ 	*num = xs_count_strings(strings, len);
+@@ -586,6 +581,75 @@ char **xs_directory(struct xs_handle *h, xs_transaction_t t,
+ 	return ret;
+ }
+ 
++static char **xs_directory_part(struct xs_handle *h, xs_transaction_t t,
++				const char *path, unsigned int *num)
++{
++	unsigned int off, result_len;
++	char gen[24], offstr[8];
++	struct iovec iovec[2];
++	char *result = NULL, *strings = NULL;
++
++	gen[0] = 0;
++	iovec[0].iov_base = (void *)path;
++	iovec[0].iov_len = strlen(path) + 1;
++
++	for (off = 0;;) {
++		snprintf(offstr, sizeof(offstr), "%u", off);
++		iovec[1].iov_base = (void *)offstr;
++		iovec[1].iov_len = strlen(offstr) + 1;
++		result = xs_talkv(h, t, XS_DIRECTORY_PART, iovec, 2,
++				  &result_len);
++
++		/* If XS_DIRECTORY_PART isn't supported return E2BIG. */
++		if (!result) {
++			if (errno == ENOSYS)
++				errno = E2BIG;
++			return NULL;
++		}
++
++		if (off) {
++			if (strcmp(gen, result)) {
++				free(result);
++				free(strings);
++				strings = NULL;
++				off = 0;
++				continue;
++			}
++		} else
++			strncpy(gen, result, sizeof(gen));
++
++		result_len -= strlen(result) + 1;
++		strings = realloc(strings, off + result_len);
++		memcpy(strings + off, result + strlen(result) + 1, result_len);
++		free(result);
++		off += result_len;
++
++		if (off <= 1 || strings[off - 2] == 0)
++			break;
++	}
++
++	if (off > 1)
++		off--;
++
++	return xs_directory_common(strings, off, num);
++}
++
++char **xs_directory(struct xs_handle *h, xs_transaction_t t,
++		    const char *path, unsigned int *num)
++{
++	char *strings;
++	unsigned int len;
++
++	strings = xs_single(h, t, XS_DIRECTORY, path, &len);
++	if (!strings) {
++		if (errno != E2BIG)
++			return NULL;
++		return xs_directory_part(h, t, path, num);
++	}
++
++	return xs_directory_common(strings, len, num);
++}
++
+ /* Get the value of a single file, nul terminated.
+  * Returns a malloced value: call free() on it after use.
+  * len indicates length in bytes, not including the nul.
+-- 
+2.25.4
+

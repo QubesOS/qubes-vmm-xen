@@ -122,6 +122,31 @@ Patch326: patch-0007-sched-populate-cpupool0-only-after-all-cpus-are-up.patch
 Patch327: patch-0008-x86-clear-per-cpu-stub-page-information-in-cpu_smpbo.patch
 Patch328: patch-0009-x86-S3-put-data-segment-registers-into-known-state-u.patch
 Patch329: patch-0001-tools-xenstore-fix-a-use-after-free-problem-in-xenst.patch
+Patch330: patch-0001-xenstore-modify-add_change_node-parameter-types.patch
+Patch331: patch-0002-xenstore-call-add_change_node-directly-when-writing-.patch
+Patch332: patch-0003-xenstore-use-common-tdb-record-header-in-xenstore.patch
+Patch333: patch-0004-xenstore-add-per-node-generation-counter.patch
+Patch334: patch-0005-xenstore-add-support-for-reading-directory-with-many.patch
+Patch335: patch-0006-xenstore-support-XS_DIRECTORY_PART-in-libxenstore.patch
+Patch336: patch-0007-xenstore-use-array-for-xenstore-wire-command-handlin.patch
+Patch337: patch-0008-xenstore-let-command-functions-return-error-or-succe.patch
+Patch338: patch-0009-xenstore-make-functions-static.patch
+Patch339: patch-0010-xenstore-add-helper-functions-for-wire-argument-pars.patch
+Patch340: patch-0011-xenstore-add-small-default-data-buffer-to-internal-s.patch
+Patch341: patch-0012-xenstore-handle-memory-allocation-failures-in-xensto.patch
+Patch342: patch-0013-tools-xenstore-avoid-unterminated-string-in-xs_direc.patch
+Patch343: patch-0014-xenstore-set-correct-error-code-when-violating-quota.patch
+Patch344: patch-0015-xenstore-remove-XS_RESTRICT-support.patch
+Patch345: patch-0016-xenstore-correct-test-for-opened-logfile-in-reopen_l.patch
+Patch346: patch-0017-xenstore-rename-XS_DEBUG-wire-command.patch
+Patch347: patch-0018-xenstore-Split-out-XS_CONTROL-action-to-dedicated-so.patch
+Patch348: patch-0019-tools-xenstore-start-with-empty-data-base.patch
+Patch349: patch-0020-xenstored-remove-L-option.patch
+Patch350: patch-0021-xenstore-remove-memory-report-command-line-support.patch
+Patch351: patch-0022-xenstore-add-missing-checks-for-allocation-failure.patch
+Patch352: patch-0023-xenstore-let-write_node-and-some-callers-return-errn.patch
+Patch353: patch-0024-xenstore-undo-function-rename.patch
+Patch354: patch-0025-xenstore-rework-of-transaction-handling.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch

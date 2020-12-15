@@ -1,0 +1,1076 @@
+From b15146481aaead971d3ae34ed4f2c94a5d02aaec Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Fri, 31 Mar 2017 13:29:19 +0200
+Subject: [PATCH 25/25] xenstore: rework of transaction handling
+
+The handling of transactions in xenstored is rather clumsy today:
+
+- Each transaction in progress is keeping a local copy of the complete
+  xenstore data base
+- A transaction will fail as soon as any node is being modified outside
+  the transaction
+
+This is leading to a very bad behavior in case of a large xenstore.
+Memory consumption of xenstored is much higher than necessary and with
+many domains up transactions failures will be more and more common.
+
+Instead of keeping a complete copy of the data base for each
+transaction store the transaction data in the same data base as the
+normal xenstore entries prepended with the transaction in the single
+nodes either read or modified. At the end of the transaction walk
+through all nodes accessed and check for conflicting modifications.
+In case no conflicts are found write all modified nodes to the data
+base without transaction identifier.
+
+Following tests have been performed:
+- create/destroy of various domains, including HVM with ioemu-stubdom
+  (xenstored and xenstore-stubdom)
+- multiple concurrent runs of xs-test over several minutes
+  (xenstored and xenstore-stubdom)
+- test for memory leaks of xenstored by dumping talloc reports before
+  and after the tests
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c        | 138 ++++----
+ tools/xenstore/xenstored_core.h        |  20 +-
+ tools/xenstore/xenstored_domain.c      |  24 +-
+ tools/xenstore/xenstored_domain.h      |   2 +-
+ tools/xenstore/xenstored_transaction.c | 439 +++++++++++++++++++++----
+ tools/xenstore/xenstored_transaction.h |  18 +-
+ 6 files changed, 475 insertions(+), 166 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 76c90def15ad..cad3ea2cb4b8 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -54,8 +54,6 @@
+ #include "xenstored_control.h"
+ #include "tdb.h"
+ 
+-#include "hashtable.h"
+-
+ #ifndef NO_SOCKETS
+ #if defined(HAVE_SYSTEMD)
+ #define XEN_SYSTEMD_ENABLED 1
+@@ -81,9 +79,8 @@ static bool recovery = true;
+ static int reopen_log_pipe[2];
+ static int reopen_log_pipe0_pollfd_idx = -1;
+ static char *tracefile = NULL;
+-static TDB_CONTEXT *tdb_ctx = NULL;
++TDB_CONTEXT *tdb_ctx = NULL;
+ 
+-static void corrupt(struct connection *conn, const char *fmt, ...);
+ static const char *sockmsg_string(enum xsd_sockmsg_type type);
+ 
+ #define log(...)							\
+@@ -105,24 +102,6 @@ int quota_nb_watch_per_domain = 128;
+ int quota_max_entry_size = 2048; /* 2K */
+ int quota_max_transaction = 10;
+ 
+-TDB_CONTEXT *tdb_context(struct connection *conn)
+-{
+-	/* conn = NULL used in manual_node at setup. */
+-	if (!conn || !conn->transaction)
+-		return tdb_ctx;
+-	return tdb_transaction_context(conn->transaction);
+-}
+-
+-bool replace_tdb(const char *newname, TDB_CONTEXT *newtdb)
+-{
+-	if (!(tdb_ctx->flags & TDB_INTERNAL))
+-		if (rename(newname, xs_daemon_tdb()) != 0)
+-			return false;
+-	tdb_close(tdb_ctx);
+-	tdb_ctx = talloc_steal(talloc_autofree_context(), newtdb);
+-	return true;
+-}
+-
+ void trace(const char *fmt, ...)
+ {
+ 	va_list arglist;
+@@ -380,21 +359,6 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 	TDB_DATA key, data;
+ 	struct xs_tdb_record_hdr *hdr;
+ 	struct node *node;
+-	TDB_CONTEXT * context = tdb_context(conn);
+-
+-	key.dptr = (void *)name;
+-	key.dsize = strlen(name);
+-	data = tdb_fetch(context, key);
+-
+-	if (data.dptr == NULL) {
+-		if (tdb_error(context) == TDB_ERR_NOEXIST)
+-			errno = ENOENT;
+-		else {
+-			log("TDB error on read: %s", tdb_errorstr(context));
+-			errno = EIO;
+-		}
+-		return NULL;
+-	}
+ 
+ 	node = talloc(ctx, struct node);
+ 	if (!node) {
+@@ -407,8 +371,26 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 		errno = ENOMEM;
+ 		return NULL;
+ 	}
++
++	if (transaction_prepend(conn, name, &key))
++		return NULL;
++
++	data = tdb_fetch(tdb_ctx, key);
++
++	if (data.dptr == NULL) {
++		if (tdb_error(tdb_ctx) == TDB_ERR_NOEXIST) {
++			node->generation = NO_GENERATION;
++			access_node(conn, node, NODE_ACCESS_READ, NULL);
++			errno = ENOENT;
++		} else {
++			log("TDB error on read: %s", tdb_errorstr(tdb_ctx));
++			errno = EIO;
++		}
++		talloc_free(node);
++		return NULL;
++	}
++
+ 	node->parent = NULL;
+-	node->tdb = tdb_context(conn);
+ 	talloc_steal(node, data.dptr);
+ 
+ 	/* Datalen, childlen, number of permissions */
+@@ -425,31 +407,26 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 	/* Children is strings, nul separated. */
+ 	node->children = node->data + node->datalen;
+ 
++	access_node(conn, node, NODE_ACCESS_READ, NULL);
++
+ 	return node;
+ }
+ 
+-static int write_node(struct connection *conn, struct node *node)
++int write_node_raw(struct connection *conn, TDB_DATA *key, struct node *node)
+ {
+-	/*
+-	 * conn will be null when this is called from manual_node.
+-	 * tdb_context copes with this.
+-	 */
+-
+-	TDB_DATA key, data;
++	TDB_DATA data;
+ 	void *p;
+ 	struct xs_tdb_record_hdr *hdr;
+ 
+-	key.dptr = (void *)node->name;
+-	key.dsize = strlen(node->name);
+-
+ 	data.dsize = sizeof(*hdr)
+ 		+ node->num_perms*sizeof(node->perms[0])
+ 		+ node->datalen + node->childlen;
+ 
+-	if (domain_is_unprivileged(conn) && data.dsize >= quota_max_entry_size)
+-		goto error;
+-
+-	add_change_node(conn, node, false);
++	if (domain_is_unprivileged(conn) &&
++	    data.dsize >= quota_max_entry_size) {
++		errno = ENOSPC;
++		return errno;
++	}
+ 
+ 	data.dptr = talloc_size(node, data.dsize);
+ 	hdr = (void *)data.dptr;
+@@ -465,14 +442,22 @@ static int write_node(struct connection *conn, struct node *node)
+ 	memcpy(p, node->children, node->childlen);
+ 
+ 	/* TDB should set errno, but doesn't even set ecode AFAICT. */
+-	if (tdb_store(tdb_context(conn), key, data, TDB_REPLACE) != 0) {
+-		corrupt(conn, "Write of %s failed", key.dptr);
+-		goto error;
++	if (tdb_store(tdb_ctx, *key, data, TDB_REPLACE) != 0) {
++		corrupt(conn, "Write of %s failed", key->dptr);
++		errno = EIO;
++		return errno;
+ 	}
+ 	return 0;
+- error:
+-	errno = ENOSPC;
+-	return errno;
++}
++
++static int write_node(struct connection *conn, struct node *node)
++{
++	TDB_DATA key;
++
++	if (access_node(conn, node, NODE_ACCESS_WRITE, &key))
++		return errno;
++
++	return write_node_raw(conn, &key, node);
+ }
+ 
+ static enum xs_perm_type perm_for_conn(struct connection *conn,
+@@ -894,22 +879,18 @@ static int do_read(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
+-static void delete_node_single(struct connection *conn, struct node *node,
+-			       bool changed)
++static void delete_node_single(struct connection *conn, struct node *node)
+ {
+ 	TDB_DATA key;
+ 
+-	key.dptr = (void *)node->name;
+-	key.dsize = strlen(node->name);
++	if (access_node(conn, node, NODE_ACCESS_DELETE, &key))
++		return;
+ 
+-	if (tdb_delete(tdb_context(conn), key) != 0) {
++	if (tdb_delete(tdb_ctx, key) != 0) {
+ 		corrupt(conn, "Could not delete '%s'", node->name);
+ 		return;
+ 	}
+ 
+-	if (changed)
+-		add_change_node(conn, node, true);
+-
+ 	domain_entry_dec(conn, node);
+ }
+ 
+@@ -957,7 +938,6 @@ static struct node *construct_node(struct connection *conn, const void *ctx,
+ 	node = talloc(ctx, struct node);
+ 	if (!node)
+ 		goto nomem;
+-	node->tdb = tdb_context(conn);
+ 	node->name = talloc_strdup(node, name);
+ 	if (!node->name)
+ 		goto nomem;
+@@ -994,7 +974,7 @@ static int destroy_node(void *_node)
+ 	key.dptr = (void *)node->name;
+ 	key.dsize = strlen(node->name);
+ 
+-	tdb_delete(node->tdb, key);
++	tdb_delete(tdb_ctx, key);
+ 	return 0;
+ }
+ 
+@@ -1089,8 +1069,7 @@ static int do_mkdir(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
+-static void delete_node(struct connection *conn, struct node *node,
+-			bool changed)
++static void delete_node(struct connection *conn, struct node *node)
+ {
+ 	unsigned int i;
+ 	char *name;
+@@ -1098,7 +1077,7 @@ static void delete_node(struct connection *conn, struct node *node,
+ 	/* Delete self, then delete children.  If we crash, then the worst
+ 	   that can happen is the children will continue to take up space, but
+ 	   will otherwise be unreachable. */
+-	delete_node_single(conn, node, changed);
++	delete_node_single(conn, node);
+ 
+ 	/* Delete children, too. */
+ 	for (i = 0; i < node->childlen; i += strlen(node->children+i) + 1) {
+@@ -1108,7 +1087,7 @@ static void delete_node(struct connection *conn, struct node *node,
+ 				       node->children + i);
+ 		child = name ? read_node(conn, node, name) : NULL;
+ 		if (child) {
+-			delete_node(conn, child, false);
++			delete_node(conn, child);
+ 		}
+ 		else {
+ 			trace("delete_node: Error deleting child '%s/%s'!\n",
+@@ -1171,7 +1150,7 @@ static int _rm(struct connection *conn, const void *ctx, struct node *node,
+ 	if (delete_child(conn, parent, basename(name)))
+ 		return EINVAL;
+ 
+-	delete_node(conn, node, true);
++	delete_node(conn, node);
+ 	return 0;
+ }
+ 
+@@ -1613,7 +1592,7 @@ static char *child_name(const char *s1, const char *s2)
+ }
+ 
+ 
+-static int remember_string(struct hashtable *hash, const char *str)
++int remember_string(struct hashtable *hash, const char *str)
+ {
+ 	char *k = malloc(strlen(str) + 1);
+ 
+@@ -1733,6 +1712,7 @@ static int clean_store_(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA val,
+ 			void *private)
+ {
+ 	struct hashtable *reachable = private;
++	char *slash;
+ 	char * name = talloc_strndup(NULL, key.dptr, key.dsize);
+ 
+ 	if (!name) {
+@@ -1740,6 +1720,11 @@ static int clean_store_(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA val,
+ 		return 1;
+ 	}
+ 
++	if (name[0] != '/') {
++		slash = strchr(name, '/');
++		if (slash)
++			*slash = 0;
++	}
+ 	if (!hashtable_search(reachable, name)) {
+ 		log("clean_store: '%s' is orphaned!", name);
+ 		if (recovery) {
+@@ -1775,7 +1760,8 @@ void check_store(void)
+ 	}
+ 
+ 	log("Checking store ...");
+-	if (!check_store_(root, reachable))
++	if (!check_store_(root, reachable) &&
++	    !check_transactions(reachable))
+ 		clean_store(reachable);
+ 	log("Checking store complete.");
+ 
+@@ -1786,7 +1772,7 @@ void check_store(void)
+ 
+ 
+ /* Something is horribly wrong: check the store. */
+-static void corrupt(struct connection *conn, const char *fmt, ...)
++void corrupt(struct connection *conn, const char *fmt, ...)
+ {
+ 	va_list arglist;
+ 	char *str;
+diff --git a/tools/xenstore/xenstored_core.h b/tools/xenstore/xenstored_core.h
+index 6a58c65783e4..c70ee0fd5362 100644
+--- a/tools/xenstore/xenstored_core.h
++++ b/tools/xenstore/xenstored_core.h
+@@ -32,6 +32,7 @@
+ #include "xenstore_lib.h"
+ #include "list.h"
+ #include "tdb.h"
++#include "hashtable.h"
+ 
+ #define MIN(a, b) (((a) < (b))? (a) : (b))
+ 
+@@ -113,14 +114,12 @@ extern struct list_head connections;
+ struct node {
+ 	const char *name;
+ 
+-	/* Database I came from */
+-	TDB_CONTEXT *tdb;
+-
+ 	/* Parent (optional) */
+ 	struct node *parent;
+ 
+ 	/* Generation count. */
+ 	uint64_t generation;
++#define NO_GENERATION ~((uint64_t)0)
+ 
+ 	/* Permissions. */
+ 	unsigned int num_perms;
+@@ -151,20 +150,18 @@ void send_ack(struct connection *conn, enum xsd_sockmsg_type type);
+ /* Canonicalize this path if possible. */
+ char *canonicalize(struct connection *conn, const void *ctx, const char *node);
+ 
++/* Write a node to the tdb data base. */
++int write_node_raw(struct connection *conn, TDB_DATA *key, struct node *node);
++
+ /* Get this node, checking we have permissions. */
+ struct node *get_node(struct connection *conn,
+ 		      const void *ctx,
+ 		      const char *name,
+ 		      enum xs_perm_type perm);
+ 
+-/* Get TDB context for this connection */
+-TDB_CONTEXT *tdb_context(struct connection *conn);
+-
+-/* Replace the tdb: required for transaction code */
+-bool replace_tdb(const char *newname, TDB_CONTEXT *newtdb);
+-
+ struct connection *new_connection(connwritefn_t *write, connreadfn_t *read);
+ void check_store(void);
++void corrupt(struct connection *conn, const char *fmt, ...);
+ 
+ /* Is this a valid node name? */
+ bool is_valid_nodename(const char *node);
+@@ -175,9 +172,12 @@ void trace_destroy(const void *data, const char *type);
+ void trace(const char *fmt, ...);
+ void dtrace_io(const struct connection *conn, const struct buffered_data *data, int out);
+ 
++
++extern TDB_CONTEXT *tdb_ctx;
+ extern int dom0_domid;
+ extern int dom0_event;
+ extern int priv_domid;
++extern int quota_nb_entry_per_domain;
+ 
+ /* Map the kernel's xenstore page. */
+ void *xenbus_map(void);
+@@ -204,6 +204,8 @@ void init_pipe(int reopen_log_pipe[2]);
+ 
+ xengnttab_handle **xgt_handle;
+ 
++int remember_string(struct hashtable *hash, const char *str);
++
+ #endif /* _XENSTORED_CORE_H */
+ 
+ /*
+diff --git a/tools/xenstore/xenstored_domain.c b/tools/xenstore/xenstored_domain.c
+index 6ff8b39e2d25..fa6655033afe 100644
+--- a/tools/xenstore/xenstored_domain.c
++++ b/tools/xenstore/xenstored_domain.c
+@@ -273,9 +273,15 @@ bool domain_can_read(struct connection *conn)
+ 	return (intf->req_cons != intf->req_prod);
+ }
+ 
++static bool domid_is_unprivileged(unsigned int domid)
++{
++	return domid != 0 && domid != priv_domid;
++}
++
+ bool domain_is_unprivileged(struct connection *conn)
+ {
+-	return (conn && conn->domain && conn->domain->domid != 0 && conn->domain->domid != priv_domid);
++	return conn && conn->domain &&
++	       domid_is_unprivileged(conn->domain->domid);
+ }
+ 
+ bool domain_can_write(struct connection *conn)
+@@ -704,13 +710,23 @@ void domain_entry_dec(struct connection *conn, struct node *node)
+ 	}
+ }
+ 
+-void domain_entry_fix(unsigned int domid, int num)
++int domain_entry_fix(unsigned int domid, int num, bool update)
+ {
+ 	struct domain *d;
++	int cnt;
+ 
+ 	d = find_domain_by_domid(domid);
+-	if (d && ((d->nbentry += num) < 0))
+-		d->nbentry = 0;
++	if (!d)
++		return 0;
++
++	cnt = d->nbentry + num;
++	if (cnt < 0)
++		cnt = 0;
++
++	if (update)
++		d->nbentry = cnt;
++
++	return domid_is_unprivileged(domid) ? cnt : 0;
+ }
+ 
+ int domain_entry(struct connection *conn)
+diff --git a/tools/xenstore/xenstored_domain.h b/tools/xenstore/xenstored_domain.h
+index 4aa80db2c92a..56ae01597475 100644
+--- a/tools/xenstore/xenstored_domain.h
++++ b/tools/xenstore/xenstored_domain.h
+@@ -59,7 +59,7 @@ bool domain_is_unprivileged(struct connection *conn);
+ /* Quota manipulation */
+ void domain_entry_inc(struct connection *conn, struct node *);
+ void domain_entry_dec(struct connection *conn, struct node *);
+-void domain_entry_fix(unsigned int domid, int num);
++int domain_entry_fix(unsigned int domid, int num, bool update);
+ int domain_entry(struct connection *conn);
+ void domain_watch_inc(struct connection *conn);
+ void domain_watch_dec(struct connection *conn);
+diff --git a/tools/xenstore/xenstored_transaction.c b/tools/xenstore/xenstored_transaction.c
+index a01f8cfe3486..75816dd2c70d 100644
+--- a/tools/xenstore/xenstored_transaction.c
++++ b/tools/xenstore/xenstored_transaction.c
+@@ -16,6 +16,7 @@
+     along with this program; If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
++#include <inttypes.h>
+ #include <stdio.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+@@ -35,7 +36,74 @@
+ #include "xenstore_lib.h"
+ #include "utils.h"
+ 
+-struct changed_node
++/*
++ * Some notes regarding detection and handling of transaction conflicts:
++ *
++ * Basic source of reference is the 'generation' count. Each writing access
++ * (either normal write or in a transaction) to the tdb data base will set
++ * the node specific generation count to the global generation count.
++ * For being able to identify a transaction the transaction specific generation
++ * count is initialized with the global generation count when starting the
++ * transaction.
++ * Each time the global generation count is copied to either a node or a
++ * transaction it is incremented. This ensures all nodes and/or transactions
++ * are having a unique generation count.
++ *
++ * Transaction conflicts are detected by checking the generation count of all
++ * nodes read in the transaction to match with the generation count in the
++ * global data base at the end of the transaction. Nodes which have been
++ * modified in the transaction don't have to be checked to match even if they
++ * have been read, as the modified node will be globally visible after the
++ * succeeded transaction possibly overwriting another modification which may
++ * have occurred concurrent to the transaction.
++ *
++ * Examples:
++ * ---------
++ * The following notation is used:
++ * I:      initial state
++ * G       global generation count
++ * g(X)    generation count of node X
++ * G(1)    generation count of transaction 1
++ * g(1:Y)  saved generation count of node Y in transaction 1
++ * TA1:    operation in transaction 1
++ * X=1:X   replace global node X with transaction 1 specific value of X
++ *
++ * 1. Simple transaction doing: read node A, write node B
++ *    I: g(A) = 1, g(B) = 2, G = 3
++ *    Start transaction 1: G(1) = 3, G = 4
++ *    TA1: read node A:    g(1:A) = 1
++ *    TA1: write node B:   g(1:B) = 4, G = 5
++ *    End TA1: g(1:A) == g(A) => okay, B = 1:B, g(B) = 5, G = 6
++ *
++ * 2. Transaction with conflicting write
++ *    I: g(A) = 1, g(B) = 2, G = 3
++ *    Start transaction 1: G(1) = 3, G = 4
++ *    TA1: read node A:    g(1:A) = 1
++ *    write node A:        g(A) = 4, G = 5
++ *    TA1: write node B:   g(1:B) = 5, G = 6
++ *    End TA1: g(1:A) != g(A) => EAGAIN
++ *
++ * 3. Transaction with conflicting delete
++ *    I: g(A) = 1, g(B) = 2, G = 3
++ *    Start transaction 1: G(1) = 3, G = 4
++ *    TA1: read node A:    g(1:A) = 1
++ *    delete node A:       g(A) = ~0
++ *    TA1: write node B:   g(1:B) = 4, G = 5
++ *    End TA1: g(1:A) != g(A) => EAGAIN
++ *
++ * 4. Two interfering transactions
++ *    I: g(A) = 1, g(B) = 2, G = 3
++ *    Start transaction 1: G(1) = 3, G = 4
++ *    Start transaction 2: G(2) = 4, G = 5
++ *    TA1: read node A:    g(1:A) = 1
++ *    TA2: read node B:    g(2:B) = 2
++ *    TA1: write node B:   g(1:B) = 5, G = 6
++ *    TA2: write node A:   g(2:A) = 6, G = 7
++ *    End TA1: g(1:A) == g(A) => okay, B = 1:B, g(B) = 7, G = 8
++ *    End TA2: g(2:B) != g(B) => EAGAIN
++ */
++
++struct accessed_node
+ {
+ 	/* List of all changed nodes in the context of this transaction. */
+ 	struct list_head list;
+@@ -43,8 +111,17 @@ struct changed_node
+ 	/* The name of the node. */
+ 	char *node;
+ 
+-	/* And the children? (ie. rm) */
+-	bool recurse;
++	/* Generation count (or NO_GENERATION) for conflict checking. */
++	uint64_t generation;
++
++	/* Generation count checking required? */
++	bool check_gen;
++
++	/* Modified? */
++	bool modified;
++
++	/* Transaction node in data base? */
++	bool ta_node;
+ };
+ 
+ struct changed_domain
+@@ -70,80 +147,267 @@ struct transaction
+ 	/* Generation when transaction started. */
+ 	uint64_t generation;
+ 
+-	/* Transaction internal generation. */
+-	uint64_t trans_gen;
+-
+-	/* TDB to work on, and filename */
+-	TDB_CONTEXT *tdb;
+-	char *tdb_name;
+-
+-	/* List of changed nodes. */
+-	struct list_head changes;
++	/* List of accessed nodes. */
++	struct list_head accessed;
+ 
+ 	/* List of changed domains - to record the changed domain entry number */
+ 	struct list_head changed_domains;
++
++	/* Flag for letting transaction fail. */
++	bool fail;
+ };
+ 
+ extern int quota_max_transaction;
+ static uint64_t generation;
+ 
+-/* Return tdb context to use for this connection. */
+-TDB_CONTEXT *tdb_transaction_context(struct transaction *trans)
++static void set_tdb_key(const char *name, TDB_DATA *key)
++{
++	key->dptr = (char *)name;
++	key->dsize = strlen(name);
++}
++
++static struct accessed_node *find_accessed_node(struct transaction *trans,
++						const char *name)
++{
++	struct accessed_node *i;
++
++	list_for_each_entry(i, &trans->accessed, list)
++		if (streq(i->node, name))
++			return i;
++
++	return NULL;
++}
++
++static char *transaction_get_node_name(void *ctx, struct transaction *trans,
++				       const char *name)
++{
++	return talloc_asprintf(ctx, "%"PRIu64"/%s", trans->generation, name);
++}
++
++/*
++ * Prepend the transaction to name if node has been modified in the current
++ * transaction.
++ */
++int transaction_prepend(struct connection *conn, const char *name,
++			TDB_DATA *key)
+ {
+-	return trans->tdb;
++	char *tdb_name;
++
++	if (!conn || !conn->transaction ||
++	    !find_accessed_node(conn->transaction, name)) {
++		set_tdb_key(name, key);
++		return 0;
++	}
++
++	tdb_name = transaction_get_node_name(conn->transaction,
++					     conn->transaction, name);
++	if (!tdb_name)
++		return errno;
++
++	set_tdb_key(tdb_name, key);
++
++	return 0;
+ }
+ 
+-/* Callers get a change node (which can fail) and only commit after they've
+- * finished.  This way they don't have to unwind eg. a write. */
+-void add_change_node(struct connection *conn, struct node *node, bool recurse)
++/*
++ * A node has been accessed.
++ *
++ * Modifying accesses (write, delete) always update the generation (global and
++ * node->generation).
++ *
++ * Accesses in a transaction will be added to the list of accessed nodes
++ * if not already done. Read type accesses will copy the node to the
++ * transaction specific data base part, write type accesses go there
++ * anyway.
++ *
++ * If not NULL, key will be supplied with name and length of name of the node
++ * to be accessed in the data base.
++ */
++int access_node(struct connection *conn, struct node *node,
++		enum node_access_type type, TDB_DATA *key)
+ {
+-	struct changed_node *i;
++	struct accessed_node *i = NULL;
+ 	struct transaction *trans;
++	TDB_DATA local_key;
++	const char *trans_name = NULL;
++	int ret;
++	bool introduce = false;
++
++	if (type != NODE_ACCESS_READ) {
++		node->generation = generation++;
++		if (conn && !conn->transaction)
++			wrl_apply_debit_direct(conn);
++	}
+ 
+ 	if (!conn || !conn->transaction) {
+ 		/* They're changing the global database. */
+-		node->generation = generation++;
+-		return;
++		if (key)
++			set_tdb_key(node->name, key);
++		return 0;
+ 	}
+ 
+ 	trans = conn->transaction;
+ 
+-	node->generation = generation + trans->trans_gen++;
++	trans_name = transaction_get_node_name(node, trans, node->name);
++	if (!trans_name)
++		goto nomem;
+ 
+-	list_for_each_entry(i, &trans->changes, list) {
+-		if (streq(i->node, node->name)) {
+-			if (recurse)
+-				i->recurse = recurse;
+-			return;
++	i = find_accessed_node(trans, node->name);
++	if (!i) {
++		i = talloc_zero(trans, struct accessed_node);
++		if (!i)
++			goto nomem;
++		i->node = talloc_strdup(i, node->name);
++		if (!i->node)
++			goto nomem;
++
++		introduce = true;
++		i->ta_node = false;
++
++		/*
++		 * Additional transaction-specific node for read type. We only
++		 * have to verify read nodes if we didn't write them.
++		 *
++		 * The node is created and written to DB here to distinguish
++		 * from the write types.
++		 */
++		if (type == NODE_ACCESS_READ) {
++			i->generation = node->generation;
++			i->check_gen = true;
++			if (node->generation != NO_GENERATION) {
++				set_tdb_key(trans_name, &local_key);
++				ret = write_node_raw(conn, &local_key, node);
++				if (ret)
++					goto err;
++				i->ta_node = true;
++			}
+ 		}
++		list_add_tail(&i->list, &trans->accessed);
+ 	}
+ 
+-	i = talloc(trans, struct changed_node);
+-	if (!i) {
+-		/* All we can do is let the transaction fail. */
+-		generation++;
+-		return;
++	if (type != NODE_ACCESS_READ)
++		i->modified = true;
++
++	if (introduce && type == NODE_ACCESS_DELETE)
++		/* Nothing to delete. */
++		return -1;
++
++	if (key) {
++		set_tdb_key(trans_name, key);
++		if (type == NODE_ACCESS_WRITE)
++			i->ta_node = true;
++		if (type == NODE_ACCESS_DELETE)
++			i->ta_node = false;
++	}
++
++	return 0;
++
++nomem:
++	ret = ENOMEM;
++err:
++	talloc_free((void *)trans_name);
++	talloc_free(i);
++	trans->fail = true;
++	errno = ret;
++	return ret;
++}
++
++/*
++ * Finalize transaction:
++ * Walk through accessed nodes and check generation against global data.
++ * If all entries match, read the transaction entries and write them without
++ * transaction prepended. Delete all transaction specific nodes in the data
++ * base.
++ */
++static int finalize_transaction(struct connection *conn,
++				struct transaction *trans)
++{
++	struct accessed_node *i;
++	TDB_DATA key, ta_key, data;
++	struct xs_tdb_record_hdr *hdr;
++	uint64_t gen;
++	char *trans_name;
++	int ret;
++
++	list_for_each_entry(i, &trans->accessed, list) {
++		if (!i->check_gen)
++			continue;
++
++		set_tdb_key(i->node, &key);
++		data = tdb_fetch(tdb_ctx, key);
++		hdr = (void *)data.dptr;
++		if (!data.dptr) {
++			if (tdb_error(tdb_ctx) != TDB_ERR_NOEXIST)
++				return EIO;
++			gen = NO_GENERATION;
++		} else
++			gen = hdr->generation;
++		talloc_free(data.dptr);
++		if (i->generation != gen)
++			return EAGAIN;
+ 	}
+-	i->node = talloc_strdup(i, node->name);
+-	if (!i->node) {
+-		/* All we can do is let the transaction fail. */
+-		generation++;
++
++	while ((i = list_top(&trans->accessed, struct accessed_node, list))) {
++		trans_name = transaction_get_node_name(i, trans, i->node);
++		if (!trans_name)
++			/* We are doomed: the transaction is only partial. */
++			goto err;
++
++		set_tdb_key(trans_name, &ta_key);
++
++		if (i->modified) {
++			set_tdb_key(i->node, &key);
++			if (i->ta_node) {
++				data = tdb_fetch(tdb_ctx, ta_key);
++				if (!data.dptr)
++					goto err;
++				hdr = (void *)data.dptr;
++				hdr->generation = generation++;
++				ret = tdb_store(tdb_ctx, key, data,
++						TDB_REPLACE);
++				talloc_free(data.dptr);
++				if (ret)
++					goto err;
++			} else if (tdb_delete(tdb_ctx, key))
++					goto err;
++			fire_watches(conn, trans, i->node, false);
++		}
++
++		if (i->ta_node && tdb_delete(tdb_ctx, ta_key))
++			goto err;
++		list_del(&i->list);
+ 		talloc_free(i);
+-		return;
+ 	}
+-	i->recurse = recurse;
+-	list_add_tail(&i->list, &trans->changes);
++
++	return 0;
++
++err:
++	corrupt(conn, "Partial transaction");
++	return EIO;
+ }
+ 
+ static int destroy_transaction(void *_transaction)
+ {
+ 	struct transaction *trans = _transaction;
++	struct accessed_node *i;
++	char *trans_name;
++	TDB_DATA key;
+ 
+ 	wrl_ntransactions--;
+ 	trace_destroy(trans, "transaction");
+-	if (trans->tdb)
+-		tdb_close(trans->tdb);
+-	unlink(trans->tdb_name);
++	while ((i = list_top(&trans->accessed, struct accessed_node, list))) {
++		if (i->ta_node) {
++			trans_name = transaction_get_node_name(i, trans,
++							       i->node);
++			if (trans_name) {
++				set_tdb_key(trans_name, &key);
++				tdb_delete(tdb_ctx, key);
++			}
++		}
++		list_del(&i->list);
++		talloc_free(i);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -178,18 +442,10 @@ int do_transaction_start(struct connection *conn, struct buffered_data *in)
+ 	if (!trans)
+ 		return ENOMEM;
+ 
+-	INIT_LIST_HEAD(&trans->changes);
++	INIT_LIST_HEAD(&trans->accessed);
+ 	INIT_LIST_HEAD(&trans->changed_domains);
+-	trans->generation = generation;
+-	trans->tdb_name = talloc_asprintf(trans, "%s.%p",
+-					  xs_daemon_tdb(), trans);
+-	if (!trans->tdb_name)
+-		return ENOMEM;
+-	trans->tdb = tdb_copy(tdb_context(conn), trans->tdb_name);
+-	if (!trans->tdb)
+-		return errno;
+-	/* Make it close if we go away. */
+-	talloc_steal(trans, trans->tdb);
++	trans->fail = false;
++	trans->generation = generation++;
+ 
+ 	/* Pick an unused transaction identifier. */
+ 	do {
+@@ -210,12 +466,25 @@ int do_transaction_start(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
++static int transaction_fix_domains(struct transaction *trans, bool update)
++{
++	struct changed_domain *d;
++	int cnt;
++
++	list_for_each_entry(d, &trans->changed_domains, list) {
++		cnt = domain_entry_fix(d->domid, d->nbentry, update);
++		if (!update && cnt >= quota_nb_entry_per_domain)
++			return ENOSPC;
++	}
++
++	return 0;
++}
++
+ int do_transaction_end(struct connection *conn, struct buffered_data *in)
+ {
+ 	const char *arg = onearg(in);
+-	struct changed_node *i;
+-	struct changed_domain *d;
+ 	struct transaction *trans;
++	int ret;
+ 
+ 	if (!arg || (!streq(arg, "T") && !streq(arg, "F")))
+ 		return EINVAL;
+@@ -231,25 +500,18 @@ int do_transaction_end(struct connection *conn, struct buffered_data *in)
+ 	talloc_steal(in, trans);
+ 
+ 	if (streq(arg, "T")) {
+-		/* FIXME: Merge, rather failing on any change. */
+-		if (trans->generation != generation)
++		if (trans->fail)
++			return ENOMEM;
++		ret = transaction_fix_domains(trans, false);
++		if (ret)
++			return ret;
++		if (finalize_transaction(conn, trans))
+ 			return EAGAIN;
+ 
+ 		wrl_apply_debit_trans_commit(conn);
+ 
+-		if (!replace_tdb(trans->tdb_name, trans->tdb))
+-			return errno;
+-		/* Don't close this: we won! */
+-		trans->tdb = NULL;
+-
+ 		/* fix domain entry for each changed domain */
+-		list_for_each_entry(d, &trans->changed_domains, list)
+-			domain_entry_fix(d->domid, d->nbentry);
+-
+-		/* Fire off the watches for everything that changed. */
+-		list_for_each_entry(i, &trans->changes, list)
+-			fire_watches(conn, in, i->node, i->recurse);
+-		generation += trans->trans_gen;
++		transaction_fix_domains(trans, true);
+ 	}
+ 	send_ack(conn, XS_TRANSACTION_END);
+ 
+@@ -269,7 +531,7 @@ void transaction_entry_inc(struct transaction *trans, unsigned int domid)
+ 	d = talloc(trans, struct changed_domain);
+ 	if (!d) {
+ 		/* Let the transaction fail. */
+-		generation++;
++		trans->fail = true;
+ 		return;
+ 	}
+ 	d->domid = domid;
+@@ -290,7 +552,7 @@ void transaction_entry_dec(struct transaction *trans, unsigned int domid)
+ 	d = talloc(trans, struct changed_domain);
+ 	if (!d) {
+ 		/* Let the transaction fail. */
+-		generation++;
++		trans->fail = true;
+ 		return;
+ 	}
+ 	d->domid = domid;
+@@ -313,6 +575,41 @@ void conn_delete_all_transactions(struct connection *conn)
+ 	conn->transaction_started = 0;
+ }
+ 
++int check_transactions(struct hashtable *hash)
++{
++	struct connection *conn;
++	struct transaction *trans;
++	struct accessed_node *i;
++	char *tname, *tnode;
++
++	list_for_each_entry(conn, &connections, list) {
++		list_for_each_entry(trans, &conn->transaction_list, list) {
++			tname = talloc_asprintf(trans, "%"PRIu64,
++						trans->generation);
++			if (!tname || !remember_string(hash, tname))
++				goto nomem;
++
++			list_for_each_entry(i, &trans->accessed, list) {
++				if (!i->ta_node)
++					continue;
++				tnode = transaction_get_node_name(tname, trans,
++								  i->node);
++				if (!tnode || !remember_string(hash, tnode))
++					goto nomem;
++				talloc_free(tnode);
++			}
++
++			talloc_free(tname);
++		}
++	}
++
++	return 0;
++
++nomem:
++	talloc_free(tname);
++	return ENOMEM;
++}
++
+ /*
+  * Local variables:
+  *  c-file-style: "linux"
+diff --git a/tools/xenstore/xenstored_transaction.h b/tools/xenstore/xenstored_transaction.h
+index aeeac3dcedb4..3386bac56508 100644
+--- a/tools/xenstore/xenstored_transaction.h
++++ b/tools/xenstore/xenstored_transaction.h
+@@ -19,6 +19,12 @@
+ #define _XENSTORED_TRANSACTION_H
+ #include "xenstored_core.h"
+ 
++enum node_access_type {
++    NODE_ACCESS_READ,
++    NODE_ACCESS_WRITE,
++    NODE_ACCESS_DELETE
++};
++
+ struct transaction;
+ 
+ int do_transaction_start(struct connection *conn, struct buffered_data *node);
+@@ -30,13 +36,15 @@ struct transaction *transaction_lookup(struct connection *conn, uint32_t id);
+ void transaction_entry_inc(struct transaction *trans, unsigned int domid);
+ void transaction_entry_dec(struct transaction *trans, unsigned int domid);
+ 
+-/* This node was changed. */
+-void add_change_node(struct connection *conn, struct node *node,
+-                     bool recurse);
++/* This node was accessed. */
++int access_node(struct connection *conn, struct node *node,
++                enum node_access_type type, TDB_DATA *key);
+ 
+-/* Return tdb context to use for this connection. */
+-TDB_CONTEXT *tdb_transaction_context(struct transaction *trans);
++/* Prepend the transaction to name if appropriate. */
++int transaction_prepend(struct connection *conn, const char *name,
++                        TDB_DATA *key);
+ 
+ void conn_delete_all_transactions(struct connection *conn);
++int check_transactions(struct hashtable *hash);
+ 
+ #endif /* _XENSTORED_TRANSACTION_H */
+-- 
+2.25.4
+

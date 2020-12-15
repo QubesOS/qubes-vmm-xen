@@ -1,0 +1,31 @@
+From b2dc1dc009a2e4ae6a71c674c0d7858724036ab9 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Wed, 22 Feb 2017 16:28:45 +0100
+Subject: [PATCH 16/25] xenstore: correct test for opened logfile in
+ reopen_log()
+
+As 0 is a valid file descriptor testing a descriptor to be valid
+should be done via >= 0 instead of > 0.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 2c38c07ca2aa..9a7ef1aa3be5 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -210,7 +210,7 @@ static void trigger_reopen_log(int signal __attribute__((unused)))
+ static void reopen_log(void)
+ {
+ 	if (tracefile) {
+-		if (tracefd > 0)
++		if (tracefd >= 0)
+ 			close(tracefd);
+ 
+ 		tracefd = open(tracefile, O_WRONLY|O_CREAT|O_APPEND, 0600);
+-- 
+2.25.4
+

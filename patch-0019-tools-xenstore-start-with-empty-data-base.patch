@@ -1,0 +1,109 @@
+From 2327adc9a96f6527f620c1daf5bbbaabe1ee4f74 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Tue, 10 Jan 2017 17:13:38 +0100
+Subject: [PATCH 19/25] tools/xenstore: start with empty data base
+
+Today xenstored tries to open a tdb data base file on disk when it is
+started. As this is problematic in most cases the scripts used to start
+xenstored ensure xenstored won't find such a file in order to start
+with an empty xenstore.
+
+A tdb data base file can't be used to restore all Xenstore state as
+e.g. Xenstore watches are not kept in the tdb data base. The file is
+meant to be used for debugging purposes after a xenstored crash only.
+
+Instead of opening a Xenstore data base file found on disk always start
+with an empty data base. This will avoid problems in case someone is
+testing multiple xenstored versions without rebooting (which is not
+supported but helps debugging in some cases).
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c | 60 +++++----------------------------
+ 1 file changed, 9 insertions(+), 51 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index ee1cef0f8fea..5c531e982b87 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -1166,17 +1166,6 @@ static int _rm(struct connection *conn, const void *ctx, struct node *node,
+ }
+ 
+ 
+-static void internal_rm(const char *name)
+-{
+-	char *tname = talloc_strdup(NULL, name);
+-	struct node *node = read_node(NULL, tname, tname);
+-	if (node)
+-		_rm(NULL, tname, node, tname);
+-	talloc_free(node);
+-	talloc_free(tname);
+-}
+-
+-
+ static int do_rm(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+@@ -1569,49 +1558,18 @@ static void setup_structure(void)
+ 		barf_perror("Could not create tdbname");
+ 
+ 	if (!(tdb_flags & TDB_INTERNAL))
+-		tdb_ctx = tdb_open_ex(tdbname, 0, tdb_flags, O_RDWR, 0,
+-				      &tdb_logger, NULL);
+-
+-	if (tdb_ctx) {
+-		/* XXX When we make xenstored able to restart, this will have
+-		   to become cleverer, checking for existing domains and not
+-		   removing the corresponding entries, but for now xenstored
+-		   cannot be restarted without losing all the registered
+-		   watches, which breaks all the backend drivers anyway.  We
+-		   can therefore get away with just clearing /local and
+-		   expecting Xend to put the appropriate entries back in.
+-
+-		   When this change is made it is important to note that
+-		   dom0's entries must be cleaned up on reboot _before_ this
+-		   daemon starts, otherwise the backend drivers and dom0's
+-		   balloon driver will pick up stale entries.  In the case of
+-		   the balloon driver, this can be fatal.
+-		*/
+-		char *tlocal = talloc_strdup(NULL, "/local");
+-
+-		check_store();
+-
+-		if (remove_local) {
+-			internal_rm("/local");
+-			create_node(NULL, NULL, tlocal, NULL, 0);
+-
+-			check_store();
+-		}
++		unlink(tdbname);
+ 
+-		talloc_free(tlocal);
+-	}
+-	else {
+-		tdb_ctx = tdb_open_ex(tdbname, 7919, tdb_flags, O_RDWR|O_CREAT,
+-				      0640, &tdb_logger, NULL);
+-		if (!tdb_ctx)
+-			barf_perror("Could not create tdb file %s", tdbname);
++	tdb_ctx = tdb_open_ex(tdbname, 7919, tdb_flags, O_RDWR|O_CREAT|O_EXCL,
++			      0640, &tdb_logger, NULL);
++	if (!tdb_ctx)
++		barf_perror("Could not create tdb file %s", tdbname);
+ 
+-		manual_node("/", "tool");
+-		manual_node("/tool", "xenstored");
+-		manual_node("/tool/xenstored", NULL);
++	manual_node("/", "tool");
++	manual_node("/tool", "xenstored");
++	manual_node("/tool/xenstored", NULL);
+ 
+-		check_store();
+-	}
++	check_store();
+ }
+ 
+ 
+-- 
+2.25.4
+

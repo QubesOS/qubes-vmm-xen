@@ -1,0 +1,236 @@
+From fc47530db736b23dbb2c6591feb1918b21d0da73 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Fri, 27 Jan 2017 12:47:22 +0100
+Subject: [PATCH 15/25] xenstore: remove XS_RESTRICT support
+
+XS_RESTRICT and the xenstore library function xs_restrict() have never
+been usable in all configurations and there are no known users.
+
+This functionality was thought to limit access rights of device models
+to xenstore in order to avoid affecting other domains in case of a
+security breech. Unfortunately XS_RESTRICT won't help as current
+qemu is requiring access to dom0 only accessible xenstore paths to
+work correctly. So this command is useless and should be removed.
+
+In order to avoid problems in the future remove all support for
+XS_RESTRICT from xenstore.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: David Scott <dave@recoil.org>
+---
+ tools/ocaml/libs/xb/op.ml           |  5 ++---
+ tools/ocaml/libs/xb/xb.mli          |  1 -
+ tools/ocaml/xenstored/connection.ml |  3 ---
+ tools/ocaml/xenstored/logging.ml    |  1 -
+ tools/ocaml/xenstored/perms.ml      |  5 -----
+ tools/ocaml/xenstored/process.ml    | 16 ----------------
+ tools/xenstore/include/xenstore.h   |  9 ---------
+ tools/xenstore/xenstored_core.c     |  1 -
+ tools/xenstore/xs.c                 |  8 --------
+ xen/include/public/io/xs_wire.h     |  4 ++--
+ 10 files changed, 4 insertions(+), 49 deletions(-)
+
+diff --git a/tools/ocaml/libs/xb/op.ml b/tools/ocaml/libs/xb/op.ml
+index 69346d806657..d4f1f081856b 100644
+--- a/tools/ocaml/libs/xb/op.ml
++++ b/tools/ocaml/libs/xb/op.ml
+@@ -19,7 +19,7 @@ type operation = Debug | Directory | Read | Getperms |
+                  Transaction_end | Introduce | Release |
+                  Getdomainpath | Write | Mkdir | Rm |
+                  Setperms | Watchevent | Error | Isintroduced |
+-                 Resume | Set_target | Restrict | Reset_watches |
++                 Resume | Set_target | Reset_watches |
+                  Invalid
+ 
+ let operation_c_mapping =
+@@ -28,7 +28,7 @@ let operation_c_mapping =
+            Transaction_end; Introduce; Release;
+            Getdomainpath; Write; Mkdir; Rm;
+            Setperms; Watchevent; Error; Isintroduced;
+-           Resume; Set_target; Restrict; Reset_watches |]
++           Resume; Set_target; Reset_watches |]
+ let size = Array.length operation_c_mapping
+ 
+ let array_search el a =
+@@ -68,6 +68,5 @@ let to_string ty =
+ 	| Isintroduced		-> "IS_INTRODUCED"
+ 	| Resume		-> "RESUME"
+ 	| Set_target		-> "SET_TARGET"
+-	| Restrict		-> "RESTRICT"
+ 	| Reset_watches         -> "RESET_WATCHES"
+ 	| Invalid		-> "INVALID"
+diff --git a/tools/ocaml/libs/xb/xb.mli b/tools/ocaml/libs/xb/xb.mli
+index 6c242da4463e..b4d705201fb9 100644
+--- a/tools/ocaml/libs/xb/xb.mli
++++ b/tools/ocaml/libs/xb/xb.mli
+@@ -22,7 +22,6 @@ module Op :
+       | Isintroduced
+       | Resume
+       | Set_target
+-      | Restrict
+       | Reset_watches
+       | Invalid
+     val operation_c_mapping : operation array
+diff --git a/tools/ocaml/xenstored/connection.ml b/tools/ocaml/xenstored/connection.ml
+index a66d2f7db540..be9c62f27f29 100644
+--- a/tools/ocaml/xenstored/connection.ml
++++ b/tools/ocaml/xenstored/connection.ml
+@@ -122,9 +122,6 @@ let close con =
+ let get_perm con =
+ 	con.perm
+ 
+-let restrict con domid =
+-	con.perm <- Perms.Connection.restrict con.perm domid
+-
+ let set_target con target_domid =
+ 	con.perm <- Perms.Connection.set_target (get_perm con) ~perms:[Perms.READ; Perms.WRITE] target_domid
+ 
+diff --git a/tools/ocaml/xenstored/logging.ml b/tools/ocaml/xenstored/logging.ml
+index c52f03dd17a9..0c0d03d0c4ed 100644
+--- a/tools/ocaml/xenstored/logging.ml
++++ b/tools/ocaml/xenstored/logging.ml
+@@ -241,7 +241,6 @@ let string_of_access_type = function
+ 	| Xenbus.Xb.Op.Mkdir             -> "mkdir    "
+ 	| Xenbus.Xb.Op.Rm                -> "rm       "
+ 	| Xenbus.Xb.Op.Setperms          -> "setperms "
+-	| Xenbus.Xb.Op.Restrict          -> "restrict "
+ 	| Xenbus.Xb.Op.Reset_watches     -> "reset watches"
+ 	| Xenbus.Xb.Op.Set_target        -> "settarget"
+ 
+diff --git a/tools/ocaml/xenstored/perms.ml b/tools/ocaml/xenstored/perms.ml
+index 19bf44c36c87..3ea193ea1417 100644
+--- a/tools/ocaml/xenstored/perms.ml
++++ b/tools/ocaml/xenstored/perms.ml
+@@ -119,11 +119,6 @@ let is_owner (connection:t) id =
+ let is_dom0 (connection:t) =
+ 	is_owner connection 0
+ 
+-let restrict (connection:t) domid =
+-	match connection.target, connection.main with
+-	| None, (0, perms) -> { connection with main = (domid, perms) }
+-	| _                -> raise Define.Permission_denied
+-
+ let elt_to_string (i,p) =
+ 	Printf.sprintf "%i%S" i (String.concat "" (List.map String.of_char (List.map char_of_permty p)))
+ 
+diff --git a/tools/ocaml/xenstored/process.ml b/tools/ocaml/xenstored/process.ml
+index 8a688c4c1635..5ee5b5c1474f 100644
+--- a/tools/ocaml/xenstored/process.ml
++++ b/tools/ocaml/xenstored/process.ml
+@@ -174,30 +174,16 @@ let do_isintroduced con t domains cons data =
+ 		in
+ 	if domid = Define.domid_self || Domains.exist domains domid then "T\000" else "F\000"
+ 
+-(* [restrict] is in the patch queue since xen3.2 *)
+-let do_restrict con t domains cons data =
+-	if not (Connection.is_dom0 con)
+-	then raise Define.Permission_denied;
+-	let domid =
+-		match (split None '\000' data) with
+-		| [ domid; "" ] -> c_int_of_string domid
+-		| _          -> raise Invalid_Cmd_Args
+-	in
+-	Connection.restrict con domid
+-
+ (* only in xen >= 4.2 *)
+ let do_reset_watches con t domains cons data =
+   Connection.del_watches con;
+   Connection.del_transactions con
+ 
+ (* only in >= xen3.3                                                                                    *)
+-(* we ensure backward compatibility with restrict by counting the number of argument of set_target ...  *)
+-(* This is not very elegant, but it is safe as 'restrict' only restricts permission of dom0 connections *)
+ let do_set_target con t domains cons data =
+ 	if not (Connection.is_dom0 con)
+ 	then raise Define.Permission_denied;
+ 	match split None '\000' data with
+-		| [ domid; "" ]               -> do_restrict con t domains con data (* backward compatibility with xen3.2-pq *)
+ 		| [ domid; target_domid; "" ] -> Connections.set_target cons (c_int_of_string domid) (c_int_of_string target_domid)
+ 		| _                           -> raise Invalid_Cmd_Args
+ 
+@@ -246,7 +232,6 @@ let function_of_type_simple_op ty =
+ 	| Xenbus.Xb.Op.Isintroduced
+ 	| Xenbus.Xb.Op.Resume
+ 	| Xenbus.Xb.Op.Set_target
+-	| Xenbus.Xb.Op.Restrict
+ 	| Xenbus.Xb.Op.Reset_watches
+ 	| Xenbus.Xb.Op.Invalid           -> error "called function_of_type_simple_op on operation %s" (Xenbus.Xb.Op.to_string ty);
+ 	                                    raise (Invalid_argument (Xenbus.Xb.Op.to_string ty))
+@@ -474,7 +459,6 @@ let function_of_type ty =
+ 	| Xenbus.Xb.Op.Isintroduced      -> reply_data do_isintroduced
+ 	| Xenbus.Xb.Op.Resume            -> reply_ack do_resume
+ 	| Xenbus.Xb.Op.Set_target        -> reply_ack do_set_target
+-	| Xenbus.Xb.Op.Restrict          -> reply_ack do_restrict
+ 	| Xenbus.Xb.Op.Reset_watches     -> reply_ack do_reset_watches
+ 	| Xenbus.Xb.Op.Invalid           -> reply_ack do_error
+ 	| _                              -> function_of_type_simple_op ty
+diff --git a/tools/xenstore/include/xenstore.h b/tools/xenstore/include/xenstore.h
+index 42c0dc74ea48..0d12c39ba4b7 100644
+--- a/tools/xenstore/include/xenstore.h
++++ b/tools/xenstore/include/xenstore.h
+@@ -132,15 +132,6 @@ bool xs_mkdir(struct xs_handle *h, xs_transaction_t t,
+ bool xs_rm(struct xs_handle *h, xs_transaction_t t,
+ 	   const char *path);
+ 
+-/* Restrict a xenstore handle so that it acts as if it had the
+- * permissions of domain @domid.  The handle must currently be
+- * using domain 0's credentials.
+- *
+- * Returns false on failure, in which case the handle continues
+- * to use the old credentials, or true on success.
+- */
+-bool xs_restrict(struct xs_handle *h, unsigned domid);
+-
+ /* Get permissions of node (first element is owner, first perms is "other").
+  * Returns malloced array, or NULL: call free() after use.
+  */
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 84d0560646e5..2c38c07ca2aa 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -1332,7 +1332,6 @@ static struct {
+ 			{ "IS_DOMAIN_INTRODUCED", do_is_domain_introduced },
+ 	[XS_RESUME]            = { "RESUME",            do_resume },
+ 	[XS_SET_TARGET]        = { "SET_TARGET",        do_set_target },
+-	[XS_RESTRICT]          = { "RESTRICT",          NULL },
+ 	[XS_RESET_WATCHES]     = { "RESET_WATCHES",     do_reset_watches },
+ 	[XS_DIRECTORY_PART]    = { "DIRECTORY_PART",    send_directory_part },
+ };
+diff --git a/tools/xenstore/xs.c b/tools/xenstore/xs.c
+index 3ce7157fed74..6fa1261b6d4d 100644
+--- a/tools/xenstore/xs.c
++++ b/tools/xenstore/xs.c
+@@ -769,14 +769,6 @@ unwind:
+ 	return false;
+ }
+ 
+-bool xs_restrict(struct xs_handle *h, unsigned domid)
+-{
+-	char buf[16];
+-
+-	sprintf(buf, "%d", domid);
+-	return xs_bool(xs_single(h, XBT_NULL, XS_RESTRICT, buf, NULL));
+-}
+-
+ /* Watch a node for changes (poll on fd to detect, or call read_watch()).
+  * When the node (or any child) changes, fd will become readable.
+  * Token is returned when watch is read, to allow matching.
+diff --git a/xen/include/public/io/xs_wire.h b/xen/include/public/io/xs_wire.h
+index 54c1d71c8573..f9f94f13f574 100644
+--- a/xen/include/public/io/xs_wire.h
++++ b/xen/include/public/io/xs_wire.h
+@@ -48,8 +48,8 @@ enum xsd_sockmsg_type
+     XS_IS_DOMAIN_INTRODUCED,
+     XS_RESUME,
+     XS_SET_TARGET,
+-    XS_RESTRICT,
+-    XS_RESET_WATCHES,
++    /* XS_RESTRICT has been removed */
++    XS_RESET_WATCHES = XS_SET_TARGET + 2,
+     XS_DIRECTORY_PART,
+ 
+     XS_TYPE_COUNT,      /* Number of valid types. */
+-- 
+2.25.4
+

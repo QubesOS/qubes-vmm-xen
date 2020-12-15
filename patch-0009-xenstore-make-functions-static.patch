@@ -1,0 +1,462 @@
+From b935755e7ad7a0d9383e01cb41dea0601fb7691a Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:50 +0100
+Subject: [PATCH 09/25] xenstore: make functions static
+
+Move functions used in only one source to the file where they are used
+and make them static.
+
+Remove some prototypes from headers which are no longer in use.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c  |  55 +++++----------
+ tools/xenstore/xenstored_core.h  |  14 ----
+ tools/xenstore/xenstored_watch.c |  27 ++++++++
+ tools/xenstore/xenstored_watch.h |   2 -
+ tools/xenstore/xs.c              | 111 ++++++++++++++++++++++++++++++
+ tools/xenstore/xs_lib.c          | 112 -------------------------------
+ 6 files changed, 153 insertions(+), 168 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index f7760cc8fe1e..38e39bd51ae7 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -370,22 +370,6 @@ static void initialize_fds(int sock, int *p_sock_pollfd_idx,
+ 	}
+ }
+ 
+-/* Is child a subnode of parent, or equal? */
+-bool is_child(const char *child, const char *parent)
+-{
+-	unsigned int len = strlen(parent);
+-
+-	/* / should really be "" for this algorithm to work, but that's a
+-	 * usability nightmare. */
+-	if (streq(parent, "/"))
+-		return true;
+-
+-	if (strncmp(child, parent, len) != 0)
+-		return false;
+-
+-	return child[len] == '/' || child[len] == '\0';
+-}
+-
+ /*
+  * If it fails, returns NULL and sets errno.
+  * Temporary memory allocations will be done with ctx.
+@@ -643,6 +627,21 @@ unsigned int get_strings(struct buffered_data *data,
+ 	return i;
+ }
+ 
++static void send_error(struct connection *conn, int error)
++{
++	unsigned int i;
++
++	for (i = 0; error != xsd_errors[i].errnum; i++) {
++		if (i == ARRAY_SIZE(xsd_errors) - 1) {
++			eprintf("xenstored: error %i untranslatable", error);
++			i = 0; /* EINVAL */
++			break;
++		}
++	}
++	send_reply(conn, XS_ERROR, xsd_errors[i].errstring,
++			  strlen(xsd_errors[i].errstring) + 1);
++}
++
+ void send_reply(struct connection *conn, enum xsd_sockmsg_type type,
+ 		const void *data, unsigned int len)
+ {
+@@ -680,21 +679,6 @@ void send_ack(struct connection *conn, enum xsd_sockmsg_type type)
+ 	send_reply(conn, type, "OK", sizeof("OK"));
+ }
+ 
+-void send_error(struct connection *conn, int error)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; error != xsd_errors[i].errnum; i++) {
+-		if (i == ARRAY_SIZE(xsd_errors) - 1) {
+-			eprintf("xenstored: error %i untranslatable", error);
+-			i = 0; 	/* EINVAL */
+-			break;
+-		}
+-	}
+-	send_reply(conn, XS_ERROR, xsd_errors[i].errstring,
+-			  strlen(xsd_errors[i].errstring) + 1);
+-}
+-
+ static bool valid_chars(const char *node)
+ {
+ 	/* Nodes can have lots of crap. */
+@@ -766,15 +750,6 @@ char *canonicalize(struct connection *conn, const char *node)
+ 	return (char *)node;
+ }
+ 
+-bool check_event_node(const char *node)
+-{
+-	if (!node || !strstarts(node, "@")) {
+-		errno = EINVAL;
+-		return false;
+-	}
+-	return true;
+-}
+-
+ static int send_directory(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+diff --git a/tools/xenstore/xenstored_core.h b/tools/xenstore/xenstored_core.h
+index 84555258a3c9..1556f26b6c9b 100644
+--- a/tools/xenstore/xenstored_core.h
++++ b/tools/xenstore/xenstored_core.h
+@@ -138,24 +138,15 @@ const char *onearg(struct buffered_data *in);
+ unsigned int get_strings(struct buffered_data *data,
+ 			 char *vec[], unsigned int num);
+ 
+-/* Is child node a child or equal to parent node? */
+-bool is_child(const char *child, const char *parent);
+-
+ void send_reply(struct connection *conn, enum xsd_sockmsg_type type,
+ 		const void *data, unsigned int len);
+ 
+ /* Some routines (write, mkdir, etc) just need a non-error return */
+ void send_ack(struct connection *conn, enum xsd_sockmsg_type type);
+ 
+-/* Send an error: error is usually "errno". */
+-void send_error(struct connection *conn, int error);
+-
+ /* Canonicalize this path if possible. */
+ char *canonicalize(struct connection *conn, const char *node);
+ 
+-/* Check if node is an event node. */
+-bool check_event_node(const char *node);
+-
+ /* Get this node, checking we have permissions. */
+ struct node *get_node(struct connection *conn,
+ 		      const void *ctx,
+@@ -165,9 +156,6 @@ struct node *get_node(struct connection *conn,
+ /* Get TDB context for this connection */
+ TDB_CONTEXT *tdb_context(struct connection *conn);
+ 
+-/* Destructor for tdbs: required for transaction code */
+-int destroy_tdb(void *_tdb);
+-
+ /* Replace the tdb: required for transaction code */
+ bool replace_tdb(const char *newname, TDB_CONTEXT *newtdb);
+ 
+@@ -180,11 +168,9 @@ bool is_valid_nodename(const char *node);
+ /* Tracing infrastructure. */
+ void trace_create(const void *data, const char *type);
+ void trace_destroy(const void *data, const char *type);
+-void trace_watch_timeout(const struct connection *conn, const char *node, const char *token);
+ void trace(const char *fmt, ...);
+ void dtrace_io(const struct connection *conn, const struct buffered_data *data, int out);
+ 
+-extern int event_fd;
+ extern int dom0_domid;
+ extern int dom0_event;
+ extern int priv_domid;
+diff --git a/tools/xenstore/xenstored_watch.c b/tools/xenstore/xenstored_watch.c
+index 8cfc5b088234..e1146edeb29e 100644
+--- a/tools/xenstore/xenstored_watch.c
++++ b/tools/xenstore/xenstored_watch.c
+@@ -47,6 +47,33 @@ struct watch
+ 	char *node;
+ };
+ 
++static bool check_event_node(const char *node)
++{
++	if (!node || !strstarts(node, "@")) {
++		errno = EINVAL;
++		return false;
++	}
++	return true;
++}
++
++/* Is child a subnode of parent, or equal? */
++static bool is_child(const char *child, const char *parent)
++{
++	unsigned int len = strlen(parent);
++
++	/*
++	 * / should really be "" for this algorithm to work, but that's a
++	 * usability nightmare.
++	 */
++	if (streq(parent, "/"))
++		return true;
++
++	if (strncmp(child, parent, len) != 0)
++		return false;
++
++	return child[len] == '/' || child[len] == '\0';
++}
++
+ /*
+  * Send a watch event.
+  * Temporary memory allocations are done with ctx.
+diff --git a/tools/xenstore/xenstored_watch.h b/tools/xenstore/xenstored_watch.h
+index 546a5c30f056..c72ea6a68542 100644
+--- a/tools/xenstore/xenstored_watch.h
++++ b/tools/xenstore/xenstored_watch.h
+@@ -28,8 +28,6 @@ int do_unwatch(struct connection *conn, struct buffered_data *in);
+ void fire_watches(struct connection *conn, void *tmp, const char *name,
+ 		  bool recurse);
+ 
+-void dump_watches(struct connection *conn);
+-
+ void conn_delete_all_watches(struct connection *conn);
+ 
+ #endif /* _XENSTORED_WATCH_H */
+diff --git a/tools/xenstore/xs.c b/tools/xenstore/xs.c
+index 40e32750dad3..e462a20f675f 100644
+--- a/tools/xenstore/xs.c
++++ b/tools/xenstore/xs.c
+@@ -1307,6 +1307,117 @@ static void *read_thread(void *arg)
+ }
+ #endif
+ 
++char *expanding_buffer_ensure(struct expanding_buffer *ebuf, int min_avail)
++{
++	int want;
++	char *got;
++
++	if (ebuf->avail >= min_avail)
++		return ebuf->buf;
++
++	if (min_avail >= INT_MAX/3)
++		return 0;
++
++	want = ebuf->avail + min_avail + 10;
++	got = realloc(ebuf->buf, want);
++	if (!got)
++		return 0;
++
++	ebuf->buf = got;
++	ebuf->avail = want;
++	return ebuf->buf;
++}
++
++char *sanitise_value(struct expanding_buffer *ebuf,
++		     const char *val, unsigned len)
++{
++	int used, remain, c;
++	unsigned char *ip;
++
++#define ADD(c) (ebuf->buf[used++] = (c))
++#define ADDF(f,c) (used += sprintf(ebuf->buf+used, (f), (c)))
++
++	assert(len < INT_MAX/5);
++
++	ip = (unsigned char *)val;
++	used = 0;
++	remain = len;
++
++	if (!expanding_buffer_ensure(ebuf, remain + 1))
++		return NULL;
++
++	while (remain-- > 0) {
++		c= *ip++;
++
++		if (c >= ' ' && c <= '~' && c != '\\') {
++			ADD(c);
++			continue;
++		}
++
++		if (!expanding_buffer_ensure(ebuf, used + remain + 5))
++			/* for "<used>\\nnn<remain>\0" */
++			return 0;
++
++		ADD('\\');
++		switch (c) {
++		case '\t':  ADD('t');   break;
++		case '\n':  ADD('n');   break;
++		case '\r':  ADD('r');   break;
++		case '\\':  ADD('\\');  break;
++		default:
++			if (c < 010) ADDF("%03o", c);
++			else         ADDF("x%02x", c);
++		}
++	}
++
++	ADD(0);
++	assert(used <= ebuf->avail);
++	return ebuf->buf;
++
++#undef ADD
++#undef ADDF
++}
++
++void unsanitise_value(char *out, unsigned *out_len_r, const char *in)
++{
++	const char *ip;
++	char *op;
++	unsigned c;
++	int n;
++
++	for (ip = in, op = out; (c = *ip++); *op++ = c) {
++		if (c == '\\') {
++			c = *ip++;
++
++#define GETF(f) do {					\
++			n = 0;				\
++			sscanf(ip, f "%n", &c, &n);	\
++			ip += n;			\
++		} while (0)
++
++			switch (c) {
++			case 't':              c= '\t';            break;
++			case 'n':              c= '\n';            break;
++			case 'r':              c= '\r';            break;
++			case '\\':             c= '\\';            break;
++			case 'x':                    GETF("%2x");  break;
++			case '0': case '4':
++			case '1': case '5':
++			case '2': case '6':
++			case '3': case '7':    --ip; GETF("%3o");  break;
++			case 0:                --ip;               break;
++			default:;
++			}
++#undef GETF
++		}
++	}
++
++	*op = 0;
++
++	if (out_len_r)
++		*out_len_r = op - out;
++}
++
+ /*
+  * Local variables:
+  *  c-file-style: "linux"
+diff --git a/tools/xenstore/xs_lib.c b/tools/xenstore/xs_lib.c
+index 6568e82a7790..5ef3d6d89506 100644
+--- a/tools/xenstore/xs_lib.c
++++ b/tools/xenstore/xs_lib.c
+@@ -21,7 +21,6 @@
+ #include <string.h>
+ #include <stdlib.h>
+ #include <errno.h>
+-#include <assert.h>
+ #include "xenstore_lib.h"
+ 
+ /* Common routines for the Xen store daemon and client library. */
+@@ -184,114 +183,3 @@ unsigned int xs_count_strings(const char *strings, unsigned int len)
+ 
+ 	return num;
+ }
+-
+-char *expanding_buffer_ensure(struct expanding_buffer *ebuf, int min_avail)
+-{
+-	int want;
+-	char *got;
+-
+-	if (ebuf->avail >= min_avail)
+-		return ebuf->buf;
+-
+-	if (min_avail >= INT_MAX/3)
+-		return 0;
+-
+-	want = ebuf->avail + min_avail + 10;
+-	got = realloc(ebuf->buf, want);
+-	if (!got)
+-		return 0;
+-
+-	ebuf->buf = got;
+-	ebuf->avail = want;
+-	return ebuf->buf;
+-}
+-
+-char *sanitise_value(struct expanding_buffer *ebuf,
+-		     const char *val, unsigned len)
+-{
+-	int used, remain, c;
+-	unsigned char *ip;
+-
+-#define ADD(c) (ebuf->buf[used++] = (c))
+-#define ADDF(f,c) (used += sprintf(ebuf->buf+used, (f), (c)))
+-
+-	assert(len < INT_MAX/5);
+-
+-	ip = (unsigned char *)val;
+-	used = 0;
+-	remain = len;
+-
+-	if (!expanding_buffer_ensure(ebuf, remain + 1))
+-		return NULL;
+-
+-	while (remain-- > 0) {
+-		c= *ip++;
+-
+-		if (c >= ' ' && c <= '~' && c != '\\') {
+-			ADD(c);
+-			continue;
+-		}
+-
+-		if (!expanding_buffer_ensure(ebuf, used + remain + 5))
+-			/* for "<used>\\nnn<remain>\0" */
+-			return 0;
+-
+-		ADD('\\');
+-		switch (c) {
+-		case '\t':  ADD('t');   break;
+-		case '\n':  ADD('n');   break;
+-		case '\r':  ADD('r');   break;
+-		case '\\':  ADD('\\');  break;
+-		default:
+-			if (c < 010) ADDF("%03o", c);
+-			else         ADDF("x%02x", c);
+-		}
+-	}
+-
+-	ADD(0);
+-	assert(used <= ebuf->avail);
+-	return ebuf->buf;
+-
+-#undef ADD
+-#undef ADDF
+-}
+-
+-void unsanitise_value(char *out, unsigned *out_len_r, const char *in)
+-{
+-	const char *ip;
+-	char *op;
+-	unsigned c;
+-	int n;
+-
+-	for (ip = in, op = out; (c = *ip++); *op++ = c) {
+-		if (c == '\\') {
+-			c = *ip++;
+-
+-#define GETF(f) do {					\
+-		        n = 0;				\
+-                        sscanf(ip, f "%n", &c, &n);	\
+-			ip += n;			\
+-		} while (0)
+-
+-			switch (c) {
+-			case 't':              c= '\t';            break;
+-			case 'n':              c= '\n';            break;
+-			case 'r':              c= '\r';            break;
+-			case '\\':             c= '\\';            break;
+-			case 'x':                    GETF("%2x");  break;
+-			case '0': case '4':
+-			case '1': case '5':
+-			case '2': case '6':
+-			case '3': case '7':    --ip; GETF("%3o");  break;
+-			case 0:                --ip;               break;
+-			default:;
+-			}
+-#undef GETF
+-		}
+-	}
+-
+-	*op = 0;
+-
+-	if (out_len_r)
+-		*out_len_r = op - out;
+-}
+-- 
+2.25.4
+

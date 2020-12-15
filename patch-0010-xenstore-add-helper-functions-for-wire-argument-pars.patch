@@ -1,0 +1,291 @@
+From f80547064518661970c4807fcf9db71755de5d97 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:51 +0100
+Subject: [PATCH 10/25] xenstore: add helper functions for wire argument
+ parsing
+
+The xenstore wire command argument parsing of the different commands
+is repeating some patterns multiple times. Add some helper functions
+to avoid the duplicated code.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c   | 64 +++++++++++++-------------
+ tools/xenstore/xenstored_domain.c | 76 +++++++++++++++----------------
+ 2 files changed, 69 insertions(+), 71 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 38e39bd51ae7..8cf93fb79e1f 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -750,13 +750,25 @@ char *canonicalize(struct connection *conn, const char *node)
+ 	return (char *)node;
+ }
+ 
++static struct node *get_node_canonicalized(struct connection *conn,
++					   const void *ctx,
++					   const char *name,
++					   char **canonical_name,
++					   enum xs_perm_type perm)
++{
++	char *tmp_name;
++
++	if (!canonical_name)
++		canonical_name = &tmp_name;
++	*canonical_name = canonicalize(conn, name);
++	return get_node(conn, ctx, *canonical_name, perm);
++}
++
+ static int send_directory(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+-	const char *name = onearg(in);
+ 
+-	name = canonicalize(conn, name);
+-	node = get_node(conn, in, name, XS_PERM_READ);
++	node = get_node_canonicalized(conn, in, onearg(in), NULL, XS_PERM_READ);
+ 	if (!node)
+ 		return errno;
+ 
+@@ -769,7 +781,7 @@ static int send_directory_part(struct connection *conn,
+ 			       struct buffered_data *in)
+ {
+ 	unsigned int off, len, maxlen, genlen;
+-	char *name, *child, *data;
++	char *child, *data;
+ 	struct node *node;
+ 	char gen[24];
+ 
+@@ -777,15 +789,13 @@ static int send_directory_part(struct connection *conn,
+ 		return EINVAL;
+ 
+ 	/* First arg is node name. */
+-	name = canonicalize(conn, in->buffer);
++	node = get_node_canonicalized(conn, in, in->buffer, NULL, XS_PERM_READ);
++	if (!node)
++		return errno;
+ 
+ 	/* Second arg is childlist offset. */
+ 	off = atoi(in->buffer + strlen(in->buffer) + 1);
+ 
+-	node = get_node(conn, in, name, XS_PERM_READ);
+-	if (!node)
+-		return errno;
+-
+ 	genlen = snprintf(gen, sizeof(gen), "%"PRIu64, node->generation) + 1;
+ 
+ 	/* Offset behind list: just return a list with an empty string. */
+@@ -825,10 +835,8 @@ static int send_directory_part(struct connection *conn,
+ static int do_read(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+-	const char *name = onearg(in);
+ 
+-	name = canonicalize(conn, name);
+-	node = get_node(conn, in, name, XS_PERM_READ);
++	node = get_node_canonicalized(conn, in, onearg(in), NULL, XS_PERM_READ);
+ 	if (!node)
+ 		return errno;
+ 
+@@ -967,8 +975,7 @@ static int do_write(struct connection *conn, struct buffered_data *in)
+ 	offset = strlen(vec[0]) + 1;
+ 	datalen = in->used - offset;
+ 
+-	name = canonicalize(conn, vec[0]);
+-	node = get_node(conn, in, name, XS_PERM_WRITE);
++	node = get_node_canonicalized(conn, in, vec[0], &name, XS_PERM_WRITE);
+ 	if (!node) {
+ 		/* No permissions, invalid input? */
+ 		if (errno != ENOENT)
+@@ -993,13 +1000,10 @@ static int do_write(struct connection *conn, struct buffered_data *in)
+ static int do_mkdir(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+-	const char *name = onearg(in);
+-
+-	if (!name)
+-		return EINVAL;
++	char *name;
+ 
+-	name = canonicalize(conn, name);
+-	node = get_node(conn, in, name, XS_PERM_WRITE);
++	node = get_node_canonicalized(conn, in, onearg(in), &name,
++				      XS_PERM_WRITE);
+ 
+ 	/* If it already exists, fine. */
+ 	if (!node) {
+@@ -1110,10 +1114,10 @@ static int do_rm(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+ 	int ret;
+-	const char *name = onearg(in);
++	char *name;
+ 
+-	name = canonicalize(conn, name);
+-	node = get_node(conn, in, name, XS_PERM_WRITE);
++	node = get_node_canonicalized(conn, in, onearg(in), &name,
++				      XS_PERM_WRITE);
+ 	if (!node) {
+ 		/* Didn't exist already?  Fine, if parent exists. */
+ 		if (errno == ENOENT) {
+@@ -1146,12 +1150,10 @@ static int do_rm(struct connection *conn, struct buffered_data *in)
+ static int do_get_perms(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+-	const char *name = onearg(in);
+ 	char *strings;
+ 	unsigned int len;
+ 
+-	name = canonicalize(conn, name);
+-	node = get_node(conn, in, name, XS_PERM_READ);
++	node = get_node_canonicalized(conn, in, onearg(in), NULL, XS_PERM_READ);
+ 	if (!node)
+ 		return errno;
+ 
+@@ -1176,15 +1178,15 @@ static int do_set_perms(struct connection *conn, struct buffered_data *in)
+ 		return EINVAL;
+ 
+ 	/* First arg is node name. */
+-	name = canonicalize(conn, in->buffer);
+-	permstr = in->buffer + strlen(in->buffer) + 1;
+-	num--;
+-
+ 	/* We must own node to do this (tools can do this too). */
+-	node = get_node(conn, in, name, XS_PERM_WRITE|XS_PERM_OWNER);
++	node = get_node_canonicalized(conn, in, in->buffer, &name,
++				      XS_PERM_WRITE | XS_PERM_OWNER);
+ 	if (!node)
+ 		return errno;
+ 
++	permstr = in->buffer + strlen(in->buffer) + 1;
++	num--;
++
+ 	perms = talloc_array(node, struct xs_permissions, num);
+ 	if (!xs_strings_to_perms(perms, num, permstr))
+ 		return errno;
+diff --git a/tools/xenstore/xenstored_domain.c b/tools/xenstore/xenstored_domain.c
+index 3fc997fafed9..cefb8e4006ce 100644
+--- a/tools/xenstore/xenstored_domain.c
++++ b/tools/xenstore/xenstored_domain.c
+@@ -418,6 +418,18 @@ int do_introduce(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
++static struct domain *find_connected_domain(unsigned int domid)
++{
++	struct domain *domain;
++
++	domain = find_domain_by_domid(domid);
++	if (!domain)
++		return ERR_PTR(-ENOENT);
++	if (!domain->conn)
++		return ERR_PTR(-EINVAL);
++	return domain;
++}
++
+ int do_set_target(struct connection *conn, struct buffered_data *in)
+ {
+ 	char *vec[2];
+@@ -432,18 +444,13 @@ int do_set_target(struct connection *conn, struct buffered_data *in)
+ 	domid = atoi(vec[0]);
+ 	tdomid = atoi(vec[1]);
+ 
+-        domain = find_domain_by_domid(domid);
+-	if (!domain)
+-		return ENOENT;
+-        if (!domain->conn)
+-		return EINVAL;
++        domain = find_connected_domain(domid);
++	if (IS_ERR(domain))
++		return -PTR_ERR(domain);
+ 
+-        tdomain = find_domain_by_domid(tdomid);
+-	if (!tdomain)
+-		return ENOENT;
+-
+-        if (!tdomain->conn)
+-		return EINVAL;
++        tdomain = find_connected_domain(tdomid);
++	if (IS_ERR(tdomain))
++		return -PTR_ERR(tdomain);
+ 
+         talloc_reference(domain->conn, tdomain->conn);
+         domain->conn->target = tdomain->conn;
+@@ -453,29 +460,33 @@ int do_set_target(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
+-/* domid */
+-int do_release(struct connection *conn, struct buffered_data *in)
++static struct domain *onearg_domain(struct connection *conn,
++				    struct buffered_data *in)
+ {
+ 	const char *domid_str = onearg(in);
+-	struct domain *domain;
+ 	unsigned int domid;
+ 
+ 	if (!domid_str)
+-		return EINVAL;
++		return ERR_PTR(-EINVAL);
+ 
+ 	domid = atoi(domid_str);
+ 	if (!domid)
+-		return EINVAL;
++		return ERR_PTR(-EINVAL);
+ 
+ 	if (domain_is_unprivileged(conn))
+-		return EACCES;
++		return ERR_PTR(-EACCES);
+ 
+-	domain = find_domain_by_domid(domid);
+-	if (!domain)
+-		return ENOENT;
++	return find_connected_domain(domid);
++}
+ 
+-	if (!domain->conn)
+-		return EINVAL;
++/* domid */
++int do_release(struct connection *conn, struct buffered_data *in)
++{
++	struct domain *domain;
++
++	domain = onearg_domain(conn, in);
++	if (IS_ERR(domain))
++		return -PTR_ERR(domain);
+ 
+ 	talloc_free(domain->conn);
+ 
+@@ -487,25 +498,10 @@ int do_release(struct connection *conn, struct buffered_data *in)
+ int do_resume(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct domain *domain;
+-	unsigned int domid;
+-	const char *domid_str = onearg(in);
+-
+-	if (!domid_str)
+-		return EINVAL;
+ 
+-	domid = atoi(domid_str);
+-	if (!domid)
+-		return EINVAL;
+-
+-	if (domain_is_unprivileged(conn))
+-		return EACCES;
+-
+-	domain = find_domain_by_domid(domid);
+-	if (!domain)
+-		return ENOENT;
+-
+-	if (!domain->conn)
+-		return EINVAL;
++	domain = onearg_domain(conn, in);
++	if (IS_ERR(domain))
++		return -PTR_ERR(domain);
+ 
+ 	domain->shutdown = 0;
+ 	
+-- 
+2.25.4
+

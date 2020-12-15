@@ -1,0 +1,147 @@
+From 946dbe86477ae7d665ab75f23080a2b2871573f3 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:46 +0100
+Subject: [PATCH 05/25] xenstore: add support for reading directory with many
+ children
+
+As the payload size for one xenstore wire command is limited to 4096
+bytes it is impossible to read the children names of a node with a
+large number of children (e.g. /local/domain in case of a host with
+more than about 2000 domains). This effectively limits the maximum
+number of domains a host can support.
+
+In order to support such long directory outputs add a new wire command
+XS_DIRECTORY_PART which will return only some entries in each call and
+can be called in a loop to get all entries.
+
+Input data are the path of the node and the byte offset into the child
+list where returned data should start.
+
+Output is the generation count of the node (which will change each time
+the node is being modified) and a list of child names starting with
+the specified index. The end of the list is indicated by an empty
+child name. It is the responsibility of the caller to check for data
+consistency by comparing the generation counts of all returned data
+sets to be the same for one node.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c | 67 +++++++++++++++++++++++++++++++++
+ xen/include/public/io/xs_wire.h |  1 +
+ 2 files changed, 68 insertions(+)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 31d94a48489d..fad786c1355f 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -16,6 +16,7 @@
+     along with this program; If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
++#include <inttypes.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <poll.h>
+@@ -147,6 +148,7 @@ static char *sockmsg_string(enum xsd_sockmsg_type type)
+ 	case XS_RESUME: return "RESUME";
+ 	case XS_SET_TARGET: return "SET_TARGET";
+ 	case XS_RESET_WATCHES: return "RESET_WATCHES";
++	case XS_DIRECTORY_PART: return "DIRECTORY_PART";
+ 	default:
+ 		return "**UNKNOWN**";
+ 	}
+@@ -817,6 +819,67 @@ static void send_directory(struct connection *conn, struct buffered_data *in)
+ 	send_reply(conn, XS_DIRECTORY, node->children, node->childlen);
+ }
+ 
++static void send_directory_part(struct connection *conn,
++				struct buffered_data *in)
++{
++	unsigned int off, len, maxlen, genlen;
++	char *name, *child, *data;
++	struct node *node;
++	char gen[24];
++
++	if (xs_count_strings(in->buffer, in->used) != 2) {
++		send_error(conn, EINVAL);
++		return;
++	}
++
++	/* First arg is node name. */
++	name = canonicalize(conn, in->buffer);
++
++	/* Second arg is childlist offset. */
++	off = atoi(in->buffer + strlen(in->buffer) + 1);
++
++	node = get_node(conn, in, name, XS_PERM_READ);
++	if (!node) {
++		send_error(conn, errno);
++		return;
++	}
++
++	genlen = snprintf(gen, sizeof(gen), "%"PRIu64, node->generation) + 1;
++
++	/* Offset behind list: just return a list with an empty string. */
++	if (off >= node->childlen) {
++		gen[genlen] = 0;
++		send_reply(conn, XS_DIRECTORY_PART, gen, genlen + 1);
++		return;
++	}
++
++	len = 0;
++	maxlen = XENSTORE_PAYLOAD_MAX - genlen - 1;
++	child = node->children + off;
++
++	while (len + strlen(child) < maxlen) {
++		len += strlen(child) + 1;
++		child += strlen(child) + 1;
++		if (off + len == node->childlen)
++			break;
++	}
++
++	data = talloc_array(in, char, genlen + len + 1);
++	if (!data) {
++		send_error(conn, ENOMEM);
++		return;
++	}
++
++	memcpy(data, gen, genlen);
++	memcpy(data + genlen, node->children + off, len);
++	if (off + len == node->childlen) {
++		data[genlen + len] = 0;
++		len++;
++	}
++
++	send_reply(conn, XS_DIRECTORY_PART, data, genlen + len);
++}
++
+ static void do_read(struct connection *conn, struct buffered_data *in)
+ {
+ 	struct node *node;
+@@ -1343,6 +1406,10 @@ static void process_message(struct connection *conn, struct buffered_data *in)
+ 		do_reset_watches(conn, in);
+ 		break;
+ 
++	case XS_DIRECTORY_PART:
++		send_directory_part(conn, in);
++		break;
++
+ 	default:
+ 		eprintf("Client unknown operation %i", in->hdr.msg.type);
+ 		send_error(conn, ENOSYS);
+diff --git a/xen/include/public/io/xs_wire.h b/xen/include/public/io/xs_wire.h
+index 0a0cdbcc6d7a..545f916b9cd1 100644
+--- a/xen/include/public/io/xs_wire.h
++++ b/xen/include/public/io/xs_wire.h
+@@ -50,6 +50,7 @@ enum xsd_sockmsg_type
+     XS_SET_TARGET,
+     XS_RESTRICT,
+     XS_RESET_WATCHES,
++    XS_DIRECTORY_PART,
+ 
+     XS_INVALID = 0xffff /* Guaranteed to remain an invalid type */
+ };
+-- 
+2.25.4
+

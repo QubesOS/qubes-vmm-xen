@@ -1,0 +1,125 @@
+From 85bf1a8872eee0973d24945c2aaed482de8b5bdb Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Fri, 24 Feb 2017 07:21:40 +0100
+Subject: [PATCH 17/25] xenstore: rename XS_DEBUG wire command
+
+In preparation to support other than pure debug functionality via the
+Xenstore XS_DEBUG wire command rename it to XS_CONTROL and make
+XS_DEBUG an alias of it.
+
+Add an alias xs_control_command for the associated xs_debug_command,
+too.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/include/xenstore.h |  4 +++-
+ tools/xenstore/xenstored_core.c   |  8 ++++----
+ tools/xenstore/xs.c               | 13 +++++++++----
+ xen/include/public/io/xs_wire.h   |  3 ++-
+ 4 files changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/tools/xenstore/include/xenstore.h b/tools/xenstore/include/xenstore.h
+index 0d12c39ba4b7..f460b8c5e536 100644
+--- a/tools/xenstore/include/xenstore.h
++++ b/tools/xenstore/include/xenstore.h
+@@ -262,7 +262,9 @@ bool xs_path_is_subpath(const char *parent, const char *child);
+  */
+ bool xs_is_domain_introduced(struct xs_handle *h, unsigned int domid);
+ 
+-/* Only useful for DEBUG versions */
++char *xs_control_command(struct xs_handle *h, const char *cmd,
++			 void *data, unsigned int len);
++/* Deprecated: use xs_control_command() instead. */
+ char *xs_debug_command(struct xs_handle *h, const char *cmd,
+ 		       void *data, unsigned int len);
+ 
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 9a7ef1aa3be5..413ac2f01a0b 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -1284,7 +1284,7 @@ static int do_set_perms(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
+-static int do_debug(struct connection *conn, struct buffered_data *in)
++static int do_control(struct connection *conn, struct buffered_data *in)
+ {
+ 	int num;
+ 
+@@ -1296,13 +1296,13 @@ static int do_debug(struct connection *conn, struct buffered_data *in)
+ 	if (streq(in->buffer, "print")) {
+ 		if (num < 2)
+ 			return EINVAL;
+-		xprintf("debug: %s", in->buffer + get_string(in, 0));
++		xprintf("control: %s", in->buffer + get_string(in, 0));
+ 	}
+ 
+ 	if (streq(in->buffer, "check"))
+ 		check_store();
+ 
+-	send_ack(conn, XS_DEBUG);
++	send_ack(conn, XS_CONTROL);
+ 
+ 	return 0;
+ }
+@@ -1311,7 +1311,7 @@ static struct {
+ 	const char *str;
+ 	int (*func)(struct connection *conn, struct buffered_data *in);
+ } const wire_funcs[XS_TYPE_COUNT] = {
+-	[XS_DEBUG]             = { "DEBUG",             do_debug },
++	[XS_CONTROL]           = { "CONTROL",           do_control },
+ 	[XS_DIRECTORY]         = { "DIRECTORY",         send_directory },
+ 	[XS_READ]              = { "READ",              do_read },
+ 	[XS_GET_PERMS]         = { "GET_PERMS",         do_get_perms },
+diff --git a/tools/xenstore/xs.c b/tools/xenstore/xs.c
+index 6fa1261b6d4d..56caac74cf4d 100644
+--- a/tools/xenstore/xs.c
++++ b/tools/xenstore/xs.c
+@@ -1165,9 +1165,8 @@ out:
+     return port;
+ }
+ 
+-/* Only useful for DEBUG versions */
+-char *xs_debug_command(struct xs_handle *h, const char *cmd,
+-		       void *data, unsigned int len)
++char *xs_control_command(struct xs_handle *h, const char *cmd,
++			 void *data, unsigned int len)
+ {
+ 	struct iovec iov[2];
+ 
+@@ -1176,10 +1175,16 @@ char *xs_debug_command(struct xs_handle *h, const char *cmd,
+ 	iov[1].iov_base = data;
+ 	iov[1].iov_len = len;
+ 
+-	return xs_talkv(h, XBT_NULL, XS_DEBUG, iov,
++	return xs_talkv(h, XBT_NULL, XS_CONTROL, iov,
+ 			ARRAY_SIZE(iov), NULL);
+ }
+ 
++char *xs_debug_command(struct xs_handle *h, const char *cmd,
++		       void *data, unsigned int len)
++{
++	return xs_control_command(h, cmd, data, len);
++}
++
+ static int read_message(struct xs_handle *h, int nonblocking)
+ {
+ 	/* IMPORTANT: It is forbidden to call this function without
+diff --git a/xen/include/public/io/xs_wire.h b/xen/include/public/io/xs_wire.h
+index f9f94f13f574..4dd663266961 100644
+--- a/xen/include/public/io/xs_wire.h
++++ b/xen/include/public/io/xs_wire.h
+@@ -28,7 +28,8 @@
+ 
+ enum xsd_sockmsg_type
+ {
+-    XS_DEBUG,
++    XS_CONTROL,
++#define XS_DEBUG XS_CONTROL
+     XS_DIRECTORY,
+     XS_READ,
+     XS_GET_PERMS,
+-- 
+2.25.4
+

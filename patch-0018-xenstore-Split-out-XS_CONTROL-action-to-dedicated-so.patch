@@ -1,0 +1,192 @@
+From 360d157957193557c3341cd47f6df3a7b0ea02cf Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Fri, 24 Feb 2017 07:21:41 +0100
+Subject: [PATCH 18/25] xenstore: Split out XS_CONTROL action to dedicated
+ source file
+
+Move the XS_CONTROL handling of xenstored to a new source file
+xenstored_control.c.
+
+In order to avoid making get_string() in xenstored_core.c globally
+visible use strlen() instead, which is save in this context due to
+xs_count_strings() before returned a value > 1.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/Makefile            |  4 ++-
+ tools/xenstore/xenstored_control.c | 46 ++++++++++++++++++++++++++++++
+ tools/xenstore/xenstored_control.h | 19 ++++++++++++
+ tools/xenstore/xenstored_core.c    | 27 ++----------------
+ tools/xenstore/xenstored_core.h    |  2 +-
+ 5 files changed, 71 insertions(+), 27 deletions(-)
+ create mode 100644 tools/xenstore/xenstored_control.c
+ create mode 100644 tools/xenstore/xenstored_control.h
+
+diff --git a/tools/xenstore/Makefile b/tools/xenstore/Makefile
+index 9cb54def2178..5e50a9232c4e 100644
+--- a/tools/xenstore/Makefile
++++ b/tools/xenstore/Makefile
+@@ -23,7 +23,9 @@ LDFLAGS += $(LDFLAGS-y)
+ CLIENTS := xenstore-exists xenstore-list xenstore-read xenstore-rm xenstore-chmod
+ CLIENTS += xenstore-write xenstore-ls xenstore-watch
+ 
+-XENSTORED_OBJS = xenstored_core.o xenstored_watch.o xenstored_domain.o xenstored_transaction.o xs_lib.o talloc.o utils.o tdb.o hashtable.o
++XENSTORED_OBJS = xenstored_core.o xenstored_watch.o xenstored_domain.o
++XENSTORED_OBJS += xenstored_transaction.o xenstored_control.o
++XENSTORED_OBJS += xs_lib.o talloc.o utils.o tdb.o hashtable.o
+ 
+ XENSTORED_OBJS_$(CONFIG_Linux) = xenstored_posix.o
+ XENSTORED_OBJS_$(CONFIG_SunOS) = xenstored_solaris.o xenstored_posix.o xenstored_probes.o
+diff --git a/tools/xenstore/xenstored_control.c b/tools/xenstore/xenstored_control.c
+new file mode 100644
+index 000000000000..f169d238d1a2
+--- /dev/null
++++ b/tools/xenstore/xenstored_control.c
+@@ -0,0 +1,46 @@
++/*
++    Interactive commands for Xen Store Daemon.
++    Copyright (C) 2017 Juergen Gross, SUSE Linux GmbH
++
++    This program is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 2 of the License, or
++    (at your option) any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with this program; If not, see <http://www.gnu.org/licenses/>.
++*/
++
++#include <errno.h>
++
++#include "utils.h"
++#include "xenstored_core.h"
++#include "xenstored_control.h"
++
++int do_control(struct connection *conn, struct buffered_data *in)
++{
++	int num;
++
++	if (conn->id != 0)
++		return EACCES;
++
++	num = xs_count_strings(in->buffer, in->used);
++
++	if (streq(in->buffer, "print")) {
++		if (num < 2)
++			return EINVAL;
++		xprintf("control: %s", in->buffer + strlen(in->buffer) + 1);
++	}
++
++	if (streq(in->buffer, "check"))
++		check_store();
++
++	send_ack(conn, XS_CONTROL);
++
++	return 0;
++}
+diff --git a/tools/xenstore/xenstored_control.h b/tools/xenstore/xenstored_control.h
+new file mode 100644
+index 000000000000..207e0a6fa352
+--- /dev/null
++++ b/tools/xenstore/xenstored_control.h
+@@ -0,0 +1,19 @@
++/*
++    Interactive commands for Xen Store Daemon.
++    Copyright (C) 2017 Juergen Gross, SUSE Linux GmbH
++
++    This program is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 2 of the License, or
++    (at your option) any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with this program; If not, see <http://www.gnu.org/licenses/>.
++*/
++
++int do_control(struct connection *conn, struct buffered_data *in);
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 413ac2f01a0b..ee1cef0f8fea 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -51,6 +51,7 @@
+ #include "xenstored_watch.h"
+ #include "xenstored_transaction.h"
+ #include "xenstored_domain.h"
++#include "xenstored_control.h"
+ #include "tdb.h"
+ 
+ #include "hashtable.h"
+@@ -85,7 +86,6 @@ static TDB_CONTEXT *tdb_ctx = NULL;
+ static bool trigger_talloc_report = false;
+ 
+ static void corrupt(struct connection *conn, const char *fmt, ...);
+-static void check_store(void);
+ static const char *sockmsg_string(enum xsd_sockmsg_type type);
+ 
+ #define log(...)							\
+@@ -1284,29 +1284,6 @@ static int do_set_perms(struct connection *conn, struct buffered_data *in)
+ 	return 0;
+ }
+ 
+-static int do_control(struct connection *conn, struct buffered_data *in)
+-{
+-	int num;
+-
+-	if (conn->id != 0)
+-		return EACCES;
+-
+-	num = xs_count_strings(in->buffer, in->used);
+-
+-	if (streq(in->buffer, "print")) {
+-		if (num < 2)
+-			return EINVAL;
+-		xprintf("control: %s", in->buffer + get_string(in, 0));
+-	}
+-
+-	if (streq(in->buffer, "check"))
+-		check_store();
+-
+-	send_ack(conn, XS_CONTROL);
+-
+-	return 0;
+-}
+-
+ static struct {
+ 	const char *str;
+ 	int (*func)(struct connection *conn, struct buffered_data *in);
+@@ -1818,7 +1795,7 @@ static void clean_store(struct hashtable *reachable)
+ }
+ 
+ 
+-static void check_store(void)
++void check_store(void)
+ {
+ 	char * root = talloc_strdup(NULL, "/");
+ 	struct hashtable * reachable =
+diff --git a/tools/xenstore/xenstored_core.h b/tools/xenstore/xenstored_core.h
+index 77024644275e..6a58c65783e4 100644
+--- a/tools/xenstore/xenstored_core.h
++++ b/tools/xenstore/xenstored_core.h
+@@ -164,7 +164,7 @@ TDB_CONTEXT *tdb_context(struct connection *conn);
+ bool replace_tdb(const char *newname, TDB_CONTEXT *newtdb);
+ 
+ struct connection *new_connection(connwritefn_t *write, connreadfn_t *read);
+-
++void check_store(void);
+ 
+ /* Is this a valid node name? */
+ bool is_valid_nodename(const char *node);
+-- 
+2.25.4
+

@@ -1,0 +1,135 @@
+From baefd4ba132274acc25044a725491e81df2e390b Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:44 +0100
+Subject: [PATCH 03/25] xenstore: use common tdb record header in xenstore
+
+The layout of the tdb record of xenstored is defined at multiple
+places: read_node(), write_node() and in xs_tdb_dump.c
+
+Use a common structure instead.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/include/xenstore_lib.h |  8 ++++++++
+ tools/xenstore/xenstored_core.c       | 27 ++++++++++++++-------------
+ tools/xenstore/xs_tdb_dump.c          | 11 ++---------
+ 3 files changed, 24 insertions(+), 22 deletions(-)
+
+diff --git a/tools/xenstore/include/xenstore_lib.h b/tools/xenstore/include/xenstore_lib.h
+index 462b7b9d4081..efdf93580a18 100644
+--- a/tools/xenstore/include/xenstore_lib.h
++++ b/tools/xenstore/include/xenstore_lib.h
+@@ -42,6 +42,14 @@ struct xs_permissions
+ 	enum xs_perm_type perms;
+ };
+ 
++/* Header of the node record in tdb. */
++struct xs_tdb_record_hdr {
++	uint32_t num_perms;
++	uint32_t datalen;
++	uint32_t childlen;
++	struct xs_permissions perms[0];
++};
++
+ /* Each 10 bits takes ~ 3 digits, plus one, plus one for nul terminator. */
+ #define MAX_STRLEN(x) ((sizeof(x) * CHAR_BIT + CHAR_BIT-1) / 10 * 3 + 2)
+ 
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 518a55805e7f..aacfde8930ca 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -421,7 +421,7 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 			      const char *name)
+ {
+ 	TDB_DATA key, data;
+-	uint32_t *p;
++	struct xs_tdb_record_hdr *hdr;
+ 	struct node *node;
+ 	TDB_CONTEXT * context = tdb_context(conn);
+ 
+@@ -446,13 +446,13 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 	talloc_steal(node, data.dptr);
+ 
+ 	/* Datalen, childlen, number of permissions */
+-	p = (uint32_t *)data.dptr;
+-	node->num_perms = p[0];
+-	node->datalen = p[1];
+-	node->childlen = p[2];
++	hdr = (void *)data.dptr;
++	node->num_perms = hdr->num_perms;
++	node->datalen = hdr->datalen;
++	node->childlen = hdr->childlen;
+ 
+ 	/* Permissions are struct xs_permissions. */
+-	node->perms = (void *)&p[3];
++	node->perms = hdr->perms;
+ 	/* Data is binary blob (usually ascii, no nul). */
+ 	node->data = node->perms + node->num_perms;
+ 	/* Children is strings, nul separated. */
+@@ -470,11 +470,12 @@ static bool write_node(struct connection *conn, struct node *node)
+ 
+ 	TDB_DATA key, data;
+ 	void *p;
++	struct xs_tdb_record_hdr *hdr;
+ 
+ 	key.dptr = (void *)node->name;
+ 	key.dsize = strlen(node->name);
+ 
+-	data.dsize = 3*sizeof(uint32_t)
++	data.dsize = sizeof(*hdr)
+ 		+ node->num_perms*sizeof(node->perms[0])
+ 		+ node->datalen + node->childlen;
+ 
+@@ -484,13 +485,13 @@ static bool write_node(struct connection *conn, struct node *node)
+ 	add_change_node(conn, node, false);
+ 
+ 	data.dptr = talloc_size(node, data.dsize);
+-	((uint32_t *)data.dptr)[0] = node->num_perms;
+-	((uint32_t *)data.dptr)[1] = node->datalen;
+-	((uint32_t *)data.dptr)[2] = node->childlen;
+-	p = data.dptr + 3 * sizeof(uint32_t);
++	hdr = (void *)data.dptr;
++	hdr->num_perms = node->num_perms;
++	hdr->datalen = node->datalen;
++	hdr->childlen = node->childlen;
+ 
+-	memcpy(p, node->perms, node->num_perms*sizeof(node->perms[0]));
+-	p += node->num_perms*sizeof(node->perms[0]);
++	memcpy(hdr->perms, node->perms, node->num_perms*sizeof(node->perms[0]));
++	p = hdr->perms + node->num_perms;
+ 	memcpy(p, node->data, node->datalen);
+ 	p += node->datalen;
+ 	memcpy(p, node->children, node->childlen);
+diff --git a/tools/xenstore/xs_tdb_dump.c b/tools/xenstore/xs_tdb_dump.c
+index 9f636f944618..207ed446d5aa 100644
+--- a/tools/xenstore/xs_tdb_dump.c
++++ b/tools/xenstore/xs_tdb_dump.c
+@@ -11,14 +11,7 @@
+ #include "talloc.h"
+ #include "utils.h"
+ 
+-struct record_hdr {
+-	uint32_t num_perms;
+-	uint32_t datalen;
+-	uint32_t childlen;
+-	struct xs_permissions perms[0];
+-};
+-
+-static uint32_t total_size(struct record_hdr *hdr)
++static uint32_t total_size(struct xs_tdb_record_hdr *hdr)
+ {
+ 	return sizeof(*hdr) + hdr->num_perms * sizeof(struct xs_permissions) 
+ 		+ hdr->datalen + hdr->childlen;
+@@ -58,7 +51,7 @@ int main(int argc, char *argv[])
+ 	key = tdb_firstkey(tdb);
+ 	while (key.dptr) {
+ 		TDB_DATA data;
+-		struct record_hdr *hdr;
++		struct xs_tdb_record_hdr *hdr;
+ 
+ 		data = tdb_fetch(tdb, key);
+ 		hdr = (void *)data.dptr;
+-- 
+2.25.4
+

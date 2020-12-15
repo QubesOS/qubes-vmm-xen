@@ -1,0 +1,122 @@
+From 8e2a451731998986acb8b3b02580c2efc6ee02c4 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Fri, 24 Feb 2017 07:21:45 +0100
+Subject: [PATCH 21/25] xenstore: remove memory report command line support
+
+As a memory report can now be triggered via XS_CONTROL support via
+command line and signal handler is no longer needed. Remove it.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/xenstored_core.c | 35 ++-------------------------------
+ 1 file changed, 2 insertions(+), 33 deletions(-)
+
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index 5e350d615df9..bdc309a2a60b 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -82,7 +82,6 @@ static int reopen_log_pipe[2];
+ static int reopen_log_pipe0_pollfd_idx = -1;
+ static char *tracefile = NULL;
+ static TDB_CONTEXT *tdb_ctx = NULL;
+-static bool trigger_talloc_report = false;
+ 
+ static void corrupt(struct connection *conn, const char *fmt, ...);
+ static const char *sockmsg_string(enum xsd_sockmsg_type type);
+@@ -1798,10 +1797,6 @@ static void init_sockets(int **psock, int **pro_sock)
+ 	static int minus_one = -1;
+ 	*psock = *pro_sock = &minus_one;
+ }
+-
+-static void do_talloc_report(int sig)
+-{
+-}
+ #else
+ static int destroy_fd(void *_fd)
+ {
+@@ -1861,11 +1856,6 @@ static void init_sockets(int **psock, int **pro_sock)
+ 
+ 
+ }
+-
+-static void do_talloc_report(int sig)
+-{
+-	trigger_talloc_report = true;
+-}
+ #endif
+ 
+ static void usage(void)
+@@ -1890,7 +1880,6 @@ static void usage(void)
+ "  -R, --no-recovery       to request that no recovery should be attempted when\n"
+ "                          the store is corrupted (debug only),\n"
+ "  -I, --internal-db       store database in memory, not on disk\n"
+-"  -M, --memory-debug <file>  support memory debugging to file,\n"
+ "  -V, --verbose           to request verbose execution.\n");
+ }
+ 
+@@ -1912,7 +1901,6 @@ static struct option options[] = {
+ 	{ "internal-db", 0, NULL, 'I' },
+ 	{ "verbose", 0, NULL, 'V' },
+ 	{ "watch-nb", 1, NULL, 'W' },
+-	{ "memory-debug", 1, NULL, 'M' },
+ 	{ NULL, 0, NULL, 0 } };
+ 
+ extern void dump_conn(struct connection *conn); 
+@@ -1928,11 +1916,10 @@ int main(int argc, char *argv[])
+ 	bool outputpid = false;
+ 	bool no_domain_init = false;
+ 	const char *pidfile = NULL;
+-	const char *memfile = NULL;
+ 	int timeout;
+ 
+ 
+-	while ((opt = getopt_long(argc, argv, "DE:F:HNPS:t:T:RVW:M:", options,
++	while ((opt = getopt_long(argc, argv, "DE:F:HNPS:t:T:RVW:", options,
+ 				  NULL)) != -1) {
+ 		switch (opt) {
+ 		case 'D':
+@@ -1983,9 +1970,6 @@ int main(int argc, char *argv[])
+ 		case 'p':
+ 			priv_domid = strtol(optarg, NULL, 10);
+ 			break;
+-		case 'M':
+-			memfile = optarg;
+-			break;
+ 		}
+ 	}
+ 	if (optind != argc)
+@@ -2012,10 +1996,7 @@ int main(int argc, char *argv[])
+ 	/* Don't kill us with SIGPIPE. */
+ 	signal(SIGPIPE, SIG_IGN);
+ 
+-	if (memfile) {
+-		talloc_enable_null_tracking();
+-		signal(SIGUSR1, do_talloc_report);
+-	}
++	talloc_enable_null_tracking();
+ 
+ 	init_sockets(&sock, &ro_sock);
+ 
+@@ -2058,18 +2039,6 @@ int main(int argc, char *argv[])
+ 	for (;;) {
+ 		struct connection *conn, *next;
+ 
+-		if (trigger_talloc_report) {
+-			FILE *out;
+-
+-			assert(memfile);
+-			trigger_talloc_report = false;
+-			out = fopen(memfile, "a");
+-			if (out) {
+-				talloc_report_full(NULL, out);
+-				fclose(out);
+-			}
+-		}
+-
+ 		if (poll(fds, nr_fds, timeout) < 0) {
+ 			if (errno == EINTR)
+ 				continue;
+-- 
+2.25.4
+

@@ -1,0 +1,136 @@
+From 1141fbb498a81ff64577f35c036b01250c9658d1 Mon Sep 17 00:00:00 2001
+From: Juergen Gross <jgross@suse.com>
+Date: Mon, 5 Dec 2016 08:48:45 +0100
+Subject: [PATCH 04/25] xenstore: add per-node generation counter
+
+In order to be able to support reading the list of a node's children in
+multiple chunks (needed for list sizes > 4096 bytes) without having to
+allocate a temporary buffer we need some kind of generation counter for
+each node. This will help to recognize a node has changed between
+reading two chunks.
+
+As removing a node and reintroducing it must result in different
+generation counts each generation value has to be globally unique. This
+can be ensured only by using a global 64 bit counter.
+
+For handling of transactions there is already such a counter available,
+it just has to be expanded to 64 bits and must be stored in each
+modified node.
+
+Signed-off-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+---
+ tools/xenstore/include/xenstore_lib.h  |  1 +
+ tools/xenstore/xenstored_core.c        |  2 ++
+ tools/xenstore/xenstored_core.h        |  3 +++
+ tools/xenstore/xenstored_transaction.c | 15 ++++++++++-----
+ 4 files changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/tools/xenstore/include/xenstore_lib.h b/tools/xenstore/include/xenstore_lib.h
+index efdf93580a18..0ffbae9eb574 100644
+--- a/tools/xenstore/include/xenstore_lib.h
++++ b/tools/xenstore/include/xenstore_lib.h
+@@ -44,6 +44,7 @@ struct xs_permissions
+ 
+ /* Header of the node record in tdb. */
+ struct xs_tdb_record_hdr {
++	uint64_t generation;
+ 	uint32_t num_perms;
+ 	uint32_t datalen;
+ 	uint32_t childlen;
+diff --git a/tools/xenstore/xenstored_core.c b/tools/xenstore/xenstored_core.c
+index aacfde8930ca..31d94a48489d 100644
+--- a/tools/xenstore/xenstored_core.c
++++ b/tools/xenstore/xenstored_core.c
+@@ -447,6 +447,7 @@ static struct node *read_node(struct connection *conn, const void *ctx,
+ 
+ 	/* Datalen, childlen, number of permissions */
+ 	hdr = (void *)data.dptr;
++	node->generation = hdr->generation;
+ 	node->num_perms = hdr->num_perms;
+ 	node->datalen = hdr->datalen;
+ 	node->childlen = hdr->childlen;
+@@ -486,6 +487,7 @@ static bool write_node(struct connection *conn, struct node *node)
+ 
+ 	data.dptr = talloc_size(node, data.dsize);
+ 	hdr = (void *)data.dptr;
++	hdr->generation = node->generation;
+ 	hdr->num_perms = node->num_perms;
+ 	hdr->datalen = node->datalen;
+ 	hdr->childlen = node->childlen;
+diff --git a/tools/xenstore/xenstored_core.h b/tools/xenstore/xenstored_core.h
+index 9e9d960247b3..84555258a3c9 100644
+--- a/tools/xenstore/xenstored_core.h
++++ b/tools/xenstore/xenstored_core.h
+@@ -115,6 +115,9 @@ struct node {
+ 	/* Parent (optional) */
+ 	struct node *parent;
+ 
++	/* Generation count. */
++	uint64_t generation;
++
+ 	/* Permissions. */
+ 	unsigned int num_perms;
+ 	struct xs_permissions *perms;
+diff --git a/tools/xenstore/xenstored_transaction.c b/tools/xenstore/xenstored_transaction.c
+index ee4bd3e68624..3d1090197a48 100644
+--- a/tools/xenstore/xenstored_transaction.c
++++ b/tools/xenstore/xenstored_transaction.c
+@@ -68,7 +68,10 @@ struct transaction
+ 	uint32_t id;
+ 
+ 	/* Generation when transaction started. */
+-	unsigned int generation;
++	uint64_t generation;
++
++	/* Transaction internal generation. */
++	uint64_t trans_gen;
+ 
+ 	/* TDB to work on, and filename */
+ 	TDB_CONTEXT *tdb;
+@@ -82,7 +85,7 @@ struct transaction
+ };
+ 
+ extern int quota_max_transaction;
+-static unsigned int generation;
++static uint64_t generation;
+ 
+ /* Return tdb context to use for this connection. */
+ TDB_CONTEXT *tdb_transaction_context(struct transaction *trans)
+@@ -99,12 +102,14 @@ void add_change_node(struct connection *conn, struct node *node, bool recurse)
+ 
+ 	if (!conn || !conn->transaction) {
+ 		/* They're changing the global database. */
+-		generation++;
++		node->generation = generation++;
+ 		return;
+ 	}
+ 
+ 	trans = conn->transaction;
+ 
++	node->generation = generation + trans->trans_gen++;
++
+ 	list_for_each_entry(i, &trans->changes, list) {
+ 		if (streq(i->node, node->name)) {
+ 			if (recurse)
+@@ -162,7 +167,7 @@ void do_transaction_start(struct connection *conn, struct buffered_data *in)
+ 	}
+ 
+ 	/* Attach transaction to input for autofree until it's complete */
+-	trans = talloc(in, struct transaction);
++	trans = talloc_zero(in, struct transaction);
+ 	INIT_LIST_HEAD(&trans->changes);
+ 	INIT_LIST_HEAD(&trans->changed_domains);
+ 	trans->generation = generation;
+@@ -240,7 +245,7 @@ void do_transaction_end(struct connection *conn, struct buffered_data *in)
+ 		/* Fire off the watches for everything that changed. */
+ 		list_for_each_entry(i, &trans->changes, list)
+ 			fire_watches(conn, in, i->node, i->recurse);
+-		generation++;
++		generation += trans->trans_gen;
+ 	}
+ 	send_ack(conn, XS_TRANSACTION_END);
+ }
+-- 
+2.25.4
+
