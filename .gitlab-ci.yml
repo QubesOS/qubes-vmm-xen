@@ -1,0 +1,19 @@
+include:
+  - project: 'QubesOS/qubes-continuous-integration'
+    file: '/r4.0/gitlab-base.yml'
+  - project: 'QubesOS/qubes-continuous-integration'
+    file: '/r4.0/gitlab-dom0.yml'
+  - project: 'QubesOS/qubes-continuous-integration'
+    file: '/r4.0/gitlab-vm-debian.yml'
+  - project: 'QubesOS/qubes-continuous-integration'
+    file: '/r4.0/gitlab-vm-centos.yml'
+  - project: 'QubesOS/qubes-continuous-integration'
+    file: '/r4.0/gitlab-vm-archlinux.yml'
+
+default:
+  tags:
+    - docker
+    - long-living-job
+
+variables:
+  TRAVIS_INSTALL_EXCLUDE: "xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo xen-hypervisor-common xen-system-amd64"
