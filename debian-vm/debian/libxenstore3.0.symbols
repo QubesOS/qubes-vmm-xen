@@ -4,6 +4,7 @@ libxenstore.so.3.0 libxenstore3.0 #MINVER#
  unsanitise_value@Base 3.2.0
  xs_check_watch@Base 4.2~
  xs_close@Base 4.1.0~rc6
+ xs_control_command@Base 2001:4.8.5-28
  xs_count_strings@Base 3.2.0
  xs_daemon_close@Base 3.2.0
  xs_daemon_destroy_postfork@Base 4.0.1~rc4
@@ -30,7 +31,6 @@ libxenstore.so.3.0 libxenstore3.0 #MINVER#
  xs_read@Base 3.2.0
  xs_read_watch@Base 3.2.0
  xs_release_domain@Base 3.2.0
- xs_restrict@Base 4.1.0~rc6
  xs_resume_domain@Base 3.2.0
  xs_rm@Base 3.2.0
  xs_set_permissions@Base 3.2.0
