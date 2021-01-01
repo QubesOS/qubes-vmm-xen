@@ -16,4 +16,5 @@ default:
     - long-living-job
 
 variables:
-  TRAVIS_INSTALL_EXCLUDE: "xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo xen-hypervisor-common xen-system-amd64"
+  TRAVIS_INSTALL_EXCLUDE_DOM0: "xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo"
+  TRAVIS_INSTALL_EXCLUDE: "xen xen-hypervisor-common xen-system-amd64"
