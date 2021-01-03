@@ -116,36 +116,6 @@ Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
 Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 
 # Security fixes
-Patch500: patch-xsa337-1.patch
-Patch501: patch-xsa337-2.patch
-Patch502: patch-xsa338.patch
-Patch503: patch-xsa340.patch
-Patch504: patch-xsa342.patch
-Patch505: patch-xsa343-1.patch
-Patch506: patch-xsa343-2.patch
-Patch507: patch-xsa343-3.patch
-Patch508: patch-xsa345-4.14-0001-x86-mm-Refactor-map_pages_to_xen-to-have-only-a-sing.patch
-Patch509: patch-xsa345-4.14-0002-x86-mm-Refactor-modify_xen_mappings-to-have-one-exit.patch
-Patch510: patch-xsa345-4.14-0003-x86-mm-Prevent-some-races-in-hypervisor-mapping-upda.patch
-Patch511: patch-xsa346-1.patch
-Patch512: patch-xsa346-2.patch
-Patch513: patch-xsa347-4.14-1.patch
-Patch514: patch-xsa347-4.14-2.patch
-Patch515: patch-xsa347-4.14-3.patch
-Patch516: patch-xsa351-x86-4.14-1.patch
-Patch517: patch-xsa351-x86-4.14-2.patch
-Patch518: patch-xsa355.patch
-Patch519: patch-xsa115-0001-tools-xenstore-allow-removing-child-of-a-node-exceed.patch
-Patch520: patch-xsa115-0002-tools-xenstore-ignore-transaction-id-for-un-watch.patch
-Patch521: patch-xsa115-0003-tools-xenstore-fix-node-accounting-after-failed-node.patch
-Patch522: patch-xsa115-0004-tools-xenstore-simplify-and-rename-check_event_node.patch
-Patch523: patch-xsa115-0005-tools-xenstore-check-privilege-for-XS_IS_DOMAIN_INTR.patch
-Patch524: patch-xsa115-0006-tools-xenstore-rework-node-removal.patch
-Patch525: patch-xsa115-0007-tools-xenstore-fire-watches-only-when-removing-a-spe.patch
-Patch526: patch-xsa115-0008-tools-xenstore-introduce-node_perms-structure.patch
-Patch527: patch-xsa115-0009-tools-xenstore-allow-special-watches-for-privileged-.patch
-Patch528: patch-xsa115-0010-tools-xenstore-avoid-watch-events-for-nodes-without-.patch
-Patch529: patch-xsa325-4.14.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
@@ -158,12 +128,7 @@ Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-xen-disable-efi-gettime.patch
 Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
-Patch628: patch-libxl-workaround-gcc-10.2-maybe-uninitialized-warnin.patch
-Patch629: patch-libxl-fix-Werror-stringop-truncation-in-libxl__prepa.patch
-Patch630: patch-x86-S3-Fix-Shadow-Stack-resume-path.patch
 Patch631: patch-Revert-xen-credit2-limit-the-max-number-of-CPUs-in-a.patch
-Patch632: patch-x86-S3-Restore-CR4-earlier-during-resume.patch
-Patch633: patch-x86-smpboot-Unconditionally-call-memguard_unguard_stack.patch
 Patch634: patch-libxl-cleanup-remaining-backend-xs-dirs-after-driver.patch
 
 # GCC8 fixes
