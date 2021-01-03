@@ -103,6 +103,18 @@ Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
 
+# Backport unified xen hypervisor patches from Xen 4.15
+Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
+Patch302: patch-unified-0002-EFI-some-easy-constification.patch
+Patch303: patch-unified-0003-efi-boot-make-file-ptr-const-void.patch
+Patch304: patch-unified-0004-efi-boot-wrap-PrintStr-PrintErr-to-allow-const-CHAR1.patch
+Patch305: patch-unified-0005-efi-boot.c-add-file.need_to_free.patch
+Patch306: patch-unified-0006-efi-boot.c-add-handle_file_info.patch
+Patch307: patch-unified-0007-efi-make-blexit-global.patch
+Patch308: patch-unified-0008-efi-Enable-booting-unified-hypervisor-kernel-initrd-.patch
+Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
+Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
+
 # Security fixes
 Patch500: patch-xsa337-1.patch
 Patch501: patch-xsa337-2.patch
