@@ -1,3 +1,15 @@
+xen (2001:4.8.5-29) unstable; urgency=medium
+
+  * Fix patch-xen-gcc10-fixes.patch context, apply recent patches to deb
+    too
+  * Add .gitlab-ci.yml
+  * debian: update compat version to 10
+  * archlinux: use autoreconf --install
+  * gitlab-ci: use separate exclude install list for dom0 and vm
+  * Cleanup parent xenstore dir after device remove
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 03 Jan 2021 07:09:25 +0100
+
 xen (2001:4.8.5-28) unstable; urgency=medium
 
   * Backport a set of xenstore fixes
