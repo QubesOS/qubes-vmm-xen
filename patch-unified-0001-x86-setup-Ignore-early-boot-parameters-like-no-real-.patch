@@ -27,7 +27,7 @@ index c9b6af826d..4b15e067fa 100644
 --- a/xen/arch/x86/setup.c
 +++ b/xen/arch/x86/setup.c
 @@ -679,6 +679,15 @@ static void __init noreturn reinit_bsp_stack(void)
-     reset_stack_and_jump_nolp(init_done);
+     reset_stack_and_jump(init_done);
  }
  
 +/*

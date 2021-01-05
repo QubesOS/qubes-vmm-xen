@@ -1,3 +1,23 @@
+xen (4.14.1-1) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Cleanup parent xenstore dir after device remove
+  * archlinux: use autoreconf --install
+
+  [ icequbes1 ]
+  * archlinux: fix autoreconf fail on autoconf 2.70
+
+  [ Trammell hudson ]
+  * unified-xen: backport unified EFI loader from xen-staging
+
+  [ Demi Marie Obenour ]
+  * Mass replace: ‘/var/run’ → ‘/run’
+
+  [ Marek Marczykowski-Górecki ]
+  * Drop patches already applied in 4.14.1
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 05 Jan 2021 21:09:48 +0100
+
 xen (4.14.0-9) unstable; urgency=medium
 
   * Apply XSA-115 and XSA-325 fixes
