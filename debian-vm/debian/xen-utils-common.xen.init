@@ -13,7 +13,7 @@
 . /lib/lsb/init-functions
 
 # Default variables
-XENSTORED_DIR="/var/run/xenstored"
+XENSTORED_DIR="/run/xenstored"
 
 [ -r /etc/default/xen ] && . /etc/default/xen
 
@@ -32,11 +32,11 @@ if grep -q '[^0-]' /sys/hypervisor/uuid; then
 fi
 
 XENCONSOLED="$ROOT"/bin/xenconsoled
-XENCONSOLED_PIDFILE="/var/run/xenconsoled.pid"
+XENCONSOLED_PIDFILE="/run/xenconsoled.pid"
 XENSTORED="$ROOT"/bin/xenstored
-XENSTORED_PIDFILE="/var/run/xenstore.pid"
+XENSTORED_PIDFILE="/run/xenstore.pid"
 QEMU=/usr/bin/qemu-system-i386
-QEMU_PIDFILE="/var/run/qemu-dom0.pid"
+QEMU_PIDFILE="/run/qemu-dom0.pid"
 QEMU_ARGS="-xen-domid 0 -xen-attach -name dom0 -nographic -M xenpv -daemonize -monitor /dev/null -serial /dev/null -parallel /dev/null"
 
 modules_setup()
