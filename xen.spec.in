@@ -158,6 +158,7 @@ Patch1017: patch-libxl-disable-vkb-by-default.patch
 Patch1020: patch-stubdom-linux-config-qubes-gui.patch
 Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
 Patch1022: patch-xen-acpi-slic-support.patch
+Patch1023: patch-0001-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
 
 Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
 
