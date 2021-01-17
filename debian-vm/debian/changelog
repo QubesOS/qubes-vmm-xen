@@ -1,3 +1,9 @@
+xen (4.14.1-2) unstable; urgency=medium
+
+  * Add a patch for conditional IOMMU-less passthrough on PV domain
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 17 Jan 2021 13:25:01 +0100
+
 xen (4.14.1-1) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
