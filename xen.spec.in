@@ -271,6 +271,7 @@ Patch573: patch-xsa115-0008-tools-xenstore-introduce-node_perms-structure.patch
 Patch574: patch-xsa115-0009-tools-xenstore-allow-special-watches-for-privileged-.patch
 Patch575: patch-xsa115-0010-tools-xenstore-avoid-watch-events-for-nodes-without-.patch
 Patch576: patch-xsa325-4.14.patch
+Patch577: patch-xsa366-4.11.patch
 
 
 # Upstreamable patches

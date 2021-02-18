@@ -1,0 +1,39 @@
+From: Roger Pau Monne <roger.pau@citrix.com>
+Subject: x86/ept: fix missing IOMMU flush in atomic_write_ept_entry
+
+Backport of XSA-321 missed a flush in atomic_write_ept_entry when
+level was different than 0. Such omission will undermine the fix for
+XSA-321, because page table entries cached in the IOMMU can get out
+of sync and contain stale entries.
+
+Fix this by slightly re-arranging the code to prevent the early return
+when level is different that 0. Note that the early return is just an
+optimization because foreign entries cannot have level > 0.
+
+This is XSA-366.
+
+Reported-by: M. Vefa Bicakci <m.v.b@runbox.com>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/mm/p2m-ept.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/mm/p2m-ept.c b/xen/arch/x86/mm/p2m-ept.c
+index 036771f43c..fde2f5f7e3 100644
+--- a/xen/arch/x86/mm/p2m-ept.c
++++ b/xen/arch/x86/mm/p2m-ept.c
+@@ -53,12 +53,7 @@ static int atomic_write_ept_entry(ept_entry_t *entryptr, ept_entry_t new,
+     bool_t check_foreign = (new.mfn != entryptr->mfn ||
+                             new.sa_p2mt != entryptr->sa_p2mt);
+ 
+-    if ( level )
+-    {
+-        ASSERT(!is_epte_superpage(&new) || !p2m_is_foreign(new.sa_p2mt));
+-        write_atomic(&entryptr->epte, new.epte);
+-        return 0;
+-    }
++    ASSERT(!level || !is_epte_superpage(&new) || !p2m_is_foreign(new.sa_p2mt));
+ 
+     if ( unlikely(p2m_is_foreign(new.sa_p2mt)) )
+     {
