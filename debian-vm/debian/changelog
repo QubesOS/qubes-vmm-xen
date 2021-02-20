@@ -1,3 +1,10 @@
+xen (4.14.1-3) unstable; urgency=medium
+
+  * Backport guest resume fix (libxl)
+  * Backport HPET fix for recent Intel systems
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 20 Feb 2021 17:10:14 +0100
+
 xen (4.14.1-2) unstable; urgency=medium
 
   * Add a patch for conditional IOMMU-less passthrough on PV domain
