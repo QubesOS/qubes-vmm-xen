@@ -116,6 +116,8 @@ Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
 Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 
 Patch320: patch-libxl-resume.patch
+Patch321: patch-x86-hpet-Fix-return-value-of-hpet_setup.patch
+Patch322: patch-x86-timer-Fix-boot-on-Intel-systems-using-ITSSPRC-st.patch
 
 # Security fixes
 
