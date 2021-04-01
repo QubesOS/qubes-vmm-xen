@@ -14,12 +14,16 @@ version := $(shell cat version)
 release := $(shell cat rel)
 jobs := $(shell grep -c ^processor /proc/cpuinfo)
 
+http_proxy := $(REPO_PROXY)
+https_proxy := $(REPO_PROXY)
+export http_proxy https_proxy
+fetcher := curl -sS --proto '=http,https' -o
 def = --define "$(v) $(value $(v))"
 RPM_DEFINES := $(foreach v, _sourcedir _specdir _builddir _srcrpmdir _rpmdir version jobs, $(def))
 
 DIST_DOM0 ?= fc13
 
-DISTFILES_MIRROR ?= http://ftp.qubes-os.org/distfiles/
+DISTFILES_MIRROR ?= https://ftp.qubes-os.org/distfiles/
 
 ifndef version
 $(error "You can not run this Makefile without having version defined")
@@ -36,15 +40,15 @@ UNTRUSTED_SUFF := .UNTRUSTED
 # signature file _and_ the file it signs for (assumed to be the basename).
 URLS := \
     https://downloads.xenproject.org/release/xen/${version}/xen-${version}.tar.gz.sig \
-    ftp://alpha.gnu.org/gnu/grub/grub-0.97.tar.gz.sig \
+    http://alpha.gnu.org/gnu/grub/grub-0.97.tar.gz.sig \
     http://download.savannah.gnu.org/releases/lwip/older_versions/lwip-1.3.0.tar.gz.sig \
-    ftp://sources.redhat.com/pub/newlib/newlib-1.16.0.tar.gz \
+    http://sources.redhat.com/pub/newlib/newlib-1.16.0.tar.gz \
     http://www.kernel.org/pub/software/utils/pciutils/pciutils-2.2.9.tar.bz2 \
     http://downloads.sourceforge.net/project/libpng/zlib/1.2.3/zlib-1.2.3.tar.gz \
     http://caml.inria.fr/pub/distrib/ocaml-3.11/ocaml-3.11.0.tar.gz \
     http://xenbits.xensource.com/xen-extfiles/gc.tar.gz \
     http://sourceforge.net/projects/tpm-emulator.berlios/files/tpm_emulator-0.7.4.tar.gz \
-    ftp://ftp.gmplib.org/pub/archive/gmp-4.3.2/gmp-4.3.2.tar.bz2.sig \
+    http://ftp.gmplib.org/pub/archive/gmp-4.3.2/gmp-4.3.2.tar.bz2.sig \
     http://polarssl.org/code/releases/polarssl-1.1.4-gpl.tgz \
     http://xenbits.xensource.com/xen-extfiles/tboot-20090330.tar.gz
 
@@ -71,16 +75,16 @@ verify-sources:
 	@true
 
 $(filter %.sig, $(ALL_FILES)): %:
-	@wget --no-use-server-timestamps -q -O $@ $(filter %$@,$(ALL_URLS))
+	@$(fetcher) $@ $(filter %$@,$(ALL_URLS))
 
 %: %.sig $(keyring-file)
-	@wget --no-use-server-timestamps -q -O $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
+	@$(fetcher) $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
 	@gpgv --keyring vmm-xen-trustedkeys.gpg $< $@$(UNTRUSTED_SUFF) 2>/dev/null || \
 		{ echo "Wrong signature on $@$(UNTRUSTED_SUFF)!"; exit 1; }
 	@mv $@$(UNTRUSTED_SUFF) $@
 
 %: %.sha1sum
-	@wget --no-use-server-timestamps -q -O $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
+	@$(fetcher) $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
 	@sha1sum --status -c $< <$@$(UNTRUSTED_SUFF) || \
 		{ echo "Wrong SHA1 checksum on $@$(UNTRUSTED_SUFF)!"; exit 1; }
 	@mv $@$(UNTRUSTED_SUFF) $@
