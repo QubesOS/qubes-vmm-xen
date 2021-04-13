@@ -138,6 +138,7 @@ Patch622: patch-xen-disable-efi-gettime.patch
 Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
 Patch631: patch-Revert-xen-credit2-limit-the-max-number-of-CPUs-in-a.patch
 Patch634: patch-libxl-cleanup-remaining-backend-xs-dirs-after-driver.patch
+Patch635: patch-libxl-user-defined-max_maptrack_frames.patch
 
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
