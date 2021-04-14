@@ -21,7 +21,8 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  tools/libxl/libxl_create.c   |  8 ++++++-
  tools/libxl/libxl_internal.h |  2 ++
  tools/libxl/libxl_pci.c      | 41 ++++++++++++++++++++++++++++++++++--
- 3 files changed, 48 insertions(+), 3 deletions(-)
+ xen/arch/x86/irq.c           | 12 +++++++++++-
+ 4 files changed, 59 insertions(+), 4 deletions(-)
 
 diff --git a/tools/libxl/libxl_create.c b/tools/libxl/libxl_create.c
 index 2814818e34d2..90aa0a35cdc8 100644
@@ -119,6 +120,30 @@ index bc5843b13701..87fbce653d81 100644
  int libxl__device_pci_setdefault(libxl__gc *gc, uint32_t domid,
                                   libxl_device_pci *pci, bool hotplug)
  {
+diff --git a/xen/arch/x86/irq.c b/xen/arch/x86/irq.c
+index 37c8628..42c6fde 100644
+--- a/xen/arch/x86/irq.c
++++ b/xen/arch/x86/irq.c
+@@ -2165,8 +2165,18 @@ int map_domain_pirq(
+             goto done;
+ 
+         pdev = pci_get_pdev_by_domain(d, msi->seg, msi->bus, msi->devfn);
+-        if ( !pdev )
++        if ( !pdev ) {
++            if (
++                // condition 1: !iommu_enabled
++                // condition 2: type == LIBXL_DOMAIN_TYPE_PV
++                // condition 3: libxl__is_insecure_pv_passthrough_enabled
++            ) {
++                pdev = pci_get_pdev(msi->seg, msi->bus, msi->devfn);
++            }
++        }
++        if ( !pdev ) {
+             goto done;
++        }
+ 
+         ret = pci_enable_msi(msi, &msi_desc);
+         if ( ret )
 -- 
 2.25.4
 
