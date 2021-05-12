@@ -1,4 +1,4 @@
-VERSION := $(shell cat version)
+VERSION := $(file <version)
 
 #DISTFILES_MIRROR ?= http://ftp.qubes-os.org/distfiles/
 
@@ -34,17 +34,21 @@ $(keyring-file): $(wildcard *.asc)
 verify-sources:
 	@true
 
+ifeq ($(FETCH_CMD),)
+$(error "You can not run this Makefile without having FETCH_CMD defined")
+endif
+
 $(filter %.sig, $(ALL_FILES)): %:
-	@wget --no-use-server-timestamps -q -O $@ $(filter %$@,$(ALL_URLS))
+	@$(FETCH_CMD) $@ $(filter %$@,$(ALL_URLS))
 
 %: %.sig $(keyring-file)
-	@wget --no-use-server-timestamps -q -O $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
+	@$(FETCH_CMD) $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
 	@gpgv --keyring vmm-xen-trustedkeys.gpg $< $@$(UNTRUSTED_SUFF) 2>/dev/null || \
 		{ echo "Wrong signature on $@$(UNTRUSTED_SUFF)!"; exit 1; }
 	@mv $@$(UNTRUSTED_SUFF) $@
 
 %: %.sha1sum
-	@wget --no-use-server-timestamps -q -O $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
+	@$(FETCH_CMD) $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
 	@sha1sum --status -c $< <$@$(UNTRUSTED_SUFF) || \
 		{ echo "Wrong SHA1 checksum on $@$(UNTRUSTED_SUFF)!"; exit 1; }
 	@mv $@$(UNTRUSTED_SUFF) $@
