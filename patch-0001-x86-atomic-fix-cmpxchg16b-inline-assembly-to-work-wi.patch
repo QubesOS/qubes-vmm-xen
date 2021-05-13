@@ -1,0 +1,88 @@
+From 17cd6621688bce9972d9242611114fd7aba44c31 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Mon, 10 Apr 2017 17:32:01 +0200
+Subject: [PATCH] x86/atomic: fix cmpxchg16b inline assembly to work with clang
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+clang doesn't understand the "=A" register constrain when used with 64bits
+assembly and spits out an internal error:
+
+fatal error: error in backend: Cannot select: 0x7f9fb89c9390: i64 = build_pair 0x7f9fb89c92b0,
+      0x7f9fb89c9320
+  0x7f9fb89c92b0: i32,ch,glue = CopyFromReg 0x7f9fb89c9240, Register:i32 %EAX, 0x7f9fb89c9240:1
+    0x7f9fb89c8c20: i32 = Register %EAX
+    0x7f9fb89c9240: ch,glue = inlineasm 0x7f9fb89c90f0,
+TargetExternalSymbol:i64'lock; cmpxchg16b $1', MDNode:ch<0x7f9fb8476c38>,
+TargetConstant:i64<25>, TargetConstant:i32<18>, Register:i32 %EAX, Register:i32
+%EDX, TargetConstant:i32<196622>, 0x7f9fb89c87c0, TargetConstant:i32<9>,
+Register:i64 %RCX, TargetConstant:i32<9>, Register:i64 %RBX,
+TargetConstant:i32<9>, Register:i64 %RDX, TargetConstant:i32<9>, Register:i64
+%RAX, TargetConstant:i32<196622>, 0x7f9fb89c87c0, TargetConstant:i32<12>,
+Register:i32 %EFLAGS, 0x7f9fb89c90f0:1
+      0x7f9fb89c8a60: i64 = TargetExternalSymbol'lock; cmpxchg16b $1'
+      0x7f9fb89c8b40: i64 = TargetConstant<25>
+      0x7f9fb89c8bb0: i32 = TargetConstant<18>
+      0x7f9fb89c8c20: i32 = Register %EAX
+      0x7f9fb89c8c90: i32 = Register %EDX
+      0x7f9fb89c8d00: i32 = TargetConstant<196622>
+      0x7f9fb89c87c0: i64,ch = load<LD8[%4]> 0x7f9fb9053da0, FrameIndex:i64<1>, undef:i64
+        0x7f9fb9053a90: i64 = FrameIndex<1>
+        0x7f9fb9053e80: i64 = undef
+      0x7f9fb89c8e50: i32 = TargetConstant<9>
+      0x7f9fb89c8d70: i64 = Register %RCX
+      0x7f9fb89c8e50: i32 = TargetConstant<9>
+      0x7f9fb89c8ec0: i64 = Register %RBX
+      0x7f9fb89c8e50: i32 = TargetConstant<9>
+      0x7f9fb89c8fa0: i64 = Register %RDX
+      0x7f9fb89c8e50: i32 = TargetConstant<9>
+      0x7f9fb89c9080: i64 = Register %RAX
+[...]
+
+Fix this by specifying "rdx:rax" manually using the "d" and "a" constraints.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/include/asm-x86/x86_64/system.h | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/xen/include/asm-x86/x86_64/system.h b/xen/include/asm-x86/x86_64/system.h
+index 7026c05a25..88beae130b 100644
+--- a/xen/include/asm-x86/x86_64/system.h
++++ b/xen/include/asm-x86/x86_64/system.h
+@@ -14,20 +14,21 @@
+  */
+ 
+ static always_inline __uint128_t __cmpxchg16b(
+-    volatile void *ptr, const __uint128_t *old, const __uint128_t *new)
++    volatile void *ptr, const __uint128_t *oldp, const __uint128_t *newp)
+ {
+-    __uint128_t prev;
+-    uint64_t new_high = *new >> 64;
+-    uint64_t new_low = *new;
++    union {
++        struct { uint64_t lo, hi; };
++        __uint128_t raw;
++    } new = { .raw = *newp }, old = { .raw = *oldp }, prev;
+ 
+     ASSERT(cpu_has_cx16);
+ 
+-    asm volatile ( "lock; cmpxchg16b %1"
+-                   : "=A" (prev), "+m" (*__xg(ptr))
+-                   : "c" (new_high), "b" (new_low),
+-                     "0" (*old) );
++    /* Don't use "=A" here - clang can't deal with that. */
++    asm volatile ( "lock; cmpxchg16b %2"
++                   : "=d" (prev.hi), "=a" (prev.lo), "+m" (*__xg(ptr))
++                   : "c" (new.hi), "b" (new.lo), "0" (old.hi), "1" (old.lo) );
+ 
+-    return prev;
++    return prev.raw;
+ }
+ 
+ #define cmpxchg16b(ptr, o, n) ({                           \
+-- 
+2.26.3
+

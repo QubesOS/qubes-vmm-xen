@@ -1,0 +1,229 @@
+From 3214c0220f39d3615dd7e0d4d4336e778c0c0780 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 21 Nov 2018 13:50:21 +0000
+Subject: [PATCH] x86/atomic: Improvements and simplifications to assembly
+ constraints
+
+ * Constraints in the form "=r" (x) : "0" (x) can be folded to just "+r" (x)
+ * Switch to using named parameters (mostly for legibility) which in
+   particular helps with...
+ * __xchg(), __cmpxchg() and __cmpxchg_user() modify their memory operand, so
+   must list it as an output operand.  This only works because they each have
+   a memory clobber to give the construct full compiler-barrier properties.
+ * Every memory operand has an explicit known size.  Letting the compiler see
+   the real size rather than obscuring it with __xg() allows for the removal
+   of the instruction size suffixes without introducing ambiguity.
+ * Drop semicolons after lock prefixes.
+ * Other misc style changes.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+[modified for Xen 4.8 lacking "x86/HVM: do actual CMPXCHG in
+hvmemul_cmpxchg()"]
+---
+ xen/include/asm-x86/system.h        | 99 +++++++++++++----------------
+ xen/include/asm-x86/x86_64/system.h | 38 ++++++-----
+ 2 files changed, 65 insertions(+), 72 deletions(-)
+
+diff --git a/xen/include/asm-x86/system.h b/xen/include/asm-x86/system.h
+index 3246797bec..ca4d59e48f 100644
+--- a/xen/include/asm-x86/system.h
++++ b/xen/include/asm-x86/system.h
+@@ -24,9 +24,6 @@ static inline void clflush(const void *p)
+ #define xchg(ptr,v) \
+     ((__typeof__(*(ptr)))__xchg((unsigned long)(v),(ptr),sizeof(*(ptr))))
+ 
+-struct __xchg_dummy { unsigned long a[100]; };
+-#define __xg(x) ((volatile struct __xchg_dummy *)(x))
+-
+ #include <asm/x86_64/system.h>
+ 
+ /*
+@@ -40,28 +37,24 @@ static always_inline unsigned long __xchg(
+     switch ( size )
+     {
+     case 1:
+-        asm volatile ( "xchgb %b0,%1"
+-                       : "=q" (x)
+-                       : "m" (*__xg(ptr)), "0" (x)
+-                       : "memory" );
++        asm volatile ( "xchg %b[x], %[ptr]"
++                       : [x] "+q" (x), [ptr] "+m" (*(volatile uint8_t *)ptr)
++                       :: "memory" );
+         break;
+     case 2:
+-        asm volatile ( "xchgw %w0,%1"
+-                       : "=r" (x)
+-                       : "m" (*__xg(ptr)), "0" (x)
+-                       : "memory" );
++        asm volatile ( "xchg %w[x], %[ptr]"
++                       : [x] "+r" (x), [ptr] "+m" (*(volatile uint16_t *)ptr)
++                       :: "memory" );
+         break;
+     case 4:
+-        asm volatile ( "xchgl %k0,%1"
+-                       : "=r" (x)
+-                       : "m" (*__xg(ptr)), "0" (x)
+-                       : "memory" );
++        asm volatile ( "xchg %k[x], %[ptr]"
++                       : [x] "+r" (x), [ptr] "+m" (*(volatile uint32_t *)ptr)
++                       :: "memory" );
+         break;
+     case 8:
+-        asm volatile ( "xchgq %0,%1"
+-                       : "=r" (x)
+-                       : "m" (*__xg(ptr)), "0" (x)
+-                       : "memory" );
++        asm volatile ( "xchg %q[x], %[ptr]"
++                       : [x] "+r" (x), [ptr] "+m" (*(volatile uint64_t *)ptr)
++                       :: "memory" );
+         break;
+     }
+     return x;
+@@ -80,31 +73,27 @@ static always_inline unsigned long __cmpxchg(
+     switch ( size )
+     {
+     case 1:
+-        asm volatile ( "lock; cmpxchgb %b1,%2"
+-                       : "=a" (prev)
+-                       : "q" (new), "m" (*__xg(ptr)),
+-                       "0" (old)
++        asm volatile ( "lock cmpxchg %b[new], %[ptr]"
++                       : "=a" (prev), [ptr] "+m" (*(volatile uint8_t *)ptr)
++                       : [new] "q" (new), "a" (old)
+                        : "memory" );
+         return prev;
+     case 2:
+-        asm volatile ( "lock; cmpxchgw %w1,%2"
+-                       : "=a" (prev)
+-                       : "r" (new), "m" (*__xg(ptr)),
+-                       "0" (old)
++        asm volatile ( "lock cmpxchg %w[new], %[ptr]"
++                       : "=a" (prev), [ptr] "+m" (*(volatile uint16_t *)ptr)
++                       : [new] "r" (new), "a" (old)
+                        : "memory" );
+         return prev;
+     case 4:
+-        asm volatile ( "lock; cmpxchgl %k1,%2"
+-                       : "=a" (prev)
+-                       : "r" (new), "m" (*__xg(ptr)),
+-                       "0" (old)
++        asm volatile ( "lock cmpxchg %k[new], %[ptr]"
++                       : "=a" (prev), [ptr] "+m" (*(volatile uint32_t *)ptr)
++                       : [new] "r" (new), "a" (old)
+                        : "memory" );
+         return prev;
+     case 8:
+-        asm volatile ( "lock; cmpxchgq %1,%2"
+-                       : "=a" (prev)
+-                       : "r" (new), "m" (*__xg(ptr)),
+-                       "0" (old)
++        asm volatile ( "lock cmpxchg %q[new], %[ptr]"
++                       : "=a" (prev), [ptr] "+m" (*(volatile uint64_t *)ptr)
++                       : [new] "r" (new), "a" (old)
+                        : "memory" );
+         return prev;
+     }
+@@ -162,23 +151,23 @@ static always_inline unsigned long __xadd(
+     switch ( size )
+     {
+     case 1:
+-        asm volatile ( "lock; xaddb %b0,%1"
+-                       : "+r" (v), "+m" (*__xg(ptr))
++        asm volatile ( "lock xadd %b[v], %[ptr]"
++                       : [v] "+q" (v), [ptr] "+m" (*(volatile uint8_t *)ptr)
+                        :: "memory");
+         return v;
+     case 2:
+-        asm volatile ( "lock; xaddw %w0,%1"
+-                       : "+r" (v), "+m" (*__xg(ptr))
++        asm volatile ( "lock xadd %w[v], %[ptr]"
++                       : [v] "+r" (v), [ptr] "+m" (*(volatile uint16_t *)ptr)
+                        :: "memory");
+         return v;
+     case 4:
+-        asm volatile ( "lock; xaddl %k0,%1"
+-                       : "+r" (v), "+m" (*__xg(ptr))
++        asm volatile ( "lock xadd %k[v], %[ptr]"
++                       : [v] "+r" (v), [ptr] "+m" (*(volatile uint32_t *)ptr)
+                        :: "memory");
+         return v;
+     case 8:
+-        asm volatile ( "lock; xaddq %q0,%1"
+-                       : "+r" (v), "+m" (*__xg(ptr))
++        asm volatile ( "lock xadd %q[v], %[ptr]"
++                       : [v] "+r" (v), [ptr] "+m" (*(volatile uint64_t *)ptr)
+                        :: "memory");
+ 
+         return v;
+diff --git a/xen/include/asm-x86/x86_64/system.h b/xen/include/asm-x86/x86_64/system.h
+index fae57bace8..f471859c19 100644
+--- a/xen/include/asm-x86/x86_64/system.h
++++ b/xen/include/asm-x86/x86_64/system.h
+@@ -24,9 +24,10 @@ static always_inline __uint128_t __cmpxchg16b(
+     ASSERT(cpu_has_cx16);
+ 
+     /* Don't use "=A" here - clang can't deal with that. */
+-    asm volatile ( "lock; cmpxchg16b %2"
+-                   : "=d" (prev.hi), "=a" (prev.lo), "+m" (*__xg(ptr))
+-                   : "c" (new.hi), "b" (new.lo), "0" (old.hi), "1" (old.lo) );
++    asm volatile ( "lock cmpxchg16b %[ptr]"
++                   : "=d" (prev.hi), "=a" (prev.lo),
++                     [ptr] "+m" (*(volatile __uint128_t *)ptr)
++                   : "c" (new.hi), "b" (new.lo), "d" (old.hi), "a" (old.lo) );
+ 
+     return prev.raw;
+ }
+@@ -63,36 +65,38 @@ static always_inline __uint128_t cmpxchg16b_local_(
+  * If no fault occurs then _o is updated to the value we saw at _p. If this
+  * is the same as the initial value of _o then _n is written to location _p.
+  */
+-#define __cmpxchg_user(_p,_o,_n,_isuff,_oppre,_regtype)                 \
++#define __cmpxchg_user(_p, _o, _n, _oppre, _regtype)                    \
+     stac();                                                             \
+     asm volatile (                                                      \
+-        "1: lock; cmpxchg"_isuff" %"_oppre"2,%3\n"                      \
++        "1: lock cmpxchg %"_oppre"[new], %[ptr]\n"                      \
+         "2:\n"                                                          \
+         ".section .fixup,\"ax\"\n"                                      \
+-        "3:     movl $1,%1\n"                                           \
++        "3:     movl $1, %[rc]\n"                                       \
+         "       jmp 2b\n"                                               \
+         ".previous\n"                                                   \
+         _ASM_EXTABLE(1b, 3b)                                            \
+-        : "=a" (_o), "=r" (_rc)                                         \
+-        : _regtype (_n), "m" (*__xg((volatile void *)_p)), "0" (_o), "1" (0) \
++        : "+a" (_o), [rc] "=r" (_rc),                                   \
++          [ptr] "+m" (*(volatile typeof(*(_p)) *)(_p))                  \
++        : [new] _regtype (_n), "[rc]" (0)                               \
+         : "memory");                                                    \
+     clac()
+ 
+-#define cmpxchg_user(_p,_o,_n)                                          \
++#define cmpxchg_user(_p, _o, _n)                                        \
+ ({                                                                      \
+     int _rc;                                                            \
+-    switch ( sizeof(*(_p)) ) {                                          \
++    switch ( sizeof(*(_p)) )                                            \
++    {                                                                   \
+     case 1:                                                             \
+-        __cmpxchg_user(_p,_o,_n,"b","b","q");                           \
++        __cmpxchg_user(_p, _o, _n, "b", "q");                           \
+         break;                                                          \
+     case 2:                                                             \
+-        __cmpxchg_user(_p,_o,_n,"w","w","r");                           \
++        __cmpxchg_user(_p, _o, _n, "w", "r");                           \
+         break;                                                          \
+     case 4:                                                             \
+-        __cmpxchg_user(_p,_o,_n,"l","k","r");                           \
++        __cmpxchg_user(_p, _o, _n, "k", "r");                           \
+         break;                                                          \
+     case 8:                                                             \
+-        __cmpxchg_user(_p,_o,_n,"q","","r");                            \
++        __cmpxchg_user(_p, _o, _n, "q", "r");                           \
+         break;                                                          \
+     }                                                                   \
+     _rc;                                                                \
+-- 
+2.26.3
+

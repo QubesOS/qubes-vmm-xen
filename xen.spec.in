@@ -147,6 +147,8 @@ Patch351: patch-0022-xenstore-add-missing-checks-for-allocation-failure.patch
 Patch352: patch-0023-xenstore-let-write_node-and-some-callers-return-errn.patch
 Patch353: patch-0024-xenstore-undo-function-rename.patch
 Patch354: patch-0025-xenstore-rework-of-transaction-handling.patch
+Patch355: patch-0001-x86-atomic-fix-cmpxchg16b-inline-assembly-to-work-wi.patch
+Patch356: patch-0001-x86-atomic-Improvements-and-simplifications-to-assem.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
