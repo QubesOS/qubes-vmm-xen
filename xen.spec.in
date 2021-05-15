@@ -85,6 +85,7 @@ Patch101: patch-xen.use.fedora.ipxe.patch
 Patch102: patch-xen.fedora.efi.build.patch
 Patch103: patch-xen.gcc5.fix.patch
 Patch104: patch-xen.vwprintw.fix.patch
+Patch105: patch-xen.gcc11.fixes.patch
 
 # EFI workarounds
 
@@ -149,6 +150,7 @@ Patch353: patch-0024-xenstore-undo-function-rename.patch
 Patch354: patch-0025-xenstore-rework-of-transaction-handling.patch
 Patch355: patch-0001-x86-atomic-fix-cmpxchg16b-inline-assembly-to-work-wi.patch
 Patch356: patch-0001-x86-atomic-Improvements-and-simplifications-to-assem.patch
+Patch357: patch-0001-crypto-adjust-rijndaelEncrypt-prototype-for-gcc11.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
