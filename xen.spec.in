@@ -678,11 +678,8 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 %preun qubes-vm
 %systemd_preun xendriverdomain.service
 
-%post libs
-
-/sbin/ldconfig
-
-%ldconfig_scriptlets libs
+%post libs -p /sbin/ldconfig
+%postun libs -p /sbin/ldconfig
 
 %if %build_hyp
 %post hypervisor
