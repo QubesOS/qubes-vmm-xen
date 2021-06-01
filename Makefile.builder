@@ -3,7 +3,7 @@ ifeq ($(PACKAGE_SET),dom0)
 
 else ifeq ($(PACKAGE_SET),vm)
   ARCH_BUILD_DIRS := archlinux
-  ifeq ($(DIST),centos8)
+  ifneq ($(filter $(DIST),centos8 centos-stream8),)
   RPM_SPEC_FILES := xen.spec
   endif
 
