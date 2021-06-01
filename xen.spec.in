@@ -116,12 +116,6 @@ Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
 Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 
 Patch320: patch-libxl-resume.patch
-Patch321: patch-x86-hpet-Fix-return-value-of-hpet_setup.patch
-Patch322: patch-x86-timer-Fix-boot-on-Intel-systems-using-ITSSPRC-st.patch
-# not committed yet
-Patch323: patch-0001-x86-hpet-Factor-hpet_enable_legacy_replacement_mode-.patch
-Patch324: patch-0002-x86-hpet-Don-t-enable-legacy-replacement-mode-uncond.patch
-
 
 # Security fixes
 Patch500: patch-xsa373-4.14-1.patch
