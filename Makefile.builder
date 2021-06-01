@@ -19,7 +19,7 @@ INCLUDED_SOURCES = \
 	stubdom-dhcp \
 	gui-common
 
-ifneq ($(filter $(DISTRIBUTION), fedora centos),)
+ifneq ($(filter $(DISTRIBUTION), fedora centos centos-stream),)
 SOURCE_COPY_IN := $(INCLUDED_SOURCES)
 endif
 
