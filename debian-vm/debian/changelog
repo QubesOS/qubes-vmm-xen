@@ -1,3 +1,9 @@
+xen (2001:4.8.5-33) unstable; urgency=medium
+
+  * Add centos-stream to the makefile
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 03 Jun 2021 05:56:57 +0200
+
 xen (2001:4.8.5-32) wheezy; urgency=medium
 
   * More GCC11 fixes
