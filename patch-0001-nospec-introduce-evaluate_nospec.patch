@@ -1,0 +1,139 @@
+From db591d6e76ed33750039e44a75108809681ed672 Mon Sep 17 00:00:00 2001
+From: Norbert Manthey <nmanthey@amazon.de>
+Date: Thu, 14 Mar 2019 13:55:00 +0100
+Subject: [PATCH] nospec: introduce evaluate_nospec
+
+Since the L1TF vulnerability of Intel CPUs, loading hypervisor data into
+L1 cache is problematic, because when hyperthreading is used as well, a
+guest running on the sibling core can leak this potentially secret data.
+
+To prevent these speculative accesses, we block speculation after
+accessing the domain property field by adding lfence instructions. This
+way, the CPU continues executing and loading data only once the condition
+is actually evaluated.
+
+As this protection is typically used in if statements, the lfence has to
+come in a compatible way. Therefore, a function that returns true after an
+lfence instruction is introduced. To protect both branches after a
+conditional, an lfence instruction has to be added for the two branches.
+To be able to block speculation after several evaluations, the generic
+barrier macro block_speculation is also introduced.
+
+As the L1TF vulnerability is only present on the x86 architecture, there is
+no need to add protection for other architectures. Hence, the introduced
+functions are defined but empty.
+
+On the x86 architecture, by default, the lfence instruction is not present
+either. Only when a L1TF vulnerable platform is detected, the lfence
+instruction is patched in via alternative patching. Similarly, PV guests
+are protected wrt L1TF by default, so that the protection is furthermore
+disabled in case HVM is exclueded via the build configuration.
+
+Introducing the lfence instructions catches a lot of potential leaks with
+a simple unintrusive code change. During performance testing, we did not
+notice performance effects.
+
+This is part of the speculative hardening effort.
+
+Signed-off-by: Norbert Manthey <nmanthey@amazon.de>
+Acked-by: Julien Grall <julien.grall@arm.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/include/asm-arm/nospec.h | 25 +++++++++++++++++++++++
+ xen/include/asm-x86/nospec.h | 39 ++++++++++++++++++++++++++++++++++++
+ xen/include/xen/nospec.h     |  1 +
+ 3 files changed, 65 insertions(+)
+ create mode 100644 xen/include/asm-arm/nospec.h
+ create mode 100644 xen/include/asm-x86/nospec.h
+
+diff --git a/xen/include/asm-arm/nospec.h b/xen/include/asm-arm/nospec.h
+new file mode 100644
+index 000000000000..51c7aea4f447
+--- /dev/null
++++ b/xen/include/asm-arm/nospec.h
+@@ -0,0 +1,25 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved. */
++
++#ifndef _ASM_ARM_NOSPEC_H
++#define _ASM_ARM_NOSPEC_H
++
++static inline bool evaluate_nospec(bool condition)
++{
++    return condition;
++}
++
++static inline void block_speculation(void)
++{
++}
++
++#endif /* _ASM_ARM_NOSPEC_H */
++
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+diff --git a/xen/include/asm-x86/nospec.h b/xen/include/asm-x86/nospec.h
+new file mode 100644
+index 000000000000..2aa47b3455a6
+--- /dev/null
++++ b/xen/include/asm-x86/nospec.h
+@@ -0,0 +1,39 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved. */
++
++#ifndef _ASM_X86_NOSPEC_H
++#define _ASM_X86_NOSPEC_H
++
++#include <asm/alternative.h>
++
++/* Allow to insert a read memory barrier into conditionals */
++static always_inline bool barrier_nospec_true(void)
++{
++#ifdef CONFIG_HVM
++    alternative("", "lfence", X86_FEATURE_SC_L1TF_VULN);
++#endif
++    return true;
++}
++
++/* Allow to protect evaluation of conditionasl with respect to speculation */
++static always_inline bool evaluate_nospec(bool condition)
++{
++    return condition ? barrier_nospec_true() : !barrier_nospec_true();
++}
++
++/* Allow to block speculative execution in generic code */
++static always_inline void block_speculation(void)
++{
++    barrier_nospec_true();
++}
++
++#endif /* _ASM_X86_NOSPEC_H */
++
++/*
++ * Local variables:
++ * mode: C
++ * c-file-style: "BSD"
++ * c-basic-offset: 4
++ * indent-tabs-mode: nil
++ * End:
++ */
+diff --git a/xen/include/xen/nospec.h b/xen/include/xen/nospec.h
+index 8acfa60f1b71..2ac8feccc213 100644
+--- a/xen/include/xen/nospec.h
++++ b/xen/include/xen/nospec.h
+@@ -8,6 +8,7 @@
+ #define XEN_NOSPEC_H
+ 
+ #include <asm/system.h>
++#include <asm/nospec.h>
+ 
+ /**
+  * array_index_mask_nospec() - generate a ~0 mask when index < size, 0 otherwise
+-- 
+2.26.3
+

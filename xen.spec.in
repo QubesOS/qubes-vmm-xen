@@ -151,6 +151,10 @@ Patch354: patch-0025-xenstore-rework-of-transaction-handling.patch
 Patch355: patch-0001-x86-atomic-fix-cmpxchg16b-inline-assembly-to-work-wi.patch
 Patch356: patch-0001-x86-atomic-Improvements-and-simplifications-to-assem.patch
 Patch357: patch-0001-crypto-adjust-rijndaelEncrypt-prototype-for-gcc11.patch
+Patch358: patch-0001-x86-vtd-Don-t-include-control-register-state-in-the-.patch
+Patch359: patch-0001-passthrough-vtd-Don-t-DMA-to-the-stack-in-queue_inva.patch
+Patch361: patch-xen-access-once.patch
+Patch362: patch-0001-nospec-introduce-evaluate_nospec.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
@@ -276,6 +280,13 @@ Patch574: patch-xsa115-0009-tools-xenstore-allow-special-watches-for-privileged-
 Patch575: patch-xsa115-0010-tools-xenstore-avoid-watch-events-for-nodes-without-.patch
 Patch576: patch-xsa325-4.14.patch
 Patch577: patch-xsa366-4.11.patch
+Patch578: patch-xsa373-4.11-1.patch
+Patch579: patch-xsa373-4.11-2.patch
+Patch580: patch-xsa373-4.11-3.patch
+Patch581: patch-xsa373-4.11-4.patch
+Patch582: patch-xsa373-4.11-5.patch
+Patch583: patch-xsa375-4.8.patch
+Patch584: patch-xsa377-4.11.patch
 
 
 # Upstreamable patches

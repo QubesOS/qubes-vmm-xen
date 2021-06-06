@@ -1,0 +1,98 @@
+From a9a05aeee10a5a3763a41305a9f38112dd1fcc82 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 27 Nov 2018 17:21:17 +0000
+Subject: [PATCH] x86/vtd: Don't include control register state in the table
+ pointers
+
+iremap_maddr and qinval_maddr point to the base of a block of contiguous RAM,
+allocated by the driver, holding the Interrupt Remapping table, and the Queued
+Invalidation ring.
+
+Despite their name, they are actually the values of the hardware register,
+including control metadata in the lower 12 bits.  While uses of these fields
+do appear to correctly shift out the metadata, this is very subtle behaviour
+and confusing to follow.
+
+Nothing uses the metadata, so make the fields actually point at the base of
+the relevant tables.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Kevin Tian <kevin.tian@intel.com>
+---
+ xen/drivers/passthrough/vtd/intremap.c | 13 +++++++------
+ xen/drivers/passthrough/vtd/qinval.c   |  8 ++++----
+ xen/drivers/passthrough/vtd/utils.c    |  5 +++--
+ 3 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/xen/drivers/passthrough/vtd/intremap.c b/xen/drivers/passthrough/vtd/intremap.c
+index 838268d7725d..1d198560918e 100644
+--- a/xen/drivers/passthrough/vtd/intremap.c
++++ b/xen/drivers/passthrough/vtd/intremap.c
+@@ -802,14 +802,15 @@ int enable_intremap(struct iommu *iommu, int eim)
+         ir_ctrl->iremap_num = 0;
+     }
+ 
+-    /* set extended interrupt mode bit */
+-    ir_ctrl->iremap_maddr |= eim ? IRTA_EIME : 0;
+-
+     spin_lock_irqsave(&iommu->register_lock, flags);
+ 
+-    /* set size of the interrupt remapping table */
+-    ir_ctrl->iremap_maddr |= IRTA_REG_TABLE_SIZE;
+-    dmar_writeq(iommu->reg, DMAR_IRTA_REG, ir_ctrl->iremap_maddr);
++    /*
++     * Set size of the interrupt remapping table and optionally Extended
++     * Interrupt Mode.
++     */
++    dmar_writeq(iommu->reg, DMAR_IRTA_REG,
++                ir_ctrl->iremap_maddr | IRTA_REG_TABLE_SIZE |
++                (eim ? IRTA_EIME : 0));
+ 
+     /* set SIRTP */
+     gcmd = dmar_readl(iommu->reg, DMAR_GSTS_REG);
+diff --git a/xen/drivers/passthrough/vtd/qinval.c b/xen/drivers/passthrough/vtd/qinval.c
+index e95dc54a8d91..01447cf9a84e 100644
+--- a/xen/drivers/passthrough/vtd/qinval.c
++++ b/xen/drivers/passthrough/vtd/qinval.c
+@@ -428,6 +428,8 @@ int enable_qinval(struct iommu *iommu)
+     flush->context = flush_context_qi;
+     flush->iotlb = flush_iotlb_qi;
+ 
++    spin_lock_irqsave(&iommu->register_lock, flags);
++
+     /* Setup Invalidation Queue Address(IQA) register with the
+      * address of the page we just allocated.  QS field at
+      * bits[2:0] to indicate size of queue is one 4KB page.
+@@ -435,10 +437,8 @@ int enable_qinval(struct iommu *iommu)
+      * registers are automatically reset to 0 with write
+      * to IQA register.
+      */
+-    qi_ctrl->qinval_maddr |= QINVAL_PAGE_ORDER;
+-
+-    spin_lock_irqsave(&iommu->register_lock, flags);
+-    dmar_writeq(iommu->reg, DMAR_IQA_REG, qi_ctrl->qinval_maddr);
++    dmar_writeq(iommu->reg, DMAR_IQA_REG,
++                qi_ctrl->qinval_maddr | QINVAL_PAGE_ORDER);
+ 
+     dmar_writeq(iommu->reg, DMAR_IQT_REG, 0);
+ 
+diff --git a/xen/drivers/passthrough/vtd/utils.c b/xen/drivers/passthrough/vtd/utils.c
+index 85e0f41d8543..94a6e4eec99b 100644
+--- a/xen/drivers/passthrough/vtd/utils.c
++++ b/xen/drivers/passthrough/vtd/utils.c
+@@ -204,8 +204,9 @@ void vtd_dump_iommu_info(unsigned char key)
+         if ( status & DMA_GSTS_IRES )
+         {
+             /* Dump interrupt remapping table. */
+-            u64 iremap_maddr = dmar_readq(iommu->reg, DMAR_IRTA_REG);
+-            int nr_entry = 1 << ((iremap_maddr & 0xF) + 1);
++            uint64_t irta = dmar_readq(iommu->reg, DMAR_IRTA_REG);
++            uint64_t iremap_maddr = irta & PAGE_MASK;
++            unsigned int nr_entry = 1 << ((irta & 0xF) + 1);
+             struct iremap_entry *iremap_entries = NULL;
+             int print_cnt = 0;
+ 
+-- 
+2.26.3
+

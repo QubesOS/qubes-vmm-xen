@@ -1,0 +1,93 @@
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Subject: x86/spec-ctrl: Protect against Speculative Code Store Bypass
+
+Modern x86 processors have far-better-than-architecturally-guaranteed self
+modifying code detection.  Typically, when a write hits an instruction in
+flight, a Machine Clear occurs to flush stale content in the frontend and
+backend.
+
+For self modifying code, before a write which hits an instruction in flight
+retires, the frontend can speculatively decode and execute the old instruction
+stream.  Speculation of this form can suffer from type confusion in registers,
+and potentially leak data.
+
+Furthermore, updates are typically byte-wise, rather than atomic.  Depending
+on timing, speculation can race ahead multiple times between individual
+writes, and execute the transiently-malformed instruction stream.
+
+Xen has stubs which are used in certain cases for emulation purposes.  Inhibit
+speculation between updating the stub and executing it.
+
+This is XSA-375 / CVE-2021-0089.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 06b45e1..198d24a 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -2516,6 +2516,7 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+             goto fail;
+         if ( admin_io_okay(port, op_bytes, currd) )
+         {
++            block_speculation(); /* SCSB */
+             io_emul(regs);            
+         }
+         else
+@@ -2545,6 +2546,7 @@ static int emulate_privileged_op(struct cpu_user_regs *regs)
+             goto fail;
+         if ( admin_io_okay(port, op_bytes, currd) )
+         {
++            block_speculation(); /* SCSB */
+             io_emul(regs);            
+             if ( (op_bytes == 1) && pv_post_outb_hook )
+                 pv_post_outb_hook(port, regs->eax);
+diff --git a/xen/arch/x86/x86_emulate/x86_emulate.c b/xen/arch/x86/x86_emulate/x86_emulate.c
+index c0a9b68..5cfa3e7 100644
+--- a/xen/arch/x86/x86_emulate/x86_emulate.c
++++ b/xen/arch/x86/x86_emulate/x86_emulate.c
+@@ -880,6 +880,7 @@ do {                                                                    \
+     struct fpu_insn_ctxt fic_ = { .insn_bytes = nr_ };                  \
+     memcpy(get_stub(stub), ((uint8_t[]){ bytes, 0xc3 }), nr_ + 1);      \
+     get_fpu(X86EMUL_FPU_fpu, &fic_);                                    \
++    block_speculation(); /* SCSB */                                     \
+     asm volatile ( "INDIRECT_CALL %[stub]" : "+m" (fic_) :              \
+                    [stub] "r" (stub.func) );                            \
+     put_fpu(&fic_);                                                     \
+@@ -893,6 +894,7 @@ do {                                                                    \
+     unsigned long tmp_;                                                 \
+     memcpy(get_stub(stub), ((uint8_t[]){ bytes, 0xc3 }), nr_ + 1);      \
+     get_fpu(X86EMUL_FPU_fpu, &fic_);                                    \
++    block_speculation(); /* SCSB */                                     \
+     asm volatile ( _PRE_EFLAGS("[eflags]", "[mask]", "[tmp]")           \
+                    "INDIRECT_CALL %[func];"                             \
+                    _POST_EFLAGS("[eflags]", "[mask]", "[tmp]")          \
+@@ -4337,6 +4338,7 @@ x86_emulate(
+         if ( !rc )
+         {
+            copy_REX_VEX(buf, rex_prefix, vex);
++           block_speculation(); /* SCSB */
+            asm volatile ( "INDIRECT_CALL %0" : : "r" (stub.func), "a" (mmvalp)
+                                              : "memory" );
+         }
+@@ -4623,6 +4625,7 @@ x86_emulate(
+         if ( !rc )
+         {
+            copy_REX_VEX(buf, rex_prefix, vex);
++           block_speculation(); /* SCSB */
+            asm volatile ( "INDIRECT_CALL %0" : : "r" (stub.func), "a" (ea.reg)
+                                              : "memory" );
+         }
+diff --git a/xen/include/asm-x86/x86_emulate.h b/xen/include/asm-x86/x86_emulate.h
+index 7426d8d..4a81652 100644
+--- a/xen/include/asm-x86/x86_emulate.h
++++ b/xen/include/asm-x86/x86_emulate.h
+@@ -15,6 +15,7 @@
+ #include <xen/config.h>
+ #include <xen/types.h>
+ #include <xen/lib.h>
++#include <xen/nospec.h>
+ #include <asm/regs.h>
+ 
+ #include "../../arch/x86/x86_emulate/x86_emulate.h"
