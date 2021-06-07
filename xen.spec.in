@@ -696,7 +696,7 @@ make %{?_smp_mflags} %{?efi_flags} prefix=/usr dist-xen
     --with-system-ovmf=/usr/lib/xen/boot/ovmf.bin \
     --disable-vtpm-stubdom \
     --disable-vtpmmgr-stubdom \
-    --with-extra-qemuu-configure-args="--disable-spice" \
+    --with-extra-qemuu-configure-args="--disable-spice --disable-virtfs" \
     --disable-blktap2
 make %{?_smp_mflags} %{?ocaml_flags} prefix=/usr debug_symbols=y dist-tools
 make                 prefix=/usr dist-docs
