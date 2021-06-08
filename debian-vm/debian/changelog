@@ -1,3 +1,10 @@
+xen (2001:4.8.5-34) unstable; urgency=medium
+
+  * Disable virtfs explicitly
+  * Apply XSAs patches: 373, 375, 377
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 08 Jun 2021 21:04:35 +0200
+
 xen (2001:4.8.5-33) unstable; urgency=medium
 
   * Add centos-stream to the makefile
