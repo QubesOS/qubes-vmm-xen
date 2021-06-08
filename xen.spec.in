@@ -124,6 +124,13 @@ Patch324: patch-0002-x86-hpet-Don-t-enable-legacy-replacement-mode-uncond.patch
 
 
 # Security fixes
+Patch500: patch-xsa373-4.14-1.patch
+Patch501: patch-xsa373-4.14-2.patch
+Patch502: patch-xsa373-4.14-3.patch
+Patch503: patch-xsa373-4.14-4.patch
+Patch504: patch-xsa373-4.14-5.patch
+Patch505: patch-xsa375.patch
+Patch506: patch-xsa377.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
