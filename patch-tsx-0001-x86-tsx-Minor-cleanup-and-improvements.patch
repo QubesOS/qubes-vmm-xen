@@ -1,0 +1,146 @@
+From 768138cde899685efb5ec5a1c831b1d4e8794f54 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 18 May 2021 14:53:56 +0100
+Subject: [PATCH] x86/tsx: Minor cleanup and improvements
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+ * Introduce cpu_has_arch_caps and replace boot_cpu_has(X86_FEATURE_ARCH_CAPS)
+ * Read CPUID data into the appropriate boot_cpu_data.x86_capability[]
+   element, as subsequent changes are going to need more cpu_has_* logic.
+ * Use the hi/lo MSR helpers, which substantially improves code generation.
+
+No practical change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+(cherry picked from commit 3670abcaf0324f2aedba0c4dc7939072b27efa1d)
+---
+ xen/arch/x86/cpuid.c             |  2 +-
+ xen/arch/x86/hvm/vmx/vmx.c       |  2 +-
+ xen/arch/x86/msr.c               |  2 +-
+ xen/arch/x86/spec_ctrl.c         |  2 +-
+ xen/arch/x86/tsx.c               | 21 ++++++++++++---------
+ xen/include/asm-x86/cpufeature.h |  1 +
+ 6 files changed, 17 insertions(+), 13 deletions(-)
+
+diff --git a/xen/arch/x86/cpuid.c b/xen/arch/x86/cpuid.c
+index 425dce7bc7ad..deae62705dee 100644
+--- a/xen/arch/x86/cpuid.c
++++ b/xen/arch/x86/cpuid.c
+@@ -720,7 +720,7 @@ int init_domain_cpuid_policy(struct domain *d)
+      * so dom0 can turn off workarounds as appropriate.  Temporary, until the
+      * domain policy logic gains a better understanding of MSRs.
+      */
+-    if ( is_hardware_domain(d) && boot_cpu_has(X86_FEATURE_ARCH_CAPS) )
++    if ( is_hardware_domain(d) && cpu_has_arch_caps )
+         p->feat.arch_caps = true;
+ 
+     d->arch.cpuid = p;
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 6972d4ab239b..2a29675c1a0f 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2397,7 +2397,7 @@ static bool __init has_if_pschange_mc(void)
+     if ( cpu_has_hypervisor )
+         return false;
+ 
+-    if ( boot_cpu_has(X86_FEATURE_ARCH_CAPS) )
++    if ( cpu_has_arch_caps )
+         rdmsrl(MSR_ARCH_CAPABILITIES, caps);
+ 
+     if ( caps & ARCH_CAPS_IF_PSCHANGE_MC_NO )
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index aa107823ac07..caef0c6edee4 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -135,7 +135,7 @@ int init_domain_msr_policy(struct domain *d)
+      * so dom0 can turn off workarounds as appropriate.  Temporary, until the
+      * domain policy logic gains a better understanding of MSRs.
+      */
+-    if ( is_hardware_domain(d) && boot_cpu_has(X86_FEATURE_ARCH_CAPS) )
++    if ( is_hardware_domain(d) && cpu_has_arch_caps )
+     {
+         uint64_t val;
+ 
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index bea4c3e8b497..aa85a0be4677 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -885,7 +885,7 @@ void __init init_speculation_mitigations(void)
+     bool cpu_has_bug_taa;
+     uint64_t caps = 0;
+ 
+-    if ( boot_cpu_has(X86_FEATURE_ARCH_CAPS) )
++    if ( cpu_has_arch_caps )
+         rdmsrl(MSR_ARCH_CAPABILITIES, caps);
+ 
+     hw_smt_enabled = check_smt_enabled();
+diff --git a/xen/arch/x86/tsx.c b/xen/arch/x86/tsx.c
+index e09e819dce62..98ecb71a4a16 100644
+--- a/xen/arch/x86/tsx.c
++++ b/xen/arch/x86/tsx.c
+@@ -34,15 +34,18 @@ void tsx_init(void)
+ {
+     /*
+      * This function is first called between microcode being loaded, and CPUID
+-     * being scanned generally.  Calculate from raw data whether MSR_TSX_CTRL
+-     * is available.
++     * being scanned generally.  Read into boot_cpu_data.x86_capability[] for
++     * the cpu_has_* bits we care about using here.
+      */
+     if ( unlikely(cpu_has_tsx_ctrl < 0) )
+     {
+         uint64_t caps = 0;
+ 
+-        if ( boot_cpu_data.cpuid_level >= 7 &&
+-             (cpuid_count_edx(7, 0) & cpufeat_mask(X86_FEATURE_ARCH_CAPS)) )
++        if ( boot_cpu_data.cpuid_level >= 7 )
++            boot_cpu_data.x86_capability[cpufeat_word(X86_FEATURE_ARCH_CAPS)]
++                = cpuid_count_edx(7, 0);
++
++        if ( cpu_has_arch_caps )
+             rdmsrl(MSR_ARCH_CAPABILITIES, caps);
+ 
+         cpu_has_tsx_ctrl = !!(caps & ARCH_CAPS_TSX_CTRL);
+@@ -74,18 +77,18 @@ void tsx_init(void)
+ 
+     if ( cpu_has_tsx_ctrl )
+     {
+-        uint64_t val;
++        uint32_t hi, lo;
+ 
+-        rdmsrl(MSR_TSX_CTRL, val);
++        rdmsr(MSR_TSX_CTRL, lo, hi);
+ 
+         /* Check bottom bit only.  Higher bits are various sentinels. */
+         rtm_disabled = !(opt_tsx & 1);
+ 
+-        val &= ~(TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR);
++        lo &= ~(TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR);
+         if ( rtm_disabled )
+-            val |= TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR;
++            lo |= TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR;
+ 
+-        wrmsrl(MSR_TSX_CTRL, val);
++        wrmsr(MSR_TSX_CTRL, lo, hi);
+     }
+     else if ( opt_tsx >= 0 )
+         printk_once(XENLOG_WARNING
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index f790d5c1f814..9c3103243634 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -130,6 +130,7 @@
+ #define cpu_has_avx512_4fmaps   boot_cpu_has(X86_FEATURE_AVX512_4FMAPS)
+ #define cpu_has_tsx_force_abort boot_cpu_has(X86_FEATURE_TSX_FORCE_ABORT)
+ #define cpu_has_serialize       boot_cpu_has(X86_FEATURE_SERIALIZE)
++#define cpu_has_arch_caps       boot_cpu_has(X86_FEATURE_ARCH_CAPS)
+ 
+ /* CPUID level 0x00000007:1.eax */
+ #define cpu_has_avx512_bf16     boot_cpu_has(X86_FEATURE_AVX512_BF16)
+-- 
+2.31.1
+
