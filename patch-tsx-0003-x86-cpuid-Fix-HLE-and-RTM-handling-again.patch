@@ -1,0 +1,49 @@
+From ee5425c0d532a773093cc4ff91c4c06caf2ff447 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 7 Jun 2021 13:25:09 +0100
+Subject: [PATCH] x86/cpuid: Fix HLE and RTM handling (again)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+For reasons which are my fault, but I don't recall why, the
+FDP_EXCP_ONLY/NO_FPU_SEL adjustment uses the whole special_features[] array
+element, not the two relevant bits.
+
+HLE and RTM were recently added to the list of special features, causing them
+to be always set in guest view, irrespective of the toolstacks choice on the
+matter.
+
+Rewrite the logic to refer to the features specifically, rather than relying
+on the contents of the special_features[] array.
+
+Fixes: 8fe24090d9 ("x86/cpuid: Rework HLE and RTM handling")
+Reported-by: Edwin Török <edvin.torok@citrix.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 60fa12dbf1d4d2c4ffe1ef34b495b24aa7e41aa0)
+---
+ xen/arch/x86/cpuid.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/cpuid.c b/xen/arch/x86/cpuid.c
+index deae62705dee..5229eba5951b 100644
+--- a/xen/arch/x86/cpuid.c
++++ b/xen/arch/x86/cpuid.c
+@@ -648,9 +648,11 @@ void recalculate_cpuid_policy(struct domain *d)
+     sanitise_featureset(fs);
+ 
+     /* Fold host's FDP_EXCP_ONLY and NO_FPU_SEL into guest's view. */
+-    fs[FEATURESET_7b0] &= ~special_features[FEATURESET_7b0];
++    fs[FEATURESET_7b0] &= ~(cpufeat_mask(X86_FEATURE_FDP_EXCP_ONLY) |
++                            cpufeat_mask(X86_FEATURE_NO_FPU_SEL));
+     fs[FEATURESET_7b0] |= (host_cpuid_policy.feat._7b0 &
+-                           special_features[FEATURESET_7b0]);
++                           (cpufeat_mask(X86_FEATURE_FDP_EXCP_ONLY) |
++                            cpufeat_mask(X86_FEATURE_NO_FPU_SEL)));
+ 
+     cpuid_featureset_to_policy(fs, p);
+ 
+-- 
+2.31.1
+

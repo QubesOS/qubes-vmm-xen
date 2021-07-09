@@ -1,3 +1,10 @@
+xen (4.14.2-0.1) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Update to 4.14.2
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 01 Jun 2021 04:10:16 +0200
+
 xen (4.14.1-5) unstable; urgency=medium
 
   * Apply XSA-373, XSA-375, XSA-377

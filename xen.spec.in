@@ -102,6 +102,11 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
+Patch290: patch-tsx-0001-x86-cpuid-Rework-HLE-and-RTM-handling.patch
+Patch291: patch-tsx-0001-x86-tsx-Minor-cleanup-and-improvements.patch
+Patch292: patch-tsx-0002-x86-tsx-Deprecate-vpmu-rtm-abort-and-use-tsx-bool-in.patch
+Patch293: patch-tsx-0003-x86-cpuid-Fix-HLE-and-RTM-handling-again.patch
+Patch294: patch-tsx-0004-x86-tsx-Cope-with-TSX-deprecation-on-SKL-KBL-CFL-WHL.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
@@ -116,12 +121,6 @@ Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
 Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 
 Patch320: patch-libxl-resume.patch
-Patch321: patch-x86-hpet-Fix-return-value-of-hpet_setup.patch
-Patch322: patch-x86-timer-Fix-boot-on-Intel-systems-using-ITSSPRC-st.patch
-# not committed yet
-Patch323: patch-0001-x86-hpet-Factor-hpet_enable_legacy_replacement_mode-.patch
-Patch324: patch-0002-x86-hpet-Don-t-enable-legacy-replacement-mode-uncond.patch
-
 
 # Security fixes
 Patch500: patch-xsa373-4.14-1.patch
@@ -684,11 +683,8 @@ systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
 %preun qubes-vm
 %systemd_preun xendriverdomain.service
 
-%post libs
-
-/sbin/ldconfig
-
-%ldconfig_scriptlets libs
+%post libs -p /sbin/ldconfig
+%postun libs -p /sbin/ldconfig
 
 %if %build_hyp
 %post hypervisor
