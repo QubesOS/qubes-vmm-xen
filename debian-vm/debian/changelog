@@ -1,9 +1,12 @@
-xen (4.14.2-0.1) unstable; urgency=medium
+xen (4.14.2-1) unstable; urgency=medium
 
-  [ Marek Marczykowski-Górecki ]
+  * Revert "rpm: do not load xen-acpi-processor with systemd-modules-
+    load"
   * Update to 4.14.2
+  * rpm: don't use ldconfig_scriptlets macro
+  * Include TSX related patches
 
- -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 01 Jun 2021 04:10:16 +0200
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 09 Jul 2021 05:23:53 +0200
 
 xen (4.14.1-5) unstable; urgency=medium
 
