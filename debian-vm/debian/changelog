@@ -1,3 +1,11 @@
+xen (2001:4.8.5-35) unstable; urgency=medium
+
+  * Commit unmodified Xen 4.11 patches for XSA-378, XSA-379
+  * Adjust security fixes for Xen 4.8 and actually apply them
+  * Disable grant tables v2
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 25 Aug 2021 14:13:17 +0200
+
 xen (2001:4.8.5-34) unstable; urgency=medium
 
   * Disable virtfs explicitly
