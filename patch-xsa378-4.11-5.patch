@@ -88,9 +88,12 @@ Reviewed-by: Paul Durrant <paul@xen.org>
  /* Share p2m table with iommu. */
 --- a/xen/drivers/passthrough/amd/pci_amd_iommu.c
 +++ b/xen/drivers/passthrough/amd/pci_amd_iommu.c
-@@ -333,6 +333,7 @@ static int reassign_device(struct domain
+@@ -333,8 +333,9 @@ static int reassign_device(struct domain
+                            u8 devfn, struct pci_dev *pdev)
+ {
      struct amd_iommu *iommu;
-     int bdf, rc;
+-    int bdf;
++    int bdf, rc;
      struct domain_iommu *t = dom_iommu(target);
 +    const struct ivrs_mappings *ivrs_mappings = get_ivrs_mappings(pdev->seg);
  
@@ -123,7 +126,7 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 +        pdev->domain = dom_io;
      }
  
-     rc = allocate_domain_resources(t);
+     /* IO page tables might be destroyed after pci-detach the last device
 @@ -362,6 +377,12 @@ static int reassign_device(struct domain
                      pdev->seg, pdev->bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
                      source->domain_id, target->domain_id);
@@ -186,8 +189,8 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 --- a/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
 +++ b/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
 @@ -60,8 +60,10 @@ int __must_check amd_iommu_unmap_page(st
+ int __must_check amd_iommu_unmap_page(struct domain *d, unsigned long gfn);
  u64 amd_iommu_get_next_table_from_pte(u32 *entry);
- int __must_check amd_iommu_alloc_root(struct domain_iommu *hd);
  int amd_iommu_reserve_domain_unity_map(struct domain *domain,
 -                                       u64 phys_addr, unsigned long size,
 -                                       int iw, int ir);

@@ -21,18 +21,17 @@ Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
 -
 -static int
 +static int __must_check
- p2m_remove_page(struct p2m_domain *p2m, unsigned long gfn_l, unsigned long mfn,
+ p2m_remove_page(struct p2m_domain *p2m, unsigned long gfn, unsigned long mfn,
                  unsigned int page_order)
  {
-@@ -892,9 +891,9 @@ guest_physmap_add_entry(struct domain *d
+@@ -892,8 +891,9 @@ guest_physmap_add_entry(struct domain *d
                  ASSERT(mfn_valid(omfn));
                  P2M_DEBUG("old gfn=%#lx -> mfn %#lx\n",
-                           gfn_x(ogfn) , mfn_x(omfn));
+                           ogfn , mfn_x(omfn));
 -                if ( mfn_eq(omfn, mfn_add(mfn, i)) )
--                    p2m_remove_page(p2m, gfn_x(ogfn), mfn_x(mfn_add(mfn, i)),
--                                    0);
+-                    p2m_remove_page(p2m, ogfn, mfn_x(mfn_add(mfn, i)), 0);
 +                if ( mfn_eq(omfn, mfn_add(mfn, i)) &&
-+                     (rc = p2m_remove_page(p2m, gfn_x(ogfn), mfn_x(omfn), 0)) )
++                     (rc = p2m_remove_page(p2m, ogfn, mfn_x(omfn), 0)) )
 +                    goto out;
              }
          }

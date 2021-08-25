@@ -372,7 +372,7 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 --- a/xen/drivers/passthrough/amd/pci_amd_iommu.c
 +++ b/xen/drivers/passthrough/amd/pci_amd_iommu.c
 @@ -218,6 +218,8 @@ static int __must_check allocate_domain_
-     return rc;
+     return 0;
  }
  
 +int __read_mostly amd_iommu_min_paging_mode = 1;

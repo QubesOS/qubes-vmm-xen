@@ -33,10 +33,10 @@ Reviewed-by: Paul Durrant <paul@xen.org>
  
      /* Remove previously mapped page if it was present. */
      prev_mfn = mfn_x(get_gfn(d, gfn_x(gpfn), &p2mt));
--    if ( mfn_valid(_mfn(prev_mfn)) )
+-    if ( mfn_valid(prev_mfn) )
 +    if ( p2mt == p2m_mmio_direct )
 +        rc = -EPERM;
-+    else if ( mfn_valid(_mfn(prev_mfn)) )
++    else if ( mfn_valid(prev_mfn) )
      {
          if ( is_xen_heap_mfn(prev_mfn) )
              /* Xen heap frames are simply unhooked from this phys slot. */
@@ -51,7 +51,7 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 +              mfn + i != mfn_x(mfn_return)) )
              return -EILSEQ;
  
-         i += (1UL << cur_order) - ((gfn_l + i) & ((1UL << cur_order) - 1));
+         i += (1UL << cur_order) - ((gfn + i) & ((1UL << cur_order) - 1));
 @@ -803,7 +804,7 @@ guest_physmap_add_entry(struct domain *d
      if ( p2m_is_foreign(t) )
          return -EINVAL;
@@ -74,18 +74,18 @@ Reviewed-by: Paul Durrant <paul@xen.org>
   *    order+1  for caller to retry with order (guaranteed smaller than
   *             the order value passed in)
   */
--int clear_mmio_p2m_entry(struct domain *d, unsigned long gfn_l, mfn_t mfn,
+-int clear_mmio_p2m_entry(struct domain *d, unsigned long gfn, mfn_t mfn,
 -                         unsigned int order)
-+static int clear_mmio_p2m_entry(struct domain *d, unsigned long gfn_l,
++static int clear_mmio_p2m_entry(struct domain *d, unsigned long gfn,
 +                                mfn_t mfn, unsigned int order)
  {
      int rc = -EINVAL;
-     gfn_t gfn = _gfn(gfn_l);
+     mfn_t actual_mfn;
 --- a/xen/arch/x86/mm/p2m-pod.c
 +++ b/xen/arch/x86/mm/p2m-pod.c
 @@ -1302,17 +1302,17 @@ guest_physmap_mark_populate_on_demand(st
  
-         p2m->get_entry(p2m, gfn_add(gfn, i), &ot, &a, 0, &cur_order, NULL);
+         omfn = p2m->get_entry(p2m, gfn + i, &ot, &a, 0, &cur_order, NULL);
          n = 1UL << min(order, cur_order);
 -        if ( p2m_is_ram(ot) )
 +        if ( ot == p2m_populate_on_demand )
@@ -115,9 +115,9 @@ Reviewed-by: Paul Durrant <paul@xen.org>
      {
 -        rc = clear_mmio_p2m_entry(d, gmfn, mfn, PAGE_ORDER_4K);
 +        rc = -EPERM;
-         goto out_put_gfn;
-     }
- #else
+         put_gfn(d, gmfn);
+
+         return rc;
 @@ -1651,6 +1651,15 @@ int prepare_ring_for_helper(
          return -ENOENT;
      }

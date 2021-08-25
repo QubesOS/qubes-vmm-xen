@@ -287,6 +287,21 @@ Patch581: patch-xsa373-4.11-4.patch
 Patch582: patch-xsa373-4.11-5.patch
 Patch583: patch-xsa375-4.8.patch
 Patch584: patch-xsa377-4.11.patch
+# dependencies for XSA-378, but applied on top of patches for XSA-302
+Patch585: patch-x86-iommu-set-up-a-scratch-page-in-the-quarantine-do.patch
+Patch586: patch-AMD-IOMMU-fix-off-by-one-in-amd_iommu_get_paging_mod.patch
+Patch587: patch-xsa378-4.11-0a.patch
+Patch588: patch-xsa378-4.11-0b.patch
+Patch589: patch-xsa378-4.11-0c.patch
+Patch590: patch-xsa378-4.11-1.patch
+Patch591: patch-xsa378-4.11-2.patch
+Patch592: patch-xsa378-4.11-3.patch
+Patch593: patch-xsa378-4.11-4.patch
+Patch594: patch-xsa378-4.11-5.patch
+Patch595: patch-xsa378-4.11-6.patch
+Patch596: patch-xsa378-4.11-7.patch
+Patch597: patch-xsa378-4.11-8.patch
+Patch598: patch-xsa379-4.12.patch
 
 
 # Upstreamable patches

@@ -24,8 +24,8 @@ Reviewed-by: Paul Durrant <paul@xen.org>
      {
          if ( !need_iommu(d) )
              return 0;
--        return iommu_map_page(d, gfn_l, gfn_l, IOMMUF_readable|IOMMUF_writable);
-+        return iommu_map_page(d, gfn_l, gfn_l,
+-        return iommu_map_page(d, gfn, gfn, IOMMUF_readable|IOMMUF_writable);
++        return iommu_map_page(d, gfn, gfn,
 +                              p2m_access_to_iommu_flags(p2ma));
      }
  
@@ -43,7 +43,7 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 -};
 -
  /* Possible unfiltered LAPIC/MSI messages from untrusted sources? */
- bool __read_mostly untrusted_msi;
+ bool_t __read_mostly untrusted_msi;
  
 @@ -1785,16 +1779,11 @@ out:
  static void iommu_domain_teardown(struct domain *d)
@@ -193,16 +193,16 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 --- a/xen/drivers/passthrough/x86/iommu.c
 +++ b/xen/drivers/passthrough/x86/iommu.c
 @@ -144,7 +144,7 @@ int arch_iommu_domain_init(struct domain
-     struct domain_iommu *hd = dom_iommu(d);
  
      spin_lock_init(&hd->arch.mapping_lock);
+     INIT_LIST_HEAD(&hd->arch.g2m_ioport_list);
 -    INIT_LIST_HEAD(&hd->arch.mapped_rmrrs);
 +    INIT_LIST_HEAD(&hd->arch.identity_maps);
  
      return 0;
  }
 @@ -153,6 +153,99 @@ void arch_iommu_domain_destroy(struct do
- {
+     }
  }
  
 +struct identity_map {
@@ -307,13 +307,13 @@ Reviewed-by: Paul Durrant <paul@xen.org>
  
  #include <xen/errno.h>
  #include <xen/list.h>
-+#include <xen/mem_access.h>
++#include <xen/p2m-common.h>
  #include <xen/spinlock.h>
  #include <asm/processor.h>
  #include <asm/hvm/vmx/vmcs.h>
 @@ -36,7 +37,7 @@ struct arch_iommu
-     spinlock_t mapping_lock;            /* io page table lock */
      int agaw;     /* adjusted guest address width, 0 is level 2 30-bit */
+     struct list_head g2m_ioport_list;   /* guest to machine ioport mapping */
      u64 iommu_bitmap;              /* bitmap of iommu(s) that the domain uses */
 -    struct list_head mapped_rmrrs;
 +    struct list_head identity_maps;
@@ -329,29 +329,27 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 +                           unsigned int flag);
 +void iommu_identity_map_teardown(struct domain *d);
 +
- extern bool untrusted_msi;
- 
  int pi_update_irte(const struct pi_desc *pi_desc, const struct pirq *pirq,
---- a/xen/include/asm-x86/mem_access.h
-+++ b/xen/include/asm-x86/mem_access.h
-@@ -44,10 +44,8 @@ bool p2m_mem_access_emulate_check(struct
-                                   const vm_event_response_t *rsp);
+                    const uint8_t gvec);
  
+--- a/xen/include/asm-x86/p2m.h
++++ b/xen/include/asm-x86/p2m.h
+@@ -681,10 +681,8 @@ bool p2m_mem_access_emulate_check(struct
+                                   const vm_event_response_t *rsp);
+
  /* Sanity check for mem_access hardware support */
--static inline bool p2m_mem_access_sanity_check(struct domain *d)
+-static inline bool_t p2m_mem_access_sanity_check(struct domain *d)
 -{
 -    return is_hvm_domain(d) && cpu_has_vmx && hap_enabled(d);
 -}
 +#define p2m_mem_access_sanity_check(d) \
 +    (is_hvm_domain(d) && cpu_has_vmx && hap_enabled(d))
- 
- #endif /*__ASM_X86_MEM_ACCESS_H__ */
- 
---- a/xen/include/asm-x86/p2m.h
-+++ b/xen/include/asm-x86/p2m.h
+
+ /* 
+  * Internal functions, only called by other p2m code
 @@ -836,6 +836,34 @@ int p2m_altp2m_propagate_change(struct d
-                                 mfn_t mfn, unsigned int page_order,
-                                 p2m_type_t p2mt, p2m_access_t p2ma);
+                                  mfn_t mfn, unsigned int page_order,
+                                  p2m_type_t p2mt, p2m_access_t p2ma);
  
 +/* p2m access to IOMMU flags */
 +static inline unsigned int p2m_access_to_iommu_flags(p2m_access_t p2ma)
@@ -384,17 +382,3 @@ Reviewed-by: Paul Durrant <paul@xen.org>
  /*
   * p2m type to IOMMU flags
   */
-@@ -857,9 +885,10 @@ static inline unsigned int p2m_get_iommu
-         flags = IOMMUF_readable;
-         break;
-     case p2m_mmio_direct:
--        flags = IOMMUF_readable;
--        if ( !rangeset_contains_singleton(mmio_ro_ranges, mfn_x(mfn)) )
--            flags |= IOMMUF_writable;
-+        flags = p2m_access_to_iommu_flags(p2ma);
-+        if ( (flags & IOMMUF_writable) &&
-+             rangeset_contains_singleton(mmio_ro_ranges, mfn_x(mfn)) )
-+            flags &= ~IOMMUF_writable;
-         break;
-     default:
-         flags = 0;

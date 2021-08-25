@@ -15,18 +15,17 @@ Reviewed-by: Paul Durrant <paul@xen.org>
      uint8_t ipat = 0;
      bool_t need_modify_vtd_table = 1;
      bool_t vtd_pte_present = 0;
--    unsigned int iommu_flags = p2m_get_iommu_flags(p2mt, mfn);
-+    unsigned int iommu_flags = p2m_get_iommu_flags(p2mt, p2ma, mfn);
+-    unsigned int iommu_flags = p2m_get_iommu_flags(p2mt);
++    unsigned int iommu_flags = p2m_get_iommu_flags(p2mt, p2ma);
      bool_t needs_sync = 1;
      ept_entry_t old_entry = { .epte = 0 };
      ept_entry_t new_entry = { .epte = 0 };
-@@ -837,8 +837,8 @@ ept_set_entry(struct p2m_domain *p2m, gf
+@@ -837,7 +837,8 @@ ept_set_entry(struct p2m_domain *p2m, gf
  
          /* Safe to read-then-write because we hold the p2m lock */
          if ( ept_entry->mfn == new_entry.mfn &&
--             p2m_get_iommu_flags(ept_entry->sa_p2mt, _mfn(ept_entry->mfn)) ==
--             iommu_flags )
-+             p2m_get_iommu_flags(ept_entry->sa_p2mt, ept_entry->access,
+-             p2m_get_iommu_flags(ept_entry->sa_p2mt) == iommu_flags )
++             p2m_get_iommu_flags(ept_entry->sa_p2mt,
 +                                 _mfn(ept_entry->mfn)) == iommu_flags )
              need_modify_vtd_table = 0;
  
@@ -49,54 +48,57 @@ Reviewed-by: Paul Durrant <paul@xen.org>
 +
  /* Returns: 0 for success, -errno for failure */
  static int
- p2m_pt_set_entry(struct p2m_domain *p2m, gfn_t gfn_, mfn_t mfn,
+ p2m_pt_set_entry(struct p2m_domain *p2m, unsigned long gfn, mfn_t mfn,
 @@ -487,7 +497,7 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
      l2_pgentry_t l2e_content;
      l3_pgentry_t l3e_content;
      int rc;
--    unsigned int iommu_pte_flags = p2m_get_iommu_flags(p2mt, mfn);
-+    unsigned int iommu_pte_flags = p2m_get_iommu_flags(p2mt, p2ma, mfn);
+-    unsigned int iommu_pte_flags = p2m_get_iommu_flags(p2mt);
++    unsigned int iommu_pte_flags = p2m_get_iommu_flags(p2mt, p2ma);
      /*
       * old_mfn and iommu_old_flags control possible flush/update needs on the
       * IOMMU: We need to flush when MFN or flags (i.e. permissions) change.
-@@ -556,6 +566,7 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
-                 old_mfn = l1e_get_pfn(*p2m_entry);
+@@ -556,7 +566,8 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
+             if ( flags & _PAGE_PSE )
+             {
                  iommu_old_flags =
-                     p2m_get_iommu_flags(p2m_flags_to_type(flags),
-+                                        p2m_flags_to_access(flags),
-                                         _mfn(old_mfn));
+-                    p2m_get_iommu_flags(p2m_flags_to_type(flags));
++                    p2m_get_iommu_flags(p2m_flags_to_type(flags),
++                                        p2m_flags_to_access(flags));
+                 old_mfn = l1e_get_pfn(*p2m_entry);
              }
              else
-@@ -602,9 +613,10 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
+@@ -602,9 +613,11 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
+         p2m_entry = p2m_find_entry(table, &gfn_remainder, gfn,
                                     0, L1_PAGETABLE_ENTRIES);
          ASSERT(p2m_entry);
-         old_mfn = l1e_get_pfn(*p2m_entry);
 +        flags = l1e_get_flags(*p2m_entry);
          iommu_old_flags =
--            p2m_get_iommu_flags(p2m_flags_to_type(l1e_get_flags(*p2m_entry)),
--                                _mfn(old_mfn));
+-            p2m_get_iommu_flags(p2m_flags_to_type(l1e_get_flags(*p2m_entry)));
 +            p2m_get_iommu_flags(p2m_flags_to_type(flags),
-+                                p2m_flags_to_access(flags), _mfn(old_mfn));
++                                p2m_flags_to_access(flags));
+         old_mfn = l1e_get_pfn(*p2m_entry);
  
          if ( mfn_valid(mfn) || p2m_allows_invalid_mfn(p2mt) )
              entry_content = p2m_l1e_from_pfn(mfn_x(mfn),
-@@ -648,6 +660,7 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
-                 old_mfn = l1e_get_pfn(*p2m_entry);
+@@ -648,7 +660,8 @@ p2m_pt_set_entry(struct p2m_domain *p2m,
+             if ( flags & _PAGE_PSE )
+             {
                  iommu_old_flags =
-                     p2m_get_iommu_flags(p2m_flags_to_type(flags),
-+                                        p2m_flags_to_access(flags),
-                                         _mfn(old_mfn));
+-                    p2m_get_iommu_flags(p2m_flags_to_type(flags));
++                    p2m_get_iommu_flags(p2m_flags_to_type(flags),
++                                        p2m_flags_to_access(flags));
+                 old_mfn = l1e_get_pfn(*p2m_entry);
              }
              else
 --- a/xen/include/asm-x86/p2m.h
 +++ b/xen/include/asm-x86/p2m.h
-@@ -839,7 +839,8 @@ int p2m_altp2m_propagate_change(struct d
+@@ -839,7 +839,7 @@ int p2m_altp2m_propagate_change(struct d
  /*
   * p2m type to IOMMU flags
   */
--static inline unsigned int p2m_get_iommu_flags(p2m_type_t p2mt, mfn_t mfn)
-+static inline unsigned int p2m_get_iommu_flags(p2m_type_t p2mt,
-+                                               p2m_access_t p2ma, mfn_t mfn)
+-static inline unsigned int p2m_get_iommu_flags(p2m_type_t p2mt)
++static inline unsigned int p2m_get_iommu_flags(p2m_type_t p2mt, p2m_access_t p2ma)
  {
      unsigned int flags;
  

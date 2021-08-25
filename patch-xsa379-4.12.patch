@@ -23,7 +23,7 @@ Reviewed-by: Julien Grall <jgrall@amazon.com>
 --- a/xen/arch/x86/mm.c
 +++ b/xen/arch/x86/mm.c
 @@ -4807,8 +4807,20 @@ int xenmem_add_to_physmap_one(
-         goto put_both;
+         return -EINVAL;
      }
  
 -    /* Remove previously mapped page if it was present. */
@@ -43,8 +43,8 @@ Reviewed-by: Julien Grall <jgrall@amazon.com>
 +    /* Remove previously mapped page if it was present. */
      if ( p2mt == p2m_mmio_direct )
          rc = -EPERM;
-     else if ( mfn_valid(_mfn(prev_mfn)) )
-@@ -4820,27 +4832,21 @@ int xenmem_add_to_physmap_one(
+     else if ( mfn_valid(prev_mfn) )
+@@ -4820,29 +4832,22 @@ int xenmem_add_to_physmap_one(
              /* Normal domain memory is freed, to avoid leaking memory. */
              rc = guest_remove_page(d, gfn_x(gpfn));
      }
@@ -55,23 +55,25 @@ Reviewed-by: Julien Grall <jgrall@amazon.com>
 -        goto put_both;
  
      /* Unmap from old location, if any. */
-     old_gpfn = get_gpfn_from_mfn(mfn_x(mfn));
-     ASSERT(!SHARED_M2P(old_gpfn));
-     if ( space == XENMAPSPACE_gmfn && old_gpfn != gfn )
+     old_gpfn = get_gpfn_from_mfn(mfn);
+     ASSERT( old_gpfn != SHARED_M2P_ENTRY );
+     if ( (space == XENMAPSPACE_gmfn || space == XENMAPSPACE_gmfn_range) &&
+          old_gpfn != gfn )
 -    {
          rc = -EXDEV;
 -        goto put_both;
 -    }
 -    if ( old_gpfn != INVALID_M2P_ENTRY )
 +    else if ( !rc && old_gpfn != INVALID_M2P_ENTRY )
-         rc = guest_physmap_remove_page(d, _gfn(old_gpfn), mfn, PAGE_ORDER_4K);
+         rc = guest_physmap_remove_page(d, _gfn(old_gpfn), _mfn(mfn), PAGE_ORDER_4K);
  
      /* Map at new location. */
      if ( !rc )
-         rc = guest_physmap_add_page(d, gpfn, mfn, PAGE_ORDER_4K);
+         rc = guest_physmap_add_page(d, gpfn, _mfn(mfn), PAGE_ORDER_4K);
  
 +    put_gfn(d, gfn_x(gpfn));
 +
-  put_both:
+- put_both:
      /*
       * In the XENMAPSPACE_gmfn case, we took a ref of the gfn at the top.
+      * We also may need to transfer ownership of the page reference to our
