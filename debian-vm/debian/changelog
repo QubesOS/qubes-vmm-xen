@@ -1,3 +1,11 @@
+xen (4.14.2-2) unstable; urgency=medium
+
+  * Apply follow up patches for XSA-373
+  * Apply patches for XSA-378, XSA-379, XSA-382
+  * Disable grant tables v2
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 25 Aug 2021 14:12:19 +0200
+
 xen (4.14.2-1) unstable; urgency=medium
 
   * Revert "rpm: do not load xen-acpi-processor with systemd-modules-
