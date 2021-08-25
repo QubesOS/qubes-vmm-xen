@@ -1,0 +1,145 @@
+From 1dae9fd19fd44e5912169bb916192438be1b4479 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 15 Jul 2021 09:31:55 +0200
+Subject: [PATCH 1/4] VT-d: undo device mappings upon error
+
+When
+ - flushes (supposedly not possible anymore after XSA-373),
+ - secondary mappings for legacy PCI devices behind bridges,
+ - secondary mappings for chipset quirks, or
+ - find_upstream_bridge() invocations
+fail, the successfully established device mappings should not be left
+around.
+
+Further, when (parts of) unmapping fail, simply returning an error is
+typically not enough. Crash the domain instead in such cases, arranging
+for domain cleanup to continue in a best effort manner despite such
+failures.
+
+Finally make domain_context_unmap()'s error behavior consistent in the
+legacy PCI device case: Don't bail from the function in one special
+case, but always just exit the switch statement.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Paul Durrant <paul@xen.org>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+master commit: f3401d65d9f0dce508c3d7da55de4a093d748ae1
+master date: 2021-06-24 16:28:25 +0200
+---
+ xen/drivers/passthrough/vtd/iommu.c | 57 ++++++++++++++++++++++++-----
+ 1 file changed, 48 insertions(+), 9 deletions(-)
+
+diff --git a/xen/drivers/passthrough/vtd/iommu.c b/xen/drivers/passthrough/vtd/iommu.c
+index bef3d594c9a6..7d1813a61500 100644
+--- a/xen/drivers/passthrough/vtd/iommu.c
++++ b/xen/drivers/passthrough/vtd/iommu.c
+@@ -1464,9 +1464,15 @@ int domain_context_mapping_one(
+     if ( !seg && !rc )
+         rc = me_wifi_quirk(domain, bus, devfn, MAP_ME_PHANTOM_FUNC);
+ 
++    if ( rc )
++        domain_context_unmap_one(domain, iommu, bus, devfn);
++
+     return rc;
+ }
+ 
++static int domain_context_unmap(struct domain *d, uint8_t devfn,
++                                struct pci_dev *pdev);
++
+ static int domain_context_mapping(struct domain *domain, u8 devfn,
+                                   struct pci_dev *pdev)
+ {
+@@ -1530,16 +1536,21 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
+         if ( ret )
+             break;
+ 
+-        if ( find_upstream_bridge(seg, &bus, &devfn, &secbus) < 1 )
+-            break;
++        if ( (ret = find_upstream_bridge(seg, &bus, &devfn, &secbus)) < 1 )
++        {
++            if ( !ret )
++                break;
++            ret = -ENXIO;
++        }
+ 
+         /*
+          * Mapping a bridge should, if anything, pass the struct pci_dev of
+          * that bridge. Since bridges don't normally get assigned to guests,
+          * their owner would be the wrong one. Pass NULL instead.
+          */
+-        ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
+-                                         NULL);
++        if ( ret >= 0 )
++            ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
++                                             NULL);
+ 
+         /*
+          * Devices behind PCIe-to-PCI/PCIx bridge may generate different
+@@ -1556,6 +1567,9 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
+             ret = domain_context_mapping_one(domain, drhd->iommu, secbus, 0,
+                                              NULL);
+ 
++        if ( ret )
++            domain_context_unmap(domain, devfn, pdev);
++
+         break;
+ 
+     default:
+@@ -1635,6 +1649,19 @@ int domain_context_unmap_one(
+     if ( !iommu->drhd->segment && !rc )
+         rc = me_wifi_quirk(domain, bus, devfn, UNMAP_ME_PHANTOM_FUNC);
+ 
++    if ( rc && !is_hardware_domain(domain) && domain != dom_io )
++    {
++        if ( domain->is_dying )
++        {
++            printk(XENLOG_ERR "%pd: error %d unmapping %04x:%02x:%02x.%u\n",
++                   domain, rc, iommu->drhd->segment, bus,
++                   PCI_SLOT(devfn), PCI_FUNC(devfn));
++            rc = 0; /* Make upper layers continue in a best effort manner. */
++        }
++        else
++            domain_crash(domain);
++    }
++
+     return rc;
+ }
+ 
+@@ -1689,17 +1716,29 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
+ 
+         tmp_bus = bus;
+         tmp_devfn = devfn;
+-        if ( find_upstream_bridge(seg, &tmp_bus, &tmp_devfn, &secbus) < 1 )
++        if ( (ret = find_upstream_bridge(seg, &tmp_bus, &tmp_devfn,
++                                         &secbus)) < 1 )
++        {
++            if ( ret )
++            {
++                ret = -ENXIO;
++                if ( !domain->is_dying &&
++                     !is_hardware_domain(domain) && domain != dom_io )
++                {
++                    domain_crash(domain);
++                    /* Make upper layers continue in a best effort manner. */
++                    ret = 0;
++                }
++            }
+             break;
++        }
+ 
+         /* PCIe to PCI/PCIx bridge */
+         if ( pdev_type(seg, tmp_bus, tmp_devfn) == DEV_TYPE_PCIe2PCI_BRIDGE )
+         {
+             ret = domain_context_unmap_one(domain, iommu, tmp_bus, tmp_devfn);
+-            if ( ret )
+-                return ret;
+-
+-            ret = domain_context_unmap_one(domain, iommu, secbus, 0);
++            if ( !ret )
++                ret = domain_context_unmap_one(domain, iommu, secbus, 0);
+         }
+         else /* Legacy PCI bridge */
+             ret = domain_context_unmap_one(domain, iommu, tmp_bus, tmp_devfn);
+-- 
+2.31.1
+
