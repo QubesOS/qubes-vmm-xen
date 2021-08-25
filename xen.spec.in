@@ -135,6 +135,16 @@ Patch507: patch-0001-VT-d-undo-device-mappings-upon-error.patch
 Patch508: patch-0002-VT-d-adjust-domid-map-updating-when-unmapping-contex.patch
 Patch509: patch-0003-VT-d-clear_fault_bits-should-clear-all-fault-bits.patch
 Patch510: patch-0004-VT-d-don-t-lose-errors-when-flushing-TLBs-on-multipl.patch
+Patch511: patch-xsa378-4.14-1.patch
+Patch512: patch-xsa378-4.14-2.patch
+Patch513: patch-xsa378-4.14-3.patch
+Patch514: patch-xsa378-4.14-4.patch
+Patch515: patch-xsa378-4.14-5.patch
+Patch516: patch-xsa378-4.14-6.patch
+Patch517: patch-xsa378-4.14-7.patch
+Patch518: patch-xsa378-4.14-8.patch
+Patch519: patch-xsa379-4.14.patch
+Patch520: patch-xsa382.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
