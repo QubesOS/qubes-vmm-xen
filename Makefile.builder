@@ -34,6 +34,10 @@ source-debian-xen-copy-in: VERSION = $(shell cat $(ORIG_SRC)/version)
 source-debian-xen-copy-in: ORIG_FILE = "$(CHROOT_DIR)/$(DIST_SRC)/xen_$(VERSION).orig.tar.gz"
 source-debian-xen-copy-in: SRC_FILE  = "$(CHROOT_DIR)/$(DIST_SRC)/xen-$(VERSION).tar.gz"
 source-debian-xen-copy-in:
+	if [[ $(DIST) == bullseye ]] ; then \
+		sed -i s/python-dev\ \|\ python2-dev/python2-dev/ $(CHROOT_DIR)/$(DIST_SRC)/debian-vm/debian/control; \
+		sed -i s/python\ \|\ python2/python2/ $(CHROOT_DIR)/$(DIST_SRC)/debian-vm/debian/control; \
+	fi
 	-$(ORIG_SRC)/debian-quilt $(ORIG_SRC)/series-debian-vm.conf $(CHROOT_DIR)/$(DIST_SRC)/debian/patches
 	tar xfz $(SRC_FILE) -C $(CHROOT_DIR)/$(DIST_SRC)/debian-vm --strip-components=1 
 	rm -f $(CHROOT_DIR)/$(DIST_SRC)/debian-vm/rel
