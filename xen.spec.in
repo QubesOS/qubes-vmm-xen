@@ -138,6 +138,7 @@ Patch631: patch-Revert-xen-credit2-limit-the-max-number-of-CPUs-in-a.patch
 Patch634: patch-libxl-cleanup-remaining-backend-xs-dirs-after-driver.patch
 Patch635: patch-libxl-user-defined-max_maptrack_frames.patch
 Patch636: patch-autoconf-fix-handling-absolute-PYTHON-path.patch
+Patch637: patch-0001-x86-xstate-reset-cached-register-values-on-resume.patch
 
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
