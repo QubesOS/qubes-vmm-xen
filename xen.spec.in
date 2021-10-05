@@ -122,6 +122,7 @@ Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 Patch320: patch-libxl-resume.patch
 
 # Security fixes
+Patch400: patch-xsa386-0001-VT-d-fix-deassign-of-device-with-RMRR.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
