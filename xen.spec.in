@@ -398,6 +398,11 @@ cp -v %{SOURCE3} xen/.config
 
 
 %build
+# This package calls binutils components directly and would need to pass
+# in flags to enable the LTO plugins
+# Disable LTO
+%define _lto_cflags %{nil}
+
 %if !%build_ocaml
 %define ocaml_flags OCAML_TOOLS=n
 %endif
