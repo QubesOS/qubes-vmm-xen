@@ -18,7 +18,7 @@ endif
 
 NO_ARCHIVE := 1
 
-source-debian-xen-copy-in: VERSION = $(shell cat $(ORIG_SRC)/version)
+source-debian-xen-copy-in: VERSION = $(file <$(ORIG_SRC)/version)
 source-debian-xen-copy-in: ORIG_FILE = "$(CHROOT_DIR)/$(DIST_SRC)/xen_$(subst -,~,$(VERSION)).orig.tar.gz"
 source-debian-xen-copy-in: SRC_FILE  = "$(CHROOT_DIR)/$(DIST_SRC)/xen-$(VERSION).tar.gz"
 source-debian-xen-copy-in:
