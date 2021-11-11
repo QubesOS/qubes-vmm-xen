@@ -309,6 +309,8 @@ form the core Xen userspace environment.
 Summary: Libraries for Xen tools
 Provides: xen-hypervisor-abi = %{hv_abi}
 Requires: xen-licenses
+Requires(post): coreutils
+Requires(post): gawk
 
 %description hypervisor
 This package contains the Xen hypervisor
