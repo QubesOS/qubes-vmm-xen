@@ -1,3 +1,13 @@
+xen (4.14.3-3) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * spec: install missing auxiliary files for autoreconf
+
+  [ Ivan Kardykov ]
+  * spec: add R to fix initial postinstall
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 11 Nov 2021 01:40:46 +0100
+
 xen (4.14.3-2) unstable; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
