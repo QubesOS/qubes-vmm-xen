@@ -303,7 +303,9 @@ Patch595: patch-xsa378-4.11-6.patch
 Patch596: patch-xsa378-4.11-7.patch
 Patch597: patch-xsa378-4.11-8.patch
 Patch598: patch-xsa379-4.12.patch
-
+Patch599: patch-xsa388-4.8-1.patch
+Patch600: patch-xsa388-4.8-2.patch
+Patch601: patch-xsa389-4.8.patch
 
 # Upstreamable patches
 Patch651: patch-xen-libxl-error-write-perm.patch
