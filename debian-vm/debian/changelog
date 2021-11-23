@@ -1,3 +1,11 @@
+xen (2001:4.8.5-36) unstable; urgency=medium
+
+  * Backport a patch prerequisite for XSA-388
+  * spec: shift patch number
+  * Apply XSA-388, XSA-389 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 23 Nov 2021 15:02:18 +0100
+
 xen (2001:4.8.5-35) unstable; urgency=medium
 
   * Commit unmodified Xen 4.11 patches for XSA-378, XSA-379
