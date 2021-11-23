@@ -123,6 +123,9 @@ Patch320: patch-libxl-resume.patch
 
 # Security fixes
 Patch400: patch-xsa386-0001-VT-d-fix-deassign-of-device-with-RMRR.patch
+Patch401: patch-xsa388-4.14-1.patch
+Patch402: patch-xsa388-4.14-2.patch
+Patch403: patch-xsa389-4.14.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
