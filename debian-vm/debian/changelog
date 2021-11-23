@@ -1,3 +1,9 @@
+xen (4.14.3-4) unstable; urgency=medium
+
+  * Apply XSA-388, XSA-389 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 23 Nov 2021 12:44:34 +0100
+
 xen (4.14.3-3) unstable; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
