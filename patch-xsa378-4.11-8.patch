@@ -115,9 +115,9 @@ Reviewed-by: Paul Durrant <paul@xen.org>
      {
 -        rc = clear_mmio_p2m_entry(d, gmfn, mfn, PAGE_ORDER_4K);
 +        rc = -EPERM;
-         put_gfn(d, gmfn);
-
-         return rc;
+         goto out_put_gfn;
+     }
+ #else
 @@ -1651,6 +1651,15 @@ int prepare_ring_for_helper(
          return -ENOENT;
      }

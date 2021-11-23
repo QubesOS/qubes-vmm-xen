@@ -155,6 +155,7 @@ Patch358: patch-0001-x86-vtd-Don-t-include-control-register-state-in-the-.patch
 Patch359: patch-0001-passthrough-vtd-Don-t-DMA-to-the-stack-in-queue_inva.patch
 Patch361: patch-xen-access-once.patch
 Patch362: patch-0001-nospec-introduce-evaluate_nospec.patch
+Patch363: patch-x86-PoD-correctly-handle-non-order-0-decrease-reserv.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
