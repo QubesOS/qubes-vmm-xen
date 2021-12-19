@@ -10,7 +10,7 @@ else ifeq ($(PACKAGE_SET),vm)
   ifeq ($(DISTRIBUTION),qubuntu)
     DEBIAN_BUILD_DIRS := debian-vm/debian
     SOURCE_COPY_IN := source-debian-xen-copy-in
-  else ifneq ($(filter $(DIST),jessie stretch buster bullseye),)
+  else ifneq ($(filter $(DIST),stretch buster bullseye bookworm),)
     DEBIAN_BUILD_DIRS := debian-vm/debian
     SOURCE_COPY_IN := source-debian-xen-copy-in
   endif
