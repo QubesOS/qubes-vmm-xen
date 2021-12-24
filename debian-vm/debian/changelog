@@ -1,3 +1,10 @@
+xen (4.14.3-6) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * Add Debian bookworm support
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 24 Dec 2021 04:14:30 +0100
+
 xen (4.14.3-5) unstable; urgency=medium
 
   * Backport changes necessary for QEMU 6.x in stubdomain
