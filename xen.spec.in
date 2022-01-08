@@ -107,6 +107,7 @@ Patch291: patch-0002-ns16550-specify-uart-param-for-ns_-read-write-_reg-a.patch
 Patch292: patch-0003-ns16550-add-Exar-PCIe-UART-cards-support.patch
 Patch293: patch-0001-x86-spec-ctrl-Skip-RSB-overwriting-when-safe-to-do-s.patch
 Patch294: patch-libxl-Fix-QEMU-cmdline-for-scsi-device.patch
+Patch295: patch-libxl-Replace-deprecated-QMP-command-by-query-cpus-f.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
