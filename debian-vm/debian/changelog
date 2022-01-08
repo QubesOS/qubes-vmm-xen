@@ -1,3 +1,11 @@
+xen (4.14.3-7) unstable; urgency=medium
+
+  * Prohibit domid reuse
+  * libxl: add pcidevs to stubdomain earlier
+  * Backport one more patch for updated qemu
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 08 Jan 2022 06:05:28 +0100
+
 xen (4.14.3-6) unstable; urgency=medium
 
   [ Frédéric Pierret (fepitre) ]
