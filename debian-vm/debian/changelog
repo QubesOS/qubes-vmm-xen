@@ -1,3 +1,9 @@
+xen (4.14.3-8) unstable; urgency=medium
+
+  * Apply XSA-395
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 20 Jan 2022 14:21:00 +0100
+
 xen (4.14.3-7) unstable; urgency=medium
 
   * Prohibit domid reuse
