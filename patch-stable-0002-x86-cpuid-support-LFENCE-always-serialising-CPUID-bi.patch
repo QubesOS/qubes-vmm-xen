@@ -1,0 +1,346 @@
+From 1a914256dca50ecd98e02f2783bc82c0d2b85b04 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Thu, 15 Apr 2021 16:47:31 +0200
+Subject: [PATCH 02/20] x86/cpuid: support LFENCE always serialising CPUID bit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+AMD Milan (Zen3) CPUs have an LFENCE Always Serialising CPUID bit in
+leaf 80000021.eax. Previous AMD versions used to have a user settable
+bit in DE_CFG MSR to select whether LFENCE was dispatch serialising,
+which Xen always attempts to set. The forcefully always on setting is
+due to the addition of SEV-SNP so that a VMM cannot break the
+confidentiality of a guest.
+
+In order to support this new CPUID bit move the LFENCE_DISPATCH
+synthetic CPUID bit to map the hardware bit (leaving a hole in the
+synthetic range) and either rely on the bit already being set by the
+native CPUID output, or attempt to fake it in Xen by modifying the
+DE_CFG MSR. This requires adding one more entry to the featureset to
+support leaf 80000021.eax.
+
+The bit is always exposed to guests by default even if the underlying
+hardware doesn't support leaf 80000021. Note that Xen doesn't allow
+guests to change the DE_CFG value, so once set by Xen LFENCE will always
+be serialising.
+
+Note that the access to DE_CFG by guests is left as-is: reads will
+unconditionally return LFENCE_SERIALISE bit set, while writes are
+silently dropped.
+
+Suggested-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+[Always expose to guests by default]
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit e9b4fe26364950258c9f57f0f68eccb778eeadbb)
+
+x86/cpuid: do not expand max leaves on restore
+
+When restoring limit the maximum leaves to the ones supported by Xen
+4.12 in order to not expand the maximum leaves a guests sees. Note
+this is unlikely to cause real issues.
+
+Guests restored from Xen versions 4.13 or greater will contain CPUID
+data on the stream that will override the values set by
+xc_cpuid_apply_policy.
+
+Fixes: e9b4fe263649 ("x86/cpuid: support LFENCE always serialising CPUID bit")
+Reported-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 111c8c33a8a18588f3da3c5dbb7f5c63ddb98ce5)
+
+tools/libxenguest: Fix max_extd_leaf calculation for legacy restore
+
+0x1c is lower than any value which will actually be observed in
+p->extd.max_leaf, but higher than the logical 9 leaves worth of extended data
+on Intel systems, causing x86_cpuid_copy_to_buffer() to fail with -ENOBUFS.
+
+Correct the calculation.
+
+The problem was first noticed in c/s 34990446ca9 "libxl: don't ignore the
+return value from xc_cpuid_apply_policy" but introduced earlier.
+
+Fixes: 111c8c33a8a1 ("x86/cpuid: do not expand max leaves on restore")
+Reported-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 5fa174cbf54cc625a023b8e7170e359dd150c072)
+
+tools/guest: Fix comment regarding CPUID compatibility
+
+It was Xen 4.14 where CPUID data was added to the migration stream, and 4.13
+that we need to worry about with regards to compatibility.  Xen 4.12 isn't
+relevant.
+
+Expand and correct the commentary.
+
+Fixes: 111c8c33a8a1 ("x86/cpuid: do not expand max leaves on restore")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 820cc393434097f3b7976acdccbf1d96071d6d23)
+---
+ tools/libxc/xc_cpuid_x86.c                  | 22 +++++++++---
+ tools/libxl/libxl_cpuid.c                   |  2 ++
+ tools/misc/xen-cpuid.c                      |  6 ++++
+ xen/arch/x86/cpu/amd.c                      |  7 ++++
+ xen/arch/x86/cpu/common.c                   |  3 ++
+ xen/arch/x86/cpuid.c                        | 15 ++++++++-
+ xen/include/asm-x86/cpufeatures.h           |  2 +-
+ xen/include/public/arch-x86/cpufeatureset.h |  3 ++
+ xen/include/xen/lib/x86/cpuid.h             | 37 ++++++++++++++++++++-
+ 9 files changed, 90 insertions(+), 7 deletions(-)
+
+diff --git a/tools/libxc/xc_cpuid_x86.c b/tools/libxc/xc_cpuid_x86.c
+index 512eb1f78f28..a0202ecbc9ad 100644
+--- a/tools/libxc/xc_cpuid_x86.c
++++ b/tools/libxc/xc_cpuid_x86.c
+@@ -497,12 +497,22 @@ int xc_cpuid_apply_policy(xc_interface *xch, uint32_t domid, bool restore,
+         goto out;
+     }
+ 
+-    /*
+-     * Account for feature which have been disabled by default since Xen 4.13,
+-     * so migrated-in VM's don't risk seeing features disappearing.
+-     */
+     if ( restore )
+     {
++        /*
++         * Xen 4.14 introduced support to move the guest's CPUID data in the
++         * migration stream.  Previously, the destination side would invent a
++         * policy out of thin air in the hopes that it was ok.
++         *
++         * This restore path is used for incoming VMs with no CPUID data
++         * i.e. originated on Xen 4.13 or earlier.  We must invent a policy
++         * compatible with what Xen 4.13 would have done on the same hardware.
++         *
++         * Specifically:
++         * - Clamp max leaves.
++         * - Re-enable features which have become (possibly) off by default.
++         */
++
+         p->basic.rdrand = test_bit(X86_FEATURE_RDRAND, host_featureset);
+         p->feat.hle = test_bit(X86_FEATURE_HLE, host_featureset);
+         p->feat.rtm = test_bit(X86_FEATURE_RTM, host_featureset);
+@@ -511,6 +521,10 @@ int xc_cpuid_apply_policy(xc_interface *xch, uint32_t domid, bool restore,
+         {
+             p->feat.mpx = test_bit(X86_FEATURE_MPX, host_featureset);
+         }
++
++        p->basic.max_leaf = min(p->basic.max_leaf, 0xdu);
++        p->feat.max_subleaf = 0;
++        p->extd.max_leaf = min(p->extd.max_leaf, 0x8000001c);
+     }
+ 
+     if ( featureset )
+diff --git a/tools/libxl/libxl_cpuid.c b/tools/libxl/libxl_cpuid.c
+index ce93c5a79661..a06f7a660657 100644
+--- a/tools/libxl/libxl_cpuid.c
++++ b/tools/libxl/libxl_cpuid.c
+@@ -290,6 +290,8 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"svm_decode",   0x8000000a, NA, CPUID_REG_EDX,  7,  1},
+         {"svm_pausefilt",0x8000000a, NA, CPUID_REG_EDX, 10,  1},
+ 
++        {"lfence+",      0x80000021, NA, CPUID_REG_EAX,  2,  1},
++
+         {"maxhvleaf",    0x40000000, NA, CPUID_REG_EAX,  0,  8},
+ 
+         {NULL, 0, NA, CPUID_REG_INV, 0, 0}
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 0056baf666a1..bfe20c0c5f71 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -183,6 +183,11 @@ static const char *const str_7a1[32] =
+     /* 4 */                 [ 5] = "avx512_bf16",
+ };
+ 
++static const char *const str_e21a[32] =
++{
++    [ 2] = "lfence+",
++};
++
+ static const struct {
+     const char *name;
+     const char *abbr;
+@@ -200,6 +205,7 @@ static const struct {
+     { "0x80000008.ebx",   "e8b", str_e8b },
+     { "0x00000007:0.edx", "7d0", str_7d0 },
+     { "0x00000007:1.eax", "7a1", str_7a1 },
++    { "0x80000021.eax",  "e21a", str_e21a },
+ };
+ 
+ #define COL_ALIGN "18"
+diff --git a/xen/arch/x86/cpu/amd.c b/xen/arch/x86/cpu/amd.c
+index d33b7cf999bd..beff5048425a 100644
+--- a/xen/arch/x86/cpu/amd.c
++++ b/xen/arch/x86/cpu/amd.c
+@@ -646,6 +646,13 @@ void amd_init_lfence(struct cpuinfo_x86 *c)
+ {
+ 	uint64_t value;
+ 
++	/*
++	 * Some hardware has LFENCE dispatch serialising always enabled,
++	 * nothing to do on that case.
++	 */
++	if (test_bit(X86_FEATURE_LFENCE_DISPATCH, c->x86_capability))
++		return;
++
+ 	/*
+ 	 * Attempt to set lfence to be Dispatch Serialising.  This MSR almost
+ 	 * certainly isn't virtualised (and Xen at least will leak the real
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 743fbb65ab1c..8a37d863a8c4 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -419,6 +419,9 @@ static void generic_identify(struct cpuinfo_x86 *c)
+ 	if (c->extended_cpuid_level >= 0x80000008)
+ 		c->x86_capability[cpufeat_word(X86_FEATURE_CLZERO)]
+ 			= cpuid_ebx(0x80000008);
++	if (c->extended_cpuid_level >= 0x80000021)
++		c->x86_capability[cpufeat_word(X86_FEATURE_LFENCE_DISPATCH)]
++			= cpuid_eax(0x80000021);
+ 
+ 	/* Intel-defined flags: level 0x00000007 */
+ 	if ( c->cpuid_level >= 0x00000007 ) {
+diff --git a/xen/arch/x86/cpuid.c b/xen/arch/x86/cpuid.c
+index 5229eba5951b..390f4a5e5693 100644
+--- a/xen/arch/x86/cpuid.c
++++ b/xen/arch/x86/cpuid.c
+@@ -308,6 +308,7 @@ static void __init calculate_raw_policy(void)
+ static void __init calculate_host_policy(void)
+ {
+     struct cpuid_policy *p = &host_cpuid_policy;
++    unsigned int max_extd_leaf;
+ 
+     *p = raw_cpuid_policy;
+ 
+@@ -315,7 +316,19 @@ static void __init calculate_host_policy(void)
+         min_t(uint32_t, p->basic.max_leaf,   ARRAY_SIZE(p->basic.raw) - 1);
+     p->feat.max_subleaf =
+         min_t(uint32_t, p->feat.max_subleaf, ARRAY_SIZE(p->feat.raw) - 1);
+-    p->extd.max_leaf = 0x80000000 | min_t(uint32_t, p->extd.max_leaf & 0xffff,
++
++    max_extd_leaf = p->extd.max_leaf;
++
++    /*
++     * For AMD/Hygon hardware before Zen3, we unilaterally modify LFENCE to be
++     * dispatch serialising for Spectre mitigations.  Extend max_extd_leaf
++     * beyond what hardware supports, to include the feature leaf containing
++     * this information.
++     */
++    if ( cpu_has_lfence_dispatch )
++        max_extd_leaf = max(max_extd_leaf, 0x80000021);
++
++    p->extd.max_leaf = 0x80000000 | min_t(uint32_t, max_extd_leaf & 0xffff,
+                                           ARRAY_SIZE(p->extd.raw) - 1);
+ 
+     cpuid_featureset_to_policy(boot_cpu_data.x86_capability, p);
+diff --git a/xen/include/asm-x86/cpufeatures.h b/xen/include/asm-x86/cpufeatures.h
+index d7e42d9bb6a9..6c8f432aee4f 100644
+--- a/xen/include/asm-x86/cpufeatures.h
++++ b/xen/include/asm-x86/cpufeatures.h
+@@ -24,7 +24,7 @@ XEN_CPUFEATURE(APERFMPERF,        X86_SYNTH( 8)) /* APERFMPERF */
+ XEN_CPUFEATURE(MFENCE_RDTSC,      X86_SYNTH( 9)) /* MFENCE synchronizes RDTSC */
+ XEN_CPUFEATURE(XEN_SMEP,          X86_SYNTH(10)) /* SMEP gets used by Xen itself */
+ XEN_CPUFEATURE(XEN_SMAP,          X86_SYNTH(11)) /* SMAP gets used by Xen itself */
+-XEN_CPUFEATURE(LFENCE_DISPATCH,   X86_SYNTH(12)) /* lfence set as Dispatch Serialising */
++/* Bit 12 - unused. */
+ XEN_CPUFEATURE(IND_THUNK_LFENCE,  X86_SYNTH(13)) /* Use IND_THUNK_LFENCE */
+ XEN_CPUFEATURE(IND_THUNK_JMP,     X86_SYNTH(14)) /* Use IND_THUNK_JMP */
+ XEN_CPUFEATURE(SC_BRANCH_HARDEN,  X86_SYNTH(15)) /* Conditional Branch Hardening */
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index c1b61385b1b9..bd74dd1a7224 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -285,6 +285,9 @@ XEN_CPUFEATURE(SSBD,          9*32+31) /*A  MSR_SPEC_CTRL.SSBD available */
+ /* Intel-defined CPU features, CPUID level 0x00000007:1.eax, word 10 */
+ XEN_CPUFEATURE(AVX512_BF16,  10*32+ 5) /*A  AVX512 BFloat16 Instructions */
+ 
++/* AMD-defined CPU features, CPUID level 0x80000021.eax, word 11 */
++XEN_CPUFEATURE(LFENCE_DISPATCH,    11*32+ 2) /*A  LFENCE always serializing */
++
+ #endif /* XEN_CPUFEATURE */
+ 
+ /* Clean up from a default include.  Close the enum (for C). */
+diff --git a/xen/include/xen/lib/x86/cpuid.h b/xen/include/xen/lib/x86/cpuid.h
+index f4ef8a9f2f01..a4d254ea96e0 100644
+--- a/xen/include/xen/lib/x86/cpuid.h
++++ b/xen/include/xen/lib/x86/cpuid.h
+@@ -15,6 +15,7 @@
+ #define FEATURESET_e8b    8 /* 0x80000008.ebx      */
+ #define FEATURESET_7d0    9 /* 0x00000007:0.edx    */
+ #define FEATURESET_7a1   10 /* 0x00000007:1.eax    */
++#define FEATURESET_e21a  11 /* 0x80000021.eax      */
+ 
+ struct cpuid_leaf
+ {
+@@ -84,7 +85,7 @@ const char *x86_cpuid_vendor_to_str(unsigned int vendor);
+ #define CPUID_GUEST_NR_TOPO       (1u + 1)
+ #define CPUID_GUEST_NR_XSTATE     (62u + 1)
+ #define CPUID_GUEST_NR_EXTD_INTEL (0x8u + 1)
+-#define CPUID_GUEST_NR_EXTD_AMD   (0x1cu + 1)
++#define CPUID_GUEST_NR_EXTD_AMD   (0x21u + 1)
+ #define CPUID_GUEST_NR_EXTD       MAX(CPUID_GUEST_NR_EXTD_INTEL, \
+                                       CPUID_GUEST_NR_EXTD_AMD)
+ 
+@@ -264,6 +265,38 @@ struct cpuid_policy
+             };
+             uint32_t nc:8, :4, apic_id_size:4, :16;
+             uint32_t /* d */:32;
++
++            uint64_t :64, :64; /* Leaf 0x80000009. */
++            uint64_t :64, :64; /* Leaf 0x8000000a - SVM rev and features. */
++            uint64_t :64, :64; /* Leaf 0x8000000b. */
++            uint64_t :64, :64; /* Leaf 0x8000000c. */
++            uint64_t :64, :64; /* Leaf 0x8000000d. */
++            uint64_t :64, :64; /* Leaf 0x8000000e. */
++            uint64_t :64, :64; /* Leaf 0x8000000f. */
++            uint64_t :64, :64; /* Leaf 0x80000010. */
++            uint64_t :64, :64; /* Leaf 0x80000011. */
++            uint64_t :64, :64; /* Leaf 0x80000012. */
++            uint64_t :64, :64; /* Leaf 0x80000013. */
++            uint64_t :64, :64; /* Leaf 0x80000014. */
++            uint64_t :64, :64; /* Leaf 0x80000015. */
++            uint64_t :64, :64; /* Leaf 0x80000016. */
++            uint64_t :64, :64; /* Leaf 0x80000017. */
++            uint64_t :64, :64; /* Leaf 0x80000018. */
++            uint64_t :64, :64; /* Leaf 0x80000019 - TLB 1GB Identifiers. */
++            uint64_t :64, :64; /* Leaf 0x8000001a - Performance related info. */
++            uint64_t :64, :64; /* Leaf 0x8000001b - IBS feature information. */
++            uint64_t :64, :64; /* Leaf 0x8000001c. */
++            uint64_t :64, :64; /* Leaf 0x8000001d - Cache properties. */
++            uint64_t :64, :64; /* Leaf 0x8000001e - Extd APIC/Core/Node IDs. */
++            uint64_t :64, :64; /* Leaf 0x8000001f - AMD Secure Encryption. */
++            uint64_t :64, :64; /* Leaf 0x80000020 - Platform QoS. */
++
++            /* Leaf 0x80000021 - Extended Feature 2 */
++            union {
++                uint32_t e21a;
++                struct { DECL_BITFIELD(e21a); };
++            };
++            uint32_t /* b */:32, /* c */:32, /* d */:32;
+         };
+     } extd;
+ 
+@@ -293,6 +326,7 @@ static inline void cpuid_policy_to_featureset(
+     fs[FEATURESET_e8b] = p->extd.e8b;
+     fs[FEATURESET_7d0] = p->feat._7d0;
+     fs[FEATURESET_7a1] = p->feat._7a1;
++    fs[FEATURESET_e21a] = p->extd.e21a;
+ }
+ 
+ /* Fill in a CPUID policy from a featureset bitmap. */
+@@ -310,6 +344,7 @@ static inline void cpuid_featureset_to_policy(
+     p->extd.e8b   = fs[FEATURESET_e8b];
+     p->feat._7d0  = fs[FEATURESET_7d0];
+     p->feat._7a1  = fs[FEATURESET_7a1];
++    p->extd.e21a  = fs[FEATURESET_e21a];
+ }
+ 
+ static inline uint64_t cpuid_policy_xcr0_max(const struct cpuid_policy *p)
+-- 
+2.31.1
+

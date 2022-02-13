@@ -102,6 +102,27 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
+Patch220: patch-stable-0001-x86-amd-split-LFENCE-dispatch-serializing-setup-logi.patch
+Patch221: patch-stable-0002-x86-cpuid-support-LFENCE-always-serialising-CPUID-bi.patch
+Patch222: patch-stable-0003-x86-vmx-Drop-spec_ctrl-load-in-VMEntry-path.patch
+Patch223: patch-stable-0004-x86-msr-Fix-migration-compatibility-issue-with-MSR_S.patch
+Patch224: patch-stable-0005-x86-cpuid-Advertise-SSB_NO-to-guests-by-default.patch
+Patch225: patch-stable-0006-x86-spec-ctrl-Drop-use_spec_ctrl-boolean.patch
+Patch226: patch-stable-0007-x86-spec-ctrl-Introduce-new-has_spec_ctrl-boolean.patch
+Patch227: patch-stable-0008-x86-spec-ctrl-Don-t-use-spec_ctrl_-enter-exit-_idle-.patch
+Patch228: patch-stable-0009-x86-spec-ctrl-Record-the-last-write-to-MSR_SPEC_CTRL.patch
+Patch229: patch-stable-0010-x86-spec-ctrl-Use-common-MSR_SPEC_CTRL-logic-for-AMD.patch
+Patch230: patch-stable-0011-x86-svm-VMEntry-Exit-logic-for-MSR_SPEC_CTRL.patch
+Patch231: patch-stable-0012-x86-msr-AMD-MSR_SPEC_CTRL-infrastructure.patch
+Patch232: patch-stable-0013-x86-cpuid-Enable-MSR_SPEC_CTRL-in-SVM-guests-by-defa.patch
+Patch233: patch-stable-0014-x86-cpuid-Disentangle-logic-for-new-feature-leaves.patch
+Patch234: patch-stable-0015-x86-cpuid-Infrastructure-for-leaf-7-1.ebx.patch
+Patch235: patch-stable-0016-x86-spec-ctrl-Clean-up-MSR_MCU_OPT_CTRL-handling.patch
+Patch236: patch-stable-0017-x86-tsx-Move-has_rtm_always_abort-to-an-outer-scope.patch
+Patch237: patch-stable-0018-x86-tsx-Cope-with-TSX-deprecation-on-WHL-R-CFL-R.patch
+Patch238: patch-stable-0019-x86-cpuid-Infrastructure-for-cpuid-word-7-2.edx.patch
+Patch239: patch-stable-0020-x86-spec-ctrl-Support-Intel-PSFD-for-guests.patch
+
 Patch290: patch-0001-ns16550-do-not-override-fifo-size-if-explicitly-set.patch
 Patch291: patch-0002-ns16550-specify-uart-param-for-ns_-read-write-_reg-a.patch
 Patch292: patch-0003-ns16550-add-Exar-PCIe-UART-cards-support.patch

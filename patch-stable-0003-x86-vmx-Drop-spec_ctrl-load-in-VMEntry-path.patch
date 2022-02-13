@@ -1,0 +1,33 @@
+From 2c234462f3e7d1e3e0a1101c230c50e854ef6993 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 1 Feb 2022 13:34:49 +0000
+Subject: [PATCH 03/20] x86/vmx: Drop spec_ctrl load in VMEntry path
+
+This is not needed now that the VMEntry path is not responsible for loading
+the guest's MSR_SPEC_CTRL value.
+
+Fixes: 81f0eaadf84d ("x86/spec-ctrl: Fix NMI race condition with VT-x MSR_SPEC_CTRL handling")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 9ce3ef20b4f085a7dc8ee41b0fec6fdeced3773e)
+---
+ xen/arch/x86/hvm/vmx/entry.S | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/entry.S b/xen/arch/x86/hvm/vmx/entry.S
+index 7ee3382fd0ab..49651f3c435a 100644
+--- a/xen/arch/x86/hvm/vmx/entry.S
++++ b/xen/arch/x86/hvm/vmx/entry.S
+@@ -85,9 +85,6 @@ UNLIKELY_END(realmode)
+         test %al, %al
+         jz .Lvmx_vmentry_restart
+ 
+-        mov VCPU_arch_msrs(%rbx), %rax
+-        mov VCPUMSR_spec_ctrl_raw(%rax), %eax
+-
+         /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
+         /* SPEC_CTRL_EXIT_TO_VMX   Req: %rsp=regs/cpuinfo              Clob:    */
+         ALTERNATIVE "", __stringify(verw CPUINFO_verw_sel(%rsp)), X86_FEATURE_SC_VERW_HVM
+-- 
+2.31.1
+
