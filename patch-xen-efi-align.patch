@@ -1,0 +1,10 @@
+--- a/xen/arch/x86/xen.lds.S	2022-02-16 23:32:39.219000000 +0100
++++ b/xen/arch/x86/xen.lds.S	2022-02-16 23:32:26.884000000 +0100
+@@ -156,6 +156,7 @@
+        __note_gnu_build_id_end = .;
+   } :note :text
+ #elif defined(BUILD_ID_EFI)
++  . = ALIGN(32);
+   DECL_SECTION(.buildid) {
+        __note_gnu_build_id_start = .;
+        *(.buildid)
