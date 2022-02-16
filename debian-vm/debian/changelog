@@ -1,3 +1,12 @@
+xen (4.14.4-1) unstable; urgency=medium
+
+  * version 4.14.4-0.1
+  * Disable TSX by default
+  * Include patches from upstream stable-4.14
+  * Fix buildid alignment
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 17 Feb 2022 00:04:38 +0100
+
 xen (4.14.3-8) unstable; urgency=medium
 
   * Apply XSA-395
