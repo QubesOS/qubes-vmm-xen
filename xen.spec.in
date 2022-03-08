@@ -147,6 +147,7 @@ Patch320: patch-libxl-resume.patch
 Patch321: patch-fix-S3-CET.patch
 
 # Security fixes
+Patch400: patch-xsa398-4.14-6.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
