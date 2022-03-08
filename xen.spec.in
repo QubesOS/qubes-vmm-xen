@@ -144,6 +144,8 @@ Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 
 Patch320: patch-libxl-resume.patch
 
+Patch321: patch-fix-S3-CET.patch
+
 # Security fixes
 
 # Upstreamable patches
