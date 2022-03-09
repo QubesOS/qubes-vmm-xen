@@ -1,3 +1,9 @@
+xen (2001:4.8.5-38) unstable; urgency=medium
+
+  * Apply XSA-398 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 09 Mar 2022 02:02:37 +0100
+
 xen (2001:4.8.5-37) unstable; urgency=medium
 
   * Apply XSA-395
