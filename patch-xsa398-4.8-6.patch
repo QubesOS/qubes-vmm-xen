@@ -1,0 +1,63 @@
+From 944afa38d9339a67f0164d07fb7ac8a54e9a4c60 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 7 Mar 2022 16:35:52 +0000
+Subject: [PATCH] x86/spec-ctrl: Cease using thunk=lfence on AMD
+
+AMD have updated their Spectre v2 guidance, and lfence/jmp is no longer
+considered safe.  AMD are recommending using retpoline everywhere.
+
+Update the default heuristics to never select THUNK_LFENCE.
+
+This is part of XSA-398 / CVE-2021-26401.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 8d03080d2a339840d3a59e0932a94f804e45110d)
+---
+ docs/misc/xen-command-line.pandoc |  6 +++---
+ xen/arch/x86/spec_ctrl.c          | 10 ++--------
+ 2 files changed, 5 insertions(+), 11 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.pandoc b/docs/misc/xen-command-line.pandoc
+index d7919f2ed46c..f9fb1621382a 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1960,9 +1960,9 @@ to use.
+ 
+ If Xen was compiled with INDIRECT_THUNK support, `thunk=` can be used to
+ select which of the thunks gets patched into the `__x86_indirect_thunk_%reg`
+-locations.  The default thunk is `retpoline` (generally preferred for Intel
+-hardware), with the alternatives being `jmp` (a `jmp *%reg` gadget, minimal
+-overhead), and `lfence` (an `lfence; jmp *%reg` gadget, preferred for AMD).
++locations.  The default thunk is `retpoline` (generally preferred), with the
++alternatives being `jmp` (a `jmp *%reg` gadget, minimal overhead), and
++`lfence` (an `lfence; jmp *%reg` gadget).
+ 
+ On hardware supporting IBRS, the `ibrs=` option can be used to force or
+ prevent Xen using the feature itself.  If Xen is not using IBRS itself,
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index e2fcefc86a60..866b864918fd 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -904,16 +904,10 @@ void __init init_speculation_mitigations(void)
+         if ( IS_ENABLED(CONFIG_INDIRECT_THUNK) )
+         {
+             /*
+-             * AMD's recommended mitigation is to set lfence as being dispatch
+-             * serialising, and to use IND_THUNK_LFENCE.
+-             */
+-            if ( cpu_has_lfence_dispatch )
+-                thunk = THUNK_LFENCE;
+-            /*
+-             * On Intel hardware, we'd like to use retpoline in preference to
++             * On all hardware, we'd like to use retpoline in preference to
+              * IBRS, but only if it is safe on this hardware.
+              */
+-            else if ( retpoline_safe(caps) )
++            if ( retpoline_safe(caps) )
+                 thunk = THUNK_RETPOLINE;
+             else if ( boot_cpu_has(X86_FEATURE_IBRSB) )
+                 ibrs = true;
+-- 
+2.31.1
+
