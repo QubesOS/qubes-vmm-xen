@@ -1,3 +1,10 @@
+xen (4.14.4-2) unstable; urgency=medium
+
+  * Fix S3 on CET-capable systems
+  * Apply XSA-398 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 09 Mar 2022 03:27:06 +0100
+
 xen (4.14.4-1) unstable; urgency=medium
 
   * version 4.14.4-0.1
