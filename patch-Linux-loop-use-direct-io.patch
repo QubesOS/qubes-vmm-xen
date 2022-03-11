@@ -1,0 +1,11 @@
+--- xen-4.14.4/tools/hotplug/Linux/block	2022-01-31 04:44:39.000000000 -0500
++++ xen-4.14.4/tools/hotplug/Linux/block	2022-03-11 16:18:36.667000000 -0500
+@@ -330,7 +330,7 @@
+         else
+           roflag=''
+         fi
+-        do_or_die losetup $roflag "$loopdev" "$file"
++        do_or_die losetup --direct-io=on $roflag "$loopdev" "$file"
+         xenstore_write "$XENBUS_PATH/node" "$loopdev"
+         write_dev "$loopdev"
+         release_lock "block"
