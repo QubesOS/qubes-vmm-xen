@@ -1,0 +1,158 @@
+From e56827aa689e57d485fe3b40c71c0061ce1ded3e Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 1 Nov 2021 15:17:20 +0000
+Subject: [PATCH 37/45] x86: Enable CET Indirect Branch Tracking
+
+With all the pieces now in place, turn CET-IBT on when available.
+
+MSR_S_CET, like SMEP/SMAP, controls Ring1 meaning that ENDBR_EN can't be
+enabled for Xen independently of PV32 kernels.  As we already disable PV32 for
+CET-SS, extend this to all CET, adjusting the documentation/comments as
+appropriate.
+
+Introduce a cet=no-ibt command line option to allow the admin to disable IBT
+even when everything else is configured correctly.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit cdbe2b0a1aecae946639ee080f14831429b184b6)
+---
+ docs/misc/xen-command-line.pandoc | 16 +++++++++---
+ xen/arch/x86/cpu/common.c         |  1 +
+ xen/arch/x86/setup.c              | 42 +++++++++++++++++++++++++++----
+ 3 files changed, 50 insertions(+), 9 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.pandoc b/docs/misc/xen-command-line.pandoc
+index c0bfbb7a5c27..5467ae7168ff 100644
+--- a/docs/misc/xen-command-line.pandoc
++++ b/docs/misc/xen-command-line.pandoc
+@@ -271,7 +271,7 @@ enough. Setting this to a high value may cause boot failure, particularly if
+ the NMI watchdog is also enabled.
+ 
+ ### cet
+-    = List of [ shstk=<bool> ]
++    = List of [ shstk=<bool>, ibt=<bool> ]
+ 
+     Applicability: x86
+ 
+@@ -279,6 +279,10 @@ Controls for the use of Control-flow Enforcement Technology.  CET is group a
+ of hardware features designed to combat Return-oriented Programming (ROP, also
+ call/jmp COP/JOP) attacks.
+ 
++CET is incompatible with 32bit PV guests.  If any CET sub-options are active,
++they will override the `pv=32` boolean to `false`.  Backwards compatibility
++can be maintained with the pv-shim mechanism.
++
+ *   The `shstk=` boolean controls whether Xen uses Shadow Stacks for its own
+     protection.
+ 
+@@ -287,9 +291,13 @@ call/jmp COP/JOP) attacks.
+     `cet=no-shstk` will cause Xen not to use Shadow Stacks even when support
+     is available in hardware.
+ 
+-    Shadow Stacks are incompatible with 32bit PV guests.  This option will
+-    override the `pv=32` boolean to false.  Backwards compatibility can be
+-    maintained with the `pv-shim` mechanism.
++*   The `ibt=` boolean controls whether Xen uses Indirect Branch Tracking for
++    its own protection.
++
++    The option is available when `CONFIG_XEN_IBT` is compiled in, and defaults
++    to `true` on hardware supporting CET-IBT.  Specifying `cet=no-ibt` will
++    cause Xen not to use Indirect Branch Tracking even when support is
++    available in hardware.
+ 
+ ### clocksource (x86)
+ > `= pit | hpet | acpi | tsc`
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index b6672b56dac9..0388d720df5e 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -332,6 +332,7 @@ void __init early_cpu_init(void)
+ 	if (c->cpuid_level >= 7) {
+ 		cpuid_count(7, 0, &eax, &ebx, &ecx, &edx);
+ 		c->x86_capability[cpufeat_word(X86_FEATURE_CET_SS)] = ecx;
++		c->x86_capability[cpufeat_word(X86_FEATURE_CET_IBT)] = edx;
+ 	}
+ 
+ 	eax = cpuid_eax(0x80000000);
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index b80b933ddb74..992d24ec7ebb 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -101,6 +101,12 @@ static bool __initdata opt_xen_shstk = true;
+ #define opt_xen_shstk false
+ #endif
+ 
++#ifdef CONFIG_XEN_IBT
++static bool __initdata opt_xen_ibt = true;
++#else
++#define opt_xen_ibt false
++#endif
++
+ static int __init parse_cet(const char *s)
+ {
+     const char *ss;
+@@ -117,6 +123,14 @@ static int __init parse_cet(const char *s)
+             opt_xen_shstk = val;
+ #else
+             no_config_param("XEN_SHSTK", "cet", s, ss);
++#endif
++        }
++        else if ( (val = parse_boolean("ibt", s, ss)) >= 0 )
++        {
++#ifdef CONFIG_XEN_IBT
++            opt_xen_ibt = val;
++#else
++            no_config_param("XEN_IBT", "cet", s, ss);
+ #endif
+         }
+         else
+@@ -1103,11 +1117,33 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+         printk("Enabling Supervisor Shadow Stacks\n");
+ 
+         setup_force_cpu_cap(X86_FEATURE_XEN_SHSTK);
++    }
++
++    if ( opt_xen_ibt && boot_cpu_has(X86_FEATURE_CET_IBT) )
++    {
++        printk("Enabling Indirect Branch Tracking\n");
++
++        setup_force_cpu_cap(X86_FEATURE_XEN_IBT);
++
++        if ( efi_enabled(EFI_RS) )
++            printk("  - IBT disabled in UEFI Runtime Services\n");
++
++        /*
++         * Enable IBT now.  Only require the endbr64 on callees, which is
++         * entirely build-time arrangements.
++         */
++        wrmsrl(MSR_S_CET, CET_ENDBR_EN);
++    }
++
++    if ( cpu_has_xen_shstk || cpu_has_xen_ibt )
++    {
++        set_in_cr4(X86_CR4_CET);
++
+ #ifdef CONFIG_PV32
+         if ( opt_pv32 )
+         {
+             opt_pv32 = 0;
+-            printk("  - Disabling PV32 due to Shadow Stacks\n");
++            printk("  - Disabling PV32 due to CET\n");
+         }
+ #endif
+     }
+@@ -1848,10 +1884,6 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ 
+     alternative_branches();
+ 
+-    /* Defer CR4.CET until alternatives have finished playing with CR0.WP */
+-    if ( cpu_has_xen_shstk )
+-        set_in_cr4(X86_CR4_CET);
+-
+     /*
+      * NB: when running as a PV shim VCPUOP_up/down is wired to the shim
+      * physical cpu_add/remove functions, so launch the guest with only
+-- 
+2.35.1
+

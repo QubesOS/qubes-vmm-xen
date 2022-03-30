@@ -1,0 +1,190 @@
+From 6db64187700d6d1ce23f49e667c24f1c7ebe11f8 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 15 Mar 2022 12:07:18 +0000
+Subject: [PATCH 42/45] x86/cet: Remove writeable mapping of the BSPs shadow
+ stack
+
+An unintended consequence of the BSP using cpu0_stack[] is that writeable
+mappings to the BSPs shadow stacks are retained in the bss.  This renders
+CET-SS almost useless, as an attacker can update both return addresses and the
+ret will not fault.
+
+We specifically don't want to shatter the superpage mapping .data and .bss, so
+the only way to fix this is to not have the BSP stack in the main Xen image.
+
+Break cpu_alloc_stack() out of cpu_smpboot_alloc(), and dynamically allocate
+the BSP stack as early as reasonable in __start_xen().  As a consequence,
+there is no need to delay the BSP's memguard_guard_stack() call.
+
+Copy the top of cpu info block just before switching to use the new stack.
+Fix a latent bug by setting %rsp to info->guest_cpu_user_regs rather than
+->es; this would be buggy if reinit_bsp_stack() called schedule() (which
+rewrites the GPR block) directly, but luckily it doesn't.
+
+Finally, move cpu0_stack[] into .init, so it can be reclaimed after boot.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 37786b23b027ab83051175cb8ce9ac86cacfc58e)
+---
+ xen/arch/x86/setup.c      | 20 +++++++++++++-------
+ xen/arch/x86/smpboot.c    | 26 +++++++++++++++++++-------
+ xen/arch/x86/xen.lds.S    |  2 +-
+ xen/include/asm-x86/smp.h |  2 ++
+ 4 files changed, 35 insertions(+), 15 deletions(-)
+
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 992d24ec7ebb..29d71087a7dd 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -149,7 +149,7 @@ unsigned long __read_mostly xen_phys_start;
+ 
+ unsigned long __read_mostly xen_virt_end;
+ 
+-char __section(".bss.stack_aligned") __aligned(STACK_SIZE)
++char __section(".init.bss.stack_aligned") __aligned(STACK_SIZE)
+     cpu0_stack[STACK_SIZE];
+ 
+ struct cpuinfo_x86 __read_mostly boot_cpu_data = { 0, 0, 0, 0, -1 };
+@@ -696,7 +696,6 @@ static void __init noreturn reinit_bsp_stack(void)
+     percpu_traps_init();
+ 
+     stack_base[0] = stack;
+-    memguard_guard_stack(stack);
+ 
+     rc = setup_cpu_root_pgt(0);
+     if ( rc )
+@@ -850,6 +849,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ {
+     char *memmap_type = NULL;
+     char *cmdline, *kextra, *loader;
++    void *bsp_stack;
++    struct cpu_info *info = get_cpu_info(), *bsp_info;
+     unsigned int initrdidx, num_parked = 0;
+     multiboot_info_t *mbi;
+     module_t *mod;
+@@ -881,7 +882,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+     /* Full exception support from here on in. */
+ 
+     rdmsrl(MSR_EFER, this_cpu(efer));
+-    asm volatile ( "mov %%cr4,%0" : "=r" (get_cpu_info()->cr4) );
++    asm volatile ( "mov %%cr4,%0" : "=r" (info->cr4) );
+ 
+     /* Enable NMIs.  Our loader (e.g. Tboot) may have left them disabled. */
+     enable_nmis();
+@@ -1720,6 +1721,10 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+      */
+     vm_init();
+ 
++    bsp_stack = cpu_alloc_stack(0);
++    if ( !bsp_stack )
++        panic("No memory for BSP stack\n");
++
+     console_init_ring();
+     vesa_init();
+ 
+@@ -1975,17 +1980,18 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ 
+     if ( bsp_delay_spec_ctrl )
+     {
+-        struct cpu_info *info = get_cpu_info();
+-
+         info->spec_ctrl_flags &= ~SCF_use_shadow;
+         barrier();
+         wrmsrl(MSR_SPEC_CTRL, default_xen_spec_ctrl);
+         info->last_spec_ctrl = default_xen_spec_ctrl;
+     }
+ 
+-    /* Jump to the 1:1 virtual mappings of cpu0_stack. */
++    /* Copy the cpu info block, and move onto the BSP stack. */
++    bsp_info = get_cpu_info_from_stack((unsigned long)bsp_stack);
++    *bsp_info = *info;
++
+     asm volatile ("mov %[stk], %%rsp; jmp %c[fn]" ::
+-                  [stk] "g" (__va(__pa(get_stack_bottom()))),
++                  [stk] "g" (&bsp_info->guest_cpu_user_regs),
+                   [fn] "i" (reinit_bsp_stack) : "memory");
+     unreachable();
+ }
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 5abfae4c727f..d9685045398c 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -988,6 +988,23 @@ static void cpu_smpboot_free(unsigned int cpu, bool remove)
+     }
+ }
+ 
++void *cpu_alloc_stack(unsigned int cpu)
++{
++    nodeid_t node = cpu_to_node(cpu);
++    unsigned int memflags = 0;
++    void *stack;
++
++    if ( node != NUMA_NO_NODE )
++        memflags = MEMF_node(node);
++
++    stack = alloc_xenheap_pages(STACK_ORDER, memflags);
++
++    if ( stack )
++        memguard_guard_stack(stack);
++
++    return stack;
++}
++
+ static int cpu_smpboot_alloc(unsigned int cpu)
+ {
+     struct cpu_info *info;
+@@ -1000,15 +1017,10 @@ static int cpu_smpboot_alloc(unsigned int cpu)
+     if ( node != NUMA_NO_NODE )
+         memflags = MEMF_node(node);
+ 
+-    if ( stack_base[cpu] == NULL )
+-    {
+-        stack_base[cpu] = alloc_xenheap_pages(STACK_ORDER, memflags);
+-        if ( !stack_base[cpu] )
++    if ( stack_base[cpu] == NULL &&
++         (stack_base[cpu] = cpu_alloc_stack(cpu)) == NULL )
+             goto out;
+ 
+-        memguard_guard_stack(stack_base[cpu]);
+-    }
+-
+     info = get_cpu_info_from_stack((unsigned long)stack_base[cpu]);
+     info->processor_id = cpu;
+     info->per_cpu_offset = __per_cpu_offset[cpu];
+diff --git a/xen/arch/x86/xen.lds.S b/xen/arch/x86/xen.lds.S
+index fcc664648704..7c9758c8cc8c 100644
+--- a/xen/arch/x86/xen.lds.S
++++ b/xen/arch/x86/xen.lds.S
+@@ -205,6 +205,7 @@ SECTIONS
+   } :text
+   DECL_SECTION(.init.data) {
+ #endif
++       *(.init.bss.stack_aligned)
+ 
+        *(.init.rodata)
+        *(.init.rodata.*)
+@@ -293,7 +294,6 @@ SECTIONS
+ 
+   DECL_SECTION(.bss) {
+        __bss_start = .;
+-       *(.bss.stack_aligned)
+        *(.bss.page_aligned*)
+        . = ALIGN(PAGE_SIZE);
+        __per_cpu_start = .;
+diff --git a/xen/include/asm-x86/smp.h b/xen/include/asm-x86/smp.h
+index f7485f602efa..9628d7842d0a 100644
+--- a/xen/include/asm-x86/smp.h
++++ b/xen/include/asm-x86/smp.h
+@@ -85,6 +85,8 @@ extern cpumask_t **socket_cpumask;
+ extern unsigned int disabled_cpus;
+ extern bool unaccounted_cpus;
+ 
++void *cpu_alloc_stack(unsigned int cpu);
++
+ #endif /* !__ASSEMBLY__ */
+ 
+ #endif
+-- 
+2.35.1
+

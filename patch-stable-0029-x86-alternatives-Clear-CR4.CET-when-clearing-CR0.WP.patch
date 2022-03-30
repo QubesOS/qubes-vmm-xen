@@ -1,0 +1,46 @@
+From 5e7db069bde7ce50fe15e42dbd2468d294ae78db Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 1 Nov 2021 10:17:59 +0000
+Subject: [PATCH 29/45] x86/alternatives: Clear CR4.CET when clearing CR0.WP
+
+This allows us to have CET active much earlier in boot.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 48cdc15a424f9fadad7f9aed00e7dc8ef16a2196)
+---
+ xen/arch/x86/alternative.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/alternative.c b/xen/arch/x86/alternative.c
+index 004e9ede25f3..41415db08c4f 100644
+--- a/xen/arch/x86/alternative.c
++++ b/xen/arch/x86/alternative.c
+@@ -334,9 +334,13 @@ static int __init nmi_apply_alternatives(const struct cpu_user_regs *regs,
+      */
+     if ( !(alt_done & alt_todo) )
+     {
+-        unsigned long cr0;
++        unsigned long cr0, cr4;
+ 
+         cr0 = read_cr0();
++        cr4 = read_cr4();
++
++        if ( cr4 & X86_CR4_CET )
++            write_cr4(cr4 & ~X86_CR4_CET);
+ 
+         /* Disable WP to allow patching read-only pages. */
+         write_cr0(cr0 & ~X86_CR0_WP);
+@@ -346,6 +350,9 @@ static int __init nmi_apply_alternatives(const struct cpu_user_regs *regs,
+ 
+         write_cr0(cr0);
+ 
++        if ( cr4 & X86_CR4_CET )
++            write_cr4(cr4);
++
+         alt_done |= alt_todo;
+     }
+ 
+-- 
+2.35.1
+

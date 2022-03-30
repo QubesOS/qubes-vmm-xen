@@ -1,0 +1,42 @@
+From 6c932a788cdca15494e1c9d06c7befacf1583a2a Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 1 Nov 2021 10:19:57 +0000
+Subject: [PATCH 28/45] x86/setup: Read CR4 earlier in __start_xen()
+
+This is necessary for read_cr4() to function correctly.  Move the EFER caching
+at the same time.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 9851bc4939101828d2ad7634b93c0d9ccaef5b7e)
+---
+ xen/arch/x86/setup.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index d5274f8c21d6..297845d69114 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -851,6 +851,9 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ 
+     /* Full exception support from here on in. */
+ 
++    rdmsrl(MSR_EFER, this_cpu(efer));
++    asm volatile ( "mov %%cr4,%0" : "=r" (get_cpu_info()->cr4) );
++
+     /* Enable NMIs.  Our loader (e.g. Tboot) may have left them disabled. */
+     enable_nmis();
+ 
+@@ -897,9 +900,6 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ 
+     parse_video_info();
+ 
+-    rdmsrl(MSR_EFER, this_cpu(efer));
+-    asm volatile ( "mov %%cr4,%0" : "=r" (get_cpu_info()->cr4) );
+-
+     /* We initialise the serial devices very early so we can get debugging. */
+     ns16550.io_base = 0x3f8;
+     ns16550.irq     = 4;
+-- 
+2.35.1
+

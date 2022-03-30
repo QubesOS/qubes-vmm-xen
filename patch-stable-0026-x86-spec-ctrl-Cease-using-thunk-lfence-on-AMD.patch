@@ -1,7 +1,7 @@
 From ca304edd3ba8c19211107fd2e898249987557ce5 Mon Sep 17 00:00:00 2001
 From: Andrew Cooper <andrew.cooper3@citrix.com>
 Date: Mon, 7 Mar 2022 16:35:52 +0000
-Subject: [PATCH] x86/spec-ctrl: Cease using thunk=lfence on AMD
+Subject: [PATCH 26/45] x86/spec-ctrl: Cease using thunk=lfence on AMD
 
 AMD have updated their Spectre v2 guidance, and lfence/jmp is no longer
 considered safe.  AMD are recommending using retpoline everywhere.
@@ -121,5 +121,5 @@ index 9301d95bd705..7ded6ecba197 100644
              else if ( has_spec_ctrl )
                  ibrs = true;
 -- 
-2.31.1
+2.35.1
 

@@ -1,0 +1,80 @@
+From 334120359d575b35ceeb261a1c854749e440217d Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 1 Nov 2021 12:36:33 +0000
+Subject: [PATCH 30/45] x86/traps: Rework write_stub_trampoline() to not
+ hardcode the jmp
+
+For CET-IBT, we will need to optionally insert an endbr64 instruction at the
+start of the stub.  Don't hardcode the jmp displacement assuming that it
+starts at byte 24 of the stub.
+
+Also add extra comments describing what is going on.  The mix of %rax and %rsp
+is far from trivial to follow.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 809beac3e7fdfd20000386453c64a1e2a3d93075)
+---
+ xen/arch/x86/x86_64/traps.c | 35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/xen/arch/x86/x86_64/traps.c b/xen/arch/x86/x86_64/traps.c
+index 93af0c5e8796..9695a3005088 100644
+--- a/xen/arch/x86/x86_64/traps.c
++++ b/xen/arch/x86/x86_64/traps.c
+@@ -271,30 +271,39 @@ static unsigned int write_stub_trampoline(
+     unsigned char *stub, unsigned long stub_va,
+     unsigned long stack_bottom, unsigned long target_va)
+ {
++    unsigned char *p = stub;
++
++    /* Store guest %rax into %ss slot */
+     /* movabsq %rax, stack_bottom - 8 */
+-    stub[0] = 0x48;
+-    stub[1] = 0xa3;
+-    *(uint64_t *)&stub[2] = stack_bottom - 8;
++    *p++ = 0x48;
++    *p++ = 0xa3;
++    *(uint64_t *)p = stack_bottom - 8;
++    p += 8;
+ 
++    /* Store guest %rsp in %rax */
+     /* movq %rsp, %rax */
+-    stub[10] = 0x48;
+-    stub[11] = 0x89;
+-    stub[12] = 0xe0;
++    *p++ = 0x48;
++    *p++ = 0x89;
++    *p++ = 0xe0;
+ 
++    /* Switch to Xen stack */
+     /* movabsq $stack_bottom - 8, %rsp */
+-    stub[13] = 0x48;
+-    stub[14] = 0xbc;
+-    *(uint64_t *)&stub[15] = stack_bottom - 8;
++    *p++ = 0x48;
++    *p++ = 0xbc;
++    *(uint64_t *)p = stack_bottom - 8;
++    p += 8;
+ 
++    /* Store guest %rsp into %rsp slot */
+     /* pushq %rax */
+-    stub[23] = 0x50;
++    *p++ = 0x50;
+ 
+     /* jmp target_va */
+-    stub[24] = 0xe9;
+-    *(int32_t *)&stub[25] = target_va - (stub_va + 29);
++    *p++ = 0xe9;
++    *(int32_t *)p = target_va - (stub_va + (p - stub) + 4);
++    p += 4;
+ 
+     /* Round up to a multiple of 16 bytes. */
+-    return 32;
++    return ROUNDUP(p - stub, 16);
+ }
+ 
+ DEFINE_PER_CPU(struct stubs, stubs);
+-- 
+2.35.1
+
