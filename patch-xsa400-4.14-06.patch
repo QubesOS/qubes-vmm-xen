@@ -1,0 +1,279 @@
+From: Jan Beulich <jbeulich@suse.com>
+Subject: VT-d: prepare for per-device quarantine page tables (part I)
+
+Arrange for domain ID and page table root to be passed around, the latter in
+particular to domain_pgd_maddr() such that taking it from the per-domain
+fields can be overridden.
+
+No functional change intended.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Paul Durrant <paul@xen.org>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+
+--- a/xen/drivers/passthrough/vtd/extern.h
++++ b/xen/drivers/passthrough/vtd/extern.h
+@@ -86,9 +86,10 @@ void *map_vtd_domain_page(u64 maddr);
+ void unmap_vtd_domain_page(void *va);
+ int domain_context_mapping_one(struct domain *domain, struct vtd_iommu *iommu,
+                                uint8_t bus, uint8_t devfn,
+-                               const struct pci_dev *pdev, unsigned int mode);
++                               const struct pci_dev *pdev, domid_t domid,
++                               paddr_t pgd_maddr, unsigned int mode);
+ int domain_context_unmap_one(struct domain *domain, struct vtd_iommu *iommu,
+-                             u8 bus, u8 devfn);
++                             uint8_t bus, uint8_t devfn, domid_t domid);
+ int intel_iommu_get_reserved_device_memory(iommu_grdm_t *func, void *ctxt);
+ 
+ unsigned int io_apic_read_remap_rte(unsigned int apic, unsigned int reg);
+@@ -107,7 +108,8 @@ void platform_quirks_init(void);
+ void vtd_ops_preamble_quirk(struct vtd_iommu *iommu);
+ void vtd_ops_postamble_quirk(struct vtd_iommu *iommu);
+ int __must_check me_wifi_quirk(struct domain *domain, uint8_t bus,
+-                               uint8_t devfn, unsigned int mode);
++                               uint8_t devfn, domid_t domid, paddr_t pgd_maddr,
++                               unsigned int mode);
+ void pci_vtd_quirk(const struct pci_dev *);
+ void quirk_iommu_caps(struct vtd_iommu *iommu);
+ 
+--- a/xen/drivers/passthrough/vtd/iommu.c
++++ b/xen/drivers/passthrough/vtd/iommu.c
+@@ -1367,12 +1367,12 @@ int domain_context_mapping_one(
+     struct domain *domain,
+     struct vtd_iommu *iommu,
+     uint8_t bus, uint8_t devfn, const struct pci_dev *pdev,
+-    unsigned int mode)
++    domid_t domid, paddr_t pgd_maddr, unsigned int mode)
+ {
+     struct domain_iommu *hd = dom_iommu(domain);
+     struct context_entry *context, *context_entries, lctxt;
+     __uint128_t old;
+-    u64 maddr, pgd_maddr;
++    uint64_t maddr;
+     uint16_t seg = iommu->drhd->segment, prev_did = 0;
+     struct domain *prev_dom = NULL;
+     int agaw, rc, ret;
+@@ -1413,10 +1413,12 @@ int domain_context_mapping_one(
+     }
+     else
+     {
++        paddr_t root = pgd_maddr;
++
+         spin_lock(&hd->arch.mapping_lock);
+ 
+         /* Ensure we have pagetables allocated down to leaf PTE. */
+-        if ( hd->arch.pgd_maddr == 0 )
++        if ( !root )
+         {
+             addr_to_dma_page_maddr(domain, 0, 1);
+             if ( hd->arch.pgd_maddr == 0 )
+@@ -1429,22 +1431,24 @@ int domain_context_mapping_one(
+                     rcu_unlock_domain(prev_dom);
+                 return -ENOMEM;
+             }
++
++            root = hd->arch.pgd_maddr;
+         }
+ 
+         /* Skip top levels of page tables for 2- and 3-level DRHDs. */
+-        pgd_maddr = hd->arch.pgd_maddr;
+         for ( agaw = level_to_agaw(4);
+               agaw != level_to_agaw(iommu->nr_pt_levels);
+               agaw-- )
+         {
+-            struct dma_pte *p = map_vtd_domain_page(pgd_maddr);
+-            pgd_maddr = dma_pte_addr(*p);
++            struct dma_pte *p = map_vtd_domain_page(root);
++
++            root = dma_pte_addr(*p);
+             unmap_vtd_domain_page(p);
+-            if ( pgd_maddr == 0 )
++            if ( !root )
+                 goto nomem;
+         }
+ 
+-        context_set_address_root(lctxt, pgd_maddr);
++        context_set_address_root(lctxt, root);
+         if ( ats_enabled && ecap_dev_iotlb(iommu->ecap) )
+             context_set_translation_type(lctxt, CONTEXT_TT_DEV_IOTLB);
+         else
+@@ -1560,15 +1564,21 @@ int domain_context_mapping_one(
+     unmap_vtd_domain_page(context_entries);
+ 
+     if ( !seg && !rc )
+-        rc = me_wifi_quirk(domain, bus, devfn, mode);
++        rc = me_wifi_quirk(domain, bus, devfn, domid, pgd_maddr, mode);
+ 
+     if ( rc )
+     {
+         if ( !prev_dom )
+-            ret = domain_context_unmap_one(domain, iommu, bus, devfn);
++            ret = domain_context_unmap_one(domain, iommu, bus, devfn,
++                                           domain->domain_id);
+         else if ( prev_dom != domain ) /* Avoid infinite recursion. */
++        {
++            hd = dom_iommu(prev_dom);
+             ret = domain_context_mapping_one(prev_dom, iommu, bus, devfn, pdev,
++                                             domain->domain_id,
++                                             hd->arch.pgd_maddr,
+                                              mode & MAP_WITH_RMRR) < 0;
++        }
+         else
+             ret = 1;
+ 
+@@ -1590,6 +1600,7 @@ static int domain_context_mapping(struct
+ {
+     struct acpi_drhd_unit *drhd;
+     const struct acpi_rmrr_unit *rmrr;
++    paddr_t pgd_maddr = dom_iommu(domain)->arch.pgd_maddr;
+     int ret = 0;
+     unsigned int i, mode = 0;
+     uint16_t seg = pdev->seg, bdf;
+@@ -1655,7 +1666,8 @@ static int domain_context_mapping(struct
+                    domain->domain_id, seg, bus,
+                    PCI_SLOT(devfn), PCI_FUNC(devfn));
+         ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
+-                                         pdev, mode);
++                                         pdev, domain->domain_id, pgd_maddr,
++                                         mode);
+         if ( ret > 0 )
+             ret = 0;
+         if ( !ret && devfn == pdev->devfn && ats_device(pdev, drhd) > 0 )
+@@ -1670,7 +1682,8 @@ static int domain_context_mapping(struct
+                    PCI_SLOT(devfn), PCI_FUNC(devfn));
+ 
+         ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
+-                                         pdev, mode);
++                                         pdev, domain->domain_id, pgd_maddr,
++                                         mode);
+         if ( ret < 0 )
+             break;
+         prev_present = ret;
+@@ -1698,7 +1711,8 @@ static int domain_context_mapping(struct
+          */
+         if ( ret >= 0 )
+             ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
+-                                             NULL, mode);
++                                             NULL, domain->domain_id, pgd_maddr,
++                                             mode);
+ 
+         /*
+          * Devices behind PCIe-to-PCI/PCIx bridge may generate different
+@@ -1713,7 +1727,8 @@ static int domain_context_mapping(struct
+         if ( !ret && pdev_type(seg, bus, devfn) == DEV_TYPE_PCIe2PCI_BRIDGE &&
+              (secbus != pdev->bus || pdev->devfn != 0) )
+             ret = domain_context_mapping_one(domain, drhd->iommu, secbus, 0,
+-                                             NULL, mode);
++                                             NULL, domain->domain_id, pgd_maddr,
++                                             mode);
+ 
+         if ( ret )
+         {
+@@ -1742,7 +1757,7 @@ static int domain_context_mapping(struct
+ int domain_context_unmap_one(
+     struct domain *domain,
+     struct vtd_iommu *iommu,
+-    u8 bus, u8 devfn)
++    uint8_t bus, uint8_t devfn, domid_t domid)
+ {
+     struct context_entry *context, *context_entries;
+     u64 maddr;
+@@ -1800,7 +1815,7 @@ int domain_context_unmap_one(
+     unmap_vtd_domain_page(context_entries);
+ 
+     if ( !iommu->drhd->segment && !rc )
+-        rc = me_wifi_quirk(domain, bus, devfn, UNMAP_ME_PHANTOM_FUNC);
++        rc = me_wifi_quirk(domain, bus, devfn, domid, 0, UNMAP_ME_PHANTOM_FUNC);
+ 
+     if ( rc && !is_hardware_domain(domain) && domain != dom_io )
+     {
+@@ -1853,7 +1868,8 @@ static int domain_context_unmap(struct d
+             printk(VTDPREFIX "d%d:PCIe: unmap %04x:%02x:%02x.%u\n",
+                    domain->domain_id, seg, bus,
+                    PCI_SLOT(devfn), PCI_FUNC(devfn));
+-        ret = domain_context_unmap_one(domain, iommu, bus, devfn);
++        ret = domain_context_unmap_one(domain, iommu, bus, devfn,
++                                       domain->domain_id);
+         if ( !ret && devfn == pdev->devfn && ats_device(pdev, drhd) > 0 )
+             disable_ats_device(pdev);
+ 
+@@ -1863,7 +1879,8 @@ static int domain_context_unmap(struct d
+         if ( iommu_debug )
+             printk(VTDPREFIX "d%d:PCI: unmap %04x:%02x:%02x.%u\n",
+                    domain->domain_id, seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+-        ret = domain_context_unmap_one(domain, iommu, bus, devfn);
++        ret = domain_context_unmap_one(domain, iommu, bus, devfn,
++                                       domain->domain_id);
+         if ( ret )
+             break;
+ 
+@@ -1889,12 +1906,15 @@ static int domain_context_unmap(struct d
+         /* PCIe to PCI/PCIx bridge */
+         if ( pdev_type(seg, tmp_bus, tmp_devfn) == DEV_TYPE_PCIe2PCI_BRIDGE )
+         {
+-            ret = domain_context_unmap_one(domain, iommu, tmp_bus, tmp_devfn);
++            ret = domain_context_unmap_one(domain, iommu, tmp_bus, tmp_devfn,
++                                           domain->domain_id);
+             if ( !ret )
+-                ret = domain_context_unmap_one(domain, iommu, secbus, 0);
++                ret = domain_context_unmap_one(domain, iommu, secbus, 0,
++                                               domain->domain_id);
+         }
+         else /* Legacy PCI bridge */
+-            ret = domain_context_unmap_one(domain, iommu, tmp_bus, tmp_devfn);
++            ret = domain_context_unmap_one(domain, iommu, tmp_bus, tmp_devfn,
++                                           domain->domain_id);
+ 
+         break;
+ 
+--- a/xen/drivers/passthrough/vtd/quirks.c
++++ b/xen/drivers/passthrough/vtd/quirks.c
+@@ -345,6 +345,8 @@ void __init platform_quirks_init(void)
+ 
+ static int __must_check map_me_phantom_function(struct domain *domain,
+                                                 unsigned int dev,
++                                                domid_t domid,
++                                                paddr_t pgd_maddr,
+                                                 unsigned int mode)
+ {
+     struct acpi_drhd_unit *drhd;
+@@ -358,16 +360,17 @@ static int __must_check map_me_phantom_f
+     /* map or unmap ME phantom function */
+     if ( !(mode & UNMAP_ME_PHANTOM_FUNC) )
+         rc = domain_context_mapping_one(domain, drhd->iommu, 0,
+-                                        PCI_DEVFN(dev, 7), NULL, mode);
++                                        PCI_DEVFN(dev, 7), NULL,
++                                        domid, pgd_maddr, mode);
+     else
+         rc = domain_context_unmap_one(domain, drhd->iommu, 0,
+-                                      PCI_DEVFN(dev, 7));
++                                      PCI_DEVFN(dev, 7), domid);
+ 
+     return rc;
+ }
+ 
+ int me_wifi_quirk(struct domain *domain, uint8_t bus, uint8_t devfn,
+-                  unsigned int mode)
++                  domid_t domid, paddr_t pgd_maddr, unsigned int mode)
+ {
+     u32 id;
+     int rc = 0;
+@@ -391,7 +394,7 @@ int me_wifi_quirk(struct domain *domain,
+             case 0x423b8086:
+             case 0x423c8086:
+             case 0x423d8086:
+-                rc = map_me_phantom_function(domain, 3, mode);
++                rc = map_me_phantom_function(domain, 3, domid, pgd_maddr, mode);
+                 break;
+             default:
+                 break;
+@@ -417,7 +420,7 @@ int me_wifi_quirk(struct domain *domain,
+             case 0x42388086:        /* Puma Peak */
+             case 0x422b8086:
+             case 0x422c8086:
+-                rc = map_me_phantom_function(domain, 22, mode);
++                rc = map_me_phantom_function(domain, 22, domid, pgd_maddr, mode);
+                 break;
+             default:
+                 break;

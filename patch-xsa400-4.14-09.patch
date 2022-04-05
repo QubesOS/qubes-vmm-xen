@@ -1,0 +1,48 @@
+From: Jan Beulich <jbeulich@suse.com>
+Subject: IOMMU/x86: drop TLB flushes from quarantine_init() hooks
+
+The page tables just created aren't hooked up yet anywhere, so there's
+nothing that could be present in any TLB, and hence nothing to flush.
+Dropping this flush is, at least on the VT-d side, a prereq to per-
+device domain ID use when quarantining devices, as dom_io isn't going
+to be assigned a DID anymore: The warning in get_iommu_did() would
+trigger.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Paul Durrant <paul@xen.org>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+
+--- a/xen/drivers/passthrough/amd/iommu_map.c
++++ b/xen/drivers/passthrough/amd/iommu_map.c
+@@ -585,8 +585,6 @@ int __init amd_iommu_quarantine_init(str
+  out:
+     spin_unlock(&hd->arch.mapping_lock);
+ 
+-    amd_iommu_flush_all_pages(d);
+-
+     /* Pages leaked in failure case */
+     return level ? -ENOMEM : 0;
+ }
+--- a/xen/drivers/passthrough/vtd/iommu.c
++++ b/xen/drivers/passthrough/vtd/iommu.c
+@@ -2914,7 +2914,6 @@ static int __init intel_iommu_quarantine
+     struct dma_pte *parent;
+     unsigned int agaw = width_to_agaw(DEFAULT_DOMAIN_ADDRESS_WIDTH);
+     unsigned int level = agaw_to_level(agaw);
+-    int rc;
+ 
+     if ( hd->arch.pgd_maddr )
+     {
+@@ -2961,10 +2960,8 @@ static int __init intel_iommu_quarantine
+  out:
+     spin_unlock(&hd->arch.mapping_lock);
+ 
+-    rc = iommu_flush_iotlb_all(d);
+-
+     /* Pages leaked in failure case */
+-    return level ? -ENOMEM : rc;
++    return level ? -ENOMEM : 0;
+ }
+ 
+ const struct iommu_ops __initconstrel intel_iommu_ops = {

@@ -170,6 +170,18 @@ Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 Patch320: patch-libxl-resume.patch
 
 # Security fixes
+Patch400: patch-xsa399-4.16.patch
+Patch401: patch-xsa400-4.14-01.patch
+Patch402: patch-xsa400-4.14-02.patch
+Patch403: patch-xsa400-4.14-03.patch
+Patch404: patch-xsa400-4.14-04.patch
+Patch405: patch-xsa400-4.14-05.patch
+Patch406: patch-xsa400-4.14-06.patch
+Patch407: patch-xsa400-4.14-07.patch
+Patch408: patch-xsa400-4.14-08.patch
+Patch409: patch-xsa400-4.14-09.patch
+Patch410: patch-xsa400-4.14-10.patch
+Patch411: patch-xsa400-4.14-11.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
