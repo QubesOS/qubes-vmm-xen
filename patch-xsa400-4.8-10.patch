@@ -1,0 +1,41 @@
+From: Jan Beulich <jbeulich@suse.com>
+Subject: AMD/IOMMU: abstract maximum number of page table levels
+
+We will want to use the constant elsewhere.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Paul Durrant <paul@xen.org>
+
+--- a/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
++++ b/xen/include/asm-x86/hvm/svm/amd-iommu-proto.h
+@@ -185,7 +185,7 @@ static inline int amd_iommu_get_paging_m
+     while ( max_frames > PTE_PER_TABLE_SIZE )
+     {
+         max_frames = PTE_PER_TABLE_ALIGN(max_frames) >> PTE_PER_TABLE_SHIFT;
+-        if ( ++level > 6 )
++        if ( ++level > IOMMU_MAX_PT_LEVELS )
+             return -ENOMEM;
+     }
+ 
+--- a/xen/include/asm-x86/hvm/svm/amd-iommu-defs.h
++++ b/xen/include/asm-x86/hvm/svm/amd-iommu-defs.h
+@@ -114,6 +114,8 @@
+ #define IOMMU_DEV_TABLE_PAGE_TABLE_PTR_LOW_MASK		0xFFFFF000
+ #define IOMMU_DEV_TABLE_PAGE_TABLE_PTR_LOW_SHIFT	12
+ 
++#define IOMMU_MAX_PT_LEVELS 6
++
+ /* DeviceTable Entry[63:32] */
+ #define IOMMU_DEV_TABLE_GV_SHIFT                    23
+ #define IOMMU_DEV_TABLE_GV_MASK                     0x800000
+--- a/xen/drivers/passthrough/amd/iommu_map.c
++++ b/xen/drivers/passthrough/amd/iommu_map.c
+@@ -477,7 +477,7 @@ static int iommu_pde_from_dfn(struct dom
+     level = hd->arch.paging_mode;
+ 
+     BUG_ON( table == NULL || level < IOMMU_PAGING_MODE_LEVEL_1 || 
+-            level > IOMMU_PAGING_MODE_LEVEL_6 );
++            level > IOMMU_MAX_PT_LEVELS );
+ 
+     /*
+      * A frame number past what the current page tables can represent can't

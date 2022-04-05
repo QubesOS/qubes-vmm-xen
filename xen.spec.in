@@ -156,6 +156,7 @@ Patch359: patch-0001-passthrough-vtd-Don-t-DMA-to-the-stack-in-queue_inva.patch
 Patch361: patch-xen-access-once.patch
 Patch362: patch-0001-nospec-introduce-evaluate_nospec.patch
 Patch363: patch-x86-PoD-correctly-handle-non-order-0-decrease-reserv.patch
+Patch364: patch-VT-d-don-t-pass-bridge-devices-to-domain_context_map.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch
@@ -308,6 +309,19 @@ Patch600: patch-xsa388-4.8-2.patch
 Patch601: patch-xsa389-4.8.patch
 Patch602: patch-xsa395-4.14.patch
 Patch603: patch-xsa398-4.8-6.patch
+Patch604: patch-xsa399-4.12.patch
+Patch605: patch-xsa400-4.8-00.patch
+Patch606: patch-xsa400-4.8-01.patch
+Patch607: patch-xsa400-4.8-02.patch
+Patch608: patch-xsa400-4.8-03.patch
+Patch609: patch-xsa400-4.8-04.patch
+Patch610: patch-xsa400-4.8-05.patch
+Patch611: patch-xsa400-4.8-06.patch
+Patch612: patch-xsa400-4.8-07.patch
+Patch613: patch-xsa400-4.8-08.patch
+Patch614: patch-xsa400-4.8-09.patch
+Patch615: patch-xsa400-4.8-10.patch
+Patch616: patch-xsa400-4.8-11.patch
 
 # Upstreamable patches
 Patch651: patch-xen-libxl-error-write-perm.patch

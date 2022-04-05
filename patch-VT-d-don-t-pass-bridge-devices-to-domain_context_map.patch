@@ -1,0 +1,63 @@
+From b9063ce924bb37986762d33a48c174348c38b61a Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 5 Mar 2020 11:16:46 +0100
+Subject: [PATCH] VT-d: don't pass bridge devices to
+ domain_context_mapping_one()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When passed a non-NULL pdev, the function does an owner check when it
+finds an already existing context mapping. Bridges, however, don't get
+passed through to guests, and hence their owner is always going to be
+Dom0, leading to the assigment of all but one of the function of multi-
+function PCI devices behind bridges to fail.
+
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Kevin Tian <kevin.tian@intel.com>
+master commit: a4d457fd59f4ebfb524aec82cb6a3030087914ca
+master date: 2020-01-22 16:39:58 +0100
+---
+ xen/drivers/passthrough/vtd/iommu.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/xen/drivers/passthrough/vtd/iommu.c b/xen/drivers/passthrough/vtd/iommu.c
+index 576e72eba15a..77ba8e14a6b4 100644
+--- a/xen/drivers/passthrough/vtd/iommu.c
++++ b/xen/drivers/passthrough/vtd/iommu.c
+@@ -1536,18 +1536,28 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
+         if ( find_upstream_bridge(seg, &bus, &devfn, &secbus) < 1 )
+             break;
+ 
++        /*
++         * Mapping a bridge should, if anything, pass the struct pci_dev of
++         * that bridge. Since bridges don't normally get assigned to guests,
++         * their owner would be the wrong one. Pass NULL instead.
++         */
+         ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
+-                                         pci_get_pdev(seg, bus, devfn));
++                                         NULL);
+ 
+         /*
+          * Devices behind PCIe-to-PCI/PCIx bridge may generate different
+          * requester-id. It may originate from devfn=0 on the secondary bus
+          * behind the bridge. Map that id as well if we didn't already.
++         *
++         * Somewhat similar as for bridges, we don't want to pass a struct
++         * pci_dev here - there may not even exist one for this (secbus,0,0)
++         * tuple. If there is one, without properly working device groups it
++         * may again not have the correct owner.
+          */
+         if ( !ret && pdev_type(seg, bus, devfn) == DEV_TYPE_PCIe2PCI_BRIDGE &&
+              (secbus != pdev->bus || pdev->devfn != 0) )
+             ret = domain_context_mapping_one(domain, drhd->iommu, secbus, 0,
+-                                             pci_get_pdev(seg, secbus, 0));
++                                             NULL);
+ 
+         break;
+ 
+-- 
+2.35.1
+
