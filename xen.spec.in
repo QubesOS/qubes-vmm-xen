@@ -102,52 +102,6 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
-Patch220: patch-stable-0001-x86-amd-split-LFENCE-dispatch-serializing-setup-logi.patch
-Patch221: patch-stable-0002-x86-cpuid-support-LFENCE-always-serialising-CPUID-bi.patch
-Patch222: patch-stable-0003-x86-vmx-Drop-spec_ctrl-load-in-VMEntry-path.patch
-Patch223: patch-stable-0004-x86-msr-Fix-migration-compatibility-issue-with-MSR_S.patch
-Patch224: patch-stable-0005-x86-cpuid-Advertise-SSB_NO-to-guests-by-default.patch
-Patch225: patch-stable-0006-x86-spec-ctrl-Drop-use_spec_ctrl-boolean.patch
-Patch226: patch-stable-0007-x86-spec-ctrl-Introduce-new-has_spec_ctrl-boolean.patch
-Patch227: patch-stable-0008-x86-spec-ctrl-Don-t-use-spec_ctrl_-enter-exit-_idle-.patch
-Patch228: patch-stable-0009-x86-spec-ctrl-Record-the-last-write-to-MSR_SPEC_CTRL.patch
-Patch229: patch-stable-0010-x86-spec-ctrl-Use-common-MSR_SPEC_CTRL-logic-for-AMD.patch
-Patch230: patch-stable-0011-x86-svm-VMEntry-Exit-logic-for-MSR_SPEC_CTRL.patch
-Patch231: patch-stable-0012-x86-msr-AMD-MSR_SPEC_CTRL-infrastructure.patch
-Patch232: patch-stable-0013-x86-cpuid-Enable-MSR_SPEC_CTRL-in-SVM-guests-by-defa.patch
-Patch233: patch-stable-0014-x86-cpuid-Disentangle-logic-for-new-feature-leaves.patch
-Patch234: patch-stable-0015-x86-cpuid-Infrastructure-for-leaf-7-1.ebx.patch
-Patch235: patch-stable-0016-x86-spec-ctrl-Clean-up-MSR_MCU_OPT_CTRL-handling.patch
-Patch236: patch-stable-0017-x86-tsx-Move-has_rtm_always_abort-to-an-outer-scope.patch
-Patch237: patch-stable-0018-x86-tsx-Cope-with-TSX-deprecation-on-WHL-R-CFL-R.patch
-Patch238: patch-stable-0019-x86-cpuid-Infrastructure-for-cpuid-word-7-2.edx.patch
-Patch239: patch-stable-0020-x86-spec-ctrl-Support-Intel-PSFD-for-guests.patch
-Patch240: patch-stable-0021-xen-arm-Introduce-new-Arm-processors.patch
-Patch241: patch-stable-0022-xen-arm-move-errata-CSV2-check-earlier.patch
-Patch242: patch-stable-0023-xen-arm-Add-ECBHB-and-CLEARBHB-ID-fields.patch
-Patch243: patch-stable-0024-xen-arm-Add-Spectre-BHB-handling.patch
-Patch244: patch-stable-0025-xen-arm-Allow-to-discover-and-use-SMCCC_ARCH_WORKARO.patch
-Patch245: patch-stable-0026-x86-spec-ctrl-Cease-using-thunk-lfence-on-AMD.patch
-Patch246: patch-stable-0027-x86-Introduce-support-for-CET-IBT.patch
-Patch247: patch-stable-0028-x86-setup-Read-CR4-earlier-in-__start_xen.patch
-Patch248: patch-stable-0029-x86-alternatives-Clear-CR4.CET-when-clearing-CR0.WP.patch
-Patch249: patch-stable-0030-x86-traps-Rework-write_stub_trampoline-to-not-hardco.patch
-Patch250: patch-stable-0031-x86-Introduce-helpers-checks-for-endbr64-instruction.patch
-Patch251: patch-stable-0032-x86-emul-Update-emulation-stubs-to-be-CET-IBT-compat.patch
-Patch252: patch-stable-0033-x86-entry-Make-syscall-sysenter-entrypoints-CET-IBT-.patch
-Patch253: patch-stable-0034-x86-entry-Make-IDT-entrypoints-CET-IBT-compatible.patch
-Patch254: patch-stable-0035-x86-setup-Rework-MSR_S_CET-handling-for-CET-IBT.patch
-Patch255: patch-stable-0036-x86-EFI-Disable-CET-IBT-around-Runtime-Services-call.patch
-Patch256: patch-stable-0037-x86-Enable-CET-Indirect-Branch-Tracking.patch
-Patch257: patch-stable-0038-x86-CET-Fix-S3-resume-with-shadow-stacks-active.patch
-Patch258: patch-stable-0039-x86-spec-ctrl-Disable-retpolines-with-CET-IBT.patch
-Patch259: patch-stable-0040-x86-kexec-Fix-kexec-reboot-with-CET-active.patch
-Patch260: patch-stable-0041-x86-cet-Clear-IST-supervisor-token-busy-bits-on-S3-r.patch
-Patch261: patch-stable-0042-x86-cet-Remove-writeable-mapping-of-the-BSPs-shadow-.patch
-Patch262: patch-stable-0043-xen-x86-Livepatch-support-patching-CET-enhanced-func.patch
-Patch263: patch-stable-0044-x86-cet-Remove-XEN_SHSTK-s-dependency-on-EXPERT.patch
-Patch264: patch-stable-0045-livepatch-resolve-old-address-before-function-verifi.patch
-
 Patch290: patch-0001-ns16550-do-not-override-fifo-size-if-explicitly-set.patch
 Patch291: patch-0002-ns16550-specify-uart-param-for-ns_-read-write-_reg-a.patch
 Patch292: patch-0003-ns16550-add-Exar-PCIe-UART-cards-support.patch
@@ -170,18 +124,6 @@ Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 Patch320: patch-libxl-resume.patch
 
 # Security fixes
-Patch400: patch-xsa399-4.16.patch
-Patch401: patch-xsa400-4.14-01.patch
-Patch402: patch-xsa400-4.14-02.patch
-Patch403: patch-xsa400-4.14-03.patch
-Patch404: patch-xsa400-4.14-04.patch
-Patch405: patch-xsa400-4.14-05.patch
-Patch406: patch-xsa400-4.14-06.patch
-Patch407: patch-xsa400-4.14-07.patch
-Patch408: patch-xsa400-4.14-08.patch
-Patch409: patch-xsa400-4.14-09.patch
-Patch410: patch-xsa400-4.14-10.patch
-Patch411: patch-xsa400-4.14-11.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch

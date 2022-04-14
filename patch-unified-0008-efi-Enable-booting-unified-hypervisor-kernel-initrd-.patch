@@ -245,7 +245,7 @@ index 3e4c395b75..cdba3d0dca 100644
 +EFIOBJ := boot.init.o pe.init.o compat.o runtime.o
  
  $(call cc-option-add,cflags-stack-boundary,CC,-mpreferred-stack-boundary=4)
- $(EFIOBJ): CFLAGS-stack-boundary := $(cflags-stack-boundary)
+ $(EFIOBJ): CFLAGS_stack_boundary := $(cflags-stack-boundary)
 diff --git a/xen/arch/x86/efi/efi-boot.h b/xen/arch/x86/efi/efi-boot.h
 index 1025000afd..2541ba1f32 100644
 --- a/xen/arch/x86/efi/efi-boot.h
