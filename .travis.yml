@@ -1,7 +1,0 @@
-import:
-  - source: QubesOS/qubes-continuous-integration:R4.1/travis-base-r4.1.yml
-  - source: QubesOS/qubes-continuous-integration:R4.1/travis-dom0-r4.1.yml
-  - source: QubesOS/qubes-continuous-integration:R4.1/travis-vms-r4.1.yml
-env:
-  global:
-    - TRAVIS_INSTALL_EXCLUDE="xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo xen-hypervisor-common xen-system-amd64"
