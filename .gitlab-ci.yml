@@ -10,10 +10,5 @@ include:
   - project: 'QubesOS/qubes-continuous-integration'
     file: '/r4.1/gitlab-vm-archlinux.yml'
 
-default:
-  tags:
-    - docker-runner
-    - long-living-job
-
 variables:
   TRAVIS_INSTALL_EXCLUDE: "xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo xen-hypervisor-common xen-system-amd64"
