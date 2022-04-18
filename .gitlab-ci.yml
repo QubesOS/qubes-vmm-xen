@@ -1,14 +1,23 @@
 include:
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-base.yml'
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-dom0.yml'
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-vm-debian.yml'
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-vm-centos.yml'
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-vm-archlinux.yml'
-
+- file: /r4.1/gitlab-base.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.1/gitlab-dom0.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.1/gitlab-vm-archlinux.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.1/gitlab-vm-centos.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.1/gitlab-vm-debian.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-base.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-host.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-vm-archlinux.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-vm-centos.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-vm-debian.yml
+  project: QubesOS/qubes-continuous-integration
 variables:
-  TRAVIS_INSTALL_EXCLUDE: "xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo xen-hypervisor-common xen-system-amd64"
+  TRAVIS_INSTALL_EXCLUDE: xen-qubes-vm xen-qubes-debug xen-qubes-debuginfo xen-hypervisor-common xen-system-amd64
