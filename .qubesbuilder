@@ -1,6 +1,6 @@
 host:
   rpm:
-    spec:
+    build:
     - xen.spec
 vm:
   deb:
