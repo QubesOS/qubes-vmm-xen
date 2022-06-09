@@ -1,0 +1,33 @@
+From 090d1a6908d2fba8c6657d7710d61ba360c9f248 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 19 Jan 2017 10:26:14 +0000
+Subject: [PATCH] x86/cpufeatures: Expose self-snoop to all guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Self-snoop describes a property of the CPU cache behaviour, which FreeBSD uses
+to optimise its cache flushing algorithm.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Tested-by: Roger Pau Monné <roger.pau@citrix.com>
+---
+ xen/include/public/arch-x86/cpufeatureset.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 306200b8c24b..70f1e3024b1c 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -114,6 +114,7 @@ XEN_CPUFEATURE(MMX,           0*32+23) /*A  Multimedia Extensions */
+ XEN_CPUFEATURE(FXSR,          0*32+24) /*A  FXSAVE and FXRSTOR instructions */
+ XEN_CPUFEATURE(SSE,           0*32+25) /*A  Streaming SIMD Extensions */
+ XEN_CPUFEATURE(SSE2,          0*32+26) /*A  Streaming SIMD Extensions-2 */
++XEN_CPUFEATURE(SS,            0*32+27) /*A  CPU self snoop */
+ XEN_CPUFEATURE(HTT,           0*32+28) /*!A Hyper-Threading Technology */
+ XEN_CPUFEATURE(TM1,           0*32+29) /*   Thermal Monitor 1 */
+ XEN_CPUFEATURE(PBE,           0*32+31) /*   Pending Break Enable */
+-- 
+2.35.3
+

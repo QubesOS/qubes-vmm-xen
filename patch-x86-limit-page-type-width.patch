@@ -1,0 +1,80 @@
+From 1ae4be859b819c147e2034137f519e7fdc2973da Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 13 Jun 2017 10:38:51 +0200
+Subject: [PATCH] x86: limit page type width
+
+There's no reason to burn 4 bits on page type when we only have 7 types
+(plus "none") at present. This requires changing one use of
+PGT_shared_page, which so far assumed that the type is both a power of
+2 and the only type with the high bit set.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/arch/x86/mm/mem_sharing.c |  2 +-
+ xen/include/asm-x86/mm.h      | 26 +++++++++++++-------------
+ 2 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/xen/arch/x86/mm/mem_sharing.c b/xen/arch/x86/mm/mem_sharing.c
+index 84fce187194f..1f20ce7551bc 100644
+--- a/xen/arch/x86/mm/mem_sharing.c
++++ b/xen/arch/x86/mm/mem_sharing.c
+@@ -452,7 +452,7 @@ static int audit(void)
+         }
+ 
+         /* Check if the MFN has correct type, owner and handle. */ 
+-        if ( !(pg->u.inuse.type_info & PGT_shared_page) )
++        if ( (pg->u.inuse.type_info & PGT_type_mask) != PGT_shared_page )
+         {
+            MEM_SHARING_DEBUG("mfn %lx in audit list, but not PGT_shared_page (%lx)!\n",
+                               mfn_x(mfn), pg->u.inuse.type_info & PGT_type_mask);
+diff --git a/xen/include/asm-x86/mm.h b/xen/include/asm-x86/mm.h
+index 119d7dec6b7b..d33599d9c631 100644
+--- a/xen/include/asm-x86/mm.h
++++ b/xen/include/asm-x86/mm.h
+@@ -176,16 +176,19 @@ struct page_info
+ #define PG_mask(x, idx) (x ## UL << PG_shift(idx))
+ 
+  /* The following page types are MUTUALLY EXCLUSIVE. */
+-#define PGT_none          PG_mask(0, 4)  /* no special uses of this page   */
+-#define PGT_l1_page_table PG_mask(1, 4)  /* using as an L1 page table?     */
+-#define PGT_l2_page_table PG_mask(2, 4)  /* using as an L2 page table?     */
+-#define PGT_l3_page_table PG_mask(3, 4)  /* using as an L3 page table?     */
+-#define PGT_l4_page_table PG_mask(4, 4)  /* using as an L4 page table?     */
+-#define PGT_seg_desc_page PG_mask(5, 4)  /* using this page in a GDT/LDT?  */
+-#define PGT_writable_page PG_mask(7, 4)  /* has writable mappings?         */
+-#define PGT_shared_page   PG_mask(8, 4)  /* CoW sharable page              */
+-#define PGT_type_mask     PG_mask(15, 4) /* Bits 28-31 or 60-63.           */
++#define PGT_none          PG_mask(0, 3)  /* no special uses of this page   */
++#define PGT_l1_page_table PG_mask(1, 3)  /* using as an L1 page table?     */
++#define PGT_l2_page_table PG_mask(2, 3)  /* using as an L2 page table?     */
++#define PGT_l3_page_table PG_mask(3, 3)  /* using as an L3 page table?     */
++#define PGT_l4_page_table PG_mask(4, 3)  /* using as an L4 page table?     */
++#define PGT_seg_desc_page PG_mask(5, 3)  /* using this page in a GDT/LDT?  */
++#define PGT_shared_page   PG_mask(6, 3)  /* CoW sharable page              */
++#define PGT_writable_page PG_mask(7, 3)  /* has writable mappings?         */
++#define PGT_type_mask     PG_mask(7, 3)  /* Bits 61-63.                    */
+ 
++ /* Page is locked? */
++#define _PGT_locked       PG_shift(4)
++#define PGT_locked        PG_mask(1, 4)
+  /* Owning guest has pinned this page to its current type? */
+ #define _PGT_pinned       PG_shift(5)
+ #define PGT_pinned        PG_mask(1, 5)
+@@ -198,12 +201,9 @@ struct page_info
+ /* Has this page been *partially* validated for use as its current type? */
+ #define _PGT_partial      PG_shift(8)
+ #define PGT_partial       PG_mask(1, 8)
+- /* Page is locked? */
+-#define _PGT_locked       PG_shift(9)
+-#define PGT_locked        PG_mask(1, 9)
+ 
+  /* Count of uses of this frame as its current type. */
+-#define PGT_count_width   PG_shift(9)
++#define PGT_count_width   PG_shift(8)
+ #define PGT_count_mask    ((1UL<<PGT_count_width)-1)
+ 
+ /* Are the 'type mask' bits identical? */
+-- 
+2.35.3
+

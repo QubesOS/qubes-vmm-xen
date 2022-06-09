@@ -1,0 +1,100 @@
+From f2663ca2e5203bfa082b1d6d2721ad369e00426a Mon Sep 17 00:00:00 2001
+From: Ricardo Neri <ricardo.neri-calderon@linux.intel.com>
+Date: Fri, 19 Jul 2019 13:50:38 +0200
+Subject: [PATCH] x86/cpu/intel: Clear cache self-snoop capability in CPUs with
+ known errata
+
+From: Ricardo Neri <ricardo.neri-calderon@linux.intel.com>
+
+Processors which have self-snooping capability can handle conflicting
+memory type across CPUs by snooping its own cache. However, there exists
+CPU models in which having conflicting memory types still leads to
+unpredictable behavior, machine check errors, or hangs.
+
+Clear this feature on affected CPUs to prevent its use.
+
+Suggested-by: Alan Cox <alan.cox@intel.com>
+Signed-off-by: Ricardo Neri <ricardo.neri-calderon@linux.intel.com>
+[Linux commit 1e03bff3600101bd9158d005e4313132e55bdec8]
+
+Strip Yonah - as per ark.intel.com it doesn't look to be 64-bit capable.
+Call the new function on the boot CPU only. Don't clear the CPU feature
+flag itself, as it is exposed to guests (who could otherwise observe it
+disappear after migration).
+
+Requested-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/cpu/intel.c          | 35 ++++++++++++++++++++++++++++++-
+ xen/include/asm-x86/cpufeatures.h |  1 +
+ 2 files changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/cpu/intel.c b/xen/arch/x86/cpu/intel.c
+index 0dd8f986078d..5356a6ae10d2 100644
+--- a/xen/arch/x86/cpu/intel.c
++++ b/xen/arch/x86/cpu/intel.c
+@@ -14,6 +14,36 @@
+ 	*this_enabled = enable;
+ }
+ 
++/*
++ * Processors which have self-snooping capability can handle conflicting
++ * memory type across CPUs by snooping its own cache. However, there exists
++ * CPU models in which having conflicting memory types still leads to
++ * unpredictable behavior, machine check errors, or hangs. Clear this
++ * feature to prevent its use on machines with known erratas.
++ */
++static void __init check_memory_type_self_snoop_errata(void)
++{
++	if (!boot_cpu_has(X86_FEATURE_SS))
++		return;
++
++	switch (boot_cpu_data.x86_model) {
++	case 0x0f: /* Merom */
++	case 0x16: /* Merom L */
++	case 0x17: /* Penryn */
++	case 0x1d: /* Dunnington */
++	case 0x1e: /* Nehalem */
++	case 0x1f: /* Auburndale / Havendale */
++	case 0x1a: /* Nehalem EP */
++	case 0x2e: /* Nehalem EX */
++	case 0x25: /* Westmere */
++	case 0x2c: /* Westmere EP */
++	case 0x2a: /* SandyBridge */
++		return;
++	}
++
++	setup_force_cpu_cap(X86_FEATURE_XEN_SELFSNOOP);
++}
++
+ /*
+  * Set caps in expected_levelling_cap, probe a specific masking MSR, and set
+  * caps in levelling_caps if it is found, or clobber the MSR index if missing.
+@@ -256,8 +286,11 @@ static void early_init_intel(struct cpuinfo_x86 *c)
+ 	    (boot_cpu_data.x86_mask == 3 || boot_cpu_data.x86_mask == 4))
+ 		paddr_bits = 36;
+ 
+-	if (c == &boot_cpu_data)
++	if (c == &boot_cpu_data) {
++		check_memory_type_self_snoop_errata();
++
+ 		intel_init_levelling();
++	}
+ 
+ 	intel_ctxt_switch_levelling(NULL);
+ }
+diff --git a/xen/include/asm-x86/cpufeatures.h b/xen/include/asm-x86/cpufeatures.h
+index 996f89df9a76..57f3e61fd5e9 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -30,6 +30,7 @@ XEN_CPUFEATURE(SC_MSR_PV,       (FSCAPINTS+0)*32+16) /* MSR_SPEC_CTRL used by Xe
+ XEN_CPUFEATURE(NO_XPTI,         (FSCAPINTS+0)*32+22) /* XPTI mitigation not in use */
+ XEN_CPUFEATURE(SC_MSR_IDLE,     (FSCAPINTS+0)*32+23) /* (SC_MSR_PV || SC_MSR_HVM) && default_xen_spec_ctrl */
+ XEN_CPUFEATURE(XEN_LBR,         (FSCAPINTS+0)*32+24) /* Xen uses MSR_DEBUGCTL.LBR */
++XEN_CPUFEATURE(XEN_SELFSNOOP,   (FSCAPINTS+0)*32+25) /* SELFSNOOP gets used by Xen itself */
+ 
+ #define NCAPINTS (FSCAPINTS + 1) /* N 32-bit words worth of info */
+ 
+-- 
+2.35.3
+

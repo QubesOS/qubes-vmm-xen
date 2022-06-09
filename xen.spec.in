@@ -157,6 +157,11 @@ Patch361: patch-xen-access-once.patch
 Patch362: patch-0001-nospec-introduce-evaluate_nospec.patch
 Patch363: patch-x86-PoD-correctly-handle-non-order-0-decrease-reserv.patch
 Patch364: patch-VT-d-don-t-pass-bridge-devices-to-domain_context_map.patch
+Patch365: patch-x86-page--Rename-PAGE_HYPERVISOR_NOCACHE-to-PAGE_HYPE.patch
+Patch366: patch-x86-page--Introduce-and-use-PAGE_HYPERVISOR_UC.patch
+Patch367: patch-x86-limit-page-type-width.patch
+Patch368: patch-x86-cpufeatures-Expose-self-snoop-to-all-guests.patch
+Patch369: patch-x86-cpu-intel-Clear-cache-self-snoop-capability-in-C.patch
 
 # PVH backports
 Patch401: patch-88e43f9a-acpi-make-pmtimer-optional-in-FADT.patch

@@ -1,0 +1,62 @@
+From 14c6cf41c79b8253690b40ee789110fe69fe39d3 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 14 Aug 2017 11:52:20 +0100
+Subject: [PATCH] x86/page: Introduce and use PAGE_HYPERVISOR_UC
+
+Always map the PCI MMCFG region as strongly uncacheable.  Nothing good will
+happen if stray MTRR settings end up converting UC- to WC.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/x86_64/mmconfig_64.c | 2 +-
+ xen/include/asm-x86/page.h        | 1 +
+ xen/include/asm-x86/x86_64/page.h | 3 +++
+ 3 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/x86_64/mmconfig_64.c b/xen/arch/x86/x86_64/mmconfig_64.c
+index a7d2e33654b5..958b6cf2f416 100644
+--- a/xen/arch/x86/x86_64/mmconfig_64.c
++++ b/xen/arch/x86/x86_64/mmconfig_64.c
+@@ -140,7 +140,7 @@ int pci_mmcfg_arch_enable(unsigned int idx)
+ 
+     if (pci_mmcfg_virt[idx].virt)
+         return 0;
+-    pci_mmcfg_virt[idx].virt = mcfg_ioremap(cfg, idx, PAGE_HYPERVISOR_UCMINUS);
++    pci_mmcfg_virt[idx].virt = mcfg_ioremap(cfg, idx, PAGE_HYPERVISOR_UC);
+     if (!pci_mmcfg_virt[idx].virt) {
+         printk(KERN_ERR "PCI: Cannot map MCFG aperture for segment %04x\n",
+                cfg->pci_segment);
+diff --git a/xen/include/asm-x86/page.h b/xen/include/asm-x86/page.h
+index 0b68c5ee9594..263ca5bc3c3e 100644
+--- a/xen/include/asm-x86/page.h
++++ b/xen/include/asm-x86/page.h
+@@ -323,6 +323,7 @@ void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t);
+ #define __PAGE_HYPERVISOR         (__PAGE_HYPERVISOR_RX | \
+                                    _PAGE_DIRTY | _PAGE_RW)
+ #define __PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR | _PAGE_PCD)
++#define __PAGE_HYPERVISOR_UC      (__PAGE_HYPERVISOR | _PAGE_PCD | _PAGE_PWT)
+ 
+ #define MAP_SMALL_PAGES _PAGE_AVAIL0 /* don't use superpages mappings */
+ 
+diff --git a/xen/include/asm-x86/x86_64/page.h b/xen/include/asm-x86/x86_64/page.h
+index e10262456310..603ecacf9cd9 100644
+--- a/xen/include/asm-x86/x86_64/page.h
++++ b/xen/include/asm-x86/x86_64/page.h
+@@ -167,10 +167,13 @@ typedef l4_pgentry_t root_pgentry_t;
+ /* Dependency on NX being available can't be expressed. */
+ # define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RWX
+ # define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | _PAGE_GLOBAL)
++# define PAGE_HYPERVISOR_UC      (__PAGE_HYPERVISOR_UC      | _PAGE_GLOBAL)
+ #else
+ # define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RW
+ # define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | \
+                                   _PAGE_GLOBAL | _PAGE_NX)
++# define PAGE_HYPERVISOR_UC      (__PAGE_HYPERVISOR_UC | \
++                                  _PAGE_GLOBAL | _PAGE_NX)
+ #endif
+ 
+ #endif /* __X86_64_PAGE_H__ */
+-- 
+2.35.3
+

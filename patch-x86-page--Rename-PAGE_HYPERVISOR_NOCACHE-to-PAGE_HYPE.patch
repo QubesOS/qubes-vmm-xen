@@ -1,0 +1,122 @@
+From 1956926b40e17db944498ea4d518af6d108b6bbc Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 14 Aug 2017 11:42:24 +0100
+Subject: [PATCH] x86/page: Rename PAGE_HYPERVISOR_NOCACHE to
+ PAGE_HYPERVISOR_UCMINUS
+
+To better describe its actual function.
+
+No functional change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/boot/x86_64.S        | 4 ++--
+ xen/arch/x86/mm.c                 | 2 +-
+ xen/arch/x86/x86_64/mmconfig_64.c | 2 +-
+ xen/include/asm-x86/acpi.h        | 2 +-
+ xen/include/asm-x86/fixmap.h      | 2 +-
+ xen/include/asm-x86/page.h        | 2 +-
+ xen/include/asm-x86/x86_64/page.h | 4 ++--
+ 7 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/xen/arch/x86/boot/x86_64.S b/xen/arch/x86/boot/x86_64.S
+index b640d9bba9ec..925fd4bb0a5e 100644
+--- a/xen/arch/x86/boot/x86_64.S
++++ b/xen/arch/x86/boot/x86_64.S
+@@ -90,9 +90,9 @@ GLOBAL(boot_cpu_compat_gdt_table)
+ l1_identmap:
+         pfn = 0
+         .rept L1_PAGETABLE_ENTRIES
+-        /* VGA hole (0xa0000-0xc0000) should be mapped UC. */
++        /* VGA hole (0xa0000-0xc0000) should be mapped UC-. */
+         .if pfn >= 0xa0 && pfn < 0xc0
+-        .quad (pfn << PAGE_SHIFT) | PAGE_HYPERVISOR_NOCACHE | MAP_SMALL_PAGES
++        .quad (pfn << PAGE_SHIFT) | PAGE_HYPERVISOR_UCMINUS | MAP_SMALL_PAGES
+         .else
+         .quad (pfn << PAGE_SHIFT) | PAGE_HYPERVISOR | MAP_SMALL_PAGES
+         .endif
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 88bf4f68f97f..f53ca435543c 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -6100,7 +6100,7 @@ void __iomem *ioremap(paddr_t pa, size_t len)
+         unsigned int offs = pa & (PAGE_SIZE - 1);
+         unsigned int nr = PFN_UP(offs + len);
+ 
+-        va = __vmap(&mfn, nr, 1, 1, PAGE_HYPERVISOR_NOCACHE, VMAP_DEFAULT) + offs;
++        va = __vmap(&mfn, nr, 1, 1, PAGE_HYPERVISOR_UCMINUS, VMAP_DEFAULT) + offs;
+     }
+ 
+     return (void __force __iomem *)va;
+diff --git a/xen/arch/x86/x86_64/mmconfig_64.c b/xen/arch/x86/x86_64/mmconfig_64.c
+index e84a67dfc429..a7d2e33654b5 100644
+--- a/xen/arch/x86/x86_64/mmconfig_64.c
++++ b/xen/arch/x86/x86_64/mmconfig_64.c
+@@ -140,7 +140,7 @@ int pci_mmcfg_arch_enable(unsigned int idx)
+ 
+     if (pci_mmcfg_virt[idx].virt)
+         return 0;
+-    pci_mmcfg_virt[idx].virt = mcfg_ioremap(cfg, idx, PAGE_HYPERVISOR_NOCACHE);
++    pci_mmcfg_virt[idx].virt = mcfg_ioremap(cfg, idx, PAGE_HYPERVISOR_UCMINUS);
+     if (!pci_mmcfg_virt[idx].virt) {
+         printk(KERN_ERR "PCI: Cannot map MCFG aperture for segment %04x\n",
+                cfg->pci_segment);
+diff --git a/xen/include/asm-x86/acpi.h b/xen/include/asm-x86/acpi.h
+index 27ecc654cbd3..c138def1bdb1 100644
+--- a/xen/include/asm-x86/acpi.h
++++ b/xen/include/asm-x86/acpi.h
+@@ -160,6 +160,6 @@ void hvm_acpi_sleep_button(struct domain *d);
+ void save_rest_processor_state(void);
+ void restore_rest_processor_state(void);
+ 
+-#define ACPI_MAP_MEM_ATTR	PAGE_HYPERVISOR_NOCACHE
++#define ACPI_MAP_MEM_ATTR	PAGE_HYPERVISOR_UCMINUS
+ 
+ #endif /*__X86_ASM_ACPI_H*/
+diff --git a/xen/include/asm-x86/fixmap.h b/xen/include/asm-x86/fixmap.h
+index 054889ca589c..89bf6cb611ef 100644
+--- a/xen/include/asm-x86/fixmap.h
++++ b/xen/include/asm-x86/fixmap.h
+@@ -72,7 +72,7 @@ extern void __set_fixmap(
+     __set_fixmap(idx, (phys)>>PAGE_SHIFT, PAGE_HYPERVISOR)
+ 
+ #define set_fixmap_nocache(idx, phys) \
+-    __set_fixmap(idx, (phys)>>PAGE_SHIFT, PAGE_HYPERVISOR_NOCACHE)
++    __set_fixmap(idx, (phys)>>PAGE_SHIFT, PAGE_HYPERVISOR_UCMINUS)
+ 
+ #define clear_fixmap(idx) __set_fixmap(idx, 0, 0)
+ 
+diff --git a/xen/include/asm-x86/page.h b/xen/include/asm-x86/page.h
+index 0f843c2a46ea..0b68c5ee9594 100644
+--- a/xen/include/asm-x86/page.h
++++ b/xen/include/asm-x86/page.h
+@@ -322,7 +322,7 @@ void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t);
+ #define __PAGE_HYPERVISOR_RX      (_PAGE_PRESENT | _PAGE_ACCESSED)
+ #define __PAGE_HYPERVISOR         (__PAGE_HYPERVISOR_RX | \
+                                    _PAGE_DIRTY | _PAGE_RW)
+-#define __PAGE_HYPERVISOR_NOCACHE (__PAGE_HYPERVISOR | _PAGE_PCD)
++#define __PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR | _PAGE_PCD)
+ 
+ #define MAP_SMALL_PAGES _PAGE_AVAIL0 /* don't use superpages mappings */
+ 
+diff --git a/xen/include/asm-x86/x86_64/page.h b/xen/include/asm-x86/x86_64/page.h
+index 1b483093630e..e10262456310 100644
+--- a/xen/include/asm-x86/x86_64/page.h
++++ b/xen/include/asm-x86/x86_64/page.h
+@@ -166,10 +166,10 @@ typedef l4_pgentry_t root_pgentry_t;
+ #ifdef __ASSEMBLY__
+ /* Dependency on NX being available can't be expressed. */
+ # define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RWX
+-# define PAGE_HYPERVISOR_NOCACHE (__PAGE_HYPERVISOR_NOCACHE | _PAGE_GLOBAL)
++# define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | _PAGE_GLOBAL)
+ #else
+ # define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RW
+-# define PAGE_HYPERVISOR_NOCACHE (__PAGE_HYPERVISOR_NOCACHE | \
++# define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | \
+                                   _PAGE_GLOBAL | _PAGE_NX)
+ #endif
+ 
+-- 
+2.35.3
+
