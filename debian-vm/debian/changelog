@@ -1,3 +1,10 @@
+xen (2001:4.8.5-40) unstable; urgency=medium
+
+  * Backport patches necessary for upcoming XSA
+  * Apply XSA-401, XSA-402 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 09 Jun 2022 14:28:38 +0200
+
 xen (2001:4.8.5-39) unstable; urgency=medium
 
   * Apply XSA-399 and XSA-400 patches
