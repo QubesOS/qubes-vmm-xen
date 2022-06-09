@@ -327,6 +327,14 @@ Patch613: patch-xsa400-4.8-08.patch
 Patch614: patch-xsa400-4.8-09.patch
 Patch615: patch-xsa400-4.8-10.patch
 Patch616: patch-xsa400-4.8-11.patch
+Patch617: patch-xsa309.patch
+Patch618: patch-xsa401-4.8-1.patch
+Patch619: patch-xsa401-4.8-2.patch
+Patch620: patch-xsa402-4.8-1.patch
+Patch621: patch-xsa402-4.8-2.patch
+Patch622: patch-xsa402-4.8-3.patch
+Patch623: patch-xsa402-4.8-4.patch
+Patch624: patch-xsa402-4.8-5.patch
 
 # Upstreamable patches
 Patch651: patch-xen-libxl-error-write-perm.patch
