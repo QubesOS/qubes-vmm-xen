@@ -1,0 +1,76 @@
+From 7fc25fdd6feddc927addbfc3a304f80b6f61a14c Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 20 Sep 2021 18:47:49 +0100
+Subject: [PATCH 6/7] x86/spec-ctrl: Enumeration for MMIO Stale Data controls
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The three *_NO bits indicate non-susceptibility to the SSDP, FBSDP and PSDP
+data movement primitives.
+
+FB_CLEAR indicates that the VERW instruction has re-gained it's Fill Buffer
+flushing side effect.  This is only enumerated on parts where VERW had
+previously lost it's flushing side effect due to the MDS/TAA vulnerabilities
+being fixed in hardware.
+
+FB_CLEAR_CTRL is available on a subset of FB_CLEAR parts where the Fill Buffer
+clearing side effect of VERW can be turned off for performance reasons.
+
+This is part of XSA-404.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+[backport to 4.8]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/spec_ctrl.c        | 9 +++++++--
+ xen/include/asm-x86/msr-index.h | 5 +++++
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 3c411ac26473..9b37ff389824 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -354,7 +354,7 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+     printk("Speculative mitigation facilities:\n");
+ 
+     /* Hardware features which pertain to speculative mitigations. */
+-    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+            (_7d0 & cpufeat_mask(X86_FEATURE_IBRSB)) ? " IBRS/IBPB" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_STIBP)) ? " STIBP"     : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_L1D_FLUSH)) ? " L1D_FLUSH" : "",
+@@ -369,7 +369,12 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            (caps & ARCH_CAPS_SSB_NO)                ? " SSB_NO"    : "",
+            (caps & ARCH_CAPS_MDS_NO)                ? " MDS_NO"    : "",
+            (caps & ARCH_CAPS_TSX_CTRL)              ? " TSX_CTRL"  : "",
+-           (caps & ARCH_CAPS_TAA_NO)                ? " TAA_NO"    : "");
++           (caps & ARCH_CAPS_FB_CLEAR)              ? " FB_CLEAR"       : "",
++           (caps & ARCH_CAPS_FB_CLEAR_CTRL)         ? " FB_CLEAR_CTRL"  : "",
++           (caps & ARCH_CAPS_TAA_NO)                ? " TAA_NO"    : "",
++           (caps & ARCH_CAPS_SBDR_SSDP_NO)          ? " SBDR_SSDP_NO"   : "",
++           (caps & ARCH_CAPS_FBSDP_NO)              ? " FBSDP_NO"       : "",
++           (caps & ARCH_CAPS_PSDP_NO)               ? " PSDP_NO"        : "");
+ 
+     /* Compiled-in support which pertains to mitigations. */
+     if ( IS_ENABLED(CONFIG_INDIRECT_THUNK) || IS_ENABLED(CONFIG_SHADOW_PAGING) )
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index c44996d36339..79a05f0ac74b 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -56,6 +56,11 @@
+ #define ARCH_CAPS_MDS_NO		(_AC(1, ULL) << 5)
+ #define ARCH_CAPS_TSX_CTRL		(_AC(1, ULL) << 7)
+ #define ARCH_CAPS_TAA_NO		(_AC(1, ULL) << 8)
++#define ARCH_CAPS_SBDR_SSDP_NO		(_AC(1, ULL) << 13)
++#define ARCH_CAPS_FBSDP_NO		(_AC(1, ULL) << 14)
++#define ARCH_CAPS_PSDP_NO		(_AC(1, ULL) << 15)
++#define ARCH_CAPS_FB_CLEAR		(_AC(1, ULL) << 17)
++#define ARCH_CAPS_FB_CLEAR_CTRL	(_AC(1, ULL) << 18)
+ 
+ #define MSR_FLUSH_CMD			0x0000010b
+ #define FLUSH_CMD_L1D			(_AC(1, ULL) << 0)
+-- 
+2.35.3
+

@@ -1,0 +1,261 @@
+From 306f0bacbddcca1be7bdff4ea64f17723965343b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 13 Jun 2022 16:19:01 +0100
+Subject: [PATCH 5/7] x86/spec-ctrl: Make VERW flushing runtime conditional
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently, VERW flushing to mitigate MDS is boot time conditional per domain
+type.  However, to provide mitigations for DRPW (CVE-2022-21166), we need to
+conditionally use VERW based on the trustworthiness of the guest, and the
+devices passed through.
+
+Remove the PV/HVM alternatives and instead issue a VERW on the return-to-guest
+path depending on the SCF_verw bit in cpuinfo spec_ctrl_flags.
+
+Introduce spec_ctrl_init_domain() and d->arch.verw to calculate the VERW
+disposition at domain creation time, and context switch the SCF_verw bit.
+
+For now, VERW flushing is used and controlled exactly as before, but later
+patches will add per-domain cases too.
+
+No change in behaviour.
+
+This is part of XSA-404.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+[backport to 4.8]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/misc/xen-command-line.markdown |  5 ++---
+ xen/arch/x86/domain.c               | 12 +++++++++--
+ xen/arch/x86/spec_ctrl.c            | 31 ++++++++++++++++++-----------
+ xen/include/asm-x86/cpufeature.h    |  3 +--
+ xen/include/asm-x86/domain.h        |  3 +++
+ xen/include/asm-x86/spec_ctrl.h     |  1 +
+ xen/include/asm-x86/spec_ctrl_asm.h | 21 +++++++++++++------
+ 7 files changed, 51 insertions(+), 25 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index a09cfed35288..f63f16fb7cb8 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1628,9 +1628,8 @@ in place for guests to use.
+ Use of a positive boolean value for either of these options is invalid.
+ 
+ The booleans `pv=`, `hvm=`, `msr-sc=`, `rsb=` and `md-clear=` offer fine
+-grained control over the alternative blocks used by Xen.  These impact Xen's
+-ability to protect itself, and Xen's ability to virtualise support for guests
+-to use.
++grained control over the primitives by Xen.  These impact Xen's ability to
++protect itself, and Xen's ability to virtualise support for guests to use.
+ 
+ * `pv=` and `hvm=` offer control over all suboptions for PV and HVM guests
+   respectively.
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 1b84ee1270b2..215b90adb825 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -860,6 +860,8 @@ int arch_domain_create(struct domain *d, unsigned int domcr_flags,
+      */
+     d->arch.x87_fip_width = cpu_has_fpu_sel ? 0 : 8;
+ 
++    spec_ctrl_init_domain(d);
++
+     return 0;
+ 
+  fail:
+@@ -2264,13 +2266,14 @@ static void __context_switch(void)
+ void context_switch(struct vcpu *prev, struct vcpu *next)
+ {
+     unsigned int cpu = smp_processor_id();
++    struct cpu_info *info = get_cpu_info();
+     const struct domain *prevd = prev->domain, *nextd = next->domain;
+     cpumask_t dirty_mask;
+ 
+     ASSERT(local_irq_is_enabled());
+ 
+-    get_cpu_info()->use_pv_cr3 = false;
+-    get_cpu_info()->xen_cr3 = 0;
++    info->use_pv_cr3 = false;
++    info->xen_cr3 = 0;
+ 
+     cpumask_copy(&dirty_mask, next->vcpu_dirty_cpumask);
+     /* Allow at most one CPU at a time to be dirty. */
+@@ -2352,6 +2355,11 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
+                 *last_id = next_id;
+             }
+         }
++
++        /* Update the top-of-stack block with the VERW disposition. */
++        info->spec_ctrl_flags &= ~SCF_verw;
++        if ( nextd->arch.verw )
++            info->spec_ctrl_flags |= SCF_verw;
+     }
+ 
+     context_saved(prev);
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index c173f6bb2deb..7e547b64232b 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -25,6 +25,7 @@
+ #include <asm/msr.h>
+ #include <asm/processor.h>
+ #include <asm/setup.h>
++#include <xen/sched.h>
+ #include <asm/spec_ctrl.h>
+ #include <asm/spec_ctrl_asm.h>
+ 
+@@ -33,8 +34,8 @@ static bool __initdata opt_msr_sc_pv = true;
+ static bool __initdata opt_msr_sc_hvm = true;
+ static bool __initdata opt_rsb_pv = true;
+ static bool __initdata opt_rsb_hvm = true;
+-static int8_t __initdata opt_md_clear_pv = -1;
+-static int8_t __initdata opt_md_clear_hvm = -1;
++static int8_t __read_mostly opt_md_clear_pv = -1;
++static int8_t __read_mostly opt_md_clear_hvm = -1;
+ 
+ /* Cmdline controls for Xen's speculative settings. */
+ static enum ind_thunk {
+@@ -881,6 +882,13 @@ static __init void mds_calculations(uint64_t caps)
+     }
+ }
+ 
++void spec_ctrl_init_domain(struct domain *d)
++{
++    bool pv = is_pv_domain(d);
++
++    d->arch.verw = pv ? opt_md_clear_pv : opt_md_clear_hvm;
++}
++
+ void __init init_speculation_mitigations(void)
+ {
+     enum ind_thunk thunk = THUNK_DEFAULT;
+@@ -1080,21 +1088,20 @@ void __init init_speculation_mitigations(void)
+                             boot_cpu_has(X86_FEATURE_MD_CLEAR));
+ 
+     /*
+-     * Enable MDS defences as applicable.  The PV blocks need using all the
+-     * time, and the Idle blocks need using if either PV or HVM defences are
+-     * used.
++     * Enable MDS defences as applicable.  The Idle blocks need using if
++     * either PV or HVM defences are used.
+      *
+      * HVM is more complicated.  The MD_CLEAR microcode extends L1D_FLUSH with
+-     * equivelent semantics to avoid needing to perform both flushes on the
+-     * HVM path.  The HVM blocks don't need activating if our hypervisor told
+-     * us it was handling L1D_FLUSH, or we are using L1D_FLUSH ourselves.
++     * equivalent semantics to avoid needing to perform both flushes on the
++     * HVM path.  Therefore, we don't need VERW in addition to L1D_FLUSH.
++     *
++     * After calculating the appropriate idle setting, simplify
++     * opt_md_clear_hvm to mean just "should we VERW on the way into HVM
++     * guests", so spec_ctrl_init_domain() can calculate suitable settings.
+      */
+-    if ( opt_md_clear_pv )
+-        setup_force_cpu_cap(X86_FEATURE_SC_VERW_PV);
+     if ( opt_md_clear_pv || opt_md_clear_hvm )
+         setup_force_cpu_cap(X86_FEATURE_SC_VERW_IDLE);
+-    if ( opt_md_clear_hvm && !(caps & ARCH_CAPS_SKIP_L1DFL) && !opt_l1d_flush )
+-        setup_force_cpu_cap(X86_FEATURE_SC_VERW_HVM);
++    opt_md_clear_hvm &= !(caps & ARCH_CAPS_SKIP_L1DFL) && !opt_l1d_flush;
+ 
+     /*
+      * Warn the user if they are on MLPDS/MFBDS-vulnerable hardware with HT
+diff --git a/xen/include/asm-x86/cpufeature.h b/xen/include/asm-x86/cpufeature.h
+index e1fc9ae88a51..4fa386f9404a 100644
+--- a/xen/include/asm-x86/cpufeature.h
++++ b/xen/include/asm-x86/cpufeature.h
+@@ -33,8 +33,7 @@ XEN_CPUFEATURE(NO_XPTI,         (FSCAPINTS+0)*32+22) /* XPTI mitigation not in u
+ XEN_CPUFEATURE(SC_MSR_IDLE,     (FSCAPINTS+0)*32+23) /* (SC_MSR_PV || SC_MSR_HVM) && default_xen_spec_ctrl */
+ XEN_CPUFEATURE(XEN_LBR,         (FSCAPINTS+0)*32+24) /* Xen uses MSR_DEBUGCTL.LBR */
+ XEN_CPUFEATURE(XEN_SELFSNOOP,   (FSCAPINTS+0)*32+25) /* SELFSNOOP gets used by Xen itself */
+-XEN_CPUFEATURE(SC_VERW_PV,      (FSCAPINTS+0)*32+26) /* VERW used by Xen for PV */
+-XEN_CPUFEATURE(SC_VERW_HVM,     (FSCAPINTS+0)*32+27) /* VERW used by Xen for HVM */
++/* Bits 23,24 unused. */
+ XEN_CPUFEATURE(SC_VERW_IDLE,    (FSCAPINTS+0)*32+28) /* VERW used by Xen for idle */
+ 
+ #define X86_NR_SYNTH 1
+diff --git a/xen/include/asm-x86/domain.h b/xen/include/asm-x86/domain.h
+index 372a157b70ae..653d89d07b8d 100644
+--- a/xen/include/asm-x86/domain.h
++++ b/xen/include/asm-x86/domain.h
+@@ -335,6 +335,9 @@ struct arch_domain
+ 
+     struct list_head pdev_list;
+ 
++    /* Use VERW on return-to-guest for its flushing side effect. */
++    bool verw;
++
+     union {
+         struct pv_domain pv_domain;
+         struct hvm_domain hvm_domain;
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index 98a0a504f65d..959cad5ac439 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -25,6 +25,7 @@
+ #include <asm/msr-index.h>
+ 
+ void init_speculation_mitigations(void);
++void spec_ctrl_init_domain(struct domain *d);
+ 
+ extern bool opt_ibpb;
+ extern bool opt_ssbd;
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+index 560306f3ab50..ff339973b159 100644
+--- a/xen/include/asm-x86/spec_ctrl_asm.h
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -24,6 +24,7 @@
+ #define SCF_use_shadow (1 << 0)
+ #define SCF_ist_wrmsr  (1 << 1)
+ #define SCF_ist_rsb    (1 << 2)
++#define SCF_verw       (1 << 3)
+ 
+ #ifdef __ASSEMBLY__
+ #include <asm/msr-index.h>
+@@ -144,6 +145,18 @@
+     wrmsr
+ .endm
+ 
++.macro DO_SPEC_CTRL_COND_VERW
++/*
++ * Requires %rsp=cpuinfo
++ *
++ * Issue a VERW for its flushing side effect if indicated.
++ */
++    testb $SCF_verw, CPUINFO_spec_ctrl_flags(%rsp)
++    jz .L\@_verw_skip
++    verw CPUINFO_verw_sel(%rsp)
++.L\@_verw_skip:
++.endm
++
+ .macro DO_SPEC_CTRL_ENTRY maybexen:req
+ /*
+  * Requires %rsp=regs (also cpuinfo if !maybexen)
+@@ -248,17 +261,13 @@
+ #define SPEC_CTRL_EXIT_TO_PV                                            \
+     ALTERNATIVE __stringify(ASM_NOP24),                                 \
+         DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR_PV;              \
+-    ALTERNATIVE __stringify(ASM_NOP8),                                  \
+-        __stringify(verw CPUINFO_verw_sel(%rsp)),                       \
+-        X86_FEATURE_SC_VERW_PV
++    DO_SPEC_CTRL_COND_VERW
+ 
+ /* Use when exiting to HVM guest context. */
+ #define SPEC_CTRL_EXIT_TO_HVM                                           \
+     ALTERNATIVE __stringify(ASM_NOP24),                                 \
+         DO_SPEC_CTRL_EXIT_TO_GUEST, X86_FEATURE_SC_MSR_HVM;             \
+-    ALTERNATIVE __stringify(ASM_NOP8),                                  \
+-        __stringify(verw CPUINFO_verw_sel(%rsp)),                       \
+-        X86_FEATURE_SC_VERW_HVM
++    DO_SPEC_CTRL_COND_VERW
+ 
+ /*
+  * Use in IST interrupt/exception context.  May interrupt Xen or PV context.
+-- 
+2.35.3
+

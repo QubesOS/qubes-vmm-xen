@@ -1,0 +1,137 @@
+From 4b2d4b027d9e89897fd5e6d950eb384977379417 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 8 Jan 2020 19:47:46 +0000
+Subject: [PATCH 1/7] x86/spec-ctrl: CPUID/MSR definitions for Special Register
+ Buffer Data Sampling
+
+This is part of XSA-320 / CVE-2020-0543
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Wei Liu <wl@xen.org>
+[backport to 4.8]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/misc/xen-command-line.markdown         | 8 ++++----
+ tools/libxl/libxl_cpuid.c                   | 1 +
+ tools/misc/xen-cpuid.c                      | 3 ++-
+ xen/arch/x86/hvm/hvm.c                      | 2 ++
+ xen/arch/x86/spec_ctrl.c                    | 3 ++-
+ xen/include/asm-x86/msr-index.h             | 3 +++
+ xen/include/public/arch-x86/cpufeatureset.h | 1 +
+ 7 files changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index d9a04e1cb181..e00766121f58 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -456,10 +456,10 @@ accounting for hardware capabilities as enumerated via CPUID.
+ 
+ Currently accepted:
+ 
+-The Speculation Control hardware features `md-clear`, `ibrsb`, `stibp`, `ibpb`,
+-`l1d-flush` and `ssbd` are used by default if available and applicable.  They can
+-be ignored, e.g. `no-ibrsb`, at which point Xen won't use them itself, and
+-won't offer them to guests.
++The Speculation Control hardware features `srbds-ctrl`, `md-clear`, `ibrsb`,
++`stibp`, `ibpb`, `l1d-flush` and `ssbd` are used by default if available and
++applicable.  They can be ignored, e.g. `no-ibrsb`, at which point Xen won't
++use them itself, and won't offer them to guests.
+ 
+ ### cpuid\_mask\_cpu (AMD only)
+ > `= fam_0f_rev_c | fam_0f_rev_d | fam_0f_rev_e | fam_0f_rev_f | fam_0f_rev_g | fam_10_rev_b | fam_10_rev_c | fam_11_rev_b`
+diff --git a/tools/libxl/libxl_cpuid.c b/tools/libxl/libxl_cpuid.c
+index 0da0bb99bcec..4834c8992ced 100644
+--- a/tools/libxl/libxl_cpuid.c
++++ b/tools/libxl/libxl_cpuid.c
+@@ -199,6 +199,7 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
+         {"l1d-flush",    0x00000007,  0, CPUID_REG_EDX, 28,  1},
+         {"arch-caps",    0x00000007,  0, CPUID_REG_EDX, 29,  1},
+         {"ssbd",         0x00000007,  0, CPUID_REG_EDX, 31,  1},
++        {"srbds-ctrl",   0x00000007,  0, CPUID_REG_EDX,  9,  1},
+         {"avx512-4fmaps",0x00000007,  0, CPUID_REG_EDX,  3,  1},
+         {"avx512-4vnniw",0x00000007,  0, CPUID_REG_EDX,  2,  1},
+         {"perfctr_nb",   0x80000001, NA, CPUID_REG_ECX, 24,  1},
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index ba4823ff2bfd..89b3ed378cf2 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -149,8 +149,9 @@ static const char *str_e8b[32] =
+ 
+ static const char *str_7d0[32] =
+ {
+-    [0 ... 9] = "REZ",
++    [0 ... 8] = "REZ",
+ 
++    /*  8 */                [ 9] = "srbds-ctrl",
+     [10] = "md-clear",      [11] = "REZ",
+     [12] = "REZ",           [13] = "tsx-force-abort",
+ 
+diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
+index 8aed92346d0d..fe844dc1504d 100644
+--- a/xen/arch/x86/hvm/hvm.c
++++ b/xen/arch/x86/hvm/hvm.c
+@@ -3970,6 +3970,7 @@ int hvm_msr_read_intercept(unsigned int msr, uint64_t *msr_content)
+         /* Write-only */
+     case MSR_TSX_FORCE_ABORT:
+     case MSR_TSX_CTRL:
++    case MSR_MCU_OPT_CTRL:
+     case MSR_RAPL_POWER_UNIT:
+     case MSR_PKG_POWER_LIMIT  ... MSR_PKG_POWER_INFO:
+     case MSR_DRAM_POWER_LIMIT ... MSR_DRAM_POWER_INFO:
+@@ -4227,6 +4228,7 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
+         /* Read-only */
+     case MSR_TSX_FORCE_ABORT:
+     case MSR_TSX_CTRL:
++    case MSR_MCU_OPT_CTRL:
+     case MSR_RAPL_POWER_UNIT:
+     case MSR_PKG_POWER_LIMIT  ... MSR_PKG_POWER_INFO:
+     case MSR_DRAM_POWER_LIMIT ... MSR_DRAM_POWER_INFO:
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 7af2a0078272..b8a5cb6a665f 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -348,12 +348,13 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+     printk("Speculative mitigation facilities:\n");
+ 
+     /* Hardware features which pertain to speculative mitigations. */
+-    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+            (_7d0 & cpufeat_mask(X86_FEATURE_IBRSB)) ? " IBRS/IBPB" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_STIBP)) ? " STIBP"     : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_L1D_FLUSH)) ? " L1D_FLUSH" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_SSBD))  ? " SSBD"      : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_MD_CLEAR)) ? " MD_CLEAR" : "",
++           (_7d0 & cpufeat_mask(X86_FEATURE_SRBDS_CTRL)) ? " SRBDS_CTRL" : "",
+            (e8b  & cpufeat_mask(X86_FEATURE_IBPB))  ? " IBPB"      : "",
+            (caps & ARCH_CAPABILITIES_IBRS_ALL)      ? " IBRS_ALL"  : "",
+            (caps & ARCH_CAPABILITIES_RDCL_NO)       ? " RDCL_NO"   : "",
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index 922ee29513b4..c44996d36339 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -67,6 +67,9 @@
+ #define TSX_CTRL_RTM_DISABLE            (_AC(1, ULL) <<  0)
+ #define TSX_CTRL_CPUID_CLEAR            (_AC(1, ULL) <<  1)
+ 
++#define MSR_MCU_OPT_CTRL                0x00000123
++#define  MCU_OPT_CTRL_RNGDS_MITG_DIS    (_AC(1, ULL) <<  0)
++
+ /* Intel MSRs. Some also available on other CPUs */
+ #define MSR_IA32_PERFCTR0		0x000000c1
+ #define MSR_IA32_A_PERFCTR0		0x000004c1
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 1a41d97f5db7..e2fcfa2d3496 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -237,6 +237,7 @@ XEN_CPUFEATURE(CLZERO,        8*32+ 0) /*A  CLZERO instruction */
+ XEN_CPUFEATURE(IBPB,          8*32+12) /*A  IBPB support only (no IBRS, used by AMD) */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:0.edx, word 9 */
++XEN_CPUFEATURE(SRBDS_CTRL,    9*32+ 9) /*   MSR_MCU_OPT_CTRL and RNGDS_MITG_DIS. */
+ XEN_CPUFEATURE(MD_CLEAR,      9*32+10) /*A  VERW clears microarchitectural buffers */
+ XEN_CPUFEATURE(TSX_FORCE_ABORT, 9*32+13) /* MSR_TSX_FORCE_ABORT.RTM_ABORT */
+ XEN_CPUFEATURE(IBRSB,         9*32+26) /*A  IBRS and IBPB support (used by Intel) */
+-- 
+2.35.3
+

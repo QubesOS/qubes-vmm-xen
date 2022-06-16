@@ -335,6 +335,14 @@ Patch621: patch-xsa402-4.8-2.patch
 Patch622: patch-xsa402-4.8-3.patch
 Patch623: patch-xsa402-4.8-4.patch
 Patch624: patch-xsa402-4.8-5.patch
+# dependencies for XSA-404
+Patch625: patch-xsa320-4.8-1.patch
+Patch626: patch-xsa320-4.8-2.patch
+Patch627: patch-xsa320-4.8-3.patch
+Patch628: patch-x86-spec-ctrl-Clean-up-MSR_MCU_OPT_CTRL-handling.patch
+Patch629: patch-xsa404-4.8-1.patch
+Patch630: patch-xsa404-4.8-2.patch
+Patch631: patch-xsa404-4.8-3.patch
 
 # Upstreamable patches
 Patch651: patch-xen-libxl-error-write-perm.patch

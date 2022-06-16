@@ -1,0 +1,179 @@
+From d075658929fbc7b0f6af1a5ee29c447b447e6693 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 13 Jun 2022 19:18:32 +0100
+Subject: [PATCH 7/7] x86/spec-ctrl: Add spec-ctrl=unpriv-mmio
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Per Xen's support statement, PCI passthrough should be to trusted domains
+because the overall system security depends on factors outside of Xen's
+control.
+
+As such, Xen, in a supported configuration, is not vulnerable to DRPW/SBDR.
+
+However, users who have risk assessed their configuration may be happy with
+the risk of DoS, but unhappy with the risk of cross-domain data leakage.  Such
+users should enable this option.
+
+On CPUs vulnerable to MDS, the existing mitigations are the best we can do to
+mitigate MMIO cross-domain data leakage.
+
+On CPUs fixed to MDS but vulnerable MMIO stale data leakage, this option:
+
+ * On CPUs susceptible to FBSDP, mitigates cross-domain fill buffer leakage
+   using FB_CLEAR.
+ * On CPUs susceptible to SBDR, mitigates RNG data recovery by engaging the
+   srb-lock, previously used to mitigate SRBDS.
+
+Both mitigations require microcode from IPU 2022.1, May 2022.
+
+This is part of XSA-404.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+[backport to 4.8, enable spec-ctrl=unpriv-mmio by default]
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/misc/xen-command-line.markdown | 12 +++-----
+ xen/arch/x86/spec_ctrl.c            | 48 ++++++++++++++++++++++-------
+ 2 files changed, 42 insertions(+), 18 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.markdown b/docs/misc/xen-command-line.markdown
+index f63f16fb7cb8..899653f8865a 100644
+--- a/docs/misc/xen-command-line.markdown
++++ b/docs/misc/xen-command-line.markdown
+@@ -1689,13 +1689,11 @@ mappings (in which case, there is believed to be no way for an attacker to
+ obtain stale data).
+ 
+ The `unpriv-mmio=` boolean indicates whether the system has (or will have)
+-less than fully privileged domains with access to MMIO devices.  Per Xen's
+-support statement PCI Passthrough should be to trusted guests only, but users
+-who have risk-assessed further might be happy to tolerate the risk of DoS, but
+-not of data leakage.  Such user should enable this option.  When enabled, this
+-option uses `FB_CLEAR` and/or `SRBDS_CTRL` functionality available in the
+-Intel May 2022 microcode release to mitigate cross-domain leakage of fill
+-buffers via the MMIO Stale Data vulnerabilities.
++less than fully privileged domains granted access to MMIO devices.  By
++default, this option is disabled.  If enabled, Xen will use the `FB_CLEAR`
++and/or `SRBDS_CTRL` functionality available in the Intel May 2022 microcode
++release to mitigate cross-domain leakage of data via the MMIO Stale Data
++vulnerabilities.
+ 
+ 
+ ### sync\_console
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index bea38836e09d..c248825fee00 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -64,6 +64,8 @@ static bool __initdata cpu_has_bug_msbds_only; /* => minimal HT impact. */
+ static bool __initdata cpu_has_bug_mds; /* Any other M{LP,SB,FB}DS combination. */
+ 
+ static int8_t __initdata opt_srb_lock = -1;
++static bool __initdata opt_unpriv_mmio = 1;
++static bool __read_mostly opt_fb_clear_mmio;
+ 
+ static int __init parse_bti(const char *s)
+ {
+@@ -220,6 +222,8 @@ static int __init parse_spec_ctrl(char *s)
+             opt_l1d_flush = val;
+         else if ( (val = parse_boolean("srb-lock", s, ss)) >= 0 )
+             opt_srb_lock = val;
++        else if ( (val = parse_boolean("unpriv-mmio", s, ss)) >= 0 )
++            opt_unpriv_mmio = val;
+         else
+             rc = -EINVAL;
+ 
+@@ -403,7 +407,8 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            opt_srb_lock                              ? " SRB_LOCK+" : " SRB_LOCK-",
+            opt_ibpb                                  ? " IBPB"  : "",
+            opt_l1d_flush                             ? " L1D_FLUSH" : "",
+-           opt_md_clear_pv || opt_md_clear_hvm       ? " VERW"  : "");
++           opt_md_clear_pv || opt_md_clear_hvm ||
++           opt_fb_clear_mmio                         ? " VERW"  : "");
+ 
+     /* L1TF diagnostics, printed if vulnerable or PV shadowing is in use. */
+     if ( cpu_has_bug_l1tf || opt_pv_l1tf_hwdom || opt_pv_l1tf_domu )
+@@ -891,7 +896,9 @@ void spec_ctrl_init_domain(struct domain *d)
+ {
+     bool pv = is_pv_domain(d);
+ 
+-    d->arch.verw = pv ? opt_md_clear_pv : opt_md_clear_hvm;
++    d->arch.verw =
++        (pv ? opt_md_clear_pv : opt_md_clear_hvm) ||
++        (opt_fb_clear_mmio && iommu_enabled);
+ }
+ 
+ void __init init_speculation_mitigations(void)
+@@ -1080,6 +1087,18 @@ void __init init_speculation_mitigations(void)
+ 
+     mds_calculations(caps);
+ 
++    /*
++     * Parts which enumerate FB_CLEAR are those which are post-MDS_NO and have
++     * reintroduced the VERW fill buffer flushing side effect because of a
++     * susceptibility to FBSDP.
++     *
++     * If unprivileged guests have (or will have) MMIO mappings, we can
++     * mitigate cross-domain leakage of fill buffer data by issuing VERW on
++     * the return-to-guest path.
++     */
++    if ( opt_unpriv_mmio )
++        opt_fb_clear_mmio = caps & ARCH_CAPS_FB_CLEAR;
++
+     /*
+      * By default, enable PV and HVM mitigations on MDS-vulnerable hardware.
+      * This will only be a token effort for MLPDS/MFBDS when HT is enabled,
+@@ -1093,18 +1112,20 @@ void __init init_speculation_mitigations(void)
+                             boot_cpu_has(X86_FEATURE_MD_CLEAR));
+ 
+     /*
+-     * Enable MDS defences as applicable.  The Idle blocks need using if
+-     * either PV or HVM defences are used.
++     * Enable MDS/MMIO defences as applicable.  The Idle blocks need using if
++     * either the PV or HVM MDS defences are used, or if we may give MMIO
++     * access to untrusted guests.
+      *
+      * HVM is more complicated.  The MD_CLEAR microcode extends L1D_FLUSH with
+      * equivalent semantics to avoid needing to perform both flushes on the
+-     * HVM path.  Therefore, we don't need VERW in addition to L1D_FLUSH.
++     * HVM path.  Therefore, we don't need VERW in addition to L1D_FLUSH (for
++     * MDS mitigations.  L1D_FLUSH is not safe for MMIO mitigations.)
+      *
+      * After calculating the appropriate idle setting, simplify
+      * opt_md_clear_hvm to mean just "should we VERW on the way into HVM
+      * guests", so spec_ctrl_init_domain() can calculate suitable settings.
+      */
+-    if ( opt_md_clear_pv || opt_md_clear_hvm )
++    if ( opt_md_clear_pv || opt_md_clear_hvm || opt_fb_clear_mmio )
+         setup_force_cpu_cap(X86_FEATURE_SC_VERW_IDLE);
+     opt_md_clear_hvm &= !(caps & ARCH_CAPS_SKIP_L1DFL) && !opt_l1d_flush;
+ 
+@@ -1169,14 +1190,19 @@ void __init init_speculation_mitigations(void)
+      * On some SRBDS-affected hardware, it may be safe to relax srb-lock by
+      * default.
+      *
+-     * On parts which enumerate MDS_NO and not TAA_NO, TSX is the only known
+-     * way to access the Fill Buffer.  If TSX isn't available (inc. SKU
+-     * reasons on some models), or TSX is explicitly disabled, then there is
+-     * no need for the extra overhead to protect RDRAND/RDSEED.
++     * All parts with SRBDS_CTRL suffer SSDP, the mechanism by which stale RNG
++     * data becomes available to other contexts.  To recover the data, an
++     * attacker needs to use:
++     *  - SBDS (MDS or TAA to sample the cores fill buffer)
++     *  - SBDR (Architecturally retrieve stale transaction buffer contents)
++     *  - DRPW (Architecturally latch stale fill buffer data)
++     *
++     * On MDS_NO parts, and with TAA_NO or TSX unavailable/disabled, and there
++     * is no unprivileged MMIO access, the RNG data doesn't need protecting.
+      */
+     if ( cpu_has_srbds_ctrl )
+     {
+-        if ( opt_srb_lock == -1 &&
++        if ( opt_srb_lock == -1 && !opt_unpriv_mmio &&
+              (caps & (ARCH_CAPS_MDS_NO|ARCH_CAPS_TAA_NO)) == ARCH_CAPS_MDS_NO &&
+              (!cpu_has_hle || ((caps & ARCH_CAPS_TSX_CTRL) && opt_tsx == 0)) )
+             opt_srb_lock = 0;
+-- 
+2.35.3
+
