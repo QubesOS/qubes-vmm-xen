@@ -1,3 +1,16 @@
+xen (2001:4.8.5-41) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Apply XSA-404 patches with dependencies
+
+  [ Otto Sabart ]
+  * modules: use https instead of old git:// protocol
+
+  [ Marek Marczykowski-Górecki ]
+  * ci: do not override runner tags
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 17 Jun 2022 00:36:07 +0200
+
 xen (2001:4.8.5-40) unstable; urgency=medium
 
   * Backport patches necessary for upcoming XSA
