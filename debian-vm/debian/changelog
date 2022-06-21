@@ -1,3 +1,9 @@
+xen (4.14.5-4) unstable; urgency=medium
+
+  * Enable "unprivileged MMIO mode" by default
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Wed, 22 Jun 2022 00:32:26 +0200
+
 xen (4.14.5-3) unstable; urgency=medium
 
   * Apply XSA-404 fixes
