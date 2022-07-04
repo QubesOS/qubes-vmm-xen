@@ -1,0 +1,20 @@
+host:
+  rpm:
+    build:
+    - xen.spec
+vm:
+  deb:
+    build:
+    - debian-vm/debian
+    source:
+      commands:
+      - '@PLUGINS_DIR@/source_deb/scripts/debian-quilt @SOURCE_DIR@/series-debian-vm.conf @BUILD_DIR@/debian/patches'
+  archlinux:
+    build:
+    - archlinux
+source:
+  files:
+  - url: https://downloads.xenproject.org/release/xen/4.14.5/xen-4.14.5.tar.gz
+    signature: https://downloads.xenproject.org/release/xen/4.14.5/xen-4.14.5.tar.gz.sig
+    pubkeys:
+    - xen.org-key.asc
