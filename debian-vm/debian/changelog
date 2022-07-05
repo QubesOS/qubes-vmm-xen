@@ -1,3 +1,15 @@
+xen (4.14.5-5) unstable; urgency=medium
+
+  [ Frédéric Pierret (fepitre) ]
+  * Add Qubes Builder v2 integration
+  * .qubesbuilder: replace 'spec' by 'build'
+
+  [ Marek Marczykowski-Górecki ]
+  * .qubesbuilder: bump tarball version
+  * Apply XSA-403 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 05 Jul 2022 14:10:51 +0200
+
 xen (4.14.5-4) unstable; urgency=medium
 
   * Enable "unprivileged MMIO mode" by default
