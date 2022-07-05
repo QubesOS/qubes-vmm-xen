@@ -343,6 +343,8 @@ Patch628: patch-x86-spec-ctrl-Clean-up-MSR_MCU_OPT_CTRL-handling.patch
 Patch629: patch-xsa404-4.8-1.patch
 Patch630: patch-xsa404-4.8-2.patch
 Patch631: patch-xsa404-4.8-3.patch
+Patch632: patch-xsa403-4.8-1.patch
+Patch633: patch-xsa403-4.8-trusted-dom0.patch
 
 # Upstreamable patches
 Patch651: patch-xen-libxl-error-write-perm.patch
