@@ -136,6 +136,18 @@ Patch508: patch-xsa404-4.14-2.patch
 Patch509: patch-xsa404-4.14-3.patch
 Patch510: patch-xsa403-4.14-1.patch
 Patch511: patch-xsa403-4.14-trusted-dom0.patch
+Patch512: patch-xsa407-4.14-01.patch
+Patch513: patch-xsa407-4.14-02.patch
+Patch514: patch-xsa407-4.14-03.patch
+Patch515: patch-xsa407-4.14-04.patch
+Patch516: patch-xsa407-4.14-05.patch
+Patch517: patch-xsa407-4.14-06.patch
+Patch518: patch-xsa407-4.14-07.patch
+Patch519: patch-xsa407-4.14-08.patch
+Patch520: patch-xsa407-4.14-09.patch
+Patch521: patch-xsa407-4.14-10.patch
+Patch522: patch-xsa407-4.14-11.patch
+Patch523: patch-xsa407-4.14-12.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
