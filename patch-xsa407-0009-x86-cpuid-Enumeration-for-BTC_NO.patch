@@ -1,0 +1,94 @@
+From 0c799acbee26ee526b9174d1468829fd4d2ca3ef Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 16 May 2022 15:48:24 +0100
+Subject: [PATCH 09/11] x86/cpuid: Enumeration for BTC_NO
+
+BTC_NO indicates that hardware is not succeptable to Branch Type Confusion.
+
+Zen3 CPUs don't suffer BTC.
+
+This is part of XSA-407.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ tools/misc/xen-cpuid.c                      |  6 +++++-
+ xen/arch/x86/cpu/amd.c                      | 10 ++++++++++
+ xen/arch/x86/spec_ctrl.c                    |  3 ++-
+ xen/include/public/arch-x86/cpufeatureset.h |  1 +
+ 4 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 89b3ed378cf2..f9eeda6b7285 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -144,7 +144,11 @@ static const char *str_e8b[32] =
+ 
+     [12] = "ibpb",
+ 
+-    [13 ... 31] = "REZ",
++    [13 ... 28] = "REZ",
++
++    /* 28 */                   [29] = "btc-no",
++
++    [30 ... 31] = "REZ",
+ };
+ 
+ static const char *str_7d0[32] =
+diff --git a/xen/arch/x86/cpu/amd.c b/xen/arch/x86/cpu/amd.c
+index 3b16979efc0f..cdd1c82f97e4 100644
+--- a/xen/arch/x86/cpu/amd.c
++++ b/xen/arch/x86/cpu/amd.c
+@@ -636,6 +636,16 @@ static void init_amd(struct cpuinfo_x86 *c)
+ 		if (acpi_smi_cmd && (acpi_enable_value | acpi_disable_value))
+ 			pv_post_outb_hook = check_disable_c1e;
+ 		break;
++
++	case 0x19:
++		/*
++		 * Zen3 (Fam19h model < 0x10) parts are not susceptible to
++		 * Branch Type Confusion, but predate the allocation of the
++		 * BTC_NO bit.  Fill it back in if we're not virtualised.
++		 */
++		if (!cpu_has_hypervisor && !cpu_has(c, X86_FEATURE_BTC_NO))
++			__set_bit(X86_FEATURE_BTC_NO, c->x86_capability);
++		break;
+ 	}
+ 
+ 	display_cacheinfo(c);
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 3f441f8fd609..58294afcb385 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -358,7 +358,7 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+     printk("Speculative mitigation facilities:\n");
+ 
+     /* Hardware features which pertain to speculative mitigations. */
+-    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++    printk("  Hardware features:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+            (_7d0 & cpufeat_mask(X86_FEATURE_IBRSB)) ? " IBRS/IBPB" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_STIBP)) ? " STIBP"     : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_L1D_FLUSH)) ? " L1D_FLUSH" : "",
+@@ -366,6 +366,7 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            (_7d0 & cpufeat_mask(X86_FEATURE_MD_CLEAR)) ? " MD_CLEAR" : "",
+            (_7d0 & cpufeat_mask(X86_FEATURE_SRBDS_CTRL)) ? " SRBDS_CTRL" : "",
+            (e8b  & cpufeat_mask(X86_FEATURE_IBPB))  ? " IBPB"      : "",
++           (e8b  & cpufeat_mask(X86_FEATURE_IBPB))  ? " BTC_NO"    : "",
+            (caps & ARCH_CAPABILITIES_IBRS_ALL)      ? " IBRS_ALL"  : "",
+            (caps & ARCH_CAPABILITIES_RDCL_NO)       ? " RDCL_NO"   : "",
+            (caps & ARCH_CAPS_RSBA)                  ? " RSBA"      : "",
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index e2fcfa2d3496..ed7778975be1 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -235,6 +235,7 @@ XEN_CPUFEATURE(EFRO,          7*32+10) /*   APERF/MPERF Read Only interface */
+ /* AMD-defined CPU features, CPUID level 0x80000008.ebx, word 8 */
+ XEN_CPUFEATURE(CLZERO,        8*32+ 0) /*A  CLZERO instruction */
+ XEN_CPUFEATURE(IBPB,          8*32+12) /*A  IBPB support only (no IBRS, used by AMD) */
++XEN_CPUFEATURE(BTC_NO,        8*32+29) /*A  Hardware not vulnerable to Branch Type Confusion */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:0.edx, word 9 */
+ XEN_CPUFEATURE(SRBDS_CTRL,    9*32+ 9) /*   MSR_MCU_OPT_CTRL and RNGDS_MITG_DIS. */
+-- 
+2.35.3
+

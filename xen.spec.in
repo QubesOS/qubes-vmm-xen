@@ -345,6 +345,17 @@ Patch630: patch-xsa404-4.8-2.patch
 Patch631: patch-xsa404-4.8-3.patch
 Patch632: patch-xsa403-4.8-1.patch
 Patch633: patch-xsa403-4.8-trusted-dom0.patch
+Patch634: patch-xsa407-0001-x86-spec-ctrl-Only-adjust-MSR_SPEC_CTRL-for-idle-wit.patch
+Patch635: patch-xsa407-0002-x86-spec-ctrl-Don-t-use-spec_ctrl_-enter-exit-_idle-.patch
+Patch636: patch-xsa407-0003-x86-spec-ctrl-Rework-spec_ctrl_flags-context-switchi.patch
+Patch637: patch-xsa407-0004-x86-spec-ctrl-Rename-SCF_ist_wrmsr-to-SCF_ist_sc_msr.patch
+Patch638: patch-xsa407-0005-x86-spec-ctrl-Rename-opt_ibpb-to-opt_ibpb_ctxt_switc.patch
+Patch639: patch-xsa407-0006-x86-spec-ctrl-Rework-SPEC_CTRL_ENTRY_FROM_INTR_IST.patch
+Patch640: patch-xsa407-0007-xen-cmdline-Extend-parse_boolean-to-signal-a-name-ma.patch
+Patch641: patch-xsa407-0008-x86-spec-ctrl-Support-IBPB-on-entry.patch
+Patch642: patch-xsa407-0009-x86-cpuid-Enumeration-for-BTC_NO.patch
+Patch643: patch-xsa407-0010-x86-spec-ctrl-Enable-Zen2-chickenbit.patch
+Patch644: patch-xsa407-0011-x86-spec-ctrl-Mitigate-Branch-Type-Confusion-when-po.patch
 
 # Upstreamable patches
 Patch651: patch-xen-libxl-error-write-perm.patch

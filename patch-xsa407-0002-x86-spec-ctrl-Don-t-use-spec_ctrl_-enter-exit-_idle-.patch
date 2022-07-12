@@ -1,0 +1,48 @@
+From 401b772a9d40a49c39a6f396c89d3b2f1effef4b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 28 Jan 2022 12:03:42 +0000
+Subject: [PATCH 02/11] x86/spec-ctrl: Don't use spec_ctrl_{enter,exit}_idle()
+ for S3
+
+'idle' here refers to hlt/mwait.  The S3 path isn't an idle path - it is a
+platform reset.
+
+We need to load default_xen_spec_ctrl unilaterally on the way back up.
+Currently it happens as a side effect of X86_FEATURE_SC_MSR_IDLE or the next
+return-to-guest, but that's fragile behaviour.
+
+Conversely, there is no need to clear IBRS and flush the store buffers on the
+way down; we're microseconds away from cutting power.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/acpi/power.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
+index 50607644f66a..7b1bec5a68f7 100644
+--- a/xen/arch/x86/acpi/power.c
++++ b/xen/arch/x86/acpi/power.c
+@@ -214,7 +214,6 @@ static int enter_state(u32 state)
+         error = 0;
+ 
+     ci = get_cpu_info();
+-    spec_ctrl_enter_idle(ci);
+     /* Avoid NMI/#MC using MSR_SPEC_CTRL until we've reloaded microcode. */
+     ci->spec_ctrl_flags &= ~SCF_ist_wrmsr;
+ 
+@@ -263,7 +262,9 @@ static int enter_state(u32 state)
+ 
+     /* Re-enabled default NMI/#MC use of MSR_SPEC_CTRL. */
+     ci->spec_ctrl_flags |= (default_spec_ctrl_flags & SCF_ist_wrmsr);
+-    spec_ctrl_exit_idle(ci);
++
++    if ( boot_cpu_has(X86_FEATURE_IBRSB) )
++        wrmsrl(MSR_SPEC_CTRL, default_xen_spec_ctrl);
+ 
+     update_mcu_opt_ctrl();
+ 
+-- 
+2.35.3
+

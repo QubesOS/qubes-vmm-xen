@@ -1,0 +1,105 @@
+From d9410569dffe7c58bf3c0153535d48f8b1ca751c Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 4 Jul 2022 21:32:17 +0100
+Subject: [PATCH 05/11] x86/spec-ctrl: Rename opt_ibpb to opt_ibpb_ctxt_switch
+
+We are about to introduce the use of IBPB at different points in Xen, making
+opt_ibpb ambiguous.  Rename it to opt_ibpb_ctxt_switch.
+
+No functional change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/domain.c           |  2 +-
+ xen/arch/x86/spec_ctrl.c        | 12 ++++++------
+ xen/include/asm-x86/spec_ctrl.h |  2 +-
+ 3 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 066352a97e9c..966112a18a13 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -2328,7 +2328,7 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
+ 
+         ctxt_switch_levelling(next);
+ 
+-        if ( opt_ibpb && !is_idle_domain(nextd) )
++        if ( opt_ibpb_ctxt_switch && !is_idle_domain(nextd) )
+         {
+             static DEFINE_PER_CPU(unsigned int, last);
+             unsigned int *last_id = &this_cpu(last);
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 8a456124e805..3f441f8fd609 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -47,7 +47,7 @@ static enum ind_thunk {
+     THUNK_JMP,
+ } opt_thunk __initdata = THUNK_DEFAULT;
+ static int8_t __initdata opt_ibrs = -1;
+-bool __read_mostly opt_ibpb = true;
++bool __read_mostly opt_ibpb_ctxt_switch = 1;
+ bool __read_mostly opt_ssbd = false;
+ int8_t __read_mostly opt_eager_fpu = -1;
+ int8_t __read_mostly opt_l1d_flush = -1;
+@@ -93,7 +93,7 @@ static int __init parse_bti(const char *s)
+         else if ( (val = parse_boolean("ibrs", s, ss)) >= 0 )
+             opt_ibrs = val;
+         else if ( (val = parse_boolean("ibpb", s, ss)) >= 0 )
+-            opt_ibpb = val;
++            opt_ibpb_ctxt_switch = val;
+         else if ( (val = parse_boolean("rsb_native", s, ss)) >= 0 )
+             opt_rsb_pv = val;
+         else if ( (val = parse_boolean("rsb_vmexit", s, ss)) >= 0 )
+@@ -151,7 +151,7 @@ static int __init parse_spec_ctrl(char *s)
+ 
+             opt_thunk = THUNK_JMP;
+             opt_ibrs = 0;
+-            opt_ibpb = false;
++            opt_ibpb_ctxt_switch = false;
+             opt_ssbd = false;
+             opt_l1d_flush = 0;
+             opt_srb_lock = 0;
+@@ -213,7 +213,7 @@ static int __init parse_spec_ctrl(char *s)
+         else if ( (val = parse_boolean("ibrs", s, ss)) >= 0 )
+             opt_ibrs = val;
+         else if ( (val = parse_boolean("ibpb", s, ss)) >= 0 )
+-            opt_ibpb = val;
++            opt_ibpb_ctxt_switch = val;
+         else if ( (val = parse_boolean("ssbd", s, ss)) >= 0 )
+             opt_ssbd = val;
+         else if ( (val = parse_boolean("eager-fpu", s, ss)) >= 0 )
+@@ -405,7 +405,7 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
+            (opt_tsx & 1)                             ? " TSX+" : " TSX-",
+            !cpu_has_srbds_ctrl                       ? "" :
+            opt_srb_lock                              ? " SRB_LOCK+" : " SRB_LOCK-",
+-           opt_ibpb                                  ? " IBPB"  : "",
++           opt_ibpb_ctxt_switch                      ? " IBPBi-ctxt"  : "",
+            opt_l1d_flush                             ? " L1D_FLUSH" : "",
+            opt_md_clear_pv || opt_md_clear_hvm ||
+            opt_fb_clear_mmio                         ? " VERW"  : "");
+@@ -1032,7 +1032,7 @@ void __init init_speculation_mitigations(void)
+ 
+     /* Check we have hardware IBPB support before using it... */
+     if ( !boot_cpu_has(X86_FEATURE_IBRSB) && !boot_cpu_has(X86_FEATURE_IBPB) )
+-        opt_ibpb = false;
++        opt_ibpb_ctxt_switch = false;
+ 
+     /* Check whether Eager FPU should be enabled by default. */
+     if ( opt_eager_fpu == -1 )
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index 78be4aa80145..2effe8ce81b7 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -27,7 +27,7 @@
+ void init_speculation_mitigations(void);
+ void spec_ctrl_init_domain(struct domain *d);
+ 
+-extern bool opt_ibpb;
++extern bool opt_ibpb_ctxt_switch;
+ extern bool opt_ssbd;
+ extern int8_t opt_eager_fpu;
+ extern int8_t opt_l1d_flush;
+-- 
+2.35.3
+

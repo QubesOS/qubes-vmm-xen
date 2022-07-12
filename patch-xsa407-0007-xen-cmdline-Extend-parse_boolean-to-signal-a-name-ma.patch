@@ -1,0 +1,92 @@
+From 4fe5cb47cf4a684eb98cc84553362c1a4f31951b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 5 Jul 2022 19:19:01 +0100
+Subject: [PATCH 07/11] xen/cmdline: Extend parse_boolean() to signal a name
+ match
+
+This will help parsing a sub-option which has boolean and non-boolean options
+available.
+
+First, rework 'int val' into 'bool has_neg_prefix'.  This inverts it's value,
+but the resulting logic is far easier to follow.
+
+Second, reject anything of the form 'no-$FOO=' which excludes ambiguous
+constructs such as 'no-$foo=yes' which have never been valid.
+
+This just leaves the case where everything is otherwise fine, but parse_bool()
+can't interpret the provided string.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+---
+ xen/common/kernel.c   | 19 +++++++++++++++----
+ xen/include/xen/lib.h |  3 ++-
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/xen/common/kernel.c b/xen/common/kernel.c
+index 75567274fa68..614959bb25f2 100644
+--- a/xen/common/kernel.c
++++ b/xen/common/kernel.c
+@@ -169,9 +169,9 @@ int __init parse_bool(const char *s)
+ int parse_boolean(const char *name, const char *s, const char *e)
+ {
+     size_t slen, nlen;
+-    int val = !!strncmp(s, "no-", 3);
++    bool has_neg_prefix = !strncmp(s, "no-", 3);
+ 
+-    if ( !val )
++    if ( has_neg_prefix )
+         s += 3;
+ 
+     slen = e ? ({ ASSERT(e >= s); e - s; }) : strlen(s);
+@@ -183,12 +183,17 @@ int parse_boolean(const char *name, const char *s, const char *e)
+ 
+     /* Exact, unadorned name?  Result depends on the 'no-' prefix. */
+     if ( slen == nlen )
+-        return val;
++        return !has_neg_prefix;
++
++    /* Inexact match with a 'no-' prefix?  Not valid. */
++    if ( has_neg_prefix )
++        return -1;
+ 
+     /* =$SOMETHING?  Defer to the regular boolean parsing. */
+     if ( s[nlen] == '=' )
+     {
+         char buf[8];
++        int b;
+ 
+         s += nlen + 1;
+         slen -= nlen + 1;
+@@ -196,7 +201,13 @@ int parse_boolean(const char *name, const char *s, const char *e)
+             return -1;
+         memcpy(buf, s, slen);
+         buf[slen] = 0;
+-        return parse_bool(buf);
++        b = parse_bool(buf);
++
++        if ( b >= 0 )
++            return b;
++
++        /* Not a boolean, but the name matched.  Signal specially. */
++        return -2;
+     }
+ 
+     /* Unrecognised.  Give up. */
+diff --git a/xen/include/xen/lib.h b/xen/include/xen/lib.h
+index b82bed3074f2..f3a134b88905 100644
+--- a/xen/include/xen/lib.h
++++ b/xen/include/xen/lib.h
+@@ -73,7 +73,8 @@ int parse_bool(const char *s);
+ /**
+  * Given a specific name, parses a string of the form:
+  *   [no-]$NAME[=...]
+- * returning 0 or 1 for a recognised boolean, or -1 for an error.
++ * returning 0 or 1 for a recognised boolean.  Returns -1 for general errors,
++ * and -2 for "not a boolean, but $NAME= matches".
+  */
+ int parse_boolean(const char *name, const char *s, const char *e);
+ 
+-- 
+2.35.3
+
