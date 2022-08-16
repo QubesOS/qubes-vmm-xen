@@ -81,6 +81,7 @@ Source2: %{name}.logrotate
 # .config file for xen hypervisor
 Source3: config
 Source32: xen.modules-load.conf
+Provides: xen-gvt
 
 # Out-of-tree patches.
 #
@@ -210,6 +211,11 @@ Patch1053: patch-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
 Patch1054: patch-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
 Patch1055: patch-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 
+# GVT-g
+Patch1200: patch-gvt-hypercall-XENMEM_get_mfn_from_pfn.patch
+Patch1201: patch-gvt-hvmloader.patch
+Patch1202: patch-gvt-libxl-init.patch
+
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
 BuildRequires: libX11-devel gtk2-devel libaio-devel
@@ -307,6 +313,7 @@ and xen.lowlevel.xc modules.
 %package libs
 Summary: Libraries for Xen tools
 Requires: xen-licenses
+Provides: xen-gvt-libs
 # toolstack <-> stubdomain API change
 Conflicts: xen-hvm-stubdom-linux < 1.1.0
 
