@@ -1,3 +1,4 @@
+ifeq ($(BACKEND_VMM),xen)
 ifeq ($(PACKAGE_SET),dom0)
   RPM_SPEC_FILES := xen.spec
 
@@ -14,6 +15,7 @@ else ifeq ($(PACKAGE_SET),vm)
     DEBIAN_BUILD_DIRS := debian-vm/debian
     SOURCE_COPY_IN := source-debian-xen-copy-in
   endif
+endif
 endif
 
 NO_ARCHIVE := 1
