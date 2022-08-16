@@ -103,16 +103,18 @@ Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
-Patch290: patch-0001-ns16550-do-not-override-fifo-size-if-explicitly-set.patch
-Patch291: patch-0002-ns16550-specify-uart-param-for-ns_-read-write-_reg-a.patch
-Patch292: patch-0003-ns16550-add-Exar-PCIe-UART-cards-support.patch
-Patch293: patch-0001-x86-spec-ctrl-Skip-RSB-overwriting-when-safe-to-do-s.patch
-Patch294: patch-libxl-Fix-QEMU-cmdline-for-scsi-device.patch
-Patch295: patch-libxl-Replace-deprecated-QMP-command-by-query-cpus-f.patch
-Patch296: patch-x86-pv-Inject-GP-for-implicit-grant-unmaps.patch
-Patch297: patch-ns16550-add-support-for-Intel-LPSS-UART.patch
-Patch298: patch-ns16550-add-more-device-IDs-for-Intel-LPSS-UART.patch
-Patch299: patch-ns16550-use-poll-mode-if-INTERRUPT_LINE-is-0xff.patch
+Patch240: patch-0001-ns16550-do-not-override-fifo-size-if-explicitly-set.patch
+Patch241: patch-0002-ns16550-specify-uart-param-for-ns_-read-write-_reg-a.patch
+Patch242: patch-0003-ns16550-add-Exar-PCIe-UART-cards-support.patch
+Patch243: patch-0001-x86-spec-ctrl-Skip-RSB-overwriting-when-safe-to-do-s.patch
+Patch244: patch-libxl-Fix-QEMU-cmdline-for-scsi-device.patch
+Patch245: patch-libxl-Replace-deprecated-QMP-command-by-query-cpus-f.patch
+Patch246: patch-x86-pv-Inject-GP-for-implicit-grant-unmaps.patch
+Patch247: patch-ns16550-add-support-for-Intel-LPSS-UART.patch
+Patch248: patch-ns16550-add-more-device-IDs-for-Intel-LPSS-UART.patch
+Patch249: patch-ns16550-use-poll-mode-if-INTERRUPT_LINE-is-0xff.patch
+Patch250: patch-x86-deal-with-gcc12-release-build-issues.patch
+Patch251: patch-IOMMU-x86-work-around-bogus-gcc12-warning-in-hvm_gsi.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
