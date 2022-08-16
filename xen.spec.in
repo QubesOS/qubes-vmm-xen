@@ -116,6 +116,22 @@ Patch249: patch-ns16550-use-poll-mode-if-INTERRUPT_LINE-is-0xff.patch
 Patch250: patch-x86-deal-with-gcc12-release-build-issues.patch
 Patch251: patch-IOMMU-x86-work-around-bogus-gcc12-warning-in-hvm_gsi.patch
 Patch252: patch-x86-CPUID-surface-suitable-value-in-EBX-of-XSTATE-su.patch
+Patch253: patch-xhci-0001-drivers-char-add-support-for-USB3-DbC-debugger.patch
+Patch254: patch-xhci-0002-drivers-char-reset-XHCI-ports-when-initializing-dbc.patch
+Patch255: patch-xhci-0003-drivers-char-add-support-for-selecting-specific-xhci.patch
+Patch256: patch-xhci-0004-drivers-char-make-serial_parse_handle-take-const-arg.patch
+Patch257: patch-xhci-0005-drivers-char-allow-using-both-dbgp-xhci-and-dbgp-ehc.patch
+Patch258: patch-xhci-0006-console-support-multiple-serial-console-simultaneous.patch
+Patch259: patch-xhci-0007-IOMMU-add-common-API-for-device-reserved-memory.patch
+Patch260: patch-xhci-0008-IOMMU-VT-d-wire-common-device-reserved-memory-API.patch
+Patch261: patch-xhci-0009-IOMMU-AMD-wire-common-device-reserved-memory-API.patch
+Patch262: patch-xhci-0010-drivers-char-mark-DMA-buffers-as-reserved-for-the-XH.patch
+Patch263: patch-xhci-0011-drivers-char-add-RX-support-to-the-XHCI-driver.patch
+Patch264: patch-xhci-0012-drivers-char-allow-driving-the-rest-of-XHCI-by-a-dom.patch
+Patch265: patch-xhci-0013-drivers-char-fix-handling-cable-re-plug-in-XHCI-cons.patch
+Patch266: patch-xhci-0014-drivers-char-use-smp-barriers-in-xhci-driver.patch
+Patch267: patch-xhci-0015-drivers-char-suspend-handling-in-XHCI-console-driver.patch
+Patch268: patch-xhci-0016-drivers-char-add-console-ehci-as-an-alias-for-console-dbgp.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
