@@ -1,0 +1,224 @@
+From 49c3c3b032ec4652ea6c9fe0ac688ba063b68275 Mon Sep 17 00:00:00 2001
+Message-Id: <49c3c3b032ec4652ea6c9fe0ac688ba063b68275.1660882461.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Tue, 12 Jul 2022 08:39:19 +0200
+Subject: [PATCH] EFI: preserve the System Resource Table for dom0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The EFI System Resource Table (ESRT) is necessary for fwupd to identify
+firmware updates to install.  According to the UEFI specification §23.4,
+the ESRT shall be stored in memory of type EfiBootServicesData.  However,
+memory of type EfiBootServicesData is considered general-purpose memory
+by Xen, so the ESRT needs to be moved somewhere where Xen will not
+overwrite it.  Copy the ESRT to memory of type EfiACPIReclaimMemory,
+which Xen will not reuse.  dom0 can use the ESRT if (and only if) it is
+in memory of type EfiRuntimeServicesData or EfiACPIReclaimMemory.
+
+Earlier versions of this patch reserved the memory in which the ESRT was
+located.  This created awkward alignment problems, and required either
+splitting the E820 table or wasting memory.  It also would have required
+a new platform op for dom0 to use to indicate if the ESRT is reserved.
+By copying the ESRT into EfiACPIReclaimMemory memory, the E820 table
+does not need to be modified, and dom0 can just check the type of the
+memory region containing the ESRT.  The copy is only done if the ESRT is
+not already in EfiRuntimeServicesData or EfiACPIReclaimMemory memory,
+avoiding memory leaks on repeated kexec.
+
+See https://lore.kernel.org/xen-devel/20200818184018.GN1679@mail-itl/T/
+for details.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+Tested-by: Luca Fancellu <luca.fancellu@arm.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/common/efi/boot.c | 127 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 127 insertions(+)
+
+diff --git a/xen/common/efi/boot.c b/xen/common/efi/boot.c
+index 5a520bf21d3a25e87cf38310a066da004a243006..79b31981ae532e541811582ac1e773db0eb864eb 100644
+--- a/xen/common/efi/boot.c
++++ b/xen/common/efi/boot.c
+@@ -38,6 +38,26 @@
+   { 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23} }
+ #define APPLE_PROPERTIES_PROTOCOL_GUID \
+   { 0x91bd12fe, 0xf6c3, 0x44fb, { 0xa5, 0xb7, 0x51, 0x22, 0xab, 0x30, 0x3a, 0xe0} }
++#define EFI_SYSTEM_RESOURCE_TABLE_GUID    \
++  { 0xb122a263, 0x3661, 0x4f68, {0x99, 0x29, 0x78, 0xf8, 0xb0, 0xd6, 0x21, 0x80} }
++#define EFI_SYSTEM_RESOURCE_TABLE_FIRMWARE_RESOURCE_VERSION 1
++
++typedef struct {
++    EFI_GUID FwClass;
++    UINT32 FwType;
++    UINT32 FwVersion;
++    UINT32 LowestSupportedFwVersion;
++    UINT32 CapsuleFlags;
++    UINT32 LastAttemptVersion;
++    UINT32 LastAttemptStatus;
++} EFI_SYSTEM_RESOURCE_ENTRY;
++
++typedef struct {
++    UINT32 FwResourceCount;
++    UINT32 FwResourceCountMax;
++    UINT64 FwResourceVersion;
++    EFI_SYSTEM_RESOURCE_ENTRY Entries[];
++} EFI_SYSTEM_RESOURCE_TABLE;
+ 
+ typedef EFI_STATUS
+ (/* _not_ EFIAPI */ *EFI_SHIM_LOCK_VERIFY) (
+@@ -750,6 +770,43 @@ static char *__init get_value(const struct file *cfg, const char *section,
+     return NULL;
+ }
+ 
++static UINTN __initdata esrt = EFI_INVALID_TABLE_ADDR;
++
++static size_t __init get_esrt_size(const EFI_MEMORY_DESCRIPTOR *desc)
++{
++    size_t available_len, len;
++    const UINTN physical_start = desc->PhysicalStart;
++    const EFI_SYSTEM_RESOURCE_TABLE *esrt_ptr;
++
++    len = desc->NumberOfPages << EFI_PAGE_SHIFT;
++    if ( esrt == EFI_INVALID_TABLE_ADDR )
++        return 0;
++    if ( physical_start > esrt || esrt - physical_start >= len )
++        return 0;
++    /*
++     * The specification requires EfiBootServicesData, but accept
++     * EfiRuntimeServicesData (for compatibility) and EfiACPIReclaimMemory
++     * (a more logical choice).
++     */
++    if ( (desc->Type != EfiRuntimeServicesData) &&
++         (desc->Type != EfiBootServicesData) &&
++         (desc->Type != EfiACPIReclaimMemory) )
++        return 0;
++    available_len = len - (esrt - physical_start);
++    if ( available_len <= offsetof(EFI_SYSTEM_RESOURCE_TABLE, Entries) )
++        return 0;
++    available_len -= offsetof(EFI_SYSTEM_RESOURCE_TABLE, Entries);
++    esrt_ptr = (const EFI_SYSTEM_RESOURCE_TABLE *)esrt;
++    if ( (esrt_ptr->FwResourceVersion !=
++          EFI_SYSTEM_RESOURCE_TABLE_FIRMWARE_RESOURCE_VERSION) ||
++         !esrt_ptr->FwResourceCount )
++        return 0;
++    if ( esrt_ptr->FwResourceCount > available_len / sizeof(esrt_ptr->Entries[0]) )
++        return 0;
++
++    return esrt_ptr->FwResourceCount * sizeof(esrt_ptr->Entries[0]);
++}
++
+ static void __init efi_init(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+ {
+     efi_ih = ImageHandle;
+@@ -904,6 +961,8 @@ static UINTN __init efi_find_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop,
+     return gop_mode;
+ }
+ 
++static EFI_GUID __initdata esrt_guid = EFI_SYSTEM_RESOURCE_TABLE_GUID;
++
+ static void __init efi_tables(void)
+ {
+     unsigned int i;
+@@ -929,6 +986,8 @@ static void __init efi_tables(void)
+ 	       efi.smbios = (long)efi_ct[i].VendorTable;
+         if ( match_guid(&smbios3_guid, &efi_ct[i].VendorGuid) )
+ 	       efi.smbios3 = (long)efi_ct[i].VendorTable;
++        if ( match_guid(&esrt_guid, &efi_ct[i].VendorGuid) )
++            esrt = (UINTN)efi_ct[i].VendorTable;
+     }
+ 
+ #ifndef CONFIG_ARM /* TODO - disabled until implemented on ARM */
+@@ -1114,6 +1175,79 @@ static void __init efi_set_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN gop
+ #define INVALID_VIRTUAL_ADDRESS (0xBAAADUL << \
+                                  (EFI_PAGE_SHIFT + BITS_PER_LONG - 32))
+ 
++static void __init efi_relocate_esrt(EFI_SYSTEM_TABLE *SystemTable)
++{
++    EFI_STATUS status;
++    UINTN info_size = 0, map_key, mdesc_size;
++    void *memory_map = NULL;
++    UINT32 ver;
++    unsigned int i;
++    bool esrt_relocated = false;
++
++    for ( ; ; )
++    {
++        status = efi_bs->GetMemoryMap(&info_size, memory_map, &map_key,
++                                      &mdesc_size, &ver);
++        if ( status == EFI_SUCCESS && memory_map != NULL )
++            break;
++        if ( status == EFI_BUFFER_TOO_SMALL || memory_map == NULL )
++        {
++            info_size += 8 * mdesc_size;
++            if ( memory_map != NULL )
++                efi_bs->FreePool(memory_map);
++            memory_map = NULL;
++            status = efi_bs->AllocatePool(EfiLoaderData, info_size, &memory_map);
++            if ( status == EFI_SUCCESS )
++                continue;
++            PrintErr(L"Cannot allocate memory to relocate ESRT\r\n");
++        }
++        else
++            PrintErr(L"Cannot obtain memory map to relocate ESRT\r\n");
++        return;
++    }
++
++    /* Try to obtain the ESRT.  Errors are not fatal. */
++    for ( i = 0; i < info_size; i += mdesc_size )
++    {
++        /*
++         * ESRT needs to be moved to memory of type EfiRuntimeServicesData
++         * so that the memory it is in will not be used for other purposes.
++         */
++        void *new_esrt = NULL;
++        size_t esrt_size = get_esrt_size(memory_map + i);
++
++        if ( !esrt_size )
++            continue;
++        if ( ((EFI_MEMORY_DESCRIPTOR *)(memory_map + i))->Type ==
++             EfiRuntimeServicesData )
++            break; /* ESRT already safe from reuse */
++        status = efi_bs->AllocatePool(EfiRuntimeServicesData, esrt_size,
++                                      &new_esrt);
++        if ( status == EFI_SUCCESS && new_esrt )
++        {
++            memcpy(new_esrt, (void *)esrt, esrt_size);
++            status = efi_bs->InstallConfigurationTable(&esrt_guid, new_esrt);
++            if ( status != EFI_SUCCESS )
++            {
++                PrintErr(L"Cannot install new ESRT\r\n");
++                efi_bs->FreePool(new_esrt);
++            }
++            else
++            {
++                esrt_relocated = true;
++            }
++        }
++        else
++            PrintErr(L"Cannot allocate memory for ESRT\r\n");
++        break;
++    }
++
++    if (!esrt_relocated)
++        PrintErr(L"Could not relocate ESRT\r\n");
++
++    efi_bs->FreePool(memory_map);
++}
++
+ static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool exit_boot_services)
+ {
+     EFI_STATUS status;
+@@ -1468,6 +1602,8 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool exit_boot_services)
+     if ( gop )
+         efi_set_gop_mode(gop, gop_mode);
+ 
++    efi_relocate_esrt(SystemTable);
++
+     efi_exit_boot(ImageHandle, SystemTable, exit_boot_services);
+ 
+     efi_arch_post_exit_boot(); /* Doesn't return. */
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab

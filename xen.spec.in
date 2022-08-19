@@ -148,6 +148,7 @@ Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
 Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 
 Patch320: patch-libxl-resume.patch
+Patch321: patch-EFI-preserve-the-System-Resource-Table-for-dom0.patch
 
 # Security fixes
 Patch500: patch-xsa401-4.16-1.patch
