@@ -317,6 +317,8 @@ Requires: xen-licenses
 Provides: xen-gvt-libs
 # toolstack <-> stubdomain API change
 Conflicts: xen-hvm-stubdom-linux < 1.1.0
+# libxl ABI change
+Conflicts: libvirt-daemon-driver-libxl < 1000:6.6.0-7
 
 %description libs
 This package contains the libraries needed to run applications
