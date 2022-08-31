@@ -1,0 +1,8 @@
+--- a/xen/arch/x86/efi/Makefile	2022-04-12 10:29:44.000000000 +0000
++++ b/xen/arch/x86/efi/Makefile	2022-08-28 01:05:55.211000000 +0000
+@@ -1,4 +1,4 @@
+-CFLAGS-y += -fshort-wchar
++CFLAGS-y += -fshort-wchar -Wno-error=array-bounds
+ 
+ quiet_cmd_objcopy_o_ihex = OBJCOPY $@
+ cmd_objcopy_o_ihex = $(OBJCOPY) -I ihex -O binary $< $@

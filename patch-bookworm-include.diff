@@ -1,0 +1,13 @@
+diff --git a/xen/include/Makefile b/xen/include/Makefile
+index 687aa13..9aab90d 100644
+--- a/xen/include/Makefile
++++ b/xen/include/Makefile
+@@ -31,7 +31,7 @@ headers-$(CONFIG_X86)     += compat/hvm/hvm_vcpu.h
+ headers-y                 += compat/arch-$(compat-arch-y).h compat/pmu.h compat/xlat.h
+ headers-$(CONFIG_XSM_FLASK) += compat/xsm/flask_op.h
+ 
+-cppflags-y                := -include public/xen-compat.h -DXEN_GENERATING_COMPAT_HEADERS
++cppflags-y                := -include public/xen-compat.h -DXEN_GENERATING_COMPAT_HEADERS -Wno-error=array-bounds
+ cppflags-$(CONFIG_X86)    += -m32
+ 
+ # 8-byte types are 4-byte aligned on x86_32 ...
