@@ -169,6 +169,8 @@ Patch636: patch-autoconf-fix-handling-absolute-PYTHON-path.patch
 Patch638: patch-libxl-do-not-require-filling-backend_domid-to-remove.patch
 Patch639: patch-libxl-add-pcidevs-to-stubdomain-earlier.patch
 Patch640: patch-xen-efi-align.patch
+Patch641: patch-0001-vchan-socket-proxy-add-reconnect-marker-support.patch
+Patch642: patch-0002-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
 
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch

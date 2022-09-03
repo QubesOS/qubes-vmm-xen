@@ -1,0 +1,46 @@
+From 138e23a18886652a6b781f7248237bbd143a45a1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 3 Sep 2022 04:31:34 +0200
+Subject: [PATCH 2/2] tools/libxl: enable in-band reconnect marker for stubdom
+ QMP proxy
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This enables stubdom reliably detect when it needs to reconnect QMP
+socket. It is critical, as otherwise QEMU will not send its handshake,
+and so libxl will timeout while waiting on one. When it happens during
+domain startup, it can result in error like this:
+
+libxl: libxl_pci.c:1772:device_pci_add_done: Domain 3:libxl__device_pci_add failed for PCI device 0:0:14.0 (rc -9)
+libxl: libxl_create.c:1904:domcreate_attach_devices: Domain 3:unable to add pci devices
+
+See vchan-socket-proxy commit message for details about this reconnect
+corner case.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_dm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
+index fc264a3a13a6..cc9c5bea1e7f 100644
+--- a/tools/libxl/libxl_dm.c
++++ b/tools/libxl/libxl_dm.c
+@@ -2625,10 +2625,11 @@ static void spawn_qmp_proxy(libxl__egc *egc,
+     sdss->qmp_proxy_spawn.failure_cb = qmp_proxy_startup_failed;
+     sdss->qmp_proxy_spawn.detached_cb = qmp_proxy_detached;
+ 
+-    const int arraysize = 6;
++    const int arraysize = 7;
+     GCNEW_ARRAY(args, arraysize);
+     args[nr++] = STUBDOM_QMP_PROXY_PATH;
+     args[nr++] = GCSPRINTF("--state-path=%s", sdss->qmp_proxy_spawn.xspath);
++    args[nr++] = "--reconnect-marker=1";
+     args[nr++] = GCSPRINTF("%u", dm_domid);
+     args[nr++] = GCSPRINTF("%s/device-model/%u/qmp-vchan", dom_path, guest_domid);
+     args[nr++] = (char*)libxl__qemu_qmp_path(gc, guest_domid);
+-- 
+2.35.3
+
