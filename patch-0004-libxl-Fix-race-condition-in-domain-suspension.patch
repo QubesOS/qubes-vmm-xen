@@ -1,0 +1,83 @@
+From f2c2a7728ea18bdcdc91d5ccbec1a9d93a49c33e Mon Sep 17 00:00:00 2001
+Message-Id: <f2c2a7728ea18bdcdc91d5ccbec1a9d93a49c33e.1664236600.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1664236600.git.demi@invisiblethingslab.com>
+References: <cover.1664236600.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+To: xen-devel@lists.xenproject.org
+Cc: Wei Liu <wl@xen.org>
+Cc: Anthony PERARD <anthony.perard@citrix.com>
+Cc: Juergen Gross <jgross@suse.com>
+Date: Thu, 22 Sep 2022 12:27:32 -0400
+Subject: [PATCH 4/5] libxl: Fix race condition in domain suspension
+
+Check if the domain has suspended after setting the XenStore watch to
+prevent race conditions.  Also check if a guest has suspended when the
+timeout handler is called, and do not consider this to be a timeout.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dom_suspend.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/tools/libxl/libxl_dom_suspend.c b/tools/libxl/libxl_dom_suspend.c
+index d276b3c17e70105c19c82e9da570a24297d039f5..42c0e0a152e04fab34152d711564ffe148f24a4c 100644
+--- a/tools/libxl/libxl_dom_suspend.c
++++ b/tools/libxl/libxl_dom_suspend.c
+@@ -209,7 +209,8 @@ static void domain_suspend_common_wait_guest_evtchn(libxl__egc *egc,
+         libxl__ev_evtchn *evev);
+ static void suspend_common_wait_guest_watch(libxl__egc *egc,
+       libxl__ev_xswatch *xsw, const char *watch_path, const char *event_path);
+-static void suspend_common_wait_guest_check(libxl__egc *egc,
++/* Returns true if a callback was called, false otherwise */
++static bool suspend_common_wait_guest_check(libxl__egc *egc,
+         libxl__domain_suspend_state *dsps);
+ static void suspend_common_wait_guest_timeout(libxl__egc *egc,
+       libxl__ev_time *ev, const struct timeval *requested_abs, int rc);
+@@ -426,7 +427,7 @@ static int check_guest_status(libxl__gc *gc, const uint32_t domid,
+     return 0;
+ }
+ 
+-static void suspend_common_wait_guest_check(libxl__egc *egc,
++static bool suspend_common_wait_guest_check(libxl__egc *egc,
+         libxl__domain_suspend_state *dsps)
+ {
+     STATE_AO_GC(dsps->ao);
+@@ -441,7 +442,7 @@ static void suspend_common_wait_guest_check(libxl__egc *egc,
+ 
+     if (!(info.flags & XEN_DOMINF_shutdown))
+         /* keep waiting */
+-        return;
++        return false;
+ 
+     shutdown_reason = (info.flags >> XEN_DOMINF_shutdownshift)
+         & XEN_DOMINF_shutdownmask;
+@@ -452,11 +453,15 @@ static void suspend_common_wait_guest_check(libxl__egc *egc,
+     }
+ 
+     LOGD(DEBUG, domid, "guest has suspended");
++    dsps->guest_responded = 1;
++    libxl__xswait_stop(gc, &dsps->pvcontrol);
+     domain_suspend_common_guest_suspended(egc, dsps);
+-    return;
++    return true;
+ 
+  err:
++    libxl__xswait_stop(gc, &dsps->pvcontrol);
+     domain_suspend_common_done(egc, dsps, ERROR_FAIL);
++    return true;
+ }
+ 
+ static void suspend_common_wait_guest_timeout(libxl__egc *egc,
+@@ -464,6 +469,8 @@ static void suspend_common_wait_guest_timeout(libxl__egc *egc,
+ {
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(ev, *dsps, guest_timeout);
+     STATE_AO_GC(dsps->ao);
++    if (suspend_common_wait_guest_check(egc, dsps))
++        return;
+     if (rc == ERROR_TIMEDOUT) {
+         LOGD(ERROR, dsps->domid, "guest did not suspend, timed out");
+         rc = ERROR_GUEST_TIMEDOUT;
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab

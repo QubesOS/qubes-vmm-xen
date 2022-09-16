@@ -1,0 +1,98 @@
+From 6fcc32dc0747a081eb4b182dae1a483c6d1258f4 Mon Sep 17 00:00:00 2001
+Message-Id: <6fcc32dc0747a081eb4b182dae1a483c6d1258f4.1664236600.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1664236600.git.demi@invisiblethingslab.com>
+References: <cover.1664236600.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+To: xen-devel@lists.xenproject.org
+Cc: Wei Liu <wl@xen.org>
+Cc: Anthony PERARD <anthony.perard@citrix.com>
+Cc: Juergen Gross <jgross@suse.com>
+Date: Mon, 26 Sep 2022 10:48:26 -0400
+Subject: [PATCH 1/5] libxl: Add a utility function for domain resume
+
+It is necessary to all xs_resume_domain after any successful call to
+xc_domain_resume, so that XenStore is notified of the resumption.
+However, it is also very easy to forget to call this.  This took me
+several days to debug.
+
+Fix this by adding a utility function to resume a domain and then notify
+XenStore of the resumption.  This function does not resume any device
+model, so it is still internal to libxl, but it makes future changes to
+libxl much less error-prone.  It also makes libxl itself smaller.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dom_suspend.c | 41 +++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 22 deletions(-)
+
+diff --git a/tools/libxl/libxl_dom_suspend.c b/tools/libxl/libxl_dom_suspend.c
+index 4fa22bb7391049f2ea4ac32f21660212053bd4bc..fa50e8801f35d173a99ae5dd19eb941649e14019 100644
+--- a/tools/libxl/libxl_dom_suspend.c
++++ b/tools/libxl/libxl_dom_suspend.c
+@@ -451,6 +451,22 @@ int libxl__domain_resume_device_model_deprecated(libxl__gc *gc, uint32_t domid)
+     return 0;
+ }
+ 
++/* Just resumes the domain.  The device model must have been resumed already. */
++static int domain_resume_raw(libxl__gc *gc, uint32_t domid, int suspend_cancel)
++{
++    if (xc_domain_resume(CTX->xch, domid, suspend_cancel)) {
++        LOGED(ERROR, domid, "xc_domain_resume failed");
++        return ERROR_FAIL;
++    }
++
++    if (!xs_resume_domain(CTX->xsh, domid)) {
++        LOGED(ERROR, domid, "xs_resume_domain failed");
++        return ERROR_FAIL;
++    }
++
++    return 0;
++}
++
+ int libxl__domain_resume_deprecated(libxl__gc *gc, uint32_t domid, int suspend_cancel)
+ {
+     int rc = 0;
+@@ -469,16 +485,7 @@ int libxl__domain_resume_deprecated(libxl__gc *gc, uint32_t domid, int suspend_c
+         }
+     }
+ 
+-    if (xc_domain_resume(CTX->xch, domid, suspend_cancel)) {
+-        LOGED(ERROR, domid, "xc_domain_resume failed");
+-        rc = ERROR_FAIL;
+-        goto out;
+-    }
+-
+-    if (!xs_resume_domain(CTX->xsh, domid)) {
+-        LOGED(ERROR, domid, "xs_resume_domain failed");
+-        rc = ERROR_FAIL;
+-    }
++    rc = domain_resume_raw(gc, domid, suspend_cancel);
+ out:
+     return rc;
+ }
+@@ -660,19 +667,9 @@ static void domain_resume_done(libxl__egc *egc,
+     /* Convenience aliases */
+     libxl_domid domid = dmrs->domid;
+ 
+-    if (rc) goto out;
+-
+-    if (xc_domain_resume(CTX->xch, domid, dmrs->suspend_cancel)) {
+-        LOGED(ERROR, domid, "xc_domain_resume failed");
+-        rc = ERROR_FAIL;
+-        goto out;
+-    }
++    if (!rc)
++        rc = domain_resume_raw(gc, domid, dmrs->suspend_cancel);
+ 
+-    if (!xs_resume_domain(CTX->xsh, domid)) {
+-        LOGED(ERROR, domid, "xs_resume_domain failed");
+-        rc = ERROR_FAIL;
+-    }
+-out:
+     dmrs->callback(egc, dmrs, rc);
+ }
+ 
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab

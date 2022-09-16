@@ -194,6 +194,11 @@ Patch640: patch-xen-efi-align.patch
 Patch641: patch-0001-vchan-socket-proxy-add-reconnect-marker-support.patch
 Patch642: patch-0002-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
 Patch643: patch-Linux-loop-use-direct-io.patch
+Patch644: patch-0001-libxl-Add-a-utility-function-for-domain-resume.patch
+Patch645: patch-0002-libxl-Add-utility-function-to-check-guest-status.patch
+Patch646: patch-0003-libxl-Properly-suspend-stubdomains.patch
+Patch647: patch-0004-libxl-Fix-race-condition-in-domain-suspension.patch
+Patch648: patch-0005-libxl-Add-additional-domain-suspend-resume-logs.patch
 
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
@@ -211,7 +216,6 @@ Patch1003: patch-xen-hotplug-external-store.patch
 Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
 Patch1007: patch-xen-disable-dom0-qemu.patch
 Patch1009: patch-xenconsoled-enable-logging.patch
-Patch1010: patch-stubdom-linux-libxl-suspend.patch
 Patch1011: patch-xen-hotplug-qubesdb-update.patch
 Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.patch
 Patch1014: patch-allow-kernelopts-stubdom.patch

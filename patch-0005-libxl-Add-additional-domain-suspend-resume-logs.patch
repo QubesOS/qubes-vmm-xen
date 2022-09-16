@@ -1,0 +1,126 @@
+From 39c0faac0978315e0c79b9a25bb83dc0f951fed9 Mon Sep 17 00:00:00 2001
+Message-Id: <39c0faac0978315e0c79b9a25bb83dc0f951fed9.1664236600.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1664236600.git.demi@invisiblethingslab.com>
+References: <cover.1664236600.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+To: xen-devel@lists.xenproject.org
+Cc: Wei Liu <wl@xen.org>
+Cc: Anthony PERARD <anthony.perard@citrix.com>
+Cc: Juergen Gross <jgross@suse.com>
+Date: Mon, 26 Sep 2022 11:05:32 -0400
+Subject: [PATCH 5/5] libxl: Add additional domain suspend/resume logs
+
+This was useful when debugging, but is not required.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ tools/libxl/libxl_dom_suspend.c | 20 ++++++++++++++++++--
+ tools/libxl/libxl_domain.c      |  1 +
+ 2 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libxl/libxl_dom_suspend.c b/tools/libxl/libxl_dom_suspend.c
+index 42c0e0a152e04fab34152d711564ffe148f24a4c..55a172a46f8703661e696971bee07dce93117411 100644
+--- a/tools/libxl/libxl_dom_suspend.c
++++ b/tools/libxl/libxl_dom_suspend.c
+@@ -321,9 +321,11 @@ static void domain_suspend_common_pvcontrol_suspending(libxl__egc *egc,
+     STATE_AO_GC(dsps->ao);
+     xs_transaction_t t = 0;
+ 
+-    if (!rc && !domain_suspend_pvcontrol_acked(state))
++    if (!rc && !domain_suspend_pvcontrol_acked(state)) {
+         /* keep waiting */
++        LOGD(DEBUG, dsps->domid, "PV control callback without ack");
+         return;
++    }
+ 
+     libxl__xswait_stop(gc, &dsps->pvcontrol);
+ 
+@@ -405,7 +407,10 @@ static void domain_suspend_common_wait_guest(libxl__egc *egc,
+ static void suspend_common_wait_guest_watch(libxl__egc *egc,
+       libxl__ev_xswatch *xsw, const char *watch_path, const char *event_path)
+ {
++    EGC_GC;
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(xsw, *dsps, guest_watch);
++
++    LOGD(DEBUG, dsps->domid, "@releaseDomain watch fired, checking guest status");
+     suspend_common_wait_guest_check(egc, dsps);
+ }
+ 
+@@ -440,9 +445,11 @@ static bool suspend_common_wait_guest_check(libxl__egc *egc,
+     if (check_guest_status(gc, domid, &info, "suspending"))
+         goto err;
+ 
+-    if (!(info.flags & XEN_DOMINF_shutdown))
++    if (!(info.flags & XEN_DOMINF_shutdown)) {
++        LOGD(DEBUG, domid, "guest we were suspending has not shut down yet");
+         /* keep waiting */
+         return false;
++    }
+ 
+     shutdown_reason = (info.flags >> XEN_DOMINF_shutdownshift)
+         & XEN_DOMINF_shutdownmask;
+@@ -469,11 +476,14 @@ static void suspend_common_wait_guest_timeout(libxl__egc *egc,
+ {
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(ev, *dsps, guest_timeout);
+     STATE_AO_GC(dsps->ao);
++    LOGD(DEBUG, dsps->domid, "Timeout callback triggered");
+     if (suspend_common_wait_guest_check(egc, dsps))
+         return;
+     if (rc == ERROR_TIMEDOUT) {
+         LOGD(ERROR, dsps->domid, "guest did not suspend, timed out");
+         rc = ERROR_GUEST_TIMEDOUT;
++    } else {
++        LOGD(ERROR, dsps->domid, "error in timeout handler (code %d)", rc);
+     }
+     domain_suspend_common_done(egc, dsps, rc);
+ }
+@@ -628,6 +638,8 @@ void libxl__dm_resume(libxl__egc *egc,
+     libxl_domid domid = dmrs->domid;
+     libxl__ev_qmp *qmp = &dmrs->qmp;
+ 
++    LOGD(DEBUG, domid, "Resuming device model");
++
+     dm_resume_init(dmrs);
+ 
+     rc = libxl__ev_time_register_rel(dmrs->ao,
+@@ -640,6 +652,7 @@ void libxl__dm_resume(libxl__egc *egc,
+     case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL: {
+         const char *path, *state;
+ 
++        LOGD(DEBUG, domid, "Resuming legacy device model: stubdomain ID %" PRIu32, dm_domid);
+         path = DEVICE_MODEL_XS_PATH(gc, dm_domid, domid, "/state");
+         rc = libxl__xs_read_checked(gc, XBT_NULL, path, &state);
+         if (rc) goto out;
+@@ -706,6 +719,7 @@ void libxl__dm_resume(libxl__egc *egc,
+         goto out;
+     }
+     default:
++        LOGD(ERROR, domid, "Invalid device model type, cannot resume");
+         rc = ERROR_INVAL;
+         goto out;
+     }
+@@ -782,6 +796,8 @@ void libxl__domain_resume(libxl__egc *egc,
+     int rc = 0;
+     libxl_domain_type type = libxl__domain_type(gc, dmrs->domid);
+ 
++    LOGD(DEBUG, dmrs->domid, "Resuming domain");
++
+     if (type == LIBXL_DOMAIN_TYPE_INVALID) {
+         rc = ERROR_FAIL;
+         goto out;
+diff --git a/tools/libxl/libxl_domain.c b/tools/libxl/libxl_domain.c
+index a6b0b509cc04379e9d596a38644e3db5963011ea..e8e0894c8617a36f6fc13af73daa1ed290a466ce 100644
+--- a/tools/libxl/libxl_domain.c
++++ b/tools/libxl/libxl_domain.c
+@@ -566,6 +566,7 @@ int libxl_domain_suspend_only(libxl_ctx *ctx, uint32_t domid,
+     dsps->ao = ao;
+     dsps->domid = domid;
+     dsps->type = type;
++    LOGD(DEBUG, domid, "Received request to suspend domain");
+     rc = libxl__domain_suspend_init(egc, dsps, type);
+     if (rc < 0) goto out_err;
+     dsps->callback_common_done = domain_suspend_empty_cb;
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
