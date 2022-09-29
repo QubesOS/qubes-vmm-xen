@@ -318,7 +318,8 @@ Summary: Libraries for Xen tools
 Requires: xen-licenses
 Provides: xen-gvt-libs
 # toolstack <-> stubdomain API change
-Conflicts: xen-hvm-stubdom-linux < 1.1.0
+Conflicts: xen-hvm-stubdom-linux < 1.2.5
+Conflicts: xen-hvm-stubdom-linux-full < 1.2.5
 # libxl ABI change
 Conflicts: libvirt-daemon-driver-libxl < 1000:6.6.0-7
 
