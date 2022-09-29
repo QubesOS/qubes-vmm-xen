@@ -1,3 +1,14 @@
+xen (4.14.5-8) unstable; urgency=medium
+
+  * Backport LPSS console support
+  * Backport GCC12 build fixes
+  * Backport fix for XSTATE reporting
+  * Apply fix for HVM startup race condition
+  * rpm: bump stubdom version dependency
+  * Add XHCI DbC console support
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Thu, 29 Sep 2022 11:35:12 +0200
+
 xen (4.14.5-7) unstable; urgency=medium
 
   [ Ivan Kardykov ]
