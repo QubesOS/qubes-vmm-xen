@@ -1,3 +1,11 @@
+xen (4.14.5-9) unstable; urgency=medium
+
+  [ Demi Marie Obenour ]
+  * Use direct I/O for loop devices
+  * Suspend and resume stubdomains
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sun, 16 Oct 2022 03:13:48 +0200
+
 xen (4.14.5-8) unstable; urgency=medium
 
   * Backport LPSS console support
