@@ -132,6 +132,7 @@ Patch265: patch-xhci-0013-drivers-char-fix-handling-cable-re-plug-in-XHCI-cons.p
 Patch266: patch-xhci-0014-drivers-char-use-smp-barriers-in-xhci-driver.patch
 Patch267: patch-xhci-0015-drivers-char-suspend-handling-in-XHCI-console-driver.patch
 Patch268: patch-xhci-0016-drivers-char-add-console-ehci-as-an-alias-for-console-dbgp.patch
+Patch269: patch-xen-sched-fix-restore_vcpu_affinity-by-removing-it.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
@@ -184,7 +185,6 @@ Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-xen-disable-efi-gettime.patch
 Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
-Patch631: patch-Revert-xen-credit2-limit-the-max-number-of-CPUs-in-a.patch
 Patch634: patch-libxl-cleanup-remaining-backend-xs-dirs-after-driver.patch
 Patch635: patch-libxl-user-defined-max_maptrack_frames.patch
 Patch636: patch-autoconf-fix-handling-absolute-PYTHON-path.patch
