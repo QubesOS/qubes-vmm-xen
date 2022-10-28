@@ -1,3 +1,11 @@
+xen (4.14.5-11) unstable; urgency=medium
+
+  * Add build for centos-stream8 too
+  * Backport credit2 scheduler fix for S3 resume
+  * libxl: fixes for suspend pvcontrol
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Fri, 28 Oct 2022 18:52:48 +0200
+
 xen (4.14.5-10) unstable; urgency=medium
 
   * Revert "Use direct I/O for loop devices"
