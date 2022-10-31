@@ -173,6 +173,7 @@ Patch520: patch-xsa407-4.14-09.patch
 Patch521: patch-xsa407-4.14-10.patch
 Patch522: patch-xsa407-4.14-11.patch
 Patch523: patch-xsa407-4.14-12.patch
+Patch524: patch-xsa414-4.14.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
