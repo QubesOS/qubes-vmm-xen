@@ -1,3 +1,9 @@
+xen (4.14.5-13) wheezy; urgency=medium
+
+  * Apply XSA-422 fixes
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 08 Nov 2022 20:52:27 +0100
+
 xen (4.14.5-12) unstable; urgency=medium
 
   * Apply XSA-414 fix
