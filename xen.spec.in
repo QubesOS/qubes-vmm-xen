@@ -133,6 +133,7 @@ Patch266: patch-xhci-0014-drivers-char-use-smp-barriers-in-xhci-driver.patch
 Patch267: patch-xhci-0015-drivers-char-suspend-handling-in-XHCI-console-driver.patch
 Patch268: patch-xhci-0016-drivers-char-add-console-ehci-as-an-alias-for-console-dbgp.patch
 Patch269: patch-xen-sched-fix-restore_vcpu_affinity-by-removing-it.patch
+Patch270: patch-xen-sched-migrate-timers-to-correct-cpus-after-suspe.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
