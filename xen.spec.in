@@ -161,6 +161,9 @@ Patch0641: 0641-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
 Patch0642: 0642-xenpm-Add-set-cpufreq-hwp-subcommand.patch
 Patch0643: 0643-cpufreq-enable-HWP-by-default.patch
 
+PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
+PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
+
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
 Patch1001: 1001-hotplug-store-block-params-for-cleanup.patch

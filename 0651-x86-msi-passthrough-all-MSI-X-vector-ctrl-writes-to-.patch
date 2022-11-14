@@ -1,0 +1,224 @@
+From 829e622f3a84b62ec9593568e06122023bffe9f2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 14 Nov 2022 13:56:56 +0100
+Subject: [PATCH 1/2] x86/msi: passthrough all MSI-X vector ctrl writes to
+ device model
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+QEMU needs to know whether clearing maskbit of a vector is really
+clearing, or was already cleared before. Currently Xen sends only
+clearing that bit to the device model, but not setting it, so QEMU
+cannot detect it. Because of that, QEMU is working this around by
+checking via /dev/mem, but that isn't the proper approach.
+
+Give all necessary information to QEMU by passing all ctrl writes,
+including masking a vector. Advertise the new behavior via
+XENVER_get_features, so QEMU can know it doesn't need to access /dev/mem
+anymore.
+
+While this commit doesn't move the whole maskbit handling to QEMU (as
+discussed on xen-devel as one of the possibilities), it is a necessary
+first step anyway. Including telling QEMU it will get all the required
+information to do so. The actual implementation would need to include:
+ - a hypercall for QEMU to control just maskbit (without (re)binding the
+   interrupt again
+ - a methor for QEMU to tell Xen it will actually do the work
+Those are not part of this series.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+I did not added any control to enable/disable this new behavior (as
+Roget have suggested for possible non-QEMU ioreqs). And especially not
+as part of XEN_DMOP_get_ioreq_server_info, as the behavior isn't really
+per-ioreq-server but at best per-device (or system-wide, as it's
+currently done). I don't see how the new behavior could be problematic
+for some existing ioreq server (they already received writes to those
+addresses, just not all of them), but if that's really necessary, I can
+probably add a command line option to restore previous behavior
+system-wide.
+
+Changes in v4:
+- ignore unaligned writes with X86EMUL_OKAY
+- restructure the code to forward all writes in _msixtbl_write() instead
+  of manipulating return value of msixtbl_write() - this makes
+  WRITE_LEN4_COMPLETION special case unnecessary
+- advertise the changed behavior via XENVER_get_features instead of DMOP
+v3:
+ - advertise changed behavior in XEN_DMOP_get_ioreq_server_info - make
+   "flags" parameter IN/OUT
+ - move len check back to msixtbl_write() - will be needed there anyway
+   in a later patch
+v2:
+ - passthrough quad writes to emulator too (Jan)
+ - (ab)use len==0 for write len=4 completion (Jan), but add descriptive
+   #define for this magic value
+---
+ xen/arch/x86/hvm/vmsi.c        | 27 ++++++++++++++++++++++-----
+ xen/common/ioreq.c             |  9 +++++++--
+ xen/common/kernel.c            |  1 +
+ xen/include/public/features.h  |  8 ++++++++
+ xen/include/public/hvm/dm_op.h | 12 ++++++++----
+ 5 files changed, 46 insertions(+), 11 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/vmsi.c b/xen/arch/x86/hvm/vmsi.c
+index 3cd4923060c8..ebc052b8ea84 100644
+--- a/xen/arch/x86/hvm/vmsi.c
++++ b/xen/arch/x86/hvm/vmsi.c
+@@ -272,6 +272,14 @@ out:
+     return r;
+ }
+ 
++/*
++ * This function returns X86EMUL_UNHANDLEABLE even if write is properly
++ * handled, to propagate it to the device model (so it can keep its internal
++ * state in sync).
++ * len==0 means really len==4, but as a write completion that will return
++ * X86EMUL_OKAY on successful processing. Use WRITE_LEN4_COMPLETION to make it
++ * less confusing.
++ */
+ static int msixtbl_write(struct vcpu *v, unsigned long address,
+                          unsigned int len, unsigned long val)
+ {
+@@ -283,8 +291,8 @@ static int msixtbl_write(struct vcpu *v, unsigned long address,
+     unsigned long flags;
+     struct irq_desc *desc;
+ 
+-    if ( (len != 4 && len != 8) || (address & (len - 1)) )
+-        return r;
++    if ( !IS_ALIGNED(address, len) )
++        return X86EMUL_OKAY;
+ 
+     rcu_read_lock(&msixtbl_rcu_lock);
+ 
+@@ -345,8 +353,7 @@ static int msixtbl_write(struct vcpu *v, unsigned long address,
+ 
+ unlock:
+     spin_unlock_irqrestore(&desc->lock, flags);
+-    if ( len == 4 )
+-        r = X86EMUL_OKAY;
++    r = X86EMUL_OKAY;
+ 
+ out:
+     rcu_read_unlock(&msixtbl_rcu_lock);
+@@ -357,7 +364,17 @@ static int cf_check _msixtbl_write(
+     const struct hvm_io_handler *handler, uint64_t address, uint32_t len,
+     uint64_t val)
+ {
+-    return msixtbl_write(current, address, len, val);
++    /* ignore invalid length or unaligned writes */
++    if ( len != 4 && len != 8 || !IS_ALIGNED(address, len) )
++        return X86EMUL_OKAY;
++
++    /*
++     * This function returns X86EMUL_UNHANDLEABLE even if write is properly
++     * handled, to propagate it to the device model (so it can keep its
++     * internal state in sync).
++     */
++    msixtbl_write(current, address, len, val);
++    return X86EMUL_UNHANDLEABLE;
+ }
+ 
+ static bool cf_check msixtbl_range(
+diff --git a/xen/common/ioreq.c b/xen/common/ioreq.c
+index ecb8f545e1c4..bd6f074c1e85 100644
+--- a/xen/common/ioreq.c
++++ b/xen/common/ioreq.c
+@@ -743,7 +743,8 @@ static int ioreq_server_destroy(struct domain *d, ioservid_t id)
+ static int ioreq_server_get_info(struct domain *d, ioservid_t id,
+                                  unsigned long *ioreq_gfn,
+                                  unsigned long *bufioreq_gfn,
+-                                 evtchn_port_t *bufioreq_port)
++                                 evtchn_port_t *bufioreq_port,
++                                 uint16_t *flags)
+ {
+     struct ioreq_server *s;
+     int rc;
+@@ -779,6 +780,9 @@ static int ioreq_server_get_info(struct domain *d, ioservid_t id,
+             *bufioreq_port = s->bufioreq_evtchn;
+     }
+ 
++    /* Advertise supported features/behaviors. */
++    *flags = XEN_DMOP_all_msix_writes;
++
+     rc = 0;
+ 
+  out:
+@@ -1374,7 +1378,8 @@ int ioreq_server_dm_op(struct xen_dm_op *op, struct domain *d, bool *const_op)
+                                    NULL : (unsigned long *)&data->ioreq_gfn,
+                                    (data->flags & XEN_DMOP_no_gfns) ?
+                                    NULL : (unsigned long *)&data->bufioreq_gfn,
+-                                   &data->bufioreq_port);
++                                   &data->bufioreq_port, &data->flags);
++
+         break;
+     }
+ 
+diff --git a/xen/common/kernel.c b/xen/common/kernel.c
+index 0e8abe0cf8a8..37386f74797b 100644
+--- a/xen/common/kernel.c
++++ b/xen/common/kernel.c
+@@ -578,6 +578,7 @@ DO(xen_version)(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+                 fi.submap |= (1U << XENFEAT_direct_mapped);
+             else
+                 fi.submap |= (1U << XENFEAT_not_direct_mapped);
++            fi.submap |= (1U << XENFEAT_dm_msix_all_writes);
+             break;
+         default:
+             return -EINVAL;
+diff --git a/xen/include/public/features.h b/xen/include/public/features.h
+index d2a9175aae67..7b936655aadb 100644
+--- a/xen/include/public/features.h
++++ b/xen/include/public/features.h
+@@ -111,6 +111,14 @@
+ #define XENFEAT_not_direct_mapped         16
+ #define XENFEAT_direct_mapped             17
+ 
++/*
++ * If set, Xen will passthrough all MSI-X vector ctrl writes to device model,
++ * not only those unmasking an entry. This allows device model to properly keep
++ * track of the MSI-X table without having to read it from the device behind
++ * Xen's backs. This information is relevant only for device models.
++ */
++#define XENFEAT_dm_msix_all_writes        18
++
+ #define XENFEAT_NR_SUBMAPS 1
+ 
+ #endif /* __XEN_PUBLIC_FEATURES_H__ */
+diff --git a/xen/include/public/hvm/dm_op.h b/xen/include/public/hvm/dm_op.h
+index acdf91693d0b..490b151c5dd7 100644
+--- a/xen/include/public/hvm/dm_op.h
++++ b/xen/include/public/hvm/dm_op.h
+@@ -70,7 +70,9 @@ typedef struct xen_dm_op_create_ioreq_server xen_dm_op_create_ioreq_server_t;
+  * not contain XEN_DMOP_no_gfns then these pages will be made available and
+  * the frame numbers passed back in gfns <ioreq_gfn> and <bufioreq_gfn>
+  * respectively. (If the IOREQ Server is not handling buffered emulation
+- * only <ioreq_gfn> will be valid).
++ * only <ioreq_gfn> will be valid). When Xen returns XEN_DMOP_all_msix_writes
++ * flag set, it will notify the IOREQ server about all writes to MSI-X table
++ * (if it's handled by this IOREQ server), not only those clearing a mask bit.
+  *
+  * NOTE: To access the synchronous ioreq structures and buffered ioreq
+  *       ring, it is preferable to use the XENMEM_acquire_resource memory
+@@ -81,11 +83,13 @@ typedef struct xen_dm_op_create_ioreq_server xen_dm_op_create_ioreq_server_t;
+ struct xen_dm_op_get_ioreq_server_info {
+     /* IN - server id */
+     ioservid_t id;
+-    /* IN - flags */
++    /* IN/OUT - flags */
+     uint16_t flags;
+ 
+-#define _XEN_DMOP_no_gfns 0
+-#define XEN_DMOP_no_gfns (1u << _XEN_DMOP_no_gfns)
++#define _XEN_DMOP_no_gfns         0  /* IN */
++#define _XEN_DMOP_all_msix_writes 1  /* OUT */
++#define XEN_DMOP_no_gfns         (1u << _XEN_DMOP_no_gfns)
++#define XEN_DMOP_all_msix_writes (1u << _XEN_DMOP_all_msix_writes)
+ 
+     /* OUT - buffered ioreq port */
+     evtchn_port_t bufioreq_port;
+-- 
+2.41.0
+
