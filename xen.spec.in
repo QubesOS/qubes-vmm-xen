@@ -351,15 +351,6 @@ manage Xen virtual machines.
 %endif
 
 # BEGIN QUBES SPECIFIC PART
-%package qemu-tools
-Summary: Qemu disk tools bundled with Xen
-Provides: qemu-img
-Conflicts: qemu-img
-
-%description qemu-tools
-This package contains symlinks to qemu tools (qemu-img, qemu-nbd)
-budled with Xen, making them available for general use.
-
 %package qubes-vm
 Summary: Xen files required in Qubes VM
 Requires: xen-libs = %{epoch}:%{version}-%{release}
@@ -434,7 +425,7 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-pvshim"
 %endif
-CONFIG_EXTRA="$CONFIG_EXTRA --with-extra-qemuu-configure-args='--disable-spice'"
+CONFIG_EXTRA="$CONFIG_EXTRA --with-system-qemu=/usr/bin/qemu-system-x86_64"
 export PATH="/usr/bin:$PATH"
 autoreconf -i
 # END QUBES SPECIFIC PART
@@ -516,20 +507,12 @@ rm -f %{buildroot}%{_sbindir}/xen-python-path
 rm -rf %{buildroot}/usr/share/xen/man
 rm -rf %{buildroot}/usr/share/qemu-xen/icons
 rm -rf %{buildroot}/usr/share/qemu-xen/applications
-# BEGIN QUBES SPECIFIC PART
-ln -s ../libexec/%{name}/bin/qemu-img %{buildroot}/%{_bindir}/qemu-img
-ln -s ../libexec/%{name}/bin/qemu-nbd %{buildroot}/%{_bindir}/qemu-nbd
-# END QUBES SPECIFIC PART
 for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
          pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
          vgabios.bin vgabios-cirrus.bin video.x openbios-ppc bamboo.dtb
 do
 	rm -f %{buildroot}/%{_datadir}/xen/qemu/$file
 done
-
-# BEGIN QUBES SPECIFIC PART
-rm -f %{buildroot}/usr/libexec/qemu-bridge-helper
-# END QUBES SPECIFIC PART
 
 # README's not intended for end users
 rm -f %{buildroot}/%{_sysconfdir}/xen/README*
@@ -806,11 +789,6 @@ fi
 %{_datadir}/%{name}/qemu/keymaps/*
 %endif
 %endif
-# BEGIN QUBES SPECIFIC PART
-%dir %{_datadir}/qemu-xen
-%dir %{_datadir}/qemu-xen/qemu
-%{_datadir}/qemu-xen/qemu/*
-# END QUBES SPECIFIC PART
 
 # man pages
 %if %build_docs
@@ -986,10 +964,6 @@ fi
 %endif
 
 # BEGIN QUBES SPECIFIC PART
-%files qemu-tools
-/usr/bin/qemu-img
-/usr/bin/qemu-nbd
-
 %files qubes-vm
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
