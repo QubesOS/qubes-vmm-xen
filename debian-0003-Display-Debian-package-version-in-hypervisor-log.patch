@@ -1,49 +1,56 @@
 From: Bastian Blank <waldi@debian.org>
 Date: Sat, 5 Jul 2014 11:46:43 +0200
-Subject: version
+Subject: Display Debian package version in hypervisor log
 
-Patch-Name: version.diff
+During hypervisor boot, disable the banner and nicely display the xen
+version as well as the Maintainer address from debian/control.
+
+For this to work the SOURCE_BASE_DIR variable needs to be set by the
+build system to the top directory, i.e. where the debian folder is.
+
+Original patch by Bastian Blank <waldi@debian.org>
+Modified by
+Hans van Kranenburg <hans@knorrie.org>
+Maximilian Engelhardt <maxi@daemonizer.de>
 ---
  xen/Makefile                 |  8 +++++---
- xen/common/kernel.c          |  4 ++--
+ xen/common/kernel.c          |  8 ++++----
  xen/common/version.c         | 22 +++++++++++-----------
- xen/drivers/char/console.c   |  9 +++------
+ xen/drivers/char/console.c   | 11 ++++-------
  xen/include/xen/compile.h.in |  8 ++++----
  xen/include/xen/version.h    |  7 ++++---
- 6 files changed, 29 insertions(+), 29 deletions(-)
+ 6 files changed, 32 insertions(+), 32 deletions(-)
 
-diff --git a/xen/Makefile b/xen/Makefile
-index c07b2c3..1009d87 100644
---- a/xen/Makefile
-+++ b/xen/Makefile
-@@ -161,7 +161,7 @@ delete-unfresh-files:
- 	@mv -f $@.tmp $@
- 
- # compile.h contains dynamic build info. Rebuilt on every 'make' invocation.
--include/xen/compile.h: include/xen/compile.h.in .banner
-+include/xen/compile.h: include/xen/compile.h.in
- 	@sed -e 's/@@date@@/$(XEN_BUILD_DATE)/g' \
+diff --git a/xen/build.mk b/xen/build.mk
+index 76d0a3f..6752b68 100644
+--- a/xen/build.mk
++++ b/xen/build.mk
+@@ -17,7 +17,6 @@ endef
+ quiet_cmd_compile.h = UPD     $@
+ define cmd_compile.h
+     if [ ! -r $@ -o -O $@ ]; then \
+-	cat .banner; \
+ 	sed -e 's/@@date@@/$(XEN_BUILD_DATE)/g' \
  	    -e 's/@@time@@/$(XEN_BUILD_TIME)/g' \
  	    -e 's/@@whoami@@/$(XEN_WHOAMI)/g' \
-@@ -172,9 +172,11 @@ include/xen/compile.h: include/xen/compile.h.in .banner
+@@ -28,8 +27,11 @@ include/xen/compile.h: include/xen/compile.h.in .banner
  	    -e 's/@@subversion@@/$(XEN_SUBVERSION)/g' \
  	    -e 's/@@extraversion@@/$(XEN_EXTRAVERSION)/g' \
- 	    -e 's!@@changeset@@!$(shell tools/scmversion $(XEN_ROOT) || echo "unavailable")!g' \
+ 	    -e 's!@@changeset@@!$(shell $(srctree)/tools/scmversion $(XEN_ROOT) || echo "unavailable")!g' \
 +	    -e 's/@@system_distribution@@/$(shell lsb_release -is)/g' \
-+	    -e 's/@@system_maintainer_domain@@/$(shell cd ../../../..; dpkg-parsechangelog | sed -ne 's,^Maintainer: .[^<]*<[^@>]*@\([^>]*\)>,\1,p')/g' \
-+	    -e 's/@@system_maintainer_local@@/$(shell cd ../../../..; dpkg-parsechangelog | sed -ne 's,^Maintainer: .[^<]*<\([^@>]*\)@.*>,\1,p')/g' \
-+	    -e 's/@@system_version@@/$(shell cd ../../../..; dpkg-parsechangelog | awk '/^Version:/ {print $$2}')/g' \
- 	    < include/xen/compile.h.in > $@.new
--	@cat .banner
--	@sed -rf tools/process-banner.sed < .banner >> $@.new
- 	@mv -f $@.new $@
- 
- include/asm-$(TARGET_ARCH)/asm-offsets.h: arch/$(TARGET_ARCH)/asm-offsets.s
++	    -e 's/@@system_maintainer_domain@@/$(shell grep Maintainer ${SOURCE_BASE_DIR}/debian/control | sed -ne 's,^Maintainer: .[^<]*<[^@>]*@\([^>]*\)>,\1,p')/g' \
++	    -e 's/@@system_maintainer_local@@/$(shell grep Maintainer ${SOURCE_BASE_DIR}/debian/control | sed -ne 's,^Maintainer: .[^<]*<\([^@>]*\)@.*>,\1,p')/g' \
++	    -e 's/@@system_version@@/$(shell cd ${SOURCE_BASE_DIR}; dpkg-parsechangelog | awk '/^Version:/ {print $$2}')/g' \
+ 	    < $< > $(dot-target).tmp; \
+-	sed -rf $(srctree)/tools/process-banner.sed < .banner >> $(dot-target).tmp; \
+ 	mv -f $(dot-target).tmp $@; \
+     fi
+ endef
 diff --git a/xen/common/kernel.c b/xen/common/kernel.c
-index 5766a0f..1cf4cd8 100644
+index 7ed9652..b9c0767 100644
 --- a/xen/common/kernel.c
 +++ b/xen/common/kernel.c
-@@ -398,9 +398,9 @@ static int __init buildinfo_init(void)
+@@ -414,9 +414,9 @@ static int __init buildinfo_init(void)
  
      hypfs_add_dir(&buildinfo, &compileinfo, true);
      hypfs_string_set_reference(&compiler, xen_compiler());
@@ -55,7 +62,7 @@ index 5766a0f..1cf4cd8 100644
      hypfs_add_leaf(&compileinfo, &compiler, true);
      hypfs_add_leaf(&compileinfo, &compile_by, true);
      hypfs_add_leaf(&compileinfo, &compile_date, true);
-@@ -481,8 +481,8 @@ DO(xen_version)(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+@@ -497,8 +497,8 @@ DO(xen_version)(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
  
          memset(&info, 0, sizeof(info));
          safe_strcpy(info.compiler,       deny ? xen_deny() : xen_compiler());
@@ -67,7 +74,7 @@ index 5766a0f..1cf4cd8 100644
          if ( copy_to_guest(arg, &info, 1) )
              return -EFAULT;
 diff --git a/xen/common/version.c b/xen/common/version.c
-index 223cb52..b9c66fd 100644
+index d320135..b44d411 100644
 --- a/xen/common/version.c
 +++ b/xen/common/version.c
 @@ -20,19 +20,24 @@ const char *xen_compile_time(void)
@@ -114,24 +121,25 @@ index 223cb52..b9c66fd 100644
  {
      return "<denied>";
 diff --git a/xen/drivers/char/console.c b/xen/drivers/char/console.c
-index 0f05369..78c1ae6 100644
+index 7d0a603..f1ec810 100644
 --- a/xen/drivers/char/console.c
 +++ b/xen/drivers/char/console.c
-@@ -842,14 +842,11 @@ void __init console_init_preirq(void)
+@@ -1000,14 +1000,11 @@ void __init console_init_preirq(void)
      pv_console_set_rx_handler(serial_rx);
  
      /* HELLO WORLD --- start-of-day banner text. */
 -    spin_lock(&console_lock);
 -    __putstr(xen_banner());
 -    spin_unlock(&console_lock);
--    printk("Xen version %d.%d%s (%s@%s) (%s) debug=%c " gcov_string " %s\n",
-+    printk("Xen version %d.%d%s (%s %s) (%s@%s) (%s) debug=%c " gcov_string " %s\n",
+-    printk("Xen version %d.%d%s (%s@%s) (%s) %s %s\n",
++    printk("Xen version %d.%d%s (%s %s) (%s@%s) (%s) %s %s\n",
             xen_major_version(), xen_minor_version(), xen_extra_version(),
--           xen_compile_by(), xen_compile_domain(),
+-           xen_compile_by(), xen_compile_domain(), xen_compiler(),
+-           xen_build_info(), xen_compile_date());
+-    printk("Latest ChangeSet: %s\n", xen_changeset());
 +           xen_compile_system_distribution(), xen_compile_system_version(),
 +           xen_compile_system_maintainer_local(), xen_compile_system_maintainer_domain(),
-            xen_compiler(), debug_build() ? 'y' : 'n', xen_compile_date());
--    printk("Latest ChangeSet: %s\n", xen_changeset());
++           xen_compiler(), xen_build_info(), xen_compile_date());
  
      /* Locate and print the buildid, if applicable. */
      xen_build_init();
@@ -158,7 +166,7 @@ index 440ecb2..0c3ca58 100644
  #define XEN_CHANGESET		"@@changeset@@"
 -#define XEN_BANNER		\
 diff --git a/xen/include/xen/version.h b/xen/include/xen/version.h
-index 97c247a..a816f60 100644
+index 93c5877..9d98d6e 100644
 --- a/xen/include/xen/version.h
 +++ b/xen/include/xen/version.h
 @@ -6,9 +6,10 @@

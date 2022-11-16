@@ -1,0 +1,82 @@
+From: Hans van Kranenburg <hans@knorrie.org>
+Date: Mon, 25 May 2020 17:08:18 +0200
+Subject: tools-libfsimage-prefix.diff
+
+\o/
+---
+ tools/Rules.mk                   |  2 ++
+ tools/libfsimage/Rules.mk        |  3 ++-
+ tools/libfsimage/common/Makefile | 16 +++++++++-------
+ 3 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/tools/Rules.mk b/tools/Rules.mk
+index 051a5d3..ccde2d4 100644
+--- a/tools/Rules.mk
++++ b/tools/Rules.mk
+@@ -16,6 +16,8 @@ INSTALL = $(XEN_ROOT)/tools/cross-install
+ 
+ LDFLAGS += $(PREPEND_LDFLAGS_XEN_TOOLS)
+ 
++LDFLAGS_RPATH = -Wl,-rpath,'$${ORIGIN}$(if $(1),/$(1))'
++
+ XEN_INCLUDE        = $(XEN_ROOT)/tools/include
+ 
+ include $(XEN_ROOT)/tools/libs/uselibs.mk
+diff --git a/tools/libfsimage/common.mk.mk b/tools/libfsimage/common.mk
+index bb6d42a..38cc539 100644
+--- a/tools/libfsimage/common.mk
++++ b/tools/libfsimage/common.mk
+@@ -1,9 +1,10 @@ include $(XEN_ROOT)/tools/Rules.mk
+ include $(XEN_ROOT)/tools/Rules.mk
+
+-FSDIR := $(libdir)/xenfsimage
++FSDIR := $(LIBEXEC_LIB)/xenfsimage
+ CFLAGS += -Wno-unknown-pragmas -I$(XEN_ROOT)/tools/libfsimage/common/ -DFSIMAGE_FSDIR=\"$(FSDIR)\"
+ CFLAGS += -D_GNU_SOURCE
+ LDFLAGS += -L../common/
++LDFLAGS += $(call LDFLAGS_RPATH,../..)
+ 
+ PIC_OBJS = $(patsubst %.c,%.opic,$(LIB_SRCS-y))
+ 
+diff --git a/tools/libfsimage/common/Makefile b/tools/libfsimage/common/Makefile
+index 24bc90e..88d964a 100644
+--- a/tools/libfsimage/common/Makefile
++++ b/tools/libfsimage/common/Makefile
+@@ -4,6 +4,8 @@ include $(XEN_ROOT)/tools/libfsimage/Rules.mk
+ MAJOR := $(shell $(XEN_ROOT)/version.sh $(XEN_ROOT)/xen/Makefile)
+ MINOR = 0
+ 
++CFLAGS += -DFSDIR="\"$(LIBEXEC_LIB)/fs\""
++
+ LDFLAGS-$(CONFIG_SunOS) = -Wl,-M -Wl,mapfile-SunOS
+ LDFLAGS-$(CONFIG_Linux) = -Wl,mapfile-GNU
+ LDFLAGS += $(LDFLAGS-y)
+@@ -22,11 +24,11 @@ all: $(LIB)
+ 
+ .PHONY: install
+ install: all
+-	$(INSTALL_DIR) $(DESTDIR)$(libdir)
++	$(INSTALL_DIR) $(DESTDIR)$(LIBEXEC_LIB)
+ 	$(INSTALL_DIR) $(DESTDIR)$(includedir)
+-	$(INSTALL_PROG) libxenfsimage.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
+-	ln -sf libxenfsimage.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenfsimage.so.$(MAJOR)
+-	ln -sf libxenfsimage.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenfsimage.so
++	$(INSTALL_PROG) libxenfsimage.so.$(MAJOR).$(MINOR) $(DESTDIR)$(LIBEXEC_LIB)
++	ln -sf libxenfsimage.so.$(MAJOR).$(MINOR) $(DESTDIR)$(LIBEXEC_LIB)/libxenfsimage.so.$(MAJOR)
++	ln -sf libxenfsimage.so.$(MAJOR) $(DESTDIR)$(LIBEXEC_LIB)/libxenfsimage.so
+ 	$(INSTALL_DATA) xenfsimage.h $(DESTDIR)$(includedir)
+ 	$(INSTALL_DATA) xenfsimage_plugin.h $(DESTDIR)$(includedir)
+ 	$(INSTALL_DATA) xenfsimage_grub.h $(DESTDIR)$(includedir)
+@@ -36,9 +38,9 @@ uninstall:
+ 	rm -f $(DESTDIR)$(includedir)/xenfsimage_grub.h
+ 	rm -f $(DESTDIR)$(includedir)/xenfsimage_plugin.h
+ 	rm -f $(DESTDIR)$(includedir)/xenfsimage.h
+-	rm -f $(DESTDIR)$(libdir)/libxenfsimage.so
+-	rm -f $(DESTDIR)$(libdir)/libxenfsimage.so.$(MAJOR)
+-	rm -f $(DESTDIR)$(libdir)/libxenfsimage.so.$(MAJOR).$(MINOR)
++	rm -f $(DESTDIR)$(LIBEXEC_LIB)/libxenfsimage.so
++	rm -f $(DESTDIR)$(LIBEXEC_LIB)/libxenfsimage.so.$(MAJOR)
++	rm -f $(DESTDIR)$(LIBEXEC_LIB)/libxenfsimage.so.$(MAJOR).$(MINOR)
+ 
+ libxenfsimage.so: libxenfsimage.so.$(MAJOR)
+ 	ln -sf $< $@

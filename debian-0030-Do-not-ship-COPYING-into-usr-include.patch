@@ -17,14 +17,14 @@ index 6665105..82e45e9 100644
 --- a/tools/include/Makefile
 +++ b/tools/include/Makefile
 @@ -14,7 +14,6 @@ xen-foreign:
- xen/.dir: $(XEN_PUBLIC_INCLUDES) $(XEN_LIB_X86_INCLUDES)
- 	@rm -rf xen
- 	mkdir -p xen/libelf
--	ln -sf $(XEN_ROOT)/xen/include/public/COPYING xen
- 	ln -sf $(XEN_PUBLIC_INCLUDES) xen
- 	ln -sf $(addprefix $(XEN_ROOT)/xen/include/public/,arch-x86 arch-arm hvm io xsm) xen
- 	ln -sf ../xen-sys/$(XEN_OS) xen/sys
-@@ -43,7 +42,6 @@ install: all
+ xen-dir:
+ 	mkdir -p xen/libelf acpi
+ 	find xen/ acpi/ -type l -exec rm '{}' +
+-	ln -s $(XEN_ROOT)/xen/include/public/COPYING xen/
+ 	ln -s $(XEN_ROOT)/xen/include/public/*.h xen/
+ 	ln -s $(XEN_ROOT)/xen/include/public/*/ xen/
+ 	ln -s ../xen-sys/$(XEN_OS) xen/sys
+@@ -64,7 +63,6 @@ install: all
  	$(INSTALL_DIR) $(DESTDIR)$(includedir)/xen/io
  	$(INSTALL_DIR) $(DESTDIR)$(includedir)/xen/sys
  	$(INSTALL_DIR) $(DESTDIR)$(includedir)/xen/xsm

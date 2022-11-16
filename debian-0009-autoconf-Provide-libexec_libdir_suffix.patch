@@ -11,12 +11,12 @@ Signed-off-by: Ian Jackson <ian.jackson@citrix.com>
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/m4/paths.m4 b/m4/paths.m4
-index 89d3bb8..42b4970 100644
+index 7be314a..9cf906e 100644
 --- a/m4/paths.m4
 +++ b/m4/paths.m4
-@@ -70,6 +70,13 @@ AC_ARG_WITH([libexec-leaf-dir],
-     [libexec_subdir=$withval],
-     [libexec_subdir=$PACKAGE_TARNAME])
+@@ -84,6 +84,13 @@ AC_ARG_WITH([xen-scriptdir],
+ AC_SUBST(XEN_SCRIPT_DIR)
+ AC_DEFINE_UNQUOTED([XEN_SCRIPT_DIR], ["$XEN_SCRIPT_DIR"], [Xen's script dir])
  
 +dnl Allows .../libexec/lib (used for libfsimage) to have a multiarch path
 +AC_ARG_WITH([libexec-libdir-suffix],
@@ -28,10 +28,10 @@ index 89d3bb8..42b4970 100644
  AC_ARG_WITH([xen-dumpdir],
      AS_HELP_STRING([--with-xen-dumpdir=DIR],
      [Path to directory for domU crash dumps. [LOCALSTATEDIR/lib/xen/dump]]),
-@@ -103,7 +110,7 @@ AC_SUBST(LIBEXEC)
- dnl These variables will be substituted in various .in files
+@@ -117,7 +124,7 @@ AC_SUBST(LIBEXEC)
  LIBEXEC_BIN=${LIBEXEC}/bin
  AC_SUBST(LIBEXEC_BIN)
+ AC_DEFINE_UNQUOTED([LIBEXEC_BIN], ["$LIBEXEC_BIN"], [Xen's libexec path])
 -LIBEXEC_LIB=${LIBEXEC}/lib
 +LIBEXEC_LIB=${LIBEXEC}/lib${libexec_libdir_suffix}
  AC_SUBST(LIBEXEC_LIB)
