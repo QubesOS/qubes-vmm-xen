@@ -102,81 +102,9 @@ Patch201: patch-0001-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServices.pa
 Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
-# Backports
-Patch240: patch-0001-ns16550-do-not-override-fifo-size-if-explicitly-set.patch
-Patch241: patch-0002-ns16550-specify-uart-param-for-ns_-read-write-_reg-a.patch
-Patch242: patch-0003-ns16550-add-Exar-PCIe-UART-cards-support.patch
-Patch243: patch-0001-x86-spec-ctrl-Skip-RSB-overwriting-when-safe-to-do-s.patch
-Patch244: patch-libxl-Fix-QEMU-cmdline-for-scsi-device.patch
-Patch245: patch-libxl-Replace-deprecated-QMP-command-by-query-cpus-f.patch
-Patch246: patch-x86-pv-Inject-GP-for-implicit-grant-unmaps.patch
-Patch247: patch-ns16550-add-support-for-Intel-LPSS-UART.patch
-Patch248: patch-ns16550-add-more-device-IDs-for-Intel-LPSS-UART.patch
-Patch249: patch-ns16550-use-poll-mode-if-INTERRUPT_LINE-is-0xff.patch
-Patch250: patch-x86-deal-with-gcc12-release-build-issues.patch
-Patch251: patch-IOMMU-x86-work-around-bogus-gcc12-warning-in-hvm_gsi.patch
-Patch252: patch-x86-CPUID-surface-suitable-value-in-EBX-of-XSTATE-su.patch
-Patch253: patch-xhci-0001-drivers-char-add-support-for-USB3-DbC-debugger.patch
-Patch254: patch-xhci-0002-drivers-char-reset-XHCI-ports-when-initializing-dbc.patch
-Patch255: patch-xhci-0003-drivers-char-add-support-for-selecting-specific-xhci.patch
-Patch256: patch-xhci-0004-drivers-char-make-serial_parse_handle-take-const-arg.patch
-Patch257: patch-xhci-0005-drivers-char-allow-using-both-dbgp-xhci-and-dbgp-ehc.patch
-Patch258: patch-xhci-0006-console-support-multiple-serial-console-simultaneous.patch
-Patch259: patch-xhci-0007-IOMMU-add-common-API-for-device-reserved-memory.patch
-Patch260: patch-xhci-0008-IOMMU-VT-d-wire-common-device-reserved-memory-API.patch
-Patch261: patch-xhci-0009-IOMMU-AMD-wire-common-device-reserved-memory-API.patch
-Patch262: patch-xhci-0010-drivers-char-mark-DMA-buffers-as-reserved-for-the-XH.patch
-Patch263: patch-xhci-0011-drivers-char-add-RX-support-to-the-XHCI-driver.patch
-Patch264: patch-xhci-0012-drivers-char-allow-driving-the-rest-of-XHCI-by-a-dom.patch
-Patch265: patch-xhci-0013-drivers-char-fix-handling-cable-re-plug-in-XHCI-cons.patch
-Patch266: patch-xhci-0014-drivers-char-use-smp-barriers-in-xhci-driver.patch
-Patch267: patch-xhci-0015-drivers-char-suspend-handling-in-XHCI-console-driver.patch
-Patch268: patch-xhci-0016-drivers-char-add-console-ehci-as-an-alias-for-console-dbgp.patch
-Patch269: patch-xen-sched-fix-restore_vcpu_affinity-by-removing-it.patch
-Patch270: patch-xen-sched-migrate-timers-to-correct-cpus-after-suspe.patch
+# Backports (300+)
 
-# Backport unified xen hypervisor patches from Xen 4.15
-Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
-Patch302: patch-unified-0002-EFI-some-easy-constification.patch
-Patch303: patch-unified-0003-efi-boot-make-file-ptr-const-void.patch
-Patch304: patch-unified-0004-efi-boot-wrap-PrintStr-PrintErr-to-allow-const-CHAR1.patch
-Patch305: patch-unified-0005-efi-boot.c-add-file.need_to_free.patch
-Patch306: patch-unified-0006-efi-boot.c-add-handle_file_info.patch
-Patch307: patch-unified-0007-efi-make-blexit-global.patch
-Patch308: patch-unified-0008-efi-Enable-booting-unified-hypervisor-kernel-initrd-.patch
-Patch309: patch-unified-0009-EFI-Arm64-don-t-clobber-DTB-pointer.patch
-Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
-
-Patch320: patch-libxl-resume.patch
-
-# Security fixes
-Patch500: patch-xsa401-4.16-1.patch
-Patch501: patch-xsa401-4.16-2.patch
-Patch502: patch-xsa402-4.14-1.patch
-Patch503: patch-xsa402-4.14-2.patch
-Patch504: patch-xsa402-4.14-3.patch
-Patch505: patch-xsa402-4.14-4.patch
-Patch506: patch-xsa402-4.14-5.patch
-Patch507: patch-xsa404-4.14-1.patch
-Patch508: patch-xsa404-4.14-2.patch
-Patch509: patch-xsa404-4.14-3.patch
-Patch510: patch-xsa403-4.14-1.patch
-Patch511: patch-xsa403-4.14-trusted-dom0.patch
-Patch512: patch-xsa407-4.14-01.patch
-Patch513: patch-xsa407-4.14-02.patch
-Patch514: patch-xsa407-4.14-03.patch
-Patch515: patch-xsa407-4.14-04.patch
-Patch516: patch-xsa407-4.14-05.patch
-Patch517: patch-xsa407-4.14-06.patch
-Patch518: patch-xsa407-4.14-07.patch
-Patch519: patch-xsa407-4.14-08.patch
-Patch520: patch-xsa407-4.14-09.patch
-Patch521: patch-xsa407-4.14-10.patch
-Patch522: patch-xsa407-4.14-11.patch
-Patch523: patch-xsa407-4.14-12.patch
-Patch524: patch-xsa414-4.14.patch
-Patch525: patch-xsa422-4.14-1.patch
-Patch526: patch-xsa422-4.14-2.patch
+# Security fixes (500+)
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
@@ -189,8 +117,6 @@ Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
 Patch622: patch-xen-disable-efi-gettime.patch
 Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
-Patch634: patch-libxl-cleanup-remaining-backend-xs-dirs-after-driver.patch
-Patch635: patch-libxl-user-defined-max_maptrack_frames.patch
 Patch636: patch-autoconf-fix-handling-absolute-PYTHON-path.patch
 Patch638: patch-libxl-do-not-require-filling-backend_domid-to-remove.patch
 Patch639: patch-libxl-add-pcidevs-to-stubdomain-earlier.patch
@@ -215,7 +141,6 @@ Patch900: patch-disable-dom0-qemu.patch
 Patch950: patch-stubdom-allow-msi-enable.patch
 
 # Qubes specific patches
-Patch1001: patch-stubdom-vbd-non-dom0-backend.patch
 Patch1002: patch-xen-no-downloads.patch
 Patch1003: patch-xen-hotplug-external-store.patch
 Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
@@ -239,8 +164,6 @@ Patch1025: patch-disable-tsx.patch
 Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
 
 # Reproducible builds
-Patch1050: patch-0001-No-insert-of-the-build-timestamp-into-the-x86-xen-ef.patch
-Patch1051: patch-0002-common-remove-gzip-timestamp.patch
 Patch1052: patch-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
 Patch1053: patch-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
 Patch1054: patch-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
