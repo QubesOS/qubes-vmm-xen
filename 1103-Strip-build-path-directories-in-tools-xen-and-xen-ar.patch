@@ -1,0 +1,56 @@
+From 8b9073d98074295d08bab005d9a6f5b470ff9f6c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.pierret@qubes-os.org>
+Date: Sun, 8 Nov 2020 16:17:29 +0100
+Subject: [PATCH 1103/1103] Strip build path directories in tools, xen and
+ xen/arch/x86
+
+Ensure to have a realpath for XEN_ROOT else it fails to substitute
+properly pathes in strings sections
+---
+ tools/Rules.mk        | 2 ++
+ xen/Makefile          | 2 ++
+ xen/arch/x86/Makefile | 1 +
+ 3 files changed, 5 insertions(+)
+
+diff --git a/tools/Rules.mk b/tools/Rules.mk
+index 6e135387bd7e..c75695fc5cfc 100644
+--- a/tools/Rules.mk
++++ b/tools/Rules.mk
+@@ -176,6 +176,8 @@ endif
+ CFLAGS-$(CONFIG_X86_32) += $(call cc-option,$(CC),-mno-tls-direct-seg-refs)
+ CFLAGS += $(CFLAGS-y)
+ 
++CFLAGS += -ffile-prefix-map=$(XEN_ROOT)=.
++
+ CFLAGS += $(EXTRA_CFLAGS_XEN_TOOLS)
+ 
+ INSTALL_PYTHON_PROG = \
+diff --git a/xen/Makefile b/xen/Makefile
+index f8e3db7f128e..0ec7602ddf89 100644
+--- a/xen/Makefile
++++ b/xen/Makefile
+@@ -400,6 +400,8 @@ ifneq ($(CONFIG_CC_IS_CLANG),y)
+ CFLAGS += -Wa,--strip-local-absolute
+ endif
+ 
++CFLAGS += -ffile-prefix-map=$(XEN_ROOT)=.
++
+ AFLAGS += -D__ASSEMBLY__
+ 
+ $(call cc-option-add,AFLAGS,CC,-Wa$(comma)--noexecstack)
+diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
+index 177a2ff74272..7340d44a9705 100644
+--- a/xen/arch/x86/Makefile
++++ b/xen/arch/x86/Makefile
+@@ -132,6 +132,7 @@ $(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
+ 	mv $(TMP) $(TARGET)
+ 
+ CFLAGS-$(XEN_BUILD_EFI) += -DXEN_BUILD_EFI
++CFLAGS-$(XEN_BUILD_EFI) += -ffile-prefix-map=$(XEN_ROOT)=.
+ 
+ $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
+ 	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
+-- 
+2.37.3
+

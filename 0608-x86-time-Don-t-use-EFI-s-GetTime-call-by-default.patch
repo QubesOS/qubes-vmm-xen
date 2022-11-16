@@ -1,0 +1,52 @@
+From c79035d499bf68f29f87e47da228d956bb44f2da Mon Sep 17 00:00:00 2001
+From: Ross Lagerwall <ross.lagerwall@xxxxxxxxxx>
+Date: Tue, 1 Dec 2015 16:57:46 +0000
+Subject: [PATCH 08/26] x86/time: Don't use EFI's GetTime call by default
+
+When EFI is used, don't use EFI's GetTime() to get the time, because it
+is broken on many platforms. From Linux commit 7efe665903d0 ("rtc:
+Disable EFI rtc for x86"):
+"Disable it explicitly for x86 so that we don't give users false
+hope that this driver will work - it won't, and your machine is likely
+to crash."
+
+Signed-off-by: Ross Lagerwall <ross.lagerwall@xxxxxxxxxx>
+---
+ xen/arch/x86/time.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/time.c b/xen/arch/x86/time.c
+index b01acd390dc1..b6938e743f3c 100644
+--- a/xen/arch/x86/time.c
++++ b/xen/arch/x86/time.c
+@@ -1180,20 +1180,25 @@ static void __get_cmos_time(struct rtc_time *rtc)
+         rtc->year += 100;
+ }
+ 
++/* EFI's GetTime() is frequently broken so don't use it by default. */
++#undef USE_EFI_GET_TIME
++
+ static unsigned long get_cmos_time(void)
+ {
+-    unsigned long res, flags;
++    unsigned long flags;
+     struct rtc_time rtc;
+     unsigned int seconds = 60;
+     static bool __read_mostly cmos_rtc_probe;
+     boolean_param("cmos-rtc-probe", cmos_rtc_probe);
+ 
++#ifdef USE_EFI_GET_TIME
+     if ( efi_enabled(EFI_RS) )
+     {
+-        res = efi_get_time();
++        unsigned long res = efi_get_time();
+         if ( res )
+             return res;
+     }
++#endif
+ 
+     if ( likely(!(acpi_gbl_FADT.boot_flags & ACPI_FADT_NO_CMOS_RTC)) )
+         cmos_rtc_probe = false;
+-- 
+2.37.3
+

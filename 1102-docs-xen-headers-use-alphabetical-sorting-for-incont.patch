@@ -1,0 +1,28 @@
+From 84042f512c73fd43d980c7bd2b10443115a51658 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.pierret@qubes-os.org>
+Date: Sat, 7 Nov 2020 18:21:07 +0100
+Subject: [PATCH 1102/1103] docs/xen-headers: use alphabetical sorting for
+ @incontents
+
+It makes the build reproducible with fileordering flags
+---
+ docs/xen-headers | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docs/xen-headers b/docs/xen-headers
+index 8c434d77e20e..98ffe814500b 100755
+--- a/docs/xen-headers
++++ b/docs/xen-headers
+@@ -331,7 +331,7 @@ sub output_index () {
+ <h2>Starting points</h2>
+ <ul>
+ END
+-    foreach my $ic (sort { $a->{Seq} <=> $b->{Seq} or $a->{Title} cmp $b->{Title} } @incontents) {
++    foreach my $ic (sort { $a->{Href} cmp $b->{Href} } @incontents) {
+         $o .= "<li><a href=\"$ic->{Href}\">$ic->{Title}</a></li>\n";
+     }
+     $o .= "</ul>\n";
+-- 
+2.37.3
+

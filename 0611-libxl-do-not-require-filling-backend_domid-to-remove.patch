@@ -1,0 +1,99 @@
+From f2c696a0d70e8fadd25a90bbd7e73af3fcd158ae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 8 Nov 2021 03:50:35 +0100
+Subject: [PATCH 11/26] libxl: do not require filling backend_domid to remove
+ device
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Existing device can be unambiguously identified by (domid, devtype,
+devid), do not require backend_domid (or _name) to be filled. This
+especially helps detaching a device - which with not filled (or invalid)
+backend_domid would seemingly succeed, while in fact the backend
+wouldn't be cleaned up.
+
+Try to fill the backend_domid only if not explicitly given (left as 0,
+as libxl_device_disk_init() does). This allows the function to still
+work outside the toolstack domain - specifically in the backend domain
+as part of the xendriverdomain service.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_device.c   | 32 ++++++++++++++++++++++++++++++-
+ tools/libs/light/libxl_internal.h |  1 +
+ 2 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/tools/libs/light/libxl_device.c b/tools/libs/light/libxl_device.c
+index fe559c04a218..90bf4bed3422 100644
+--- a/tools/libs/light/libxl_device.c
++++ b/tools/libs/light/libxl_device.c
+@@ -75,6 +75,25 @@ char *libxl__device_libxl_path(libxl__gc *gc, libxl__device *device)
+                      device->devid);
+ }
+ 
++const char *libxl__live_device_backend_path(libxl__gc *gc, libxl__device *device)
++{
++    const char *libxl_dom_path = libxl__device_libxl_path(gc, device);
++    const char *be_path;
++    int rc;
++
++    rc = libxl__xs_read_checked(gc, XBT_NULL,
++                                GCSPRINTF("%s/backend", libxl_dom_path),
++                                &be_path);
++    if (rc)
++        /* read failure */
++        return NULL;
++    if (be_path)
++        return be_path;
++
++    /* fallback to constructing the path */
++    return libxl__device_backend_path(gc, device);
++}
++
+ char *libxl__domain_device_libxl_path(libxl__gc *gc,  uint32_t domid, uint32_t devid,
+                                       libxl__device_kind device_kind)
+ {
+@@ -986,7 +1005,7 @@ void libxl__initiate_device_generic_remove(libxl__egc *egc,
+ {
+     STATE_AO_GC(aodev->ao);
+     xs_transaction_t t = 0;
+-    char *be_path = libxl__device_backend_path(gc, aodev->dev);
++    const char *be_path = libxl__live_device_backend_path(gc, aodev->dev);
+     char *state_path = GCSPRINTF("%s/state", be_path);
+     char *online_path = GCSPRINTF("%s/online", be_path);
+     const char *state;
+@@ -994,6 +1013,17 @@ void libxl__initiate_device_generic_remove(libxl__egc *egc,
+     uint32_t my_domid, domid = aodev->dev->domid;
+     int rc = 0;
+ 
++    if (!aodev->dev->backend_domid) {
++        /*
++         * Deduce backend_domid if not given explicitly (left as 0), but don't
++         * override explicit non-zero value, to work also in the backend domain
++         * (not a toolstack domain).
++         */
++        rc = libxl__backendpath_parse_domid(gc, be_path,
++                                            &aodev->dev->backend_domid);
++        if (rc) goto out;
++    }
++
+     libxl_dominfo_init(&info);
+ 
+     rc = libxl__get_domid(gc, &my_domid);
+diff --git a/tools/libs/light/libxl_internal.h b/tools/libs/light/libxl_internal.h
+index cb9e8b3b8b5a..a8297f23b08a 100644
+--- a/tools/libs/light/libxl_internal.h
++++ b/tools/libs/light/libxl_internal.h
+@@ -1526,6 +1526,7 @@ _hidden char *libxl__domain_device_backend_path(libxl__gc *gc, uint32_t backend_
+ _hidden char *libxl__device_libxl_path(libxl__gc *gc, libxl__device *device);
+ _hidden char *libxl__domain_device_libxl_path(libxl__gc *gc, uint32_t domid, uint32_t devid,
+                                               libxl__device_kind device_kind);
++_hidden const char *libxl__live_device_backend_path(libxl__gc *gc, libxl__device *device);
+ _hidden int libxl__parse_backend_path(libxl__gc *gc, const char *path,
+                                       libxl__device *dev);
+ _hidden int libxl__console_tty_path(libxl__gc *gc, uint32_t domid, int cons_num,
+-- 
+2.37.3
+

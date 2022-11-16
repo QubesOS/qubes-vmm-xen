@@ -1,0 +1,166 @@
+From 17cb4762597c08be62feb9dbcb5dcfbcba072ad2 Mon Sep 17 00:00:00 2001
+From: Ivan Kardykov <kardykov@tabit.pro>
+Date: Wed, 16 Nov 2022 02:40:06 +0100
+Subject: [PATCH 1202/1202] libxl: Add partially Intel GVT-g support (xengt
+ device)
+
+This requires to add minimal support Intel GVT-g mediated passtrough
+to Qubes OS. This patches based on Intel XenGT preview, XCP-NG
+Project.
+---
+ tools/libs/light/libxl_create.c  | 34 ++++++++++++++++++++++++++++++++
+ tools/libs/light/libxl_dm.c      |  3 +++
+ tools/libs/light/libxl_domain.c  | 26 ++++++++++++++++++++++++
+ tools/libs/light/libxl_types.idl |  5 +++++
+ 4 files changed, 68 insertions(+)
+
+diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
+index 72c45cd67f07..57398cefd5a6 100644
+--- a/tools/libs/light/libxl_create.c
++++ b/tools/libs/light/libxl_create.c
+@@ -26,6 +26,36 @@
+ 
+ #include <xen-xsm/flask/flask.h>
+ 
++/* The format of the string is:
++ * domid,aperture_size,gm_size,fence_size. This means we want the vgt
++ * driver to create a vgt instance for Domain domid with the required
++ * parameters. NOTE: aperture_size and gm_size are in MB.
++ */
++static void domcreate_vgt_instance(libxl__gc *gc, uint32_t domid,
++                              libxl_domain_build_info *b_info)
++{
++    const char *path = "/sys/kernel/vgt/control/create_vgt_instance";
++    FILE *vgt_file;
++    int low_gm = b_info->u.hvm.vgt_low_gm_sz ?: 64;
++    int high_gm = b_info->u.hvm.vgt_high_gm_sz ?: 448;
++    int fence = b_info->u.hvm.vgt_fence_sz ?: 4;
++
++    if ((vgt_file = fopen(path, "w")) == NULL) {
++        LOGD(ERROR, domid, "vGT: fopen failed\n");
++        return;
++    }
++
++    LOGD(INFO, domid, "vGT: fprintf %u,%u,%u,%u,-1,0\n",
++		    domid, low_gm, high_gm, fence);
++
++    if (fprintf(vgt_file, "%u,%u,%u,%u,-1,0\n",
++               domid, low_gm, high_gm, fence) < 0)
++        LOGD(ERROR, domid, "vGT: fprintf failed %d\n", errno);
++
++    fclose(vgt_file);
++    return;
++}
++
+ int libxl__domain_create_info_setdefault(libxl__gc *gc,
+                                          libxl_domain_create_info *c_info,
+                                          const libxl_physinfo *info)
+@@ -334,6 +364,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+                     return ERROR_INVAL;
+                 }
+                 break;
++            case LIBXL_VGA_INTERFACE_TYPE_XENGT:
+             case LIBXL_VGA_INTERFACE_TYPE_CIRRUS:
+             default:
+                 if (b_info->video_memkb == LIBXL_MEMKB_DEFAULT)
+@@ -1831,6 +1862,9 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
+         if ( ret )
+             goto error_out;
+ 
++	if (d_config->b_info.u.hvm.vga.kind == LIBXL_VGA_INTERFACE_TYPE_XENGT)
++            domcreate_vgt_instance(gc, domid, &d_config->b_info);
++
+         return;
+     }
+     case LIBXL_DOMAIN_TYPE_PV:
+diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
+index af0944a55762..e085e33c17d1 100644
+--- a/tools/libs/light/libxl_dm.c
++++ b/tools/libs/light/libxl_dm.c
+@@ -1446,6 +1446,9 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+                 GCSPRINTF("qxl-vga,vram_size_mb=%"PRIu64",ram_size_mb=%"PRIu64,
+                 (b_info->video_memkb/2/1024), (b_info->video_memkb/2/1024) ) );
+             break;
++        case LIBXL_VGA_INTERFACE_TYPE_XENGT:
++            flexarray_vappend(dm_args, "-vga", "xengt", NULL);
++	     break;
+         default:
+             LOGD(ERROR, guest_domid, "Invalid emulated video card specified");
+             return ERROR_INVAL;
+diff --git a/tools/libs/light/libxl_domain.c b/tools/libs/light/libxl_domain.c
+index 0d5d1ef6663c..36f653a5deae 100644
+--- a/tools/libs/light/libxl_domain.c
++++ b/tools/libs/light/libxl_domain.c
+@@ -1114,6 +1114,30 @@ static void domain_destroy_callback(libxl__egc *egc,
+ static void destroy_finish_check(libxl__egc *egc,
+                                  libxl__domain_destroy_state *dds);
+ 
++/* We don't care the return value:
++ * 1) the guest may not be a VGT guest;
++ * 2) normally when a VGT guest shutdown, the ioemu has already tried to
++ * destroy the vgt instance and we shouldn't come here by "xl dest dom_id".
++ * 3) we come here because the ioemu didn't destroy the vgt instance
++ * successfully(e.g., ioemu exits abnormally) or we want to kill the guest by
++ * force while it's running. In this case, we still try our best to destroy
++ * the vgt instance.
++ */
++static void destroy_vgt_instance(int domid)
++{
++    const char *path = "/sys/kernel/vgt/control/create_vgt_instance";
++    FILE *vgt_file;
++
++    if (domid <= 0)
++        return;
++
++    if ((vgt_file = fopen(path, "w")) == NULL)
++        return;
++
++    (void)fprintf(vgt_file, "%d\n", -domid);
++    (void)fclose(vgt_file);
++}
++
+ void libxl__domain_destroy(libxl__egc *egc, libxl__domain_destroy_state *dds)
+ {
+     STATE_AO_GC(dds->ao);
+@@ -1583,6 +1607,8 @@ static void devices_destroy_cb(libxl__egc *egc,
+     }
+     libxl__userdata_destroyall(gc, domid);
+ 
++    destroy_vgt_instance(domid);
++
+     libxl__unlock_file(lock);
+ 
+     /* Clean up qemu-save and qemu-resume files. They are
+diff --git a/tools/libs/light/libxl_types.idl b/tools/libs/light/libxl_types.idl
+index d79a6e29121b..e4ab86bb2cf0 100644
+--- a/tools/libs/light/libxl_types.idl
++++ b/tools/libs/light/libxl_types.idl
+@@ -38,6 +38,7 @@ libxl_ms_vm_genid = Builtin("ms_vm_genid", passby=PASS_BY_REFERENCE, check_defau
+ #
+ 
+ MemKB = UInt(64, init_val = "LIBXL_MEMKB_DEFAULT", json_gen_fn = "libxl__uint64_gen_json")
++VgtInt = UInt(32, init_val = "0UL")
+ 
+ #
+ # Constants / Enumerations
+@@ -232,6 +233,7 @@ libxl_vga_interface_type = Enumeration("vga_interface_type", [
+     (2, "STD"),
+     (3, "NONE"),
+     (4, "QXL"),
++    (5, "XENGT"),
+     ], init_val = "LIBXL_VGA_INTERFACE_TYPE_UNKNOWN")
+ 
+ libxl_vendor_device = Enumeration("vendor_device", [
+@@ -615,6 +617,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
+                                        ("hdtype",           libxl_hdtype),
+                                        ("nographic",        libxl_defbool),
+                                        ("vga",              libxl_vga_interface_info),
++                                       ("vgt_low_gm_sz",    VgtInt),
++                                       ("vgt_high_gm_sz",   VgtInt),
++                                       ("vgt_fence_sz",     VgtInt),
+                                        ("vnc",              libxl_vnc_info),
+                                        # keyboard layout, default is en-us keyboard
+                                        ("keymap",           string),
+-- 
+2.37.3
+

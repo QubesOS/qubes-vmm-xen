@@ -91,88 +91,69 @@ Provides: xen-gvt
 # 300+:  Backports
 # 500+:  Security fixes
 # 600+:  Upstreamable patches
-# 700+:  GCC7+ fixes
-# 800+:  vchan for stubdom
-# 900+:  Support for Linux based stubdom
 # 1000+: Qubes specific patches
 # 1100+: Others
 
 # EFI workarounds
-Patch201: patch-0001-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServices.patch
-Patch202: patch-0002-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
-Patch203: patch-0001-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
-
-# Backports (300+)
-
-# Security fixes (500+)
+Patch0201: 0201-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServ.patch
+Patch0202: 0202-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
+Patch0203: 0203-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Upstreamable patches
-Patch601: patch-xen-libxl-error-write-perm.patch
-#TODO: simplified script instead:
-# Patch604: patch-libxl-Revert-libxl-Remove-redundant-setting-of-phyical-dev.patch
-# Patch605: patch-libxl-allow-PHY-backend-for-files-allocate-loop-devi.patch
-# Patch606: patch-libxl-do-not-call-default-block-script.patch
-Patch607: patch-libxl-do-not-for-backend-on-PCI-remove-when-backend-.patch
-Patch614: patch-0001-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
-Patch621: patch-libxc-fix-xc_gntshr_munmap-semantic.patch
-Patch622: patch-xen-disable-efi-gettime.patch
-Patch627: patch-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
-Patch636: patch-autoconf-fix-handling-absolute-PYTHON-path.patch
-Patch638: patch-libxl-do-not-require-filling-backend_domid-to-remove.patch
-Patch639: patch-libxl-add-pcidevs-to-stubdomain-earlier.patch
-Patch640: patch-xen-efi-align.patch
-Patch641: patch-0001-vchan-socket-proxy-add-reconnect-marker-support.patch
-Patch642: patch-0002-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
-Patch644: patch-0001-libxl-Add-a-utility-function-for-domain-resume.patch
-Patch645: patch-0002-libxl-Add-utility-function-to-check-guest-status.patch
-Patch646: patch-0003-libxl-Properly-suspend-stubdomains.patch
-Patch647: patch-0004-libxl-Fix-race-condition-in-domain-suspension.patch
-Patch648: patch-0005-libxl-Add-additional-domain-suspend-resume-logs.patch
-Patch649: patch-pvcontrol-0001-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
-Patch650: patch-pvcontrol-0002-libxl-check-control-feature-before-issuing-pvcontrol.patch
-
-# GCC8 fixes
-Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
-
-# Support for Linux based stubdom
-Patch900: patch-disable-dom0-qemu.patch
-
-# MSI fixes
-Patch950: patch-stubdom-allow-msi-enable.patch
+Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
+Patch0605: 0605-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
+Patch0606: 0606-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
+Patch0607: 0607-libvchan-use-xengntshr_unshare-instead-of-munmap-dir.patch
+Patch0608: 0608-x86-time-Don-t-use-EFI-s-GetTime-call-by-default.patch
+Patch0609: 0609-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
+Patch0610: 0610-autoconf-fix-handling-absolute-PYTHON-path.patch
+Patch0611: 0611-libxl-do-not-require-filling-backend_domid-to-remove.patch
+Patch0612: 0612-libxl-add-pcidevs-to-stubdomain-earlier.patch
+Patch0613: 0613-Fix-buildid-alignment.patch
+Patch0614: 0614-vchan-socket-proxy-add-reconnect-marker-support.patch
+Patch0615: 0615-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
+Patch0616: 0616-libxl-Add-a-utility-function-for-domain-resume.patch
+Patch0617: 0617-libxl-Add-utility-function-to-check-guest-status.patch
+Patch0618: 0618-libxl-Properly-suspend-stubdomains.patch
+Patch0619: 0619-libxl-Fix-race-condition-in-domain-suspension.patch
+Patch0620: 0620-libxl-Add-additional-domain-suspend-resume-logs.patch
+Patch0621: 0621-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
+Patch0622: 0622-libxl-check-control-feature-before-issuing-pvcontrol.patch
+Patch0623: 0623-tools-kdd-mute-spurious-gcc-warning.patch
+Patch0624: 0624-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
+Patch0625: 0625-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
 
 # Qubes specific patches
-Patch1002: patch-xen-no-downloads.patch
-Patch1003: patch-xen-hotplug-external-store.patch
-Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
-Patch1007: patch-xen-disable-dom0-qemu.patch
-Patch1009: patch-xenconsoled-enable-logging.patch
-Patch1011: patch-xen-hotplug-qubesdb-update.patch
-Patch1013: patch-stubdom-linux-libxl-use-EHCI-for-providing-tablet-USB-device.patch
-Patch1014: patch-allow-kernelopts-stubdom.patch
-Patch1015: patch-libxl-readonly-disk-scsi.patch
-Patch1016: patch-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
-Patch1017: patch-libxl-disable-vkb-by-default.patch
-Patch1018: patch-Always-allocate-domid-sequentially-and-do-not-reuse-.patch
-
-Patch1020: patch-stubdom-linux-config-qubes-gui.patch
-Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
-Patch1022: patch-xen-acpi-slic-support.patch
-Patch1023: patch-0001-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
-Patch1024: patch-gnttab-disable-grant-tables-v2-by-default.patch
-Patch1025: patch-disable-tsx.patch
-
-Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
+Patch1000: 1000-Do-not-access-network-during-the-build.patch
+Patch1001: 1001-hotplug-store-block-params-for-cleanup.patch
+Patch1002: 1002-libxl-do-not-start-dom0-qemu-when-not-needed.patch
+Patch1003: 1003-libxl-do-not-start-qemu-in-dom0-if-possible.patch
+Patch1004: 1004-systemd-enable-xenconsoled-logging-by-default.patch
+Patch1005: 1005-hotplug-trigger-udev-event-on-block-attach-detach.patch
+Patch1006: 1006-libxl-use-EHCI-for-providing-tablet-USB-device.patch
+Patch1007: 1007-libxl-allow-kernel-cmdline-without-kernel-if-stubdom.patch
+Patch1008: 1008-libxl-Force-emulating-readonly-disks-as-SCSI.patch
+Patch1009: 1009-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
+Patch1010: 1010-libxl-disable-vkb-by-default.patch
+Patch1011: 1011-Always-allocate-domid-sequentially-and-do-not-reuse-.patch
+Patch1012: 1012-libxl-add-qubes-gui-graphics.patch
+Patch1013: 1013-libxl-do-not-force-qdisk-backend-for-cdrom.patch
+Patch1014: 1014-Additional-support-in-ACPI-builder-to-support-SLIC-a.patch
+Patch1015: 1015-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
+Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
+Patch1017: 1017-Disable-TSX-by-default.patch
+Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
 
 # Reproducible builds
-Patch1052: patch-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
-Patch1053: patch-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
-Patch1054: patch-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
-Patch1055: patch-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
+Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
+Patch1101: 1101-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
+Patch1102: 1102-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
+Patch1103: 1103-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 
 # GVT-g
-Patch1200: patch-gvt-hypercall-XENMEM_get_mfn_from_pfn.patch
-Patch1201: patch-gvt-hvmloader.patch
-Patch1202: patch-gvt-libxl-init.patch
+Patch1200: 1200-hypercall-XENMEM_get_mfn_from_pfn.patch
+Patch1201: 1201-patch-gvt-hvmloader.patch.patch
+Patch1202: 1202-libxl-Add-partially-Intel-GVT-g-support-xengt-device.patch
 
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel

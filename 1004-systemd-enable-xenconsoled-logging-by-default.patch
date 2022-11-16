@@ -1,0 +1,32 @@
+From 11f4fd8d796a1803c8d15fc2c8b7c060e8edb38f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 19 Oct 2015 03:25:16 +0200
+Subject: [PATCH 1004/1018] systemd: enable xenconsoled logging by default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/hotplug/Linux/systemd/xenconsoled.service.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/hotplug/Linux/systemd/xenconsoled.service.in b/tools/hotplug/Linux/systemd/xenconsoled.service.in
+index 1f03de9041ed..31f9a10cc8ab 100644
+--- a/tools/hotplug/Linux/systemd/xenconsoled.service.in
++++ b/tools/hotplug/Linux/systemd/xenconsoled.service.in
+@@ -6,8 +6,8 @@ ConditionPathExists=/proc/xen/capabilities
+ 
+ [Service]
+ Type=simple
+-Environment=XENCONSOLED_ARGS=
+-Environment=XENCONSOLED_TRACE=none
++Environment=XENCONSOLED_ARGS="--replace-escape --timestamp=all"
++Environment=XENCONSOLED_TRACE=all
+ Environment=XENCONSOLED_LOG_DIR=@XEN_LOG_DIR@/console
+ EnvironmentFile=-@CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons
+ ExecStartPre=/bin/grep -q control_d /proc/xen/capabilities
+-- 
+2.37.3
+

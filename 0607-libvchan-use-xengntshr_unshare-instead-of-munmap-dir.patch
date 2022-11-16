@@ -1,0 +1,32 @@
+From ff801e2db2cf73bbb4f4ee6eafeb4c5b5686ae96 Mon Sep 17 00:00:00 2001
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Date: Fri, 26 Apr 2013 14:40:05 +0200
+Subject: [PATCH 07/26] libvchan: use xengntshr_unshare instead of munmap
+ directly
+
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+---
+ tools/libs/vchan/io.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libs/vchan/io.c b/tools/libs/vchan/io.c
+index 1f201ad554f2..9339e97c79d0 100644
+--- a/tools/libs/vchan/io.c
++++ b/tools/libs/vchan/io.c
+@@ -362,9 +362,11 @@ void libxenvchan_close(struct libxenvchan *ctrl)
+ 	if (!ctrl)
+ 		return;
+ 	if (ctrl->read.order >= PAGE_SHIFT)
+-		munmap(ctrl->read.buffer, 1 << ctrl->read.order);
++		xengntshr_unshare(ctrl->gntshr, ctrl->read.buffer,
++				1 << (ctrl->read.order - PAGE_SHIFT));
+ 	if (ctrl->write.order >= PAGE_SHIFT)
+-		munmap(ctrl->write.buffer, 1 << ctrl->write.order);
++		xengntshr_unshare(ctrl->gntshr, ctrl->write.buffer,
++				1 << (ctrl->write.order - PAGE_SHIFT));
+ 	if (ctrl->ring) {
+ 		if (ctrl->is_server) {
+ 			ctrl->ring->srv_live = 0;
+-- 
+2.37.3
+

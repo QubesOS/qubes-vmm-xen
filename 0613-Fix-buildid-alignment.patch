@@ -1,0 +1,32 @@
+From a89b0e338dda631ac254b380c27e1d6acf614418 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 16 Nov 2022 01:24:37 +0100
+Subject: [PATCH 13/26] Fix buildid alignment
+
+Fixes `objcopy: xen.efi: Data Directory size (1c) exceeds space left in
+section (8)`.
+
+Details at:
+https://lore.kernel.org/all/3TMd7J2u5gCA8ouIG_Xfcw7s5JKMG06XsDIesEB3Fi9htUJ43Lfl057wXohlpCHcszqoCmicpIlneEDO26ZqT8QfC2Y39VxBuqD3nS1j5Q4=@trmm.net/
+
+Reported by @jevank
+---
+ xen/arch/x86/xen.lds.S | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xen/arch/x86/xen.lds.S b/xen/arch/x86/xen.lds.S
+index 8930e14fc40e..acfdf61ba307 100644
+--- a/xen/arch/x86/xen.lds.S
++++ b/xen/arch/x86/xen.lds.S
+@@ -184,6 +184,7 @@ SECTIONS
+        __note_gnu_build_id_end = .;
+   } PHDR(note) PHDR(text)
+ #elif defined(BUILD_ID_EFI)
++  . = ALIGN(32);
+   DECL_SECTION(.buildid) {
+        __note_gnu_build_id_start = .;
+        *(.buildid)
+-- 
+2.37.3
+

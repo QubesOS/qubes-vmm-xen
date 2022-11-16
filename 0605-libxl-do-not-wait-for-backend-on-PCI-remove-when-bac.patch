@@ -1,0 +1,59 @@
+From 6f2e64671cd1dc2c82bcd8574b449ed2798b0401 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 5 Mar 2014 02:18:52 +0100
+Subject: [PATCH 05/26] libxl: do not wait for backend on PCI remove when
+ backend already closed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Especially this is the case during domain destroy - backend and frontend
+are already closed so just remove the devices, without waiting for
+(timeout on) backend state.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_pci.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
+index f4c4f175454d..b863da2f0d60 100644
+--- a/tools/libs/light/libxl_pci.c
++++ b/tools/libs/light/libxl_pci.c
+@@ -226,7 +226,7 @@ out:
+ static int libxl__device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libxl_device_pci *pci)
+ {
+     libxl_ctx *ctx = libxl__gc_owner(gc);
+-    char *be_path, *num_devs_path, *num_devs, *xsdev, *tmp, *tmppath;
++    char *be_path, *num_devs_path, *num_devs, *xsdev, *tmp, *tmppath, *state_before;
+     int num, i, j;
+     xs_transaction_t t;
+ 
+@@ -237,12 +237,13 @@ static int libxl__device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libx
+     if (!num_devs)
+         return ERROR_INVAL;
+     num = atoi(num_devs);
++    state_before = libxl__xs_read(gc, XBT_NULL, libxl__sprintf(gc, "%s/state", be_path));
+ 
+     libxl_domain_type domtype = libxl__domain_type(gc, domid);
+     if (domtype == LIBXL_DOMAIN_TYPE_INVALID)
+         return ERROR_FAIL;
+ 
+-    if (domtype == LIBXL_DOMAIN_TYPE_PV) {
++    if (domtype == LIBXL_DOMAIN_TYPE_PV && state_before && atoi(state_before) != 6) {
+         if (libxl__wait_for_backend(gc, be_path, GCSPRINTF("%d", XenbusStateConnected)) < 0) {
+             LOGD(DEBUG, domid, "pci backend at %s is not ready", be_path);
+             return ERROR_FAIL;
+@@ -264,6 +265,8 @@ static int libxl__device_pci_remove_xenstore(libxl__gc *gc, uint32_t domid, libx
+     }
+ 
+ retry_transaction:
++    if (state_before && atoi(state_before) == XenbusStateClosed)
++        goto retry_transaction2;
+     t = xs_transaction_start(ctx->xsh);
+     xs_write(ctx->xsh, t, GCSPRINTF("%s/state-%d", be_path, i), GCSPRINTF("%d", XenbusStateClosing), 1);
+     xs_write(ctx->xsh, t, GCSPRINTF("%s/state", be_path), GCSPRINTF("%d", XenbusStateReconfiguring), 1);
+-- 
+2.37.3
+

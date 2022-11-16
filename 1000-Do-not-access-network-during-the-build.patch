@@ -1,0 +1,57 @@
+From c6e02913d26e1db97abbd8d9674efee1ee55f6d6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 16 Nov 2022 01:35:00 +0100
+Subject: [PATCH 1000/1018] Do not access network during the build
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If chosen configure options would require downloading anything, fail the
+build instead of downloading anything and using without integrity
+verification.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ config/StdGNU.mk |  2 +-
+ m4/fetcher.m4    | 13 +------------
+ 2 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/config/StdGNU.mk b/config/StdGNU.mk
+index aaa0d007f721..e9dd6e96556e 100644
+--- a/config/StdGNU.mk
++++ b/config/StdGNU.mk
+@@ -20,7 +20,7 @@ OBJDUMP    = $(CROSS_COMPILE)objdump
+ SIZEUTIL   = $(CROSS_COMPILE)size
+ 
+ # Allow git to be wrappered in the environment
+-GIT        ?= git
++GIT        ?= false
+ 
+ INSTALL      = install
+ INSTALL_DIR  = $(INSTALL) -d -m0755 -p
+diff --git a/m4/fetcher.m4 b/m4/fetcher.m4
+index c1a72c189c8f..e800e29366b9 100644
+--- a/m4/fetcher.m4
++++ b/m4/fetcher.m4
+@@ -1,16 +1,5 @@
+ AC_DEFUN([AX_CHECK_FETCHER], [
+-AC_PATH_PROG([WGET],[wget], [no])
+ AC_PATH_PROG([FALSE],[false], [/bin/false])
+-AS_IF([test x"$WGET" != x"no"], [
+-    FETCHER="$WGET -c -O"
+-], [
+-    AC_PATH_PROG([FTP],[ftp], [no])
+-    AS_IF([test x"$FTP" != x"no"], [
+-        FETCHER="$FTP -o"
+-    ], [
+-        FETCHER="$FALSE"
+-        AC_MSG_WARN([cannot find wget or ftp])
+-    ])
+-])
++FETCHER="false"
+ AC_SUBST(FETCHER)
+ ])
+-- 
+2.37.3
+

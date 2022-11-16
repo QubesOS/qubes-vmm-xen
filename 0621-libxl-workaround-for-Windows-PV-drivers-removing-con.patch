@@ -1,0 +1,74 @@
+From 9573fd4455bcfb04494068e32b95ae744961ebf2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 27 Oct 2022 21:16:18 +0200
+Subject: [PATCH 21/26] libxl: workaround for Windows PV drivers removing
+ control/shutdown node
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+win-pv-drivers 8.x remove control/shutdown node as an acknowledgement,
+instead of just clearing the content. This means the subsequent write
+will create it anew, with default permissions (dom0 write, guest read).
+Such permissions won't allow the guest to acknowledge subsequent
+requests.
+
+Workaround the issue by explicitly setting permissions after the write.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_domain.c | 28 ++++++++++++++++++++++++++--
+ 1 file changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libs/light/libxl_domain.c b/tools/libs/light/libxl_domain.c
+index f518daada6c9..6451b4a145ee 100644
+--- a/tools/libs/light/libxl_domain.c
++++ b/tools/libs/light/libxl_domain.c
+@@ -771,7 +771,12 @@ int libxl__domain_pvcontrol(libxl__egc *egc, libxl__xswait_state *pvcontrol,
+                             domid_t domid, const char *cmd)
+ {
+     STATE_AO_GC(pvcontrol->ao);
++    libxl_ctx *ctx = libxl__gc_owner(gc);
+     const char *shutdown_path;
++    xs_transaction_t t;
++    struct xs_permissions perms[] = {
++        { .id = domid, .perms = XS_PERM_NONE },
++    };
+     int rc;
+ 
+     rc = libxl__domain_pvcontrol_available(gc, domid);
+@@ -785,9 +790,28 @@ int libxl__domain_pvcontrol(libxl__egc *egc, libxl__xswait_state *pvcontrol,
+     if (!shutdown_path)
+         return ERROR_FAIL;
+ 
+-    rc = libxl__xs_printf(gc, XBT_NULL, shutdown_path, "%s", cmd);
+-    if (rc)
++ retry_transaction:
++    t = xs_transaction_start(ctx->xsh);
++    if (!t)
++        return ERROR_FAIL;
++
++    rc = libxl__xs_printf(gc, t, shutdown_path, "%s", cmd);
++    if (rc) {
++        xs_transaction_end(ctx->xsh, t, 1);
+         return rc;
++    }
++
++    if (!xs_set_permissions(ctx->xsh, t, shutdown_path, perms, ARRAY_SIZE(perms))) {
++        xs_transaction_end(ctx->xsh, t, 1);
++        return ERROR_FAIL;
++    }
++
++    if (!xs_transaction_end(ctx->xsh, t, 0)) {
++        if (errno == EAGAIN)
++            goto retry_transaction;
++        else
++            return ERROR_FAIL;
++    }
+ 
+     pvcontrol->path = shutdown_path;
+     pvcontrol->what = GCSPRINTF("guest acknowledgement of %s request", cmd);
+-- 
+2.37.3
+

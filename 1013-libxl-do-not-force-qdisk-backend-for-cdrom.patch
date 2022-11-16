@@ -1,0 +1,42 @@
+From 744ab8d355ed1fdc973212836b54b3a8a94ed3a9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 28 Aug 2017 02:14:25 +0200
+Subject: [PATCH 1013/1018] libxl: do not force qdisk backend for cdrom
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There is no qemu in dom0 in Qubes, every block device use vbd backend
+type and only then is appropriately handled by stubdomain.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_disk.c | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/tools/libs/light/libxl_disk.c b/tools/libs/light/libxl_disk.c
+index 36b89b63b61a..a6bae7c4fc55 100644
+--- a/tools/libs/light/libxl_disk.c
++++ b/tools/libs/light/libxl_disk.c
+@@ -190,17 +190,6 @@ static int libxl__device_disk_setdefault(libxl__gc *gc, uint32_t domid,
+         return ERROR_FAIL;
+     }
+ 
+-    /* Force Qdisk backend for CDROM devices of guests with a device model. */
+-    if (disk->is_cdrom != 0 &&
+-        libxl__domain_type(gc, domid) == LIBXL_DOMAIN_TYPE_HVM) {
+-        if (!(disk->backend == LIBXL_DISK_BACKEND_QDISK ||
+-              disk->backend == LIBXL_DISK_BACKEND_UNKNOWN)) {
+-            LOGD(ERROR, domid, "Backend for CD devices on HVM guests must be Qdisk");
+-            return ERROR_FAIL;
+-        }
+-        disk->backend = LIBXL_DISK_BACKEND_QDISK;
+-    }
+-
+     rc = libxl__device_disk_set_backend(gc, disk);
+     return rc;
+ }
+-- 
+2.37.3
+

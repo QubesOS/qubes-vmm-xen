@@ -1,0 +1,41 @@
+From 7febcbd1ad92f899f8b0d5a895db501f37a12382 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 16 Nov 2022 01:48:34 +0100
+Subject: [PATCH 1008/1018] libxl: Force emulating readonly disks as SCSI
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+IDE and AHCI emulation in qemu-xen does not support read-only disks.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_dm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
+index aba36518a9f4..07839e374bca 100644
+--- a/tools/libs/light/libxl_dm.c
++++ b/tools/libs/light/libxl_dm.c
+@@ -1364,7 +1364,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+             if (disks[i].is_cdrom) {
+                 continue;
+             }
+-            if (strncmp(disks[i].vdev, "sd", 2) == 0) {
++            if (strncmp(disks[i].vdev, "sd", 2) == 0 || !disks[i].readwrite) {
+                 flexarray_vappend(dm_args, "-device", "lsi53c895a", NULL);
+                 break;
+             }
+@@ -1953,7 +1953,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+                     colo_mode = LIBXL__COLO_NONE;
+                 }
+ 
+-                if (strncmp(disks[i].vdev, "sd", 2) == 0) {
++                if (strncmp(disks[i].vdev, "sd", 2) == 0 || !disks[i].readwrite) {
+                     const char *drive_id;
+                     if (colo_mode == LIBXL__COLO_SECONDARY) {
+                         drive = libxl__sprintf
+-- 
+2.37.3
+

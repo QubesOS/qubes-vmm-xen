@@ -1,0 +1,68 @@
+From 334130846ee62dcc4082edd580dfde2544d20321 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 16 Nov 2022 02:26:12 +0100
+Subject: [PATCH 1017/1018] Disable TSX by default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Intel is dropping TSX from several platforms instead of fixing
+speculative bugs in it. Lets proactively disable it even if wasn't
+dropped on a specific platform yet.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/tsx.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/xen/arch/x86/tsx.c b/xen/arch/x86/tsx.c
+index 41b6092cfe16..996c22b56be7 100644
+--- a/xen/arch/x86/tsx.c
++++ b/xen/arch/x86/tsx.c
+@@ -18,7 +18,7 @@
+  * This option only has any effect on systems presenting a mechanism of
+  * controlling TSX behaviour, and where TSX isn't force-disabled by firmware.
+  */
+-int8_t __read_mostly opt_tsx = -1;
++int8_t __read_mostly opt_tsx = -2;
+ int8_t __read_mostly cpu_has_tsx_ctrl = -1;
+ bool __read_mostly rtm_disabled;
+ 
+@@ -197,6 +197,13 @@ void tsx_init(void)
+         }
+     }
+ 
++    /*
++     * Check bottom bit only.  Higher bits are various sentinels.  Performed
++     * unconditionally so tsx=0 hides guest CPUID bits on HSX/BDX even without
++     * MSRs to enforce the restriction.
++     */
++    rtm_disabled = !(opt_tsx & 1);
++
+     /*
+      * Note: MSR_TSX_CTRL is enumerated on TSX-enabled MDS_NO and later parts.
+      * MSR_TSX_FORCE_ABORT is enumerated on TSX-enabled pre-MDS_NO Skylake
+@@ -222,9 +229,6 @@ void tsx_init(void)
+ 
+         rdmsr(MSR_TSX_CTRL, lo, hi);
+ 
+-        /* Check bottom bit only.  Higher bits are various sentinels. */
+-        rtm_disabled = !(opt_tsx & 1);
+-
+         lo &= ~(TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR);
+         if ( rtm_disabled )
+             lo |= TSX_CTRL_RTM_DISABLE | TSX_CTRL_CPUID_CLEAR;
+@@ -241,9 +245,6 @@ void tsx_init(void)
+ 
+         rdmsr(MSR_TSX_FORCE_ABORT, lo, hi);
+ 
+-        /* Check bottom bit only.  Higher bits are various sentinels. */
+-        rtm_disabled = !(opt_tsx & 1);
+-
+         lo &= ~(TSX_FORCE_ABORT_RTM | TSX_CPUID_CLEAR | TSX_ENABLE_RTM);
+ 
+         if ( cpu_has_rtm_always_abort )
+-- 
+2.37.3
+
