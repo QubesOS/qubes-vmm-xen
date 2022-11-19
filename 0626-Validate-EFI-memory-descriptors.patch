@@ -1,0 +1,138 @@
+From fac0c8e2e1328cf58f2ede6c69122bd7a96c40d3 Mon Sep 17 00:00:00 2001
+Message-Id: <fac0c8e2e1328cf58f2ede6c69122bd7a96c40d3.1671487722.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671487722.git.demi@invisiblethingslab.com>
+References: <cover.1671487722.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Fri, 18 Nov 2022 22:51:04 -0500
+Subject: [PATCH 1/2] Validate EFI memory descriptors
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+It turns out that these can be invalid in various ways.  Based on code
+Ard Biesheuvel contributed for Linux.
+
+This could cause problems on buggy firmware, but the original behavior
+(silently processing garbage descriptors) isn't great either.
+
+Co-developed-by: Ard Biesheuvel <ardb@kernel.org>
+Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ xen/arch/x86/efi/efi-boot.h |  4 +++-
+ xen/common/efi/boot.c       | 19 ++++++++++++++-----
+ xen/common/efi/efi.h        | 21 +++++++++++++++++++++
+ xen/common/efi/runtime.c    |  2 +-
+ 4 files changed, 39 insertions(+), 7 deletions(-)
+
+diff --git a/xen/arch/x86/efi/efi-boot.h b/xen/arch/x86/efi/efi-boot.h
+index 83b4e28cbcba7a134e569c5e6ef0ca95c311c01c..abfc7ab0f31511e2c1ee402a09ac533d260444b2 100644
+--- a/xen/arch/x86/efi/efi-boot.h
++++ b/xen/arch/x86/efi/efi-boot.h
+@@ -164,9 +164,11 @@ static void __init efi_arch_process_memory_map(EFI_SYSTEM_TABLE *SystemTable,
+     for ( e820_raw.nr_map = i = 0; i < map_size; i += desc_size )
+     {
+         EFI_MEMORY_DESCRIPTOR *desc = map + i;
+-        u64 len = desc->NumberOfPages << EFI_PAGE_SHIFT;
++        uint64_t len = efi_memory_descriptor_len(desc);
+         u32 type;
+ 
++        if ( len == 0 )
++            continue;
+         switch ( desc->Type )
+         {
+         case EfiBootServicesCode:
+diff --git a/xen/common/efi/boot.c b/xen/common/efi/boot.c
+index e1248d63e7f99d598a6b1df04e34ed34ed0b6910..32ae6b43bb53448421c908819cda552757157c1f 100644
+--- a/xen/common/efi/boot.c
++++ b/xen/common/efi/boot.c
+@@ -592,15 +592,14 @@ static UINTN __initdata esrt = EFI_INVALID_TABLE_ADDR;
+ 
+ static size_t __init get_esrt_size(const EFI_MEMORY_DESCRIPTOR *desc)
+ {
+-    size_t available_len, len;
++    UINT64 available_len, len = efi_memory_descriptor_len(desc);
+     const UINTN physical_start = desc->PhysicalStart;
+     const EFI_SYSTEM_RESOURCE_TABLE *esrt_ptr;
+ 
+-    len = desc->NumberOfPages << EFI_PAGE_SHIFT;
+     if ( esrt == EFI_INVALID_TABLE_ADDR )
+-        return 0;
++        return 0; /* invalid ESRT */
+     if ( physical_start > esrt || esrt - physical_start >= len )
+-        return 0;
++        return 0; /* ESRT not in this memory region */
+     /*
+      * The specification requires EfiBootServicesData, but also accept
+      * EfiRuntimeServicesData (for compatibility with buggy firmware)
+@@ -1688,7 +1687,7 @@ void __init efi_init_memory(void)
+     for ( i = 0; i < efi_memmap_size; i += efi_mdesc_size )
+     {
+         EFI_MEMORY_DESCRIPTOR *desc = efi_memmap + i;
+-        u64 len = desc->NumberOfPages << EFI_PAGE_SHIFT;
++        uint64_t len = efi_memory_descriptor_len(desc);
+         unsigned long smfn, emfn;
+         unsigned int prot = PAGE_HYPERVISOR_RWX;
+ 
+@@ -1707,6 +1706,16 @@ void __init efi_init_memory(void)
+                     ROUNDUP(desc->PhysicalStart + len, PAGE_SIZE));
+         }
+ 
++        if ( len == 0 )
++        {
++            printk(XENLOG_ERR "BAD EFI MEMORY DESCRIPTOR: "
++                   "PhysicalStart=%016" PRIx64 " NumberOfPages=%016" PRIx64
++                   " type=%" PRIu32 " attr=%016" PRIx64 "\n",
++                   desc->PhysicalStart, desc->NumberOfPages,
++                   desc->Type, desc->Attribute);
++            continue;
++        }
++
+         if ( !efi_enabled(EFI_RS) )
+             continue;
+ 
+diff --git a/xen/common/efi/efi.h b/xen/common/efi/efi.h
+index c9aa65d506b14de69c90b6538c934747fcf0fb80..9e5389b667e07455e3940802a32396abcadf97b8 100644
+--- a/xen/common/efi/efi.h
++++ b/xen/common/efi/efi.h
+@@ -51,3 +51,24 @@ void free_ebmalloc_unused_mem(void);
+ 
+ const void *pe_find_section(const void *image_base, const size_t image_size,
+                             const CHAR16 *section_name, UINTN *size_out);
++
++static inline UINT64
++efi_memory_descriptor_len(const EFI_MEMORY_DESCRIPTOR *desc)
++{
++    uint64_t remaining_space, limit = 1ULL << PADDR_BITS;
++
++    BUILD_BUG_ON(PADDR_BITS >= 64 || PADDR_BITS < 32);
++
++    if ( desc->PhysicalStart & (EFI_PAGE_SIZE - 1) )
++        return 0; /* misaligned start address */
++
++    if ( desc->PhysicalStart >= limit )
++        return 0; /* physical start out of range */
++
++    remaining_space = limit - desc->PhysicalStart;
++
++    if ( desc->NumberOfPages > (remaining_space >> EFI_PAGE_SHIFT) )
++        return 0; /* too many pages */
++
++    return desc->NumberOfPages << EFI_PAGE_SHIFT;
++}
+diff --git a/xen/common/efi/runtime.c b/xen/common/efi/runtime.c
+index 13b0975866e3a80c46a7e37788012a716a455b6a..6dd799f9662d0fd1d335b5b6c064ac889cf36847 100644
+--- a/xen/common/efi/runtime.c
++++ b/xen/common/efi/runtime.c
+@@ -270,7 +270,7 @@ int efi_get_info(uint32_t idx, union xenpf_efi_info *info)
+         for ( i = 0; i < efi_memmap_size; i += efi_mdesc_size )
+         {
+             EFI_MEMORY_DESCRIPTOR *desc = efi_memmap + i;
+-            u64 len = desc->NumberOfPages << EFI_PAGE_SHIFT;
++            uint64_t len = efi_memory_descriptor_len(desc);
+ 
+             if ( info->mem.addr >= desc->PhysicalStart &&
+                  info->mem.addr < desc->PhysicalStart + len )
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+

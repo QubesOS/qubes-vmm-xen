@@ -122,6 +122,7 @@ Patch0622: 0622-libxl-check-control-feature-before-issuing-pvcontrol.patch
 Patch0623: 0623-tools-kdd-mute-spurious-gcc-warning.patch
 Patch0624: 0624-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
 Patch0625: 0625-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
+Patch0626: 0626-Validate-EFI-memory-descriptors.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
