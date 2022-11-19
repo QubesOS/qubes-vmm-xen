@@ -205,6 +205,7 @@ Patch647: patch-0004-libxl-Fix-race-condition-in-domain-suspension.patch
 Patch648: patch-0005-libxl-Add-additional-domain-suspend-resume-logs.patch
 Patch649: patch-pvcontrol-0001-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
 Patch650: patch-pvcontrol-0002-libxl-check-control-feature-before-issuing-pvcontrol.patch
+Patch651: patch-0001-Validate-EFI-memory-descriptors.patch
 
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
