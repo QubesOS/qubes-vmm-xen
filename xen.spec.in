@@ -571,7 +571,7 @@ mkdir -p %{buildroot}%{_localstatedir}/log/xen/console
 ############ create symlink for x86_64 for compatibility with 4.4 ############
 
 %if "%{_libdir}" != "/usr/lib"
-ln -s %{_libexecdir}/%{name} %{buildroot}/%{_libdir}/%{name}
+ln -s ../../%{_libexecdir}/%{name} %{buildroot}/%{_libdir}/%{name}
 %endif
 
 # BEGIN QUBES SPECIFIC PART
@@ -756,7 +756,7 @@ fi
 %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/
 %config %attr(0700,root,root) %{_sysconfdir}/%{name}/scripts/*
 
-%{_sysconfdir}/bash_completion.d/xl.sh
+%{_sysconfdir}/bash_completion.d/xl
 
 %{_unitdir}/proc-xen.mount
 %{_unitdir}/var-lib-xenstored.mount
@@ -807,6 +807,7 @@ fi
 %{_mandir}/man7/xen-vtpm.7.gz
 %{_mandir}/man7/xen-vtpmmgr.7.gz
 %{_mandir}/man5/xl-network-configuration.5.gz
+%{_mandir}/man5/xl-pci-configuration.5.gz
 %{_mandir}/man7/xen-pv-channel.7.gz
 %{_mandir}/man7/xl-numa-placement.7.gz
 %{_mandir}/man7/xen-vbd-interface.7.gz
@@ -867,6 +868,10 @@ fi
 %{_sbindir}/xen-hvmcrash
 %{_sbindir}/xen-hvmctx
 %endif
+%{_sbindir}/xen-access
+%{_sbindir}/xen-mceinj
+%{_sbindir}/xen-memshare
+%{_sbindir}/xen-vmtrace
 %{_sbindir}/xenconsoled
 %{_sbindir}/xenlockprof
 %{_sbindir}/xenmon

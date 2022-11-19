@@ -1,6 +1,6 @@
 etc/xen/scripts
 etc/xen/xl*
-etc/bash_completion.d/xl.sh	usr/share/bash-completion/completions/
+etc/bash_completion.d/xl	usr/share/bash-completion/completions/
 
 etc/default/xendomains
 
