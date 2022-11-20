@@ -5,7 +5,8 @@
 
 # Maintainer: Olivier Medoc <o_medoc@yahoo.fr>
 pkgname=qubes-vm-xen
-pkgver=`cat version`
+_upstream_pkgver=`cat version`
+pkgver=${_upstream_pkgver/-/\~}
 pkgrel=`cat rel`
 epoch=
 pkgdesc="Xen is a virtual machine monitor"
@@ -25,7 +26,7 @@ options=()
 install=
 changelog=
 
-source=(xen-$pkgver.tar.gz series-vm.conf apply-patches)
+source=(xen-$_upstream_pkgver.tar.gz series-vm.conf apply-patches)
 
 noextract=()
 md5sums=() #generate with 'makepkg -g'
@@ -35,7 +36,7 @@ build() {
 
   export PYTHON=/usr/bin/python
 
-  cd xen-$pkgver
+  cd xen-$_upstream_pkgver
 
   for p in $srcdir/../patch-*; do ln -s $p; done
   
@@ -61,7 +62,7 @@ build() {
 
 package() {
 
-  cd xen-$pkgver
+  cd xen-$_upstream_pkgver
 
   export OCAML_TOOLS=n
   # Note: Archlinux removed use of directory such as /sbin /bin /usr/sbin (https://mailman.archlinux.org/pipermail/arch-dev-public/2012-March/022625.html)
