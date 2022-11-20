@@ -3,12 +3,6 @@ host:
     build:
     - xen.spec
 vm:
-  deb:
-    build:
-    - debian-vm/debian
-    source:
-      commands:
-      - '@PLUGINS_DIR@/source_deb/scripts/debian-quilt @SOURCE_DIR@/series-debian-vm.conf @BUILD_DIR@/debian/patches'
   archlinux:
     build:
     - archlinux

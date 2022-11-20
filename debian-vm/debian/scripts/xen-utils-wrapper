@@ -1,6 +1,0 @@
-#!/bin/sh -e
-
-COMMAND="$(basename $0)"
-DIR=$(/usr/lib/xen-common/bin/xen-dir)
-
-exec "$DIR/bin/$COMMAND" "$@"

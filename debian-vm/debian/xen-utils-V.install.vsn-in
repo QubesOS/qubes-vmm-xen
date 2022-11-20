@@ -1,6 +1,0 @@
-usr/lib/xen-@version@/bin
-usr/lib/xen-@version@/lib/python
-
-? flavour = amd64 | i386
-usr/lib/xen-@version@/boot
-?
