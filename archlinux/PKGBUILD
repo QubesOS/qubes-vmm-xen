@@ -38,7 +38,7 @@ build() {
 
   cd xen-$_upstream_pkgver
 
-  for p in $srcdir/../patch-*; do ln -s $p; done
+  for p in $srcdir/../*.patch; do ln -s $p; done
   
   $srcdir/apply-patches $srcdir/series-vm.conf .  
 

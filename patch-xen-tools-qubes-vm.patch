@@ -1,11 +1,21 @@
-Index: debian-vm/tools/Makefile
-===================================================================
---- debian-vm.orig/tools/Makefile
-+++ debian-vm/tools/Makefile
-@@ -7,43 +7,18 @@ include $(XEN_ROOT)/tools/Rules.mk
+From 3bd7f176951430351845a64752a0c5aafea53871 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 26 Nov 2022 05:55:50 +0100
+Subject: [PATCH] Do not build stuff irrelevant for VM
+
+---
+ tools/Makefile | 23 -----------------------
+ 1 file changed, 23 deletions(-)
+
+diff --git a/tools/Makefile b/tools/Makefile
+index 9e28027835..bf06a778bb 100644
+--- a/tools/Makefile
++++ b/tools/Makefile
+@@ -6,38 +6,15 @@ include $(XEN_ROOT)/tools/Rules.mk
+ 
  SUBDIRS-y :=
  SUBDIRS-y += libs
- SUBDIRS-y += libxc
 -SUBDIRS-y += flask
 -SUBDIRS-y += fuzz
  SUBDIRS-y += xenstore
@@ -17,10 +27,9 @@ Index: debian-vm/tools/Makefile
 -SUBDIRS-$(CONFIG_X86) += firmware
 -SUBDIRS-y += console
 -SUBDIRS-y += xenmon
--SUBDIRS-y += xenstat
--SUBDIRS-$(CONFIG_NetBSD) += xenbackendd
+-SUBDIRS-$(XENSTAT_XENTOP) += xentop
 -SUBDIRS-y += libfsimage
- SUBDIRS-$(CONFIG_Linux) += libvchan
+ SUBDIRS-$(CONFIG_Linux) += vchan
  
 -# do not recurse in to a dir we are about to delete
 -ifneq "$(MAKECMDGOALS)" "distclean"
@@ -29,20 +38,19 @@ Index: debian-vm/tools/Makefile
 -endif
 -
 -SUBDIRS-y += xenpmd
- SUBDIRS-y += libxl
  SUBDIRS-$(CONFIG_GOLANG) += golang
  SUBDIRS-y += xl
  SUBDIRS-y += helpers
 -SUBDIRS-$(CONFIG_X86) += xenpaging
--SUBDIRS-$(CONFIG_X86) += debugger/gdbsx
--SUBDIRS-$(CONFIG_X86) += debugger/kdd
+-SUBDIRS-$(CONFIG_X86) += debugger
 -SUBDIRS-$(CONFIG_TESTS) += tests
  
- # These don't cross-compile
- ifeq ($(XEN_COMPILE_ARCH),$(XEN_TARGET_ARCH))
  SUBDIRS-y += python
 -SUBDIRS-y += pygrub
 -SUBDIRS-$(OCAML_TOOLS) += ocaml
- endif
  
  ifeq ($(CONFIG_RUMP),y)
+ SUBDIRS-y := libs
+-- 
+2.37.3
+
