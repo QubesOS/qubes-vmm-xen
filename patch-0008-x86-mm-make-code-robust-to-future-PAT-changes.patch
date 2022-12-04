@@ -1,0 +1,112 @@
+From 4334c65a128a6591ce474495c8c8d80084cc76f8 Mon Sep 17 00:00:00 2001
+Message-Id: <4334c65a128a6591ce474495c8c8d80084cc76f8.1671771766.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671771766.git.demi@invisiblethingslab.com>
+References: <cover.1671771766.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Mon, 5 Dec 2022 18:19:05 -0500
+Subject: [PATCH 08/10] x86/mm: make code robust to future PAT changes
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+It may be desirable to change Xen's PAT for various reasons.  This
+requires changes to several _PAGE_* macros as well.  Add static
+assertions to check that XEN_MSR_PAT is consistent with the _PAGE_*
+macros, and that _PAGE_WB is 0 as required by Linux.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ xen/arch/x86/mm.c | 70 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 70 insertions(+)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index c74e979bccb868eca1bc2cc73d536f738b10fe61..e23d00e52366ed8fdef4415488fedd62cc4d1c3b 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -6399,6 +6399,11 @@ unsigned long get_upper_mfn_bound(void)
+     return min(max_mfn, 1UL << (paddr_bits - PAGE_SHIFT)) - 1;
+ }
+ 
++
++/*
++ * A bunch of static assertions to check that the XEN_MSR_PAT is valid
++ * and consistent with the _PAGE_* macros, and that _PAGE_WB is zero.
++ */
+ static void __init __maybe_unused build_assertions(void)
+ {
+     /*
+@@ -6408,6 +6413,71 @@ static void __init __maybe_unused build_assertions(void)
+      * using different PATs will not work.
+      */
+     BUILD_BUG_ON(XEN_MSR_PAT != 0x050100070406ULL);
++
++    /*
++     * _PAGE_WB must be zero for several reasons, not least because Linux
++     * PV guests assume it.
++     */
++    BUILD_BUG_ON(_PAGE_WB);
++
++#define PAT_ENTRY(v)                                                           \
++    (BUILD_BUG_ON_ZERO(((v) < 0) || ((v) > 7)) +                               \
++     (0xFF & (XEN_MSR_PAT >> (8 * (v)))))
++
++    /* Validate at compile-time that v is a valid value for a PAT entry */
++#define CHECK_PAT_ENTRY_VALUE(v)                                               \
++    BUILD_BUG_ON((v) < 0 || (v) > 7 ||                                         \
++                 (v) == X86_MT_RSVD_2 || (v) == X86_MT_RSVD_3)
++
++    /* Validate at compile-time that PAT entry v is valid */
++#define CHECK_PAT_ENTRY(v) CHECK_PAT_ENTRY_VALUE(PAT_ENTRY(v))
++
++    /*
++     * If one of these trips, the corresponding entry in XEN_MSR_PAT is invalid.
++     * This would cause Xen to crash (with #GP) at startup.
++     */
++    CHECK_PAT_ENTRY(0);
++    CHECK_PAT_ENTRY(1);
++    CHECK_PAT_ENTRY(2);
++    CHECK_PAT_ENTRY(3);
++    CHECK_PAT_ENTRY(4);
++    CHECK_PAT_ENTRY(5);
++    CHECK_PAT_ENTRY(6);
++    CHECK_PAT_ENTRY(7);
++
++#undef CHECK_PAT_ENTRY
++#undef CHECK_PAT_ENTRY_VALUE
++
++    /* Macro version of pte_flags_to_cacheattr(), for use in BUILD_BUG_ON()s */
++#define PTE_FLAGS_TO_CACHEATTR(pte_value)                                      \
++    ((((pte_value) & _PAGE_PAT) >> 5) |                                        \
++     (((pte_value) & (_PAGE_PCD | _PAGE_PWT)) >> 3))
++
++    /* Check that a PAT-related _PAGE_* macro is correct */
++#define CHECK_PAGE_VALUE(page_value) do {                                      \
++    /* Check that the _PAGE_* macros only use bits from PAGE_CACHE_ATTRS */    \
++    BUILD_BUG_ON(((_PAGE_ ## page_value) & PAGE_CACHE_ATTRS) !=                \
++                 (_PAGE_ ## page_value));                                      \
++    /* Check that the _PAGE_* are consistent with XEN_MSR_PAT */               \
++    BUILD_BUG_ON(PAT_ENTRY(PTE_FLAGS_TO_CACHEATTR(_PAGE_ ## page_value)) !=    \
++                 (X86_MT_ ## page_value));                                     \
++} while ( false )
++
++    /*
++     * If one of these trips, the corresponding _PAGE_* macro is inconsistent
++     * with XEN_MSR_PAT.  This would cause Xen to use incorrect cacheability
++     * flags, with results that are unknown and possibly harmful.
++     */
++    CHECK_PAGE_VALUE(WT);
++    CHECK_PAGE_VALUE(WB);
++    CHECK_PAGE_VALUE(WC);
++    CHECK_PAGE_VALUE(UC);
++    CHECK_PAGE_VALUE(UCM);
++    CHECK_PAGE_VALUE(WP);
++
++#undef CHECK_PAGE_VALUE
++#undef PAGE_FLAGS_TO_CACHEATTR
++#undef PAT_ENTRY
+ }
+ 
+ /*
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+

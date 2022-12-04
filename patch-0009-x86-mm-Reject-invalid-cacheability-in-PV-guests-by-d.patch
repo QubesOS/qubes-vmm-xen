@@ -1,0 +1,126 @@
+From ebfd9c5bc0e6ae65e85c2e7d0ac7c4a81d857f9b Mon Sep 17 00:00:00 2001
+Message-Id: <fb69bfeefc56fdda8d7b75ed7a7aa6d1e3621e01.1671771766.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671771766.git.demi@invisiblethingslab.com>
+References: <cover.1671771766.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Tue, 13 Dec 2022 09:18:29 -0500
+Subject: [PATCH 09/10] x86/mm: Reject invalid cacheability in PV guests by
+ default
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Setting cacheability flags that are not ones specified by Xen is a bug
+in the guest.  By default, return -EINVAL if a guests attempts to do
+this.  The invalid-cacheability= Xen command-line flag allows the
+administrator to allow such attempts or to produce
+
+Suggested-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ docs/misc/xen-command-line.pandoc | 11 ++++++
+ xen/arch/x86/mm.c                 | 59 ++++++++++++++++++++++++++++++-
+ 2 files changed, 69 insertions(+), 1 deletion(-)
+
+diff --git a/docs/misc/xen-command-line.pandoc b/docs/misc/xen-command-line.pandoc
+index 774376881de4694ce8059a060ea4103c2f4b031b..8d90f71dcb02ed689a0d1d927a7019ba07757162 100644
+--- a/docs/misc/xen-command-line.pandoc
++++ b/docs/misc/xen-command-line.pandoc
+@@ -1335,6 +1335,17 @@ detection of systems known to misbehave upon accesses to that port.
+ ### idle_latency_factor (x86)
+ > `= <integer>`
+ 
++### invalid-cacheability (x86)
++> `= allow | deny | trap`
++
++> Default: `deny` in release builds, otherwise `trap`
++
++Specify what happens when a PV guest tries to use one of the reserved entries in
++the PAT.  `deny` causes the attempt to be rejected with -EINVAL, `allow` allows
++the attempt, and `trap` causes a general protection fault to be raised.
++Currently, the reserved entries are marked as uncacheable in Xen's PAT, but this
++will change if new memory types are added, so guests must not rely on it.
++
+ ### ioapic_ack (x86)
+ > `= old | new`
+ 
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index e23d00e52366ed8fdef4415488fedd62cc4d1c3b..ea7310902a41c278fed332e5a5d5e3b55b043a1f 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -1298,6 +1298,36 @@ static int put_page_from_l4e(l4_pgentry_t l4e, mfn_t l4mfn, unsigned int flags)
+     return put_pt_page(l4e_get_page(l4e), mfn_to_page(l4mfn), flags);
+ }
+ 
++enum {
++    INVALID_CACHEABILITY_ALLOW,
++    INVALID_CACHEABILITY_DENY,
++    INVALID_CACHEABILITY_TRAP,
++};
++
++#ifdef NDEBUG
++#define INVALID_CACHEABILITY_DEFAULT INVALID_CACHEABILITY_DENY
++#else
++#define INVALID_CACHEABILITY_DEFAULT INVALID_CACHEABILITY_TRAP
++#endif
++
++static uint8_t invalid_cacheability = INVALID_CACHEABILITY_DEFAULT;
++
++static int __init set_invalid_cacheability(const char *str)
++{
++    if (strcmp("allow", str) == 0)
++        invalid_cacheability = INVALID_CACHEABILITY_ALLOW;
++    else if (strcmp("deny", str) == 0)
++        invalid_cacheability = INVALID_CACHEABILITY_DENY;
++    else if (strcmp("trap", str) == 0)
++        invalid_cacheability = INVALID_CACHEABILITY_TRAP;
++    else
++        return -EINVAL;
++
++    return 0;
++}
++
++custom_param("invalid-cacheability", set_invalid_cacheability);
++
+ static int promote_l1_table(struct page_info *page)
+ {
+     struct domain *d = page_get_owner(page);
+@@ -1317,7 +1347,34 @@ static int promote_l1_table(struct page_info *page)
+         }
+         else
+         {
+-            switch ( ret = get_page_from_l1e(pl1e[i], d, d) )
++            l1_pgentry_t l1e = pl1e[i];
++
++            if ( invalid_cacheability != INVALID_CACHEABILITY_ALLOW )
++            {
++                switch ( l1e.l1 & PAGE_CACHE_ATTRS )
++                {
++                case _PAGE_WB:
++                case _PAGE_UC:
++                case _PAGE_UCM:
++                case _PAGE_WC:
++                case _PAGE_WT:
++                case _PAGE_WP:
++                    break;
++                default:
++                    /*
++                     * If we get here, a PV guest tried to use one of the
++                     * reserved values in Xen's PAT.  This indicates a bug
++                     * in the guest.  If requested by the user, inject #GP
++                     * to cause the guest to log a stack trace.
++                     */
++                    if ( invalid_cacheability == INVALID_CACHEABILITY_TRAP )
++                        pv_inject_hw_exception(TRAP_gp_fault, 0);
++                    ret = -EINVAL;
++                    goto fail;
++                }
++            }
++
++            switch ( ret = get_page_from_l1e(l1e, d, d) )
+             {
+             default:
+                 goto fail;
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+

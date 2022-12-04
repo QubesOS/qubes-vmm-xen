@@ -1,0 +1,67 @@
+From c8fc4d843963e791753f8e2b4cdc6a17cc9ad197 Mon Sep 17 00:00:00 2001
+Message-Id: <c8fc4d843963e791753f8e2b4cdc6a17cc9ad197.1671771766.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671771766.git.demi@invisiblethingslab.com>
+References: <cover.1671771766.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Tue, 20 Dec 2022 16:51:55 +0100
+Subject: [PATCH 06/10] x86: Derive XEN_MSR_PAT from its individual entries
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+This avoids it being a magic constant that is difficult for humans to
+decode.  Use BUILD_BUG_ON to check that the old and new values are
+identical.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/mm.c               | 11 +++++++++++
+ xen/include/asm-x86/processor.h |  9 ++++++++-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index bd3026ec03c466d9965929f47cbcc810637842b9..c6a0efee9748637c764481f8e10327a1a8281e78 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -6397,6 +6397,17 @@ unsigned long get_upper_mfn_bound(void)
+     return min(max_mfn, 1UL << (paddr_bits - PAGE_SHIFT)) - 1;
+ }
+ 
++static void __init __maybe_unused build_assertions(void)
++{
++    /*
++     * If this trips, any guests that blindly rely on the public API in xen.h
++     * (instead of reading the PAT from Xen, as Linux 3.19+ does) will be
++     * broken.  Furthermore, live migration of PV guests between Xen versions
++     * using different PATs will not work.
++     */
++    BUILD_BUG_ON(XEN_MSR_PAT != 0x050100070406ULL);
++}
++
+ /*
+  * Local variables:
+  * mode: C
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index 3ff7cc5807e77d1d0b38a107a4b53e78d28a4fbf..d7f08a6b28ac709741090be1cd3f8d9ce1d9c054 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -96,7 +96,14 @@
+  * Host IA32_CR_PAT value to cover all memory types.  This is not the default
+  * MSR_PAT value, and is an ABI with PV guests.
+  */
+-#define XEN_MSR_PAT _AC(0x050100070406, ULL)
++#define XEN_MSR_PAT ((_AC(X86_MT_WB,  ULL) << 0x00) | \
++                     (_AC(X86_MT_WT,  ULL) << 0x08) | \
++                     (_AC(X86_MT_UCM, ULL) << 0x10) | \
++                     (_AC(X86_MT_UC,  ULL) << 0x18) | \
++                     (_AC(X86_MT_WC,  ULL) << 0x20) | \
++                     (_AC(X86_MT_WP,  ULL) << 0x28) | \
++                     (_AC(X86_MT_UC,  ULL) << 0x30) | \
++                     (_AC(X86_MT_UC,  ULL) << 0x38))
+ 
+ #ifndef __ASSEMBLY__
+ 
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+

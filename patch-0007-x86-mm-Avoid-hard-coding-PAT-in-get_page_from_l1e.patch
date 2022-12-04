@@ -1,0 +1,56 @@
+From 63644eaf256f544556fe32a0be49ecdb2c9550c9 Mon Sep 17 00:00:00 2001
+Message-Id: <63644eaf256f544556fe32a0be49ecdb2c9550c9.1671771766.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671771766.git.demi@invisiblethingslab.com>
+References: <cover.1671771766.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Mon, 5 Dec 2022 11:17:11 -0500
+Subject: [PATCH 07/10] x86/mm: Avoid hard-coding PAT in get_page_from_l1e()
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+get_page_from_l1e() relied on Xen's choice of PAT, which is brittle in
+the face of future PAT changes.  Instead, compute the actual cacheability
+used by the CPU and switch on that, as this will work no matter what PAT
+Xen uses.
+
+No functional change intended.  This code is itself questionable and may
+be removed in the future, but removing it would be an observable
+behavior change and so is out of scope for this patch series.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/mm.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index c6a0efee9748637c764481f8e10327a1a8281e78..c74e979bccb868eca1bc2cc73d536f738b10fe61 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -933,14 +933,16 @@ get_page_from_l1e(
+             flip = _PAGE_RW;
+         }
+ 
+-        switch ( l1f & PAGE_CACHE_ATTRS )
++        switch ( 0xFF & (XEN_MSR_PAT >> (8 * pte_flags_to_cacheattr(l1f))) )
+         {
+-        case 0: /* WB */
+-            flip |= _PAGE_PWT | _PAGE_PCD;
++        case X86_MT_UC:
++        case X86_MT_UCM:
++        case X86_MT_WC:
++            /* not cacheable, allow */
+             break;
+-        case _PAGE_PWT: /* WT */
+-        case _PAGE_PWT | _PAGE_PAT: /* WP */
+-            flip |= _PAGE_PCD | (l1f & _PAGE_PAT);
++        default:
++            /* potentially cacheable, force to UC */
++            flip |= ((l1f & PAGE_CACHE_ATTRS) ^ _PAGE_UC);
+             break;
+         }
+ 
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+
