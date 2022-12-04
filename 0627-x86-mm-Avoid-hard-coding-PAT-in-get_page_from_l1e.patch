@@ -1,0 +1,84 @@
+From 42da0d18476a3fbb01199f1d84ec0ebd845920ed Mon Sep 17 00:00:00 2001
+Message-Id: <42da0d18476a3fbb01199f1d84ec0ebd845920ed.1671692395.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671692395.git.demi@invisiblethingslab.com>
+References: <cover.1671692395.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Mon, 5 Dec 2022 11:17:11 -0500
+Subject: [PATCH v6 1/5] x86/mm: Avoid hard-coding PAT in get_page_from_l1e()
+To: xen-devel@lists.xenproject.org
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>,
+    Jan Beulich <jbeulich@suse.com>,
+    Andrew Cooper <andrew.cooper3@citrix.com>,
+    "Roger Pau Monné" <roger.pau@citrix.com>,
+    Wei Liu <wl@xen.org>,
+    Jun Nakajima <jun.nakajima@intel.com>,
+    Kevin Tian <kevin.tian@intel.com>,
+    George Dunlap <george.dunlap@citrix.com>,
+    Tim Deegan <tim@xen.org>
+
+get_page_from_l1e() relied on Xen's choice of PAT, which is brittle in
+the face of future PAT changes.  Instead, compute the actual cacheability
+used by the CPU and switch on that, as this will work no matter what PAT
+Xen uses.
+
+No functional change intended.  This code is itself questionable and may
+be removed in the future, but removing it would be an observable
+behavior change and so is out of scope for this patch series.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+Changes since v5:
+- Make comment in get_page_from_l1e() future-proof.
+- Explicitly state how known-uncacheable and potentially-cacheable types
+  are handled.
+
+Changes since v4:
+- Do not add new pte_flags_to_cacheability() helper, as this code may be
+  removed in the near future and so adding a new helper for it is a bad
+  idea.
+- Do not BUG() in the event of an unexpected cacheability.  This cannot
+  happen, but it is simpler to force such types to UC than to prove that
+  the BUG() is not reachable.
+
+Changes since v3:
+- Compute and use the actual cacheability as seen by the processor.
+
+Changes since v2:
+- Improve commit message.
+---
+ xen/arch/x86/mm.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 1bda1ba697b434b6c884f17e599aa9b6d3b3dd76..3558ca215b02a517d55d75329d645ae5905424e4 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -959,14 +959,16 @@ get_page_from_l1e(
+             flip = _PAGE_RW;
+         }
+ 
+-        switch ( l1f & PAGE_CACHE_ATTRS )
++        switch ( 0xFF & (XEN_MSR_PAT >> (8 * pte_flags_to_cacheattr(l1f))) )
+         {
+-        case 0: /* WB */
+-            flip |= _PAGE_PWT | _PAGE_PCD;
++        case X86_MT_UC:
++        case X86_MT_UCM:
++        case X86_MT_WC:
++            /* not cacheable, allow */
+             break;
+-        case _PAGE_PWT: /* WT */
+-        case _PAGE_PWT | _PAGE_PAT: /* WP */
+-            flip |= _PAGE_PCD | (l1f & _PAGE_PAT);
++        default:
++            /* potentially cacheable, force to UC */
++            flip |= ((l1f & PAGE_CACHE_ATTRS) ^ _PAGE_UC);
+             break;
+         }
+ 
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+

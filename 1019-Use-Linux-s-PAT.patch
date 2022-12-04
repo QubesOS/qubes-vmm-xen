@@ -1,0 +1,96 @@
+From f5c5982b365ae6a84a92a007964b90f0fd56a409 Mon Sep 17 00:00:00 2001
+Message-Id: <f5c5982b365ae6a84a92a007964b90f0fd56a409.1671692395.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671692395.git.demi@invisiblethingslab.com>
+References: <cover.1671692395.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Sun, 4 Dec 2022 07:57:44 -0500
+Subject: [PATCH v6 5/5] x86: Use Linux's PAT
+To: xen-devel@lists.xenproject.org
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>,
+    Jan Beulich <jbeulich@suse.com>,
+    Andrew Cooper <andrew.cooper3@citrix.com>,
+    "Roger Pau Monné" <roger.pau@citrix.com>,
+    Wei Liu <wl@xen.org>,
+    Jun Nakajima <jun.nakajima@intel.com>,
+    Kevin Tian <kevin.tian@intel.com>,
+    George Dunlap <george.dunlap@citrix.com>,
+    Tim Deegan <tim@xen.org>
+
+This is purely for testing, to see if it works around a bug in i915.  It
+is not intended to be merged.
+
+NOT-signed-off-by: DO NOT MERGE
+---
+ xen/arch/x86/include/asm/page.h      |  4 ++--
+ xen/arch/x86/include/asm/processor.h | 10 +++++-----
+ xen/arch/x86/mm.c                    |  8 --------
+ 3 files changed, 7 insertions(+), 15 deletions(-)
+
+diff --git a/xen/arch/x86/include/asm/page.h b/xen/arch/x86/include/asm/page.h
+index b585235d064a567082582c8e92a4e8283fd949ca..ab9b46f1d0901e50a83fd035ff28d1bda0b781a2 100644
+--- a/xen/arch/x86/include/asm/page.h
++++ b/xen/arch/x86/include/asm/page.h
+@@ -333,11 +333,11 @@ void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t);
+ 
+ /* Memory types, encoded under Xen's choice of MSR_PAT. */
+ #define _PAGE_WB         (                                0)
+-#define _PAGE_WT         (                        _PAGE_PWT)
++#define _PAGE_WC         (                        _PAGE_PWT)
+ #define _PAGE_UCM        (            _PAGE_PCD            )
+ #define _PAGE_UC         (            _PAGE_PCD | _PAGE_PWT)
+-#define _PAGE_WC         (_PAGE_PAT                        )
+ #define _PAGE_WP         (_PAGE_PAT |             _PAGE_PWT)
++#define _PAGE_WT         (_PAGE_PAT | _PAGE_PCD | _PAGE_PWT)
+ 
+ /*
+  * Debug option: Ensure that granted mappings are not implicitly unmapped.
+diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/processor.h
+index 60b902060914584957db8afa5c7c1e6abdad4d13..3993d5638626f0948bb7ac8192d2eda187eb1bdb 100644
+--- a/xen/arch/x86/include/asm/processor.h
++++ b/xen/arch/x86/include/asm/processor.h
+@@ -94,16 +94,16 @@
+ 
+ /*
+  * Host IA32_CR_PAT value to cover all memory types.  This is not the default
+- * MSR_PAT value, and is an ABI with PV guests.
++ * MSR_PAT value, and is needed by the Linux i915 driver.
+  */
+ #define XEN_MSR_PAT ((_AC(X86_MT_WB,  ULL) << 0x00) | \
+-                     (_AC(X86_MT_WT,  ULL) << 0x08) | \
++                     (_AC(X86_MT_WC,  ULL) << 0x08) | \
+                      (_AC(X86_MT_UCM, ULL) << 0x10) | \
+                      (_AC(X86_MT_UC,  ULL) << 0x18) | \
+-                     (_AC(X86_MT_WC,  ULL) << 0x20) | \
++                     (_AC(X86_MT_WB,  ULL) << 0x20) | \
+                      (_AC(X86_MT_WP,  ULL) << 0x28) | \
+-                     (_AC(X86_MT_UC,  ULL) << 0x30) | \
+-                     (_AC(X86_MT_UC,  ULL) << 0x38))
++                     (_AC(X86_MT_UCM, ULL) << 0x30) | \
++                     (_AC(X86_MT_WT,  ULL) << 0x38))
+ 
+ #ifndef __ASSEMBLY__
+ 
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index 4f63af1057b467dfd56724311063ef5f58309618..c56dce300c276b83e6270a28833518496baaeb91 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -6387,14 +6387,6 @@ unsigned long get_upper_mfn_bound(void)
+  */
+ static void __init __maybe_unused build_assertions(void)
+ {
+-    /*
+-     * If this trips, any guests that blindly rely on the public API in xen.h
+-     * (instead of reading the PAT from Xen, as Linux 3.19+ does) will be
+-     * broken.  Furthermore, live migration of PV guests between Xen versions
+-     * using different PATs will not work.
+-     */
+-    BUILD_BUG_ON(XEN_MSR_PAT != 0x050100070406ULL);
+-
+     /*
+      * _PAGE_WB must be zero for several reasons, not least because Linux
+      * assumes it.
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+
