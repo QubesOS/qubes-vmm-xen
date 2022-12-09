@@ -99,6 +99,9 @@ Patch0201: 0201-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServ.patch
 Patch0202: 0202-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch0203: 0203-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
+# Backports
+Patch0301: 0301-Relocate-the-ESRT-when-booting-via-multiboot2.patch
+
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
 Patch0605: 0605-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
