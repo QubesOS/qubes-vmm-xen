@@ -759,7 +759,6 @@ fi
 %{_sysconfdir}/bash_completion.d/xl
 
 %{_unitdir}/proc-xen.mount
-%{_unitdir}/var-lib-xenstored.mount
 %{_unitdir}/xenstored.service
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
@@ -839,8 +838,6 @@ fi
 %dir %{_localstatedir}/lib/%{name}
 %dir %{_localstatedir}/lib/%{name}/dump
 %dir %{_localstatedir}/lib/%{name}/images
-# Xenstore persistent state
-%dir %{_localstatedir}/lib/xenstored
 # Xenstore runtime state
 %ghost %{_localstatedir}/run/xenstored
 
