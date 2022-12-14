@@ -1,0 +1,50 @@
+From 1ca8af08dfa46a8b3c376e0bd1b74ccde579f48d Mon Sep 17 00:00:00 2001
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Thu, 15 Dec 2022 17:03:45 +0100
+Subject: [PATCH 3/9] p2m-pt: Avoid hard-coding Xen's PAT
+To: xen-devel@lists.xenproject.org
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>,
+    Jan Beulich <jbeulich@suse.com>,
+    Andrew Cooper <andrew.cooper3@citrix.com>,
+    "Roger Pau Monné" <roger.pau@citrix.com>,
+    Wei Liu <wl@xen.org>,
+    Jun Nakajima <jun.nakajima@intel.com>,
+    Kevin Tian <kevin.tian@intel.com>,
+    George Dunlap <george.dunlap@citrix.com>,
+    Tim Deegan <tim@xen.org>
+
+This makes the code much easier to understand.  No functional change
+intended.  As per Andrew Cooper, the existing logic is questionable, but
+this does not make it any worse.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/mm/p2m-pt.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/mm/p2m-pt.c b/xen/arch/x86/mm/p2m-pt.c
+index eaba2b0fb4e6830f52b7d112fba8175dfe6d2770..cd1af33b6772ab1016e8d4c3284a6bc5d282869d 100644
+--- a/xen/arch/x86/mm/p2m-pt.c
++++ b/xen/arch/x86/mm/p2m-pt.c
+@@ -99,13 +99,13 @@ static unsigned long p2m_type_to_flags(const struct p2m_domain *p2m,
+         return flags | P2M_BASE_FLAGS | _PAGE_RW | _PAGE_NX_BIT;
+     case p2m_mmio_direct:
+         if ( !rangeset_contains_singleton(mmio_ro_ranges, mfn_x(mfn)) )
+-            flags |= _PAGE_RW;
++            flags |= _PAGE_RW | _PAGE_UCM;
+         else
+         {
+-            flags |= _PAGE_PWT;
++            flags |= _PAGE_UC;
+             ASSERT(!level);
+         }
+-        return flags | P2M_BASE_FLAGS | _PAGE_PCD;
++        return flags | P2M_BASE_FLAGS;
+     }
+ }
+ 
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab

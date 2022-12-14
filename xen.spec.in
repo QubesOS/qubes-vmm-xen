@@ -99,6 +99,17 @@ Patch0201: 0201-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServ.patch
 Patch0202: 0202-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch0203: 0203-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
+# Backports
+Patch0301: 0301-x86-mm-shadow-avoid-assuming-a-specific-Xen-PAT.patch
+Patch0302: 0302-x86-mm-shadow-do-not-open-code-PAGE_CACHE_ATTRS.patch
+Patch0303: 0303-p2m-pt-Avoid-hard-coding-Xen-s-PAT.patch
+Patch0304: 0304-efi-Avoid-hard-coding-the-various-PAT-constants.patch
+Patch0305: 0305-x86-Add-memory-type-constants.patch
+Patch0306: 0306-x86-Replace-PAT_-with-X86_MT_.patch
+Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
+Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
+Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
+
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
 Patch0605: 0605-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
