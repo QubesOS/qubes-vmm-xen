@@ -100,6 +100,7 @@ Patch0202: 0202-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
 Patch0203: 0203-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 
 # Backports
+Patch0300: 0300-Relocate-the-ESRT-when-booting-via-multiboot2.patch
 Patch0301: 0301-x86-mm-shadow-avoid-assuming-a-specific-Xen-PAT.patch
 Patch0302: 0302-x86-mm-shadow-do-not-open-code-PAGE_CACHE_ATTRS.patch
 Patch0303: 0303-p2m-pt-Avoid-hard-coding-Xen-s-PAT.patch
@@ -133,6 +134,7 @@ Patch0622: 0622-libxl-check-control-feature-before-issuing-pvcontrol.patch
 Patch0623: 0623-tools-kdd-mute-spurious-gcc-warning.patch
 Patch0624: 0624-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
 Patch0625: 0625-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
+Patch0626: 0626-Validate-EFI-memory-descriptors.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
