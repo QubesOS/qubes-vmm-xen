@@ -110,6 +110,7 @@ Patch0306: 0306-x86-Replace-PAT_-with-X86_MT_.patch
 Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
+Patch0310: 0310-x86-time-prevent-overflow-with-high-frequency-TSCs.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
