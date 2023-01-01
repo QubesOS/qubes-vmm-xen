@@ -1,0 +1,125 @@
+From 8b93e50349a5bd978d962f942aebb81535404a39 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Sat, 31 Dec 2022 00:30:06 +0000
+Subject: [PATCH 1/2] x86/cpuid: Infrastructure for leaves 7:1{ecx,edx}
+
+We don't actually need ecx yet, but adding it in now will reduce the amount to
+which leaf 7 is out of order in a featureset.
+
+cpufeatureset.h remains in leaf architectrual order for the sanity of anyone
+trying to locate where to insert new rows.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ tools/misc/xen-cpuid.c                      | 10 ++++++++++
+ xen/arch/x86/cpu/common.c                   |  3 ++-
+ xen/include/public/arch-x86/cpufeatureset.h |  3 +++
+ xen/include/xen/lib/x86/cpuid.h             | 15 ++++++++++++++-
+ 4 files changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 7771da4953..913e0e5dc1 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -193,6 +193,14 @@ static const char *const str_7b1[32] =
+ {
+ };
+ 
++static const char *const str_7c1[32] =
++{
++};
++
++static const char *const str_7d1[32] =
++{
++};
++
+ static const char *const str_7d2[32] =
+ {
+     [ 0] = "intel-psfd",
+@@ -218,6 +226,8 @@ static const struct {
+     { "0x80000021.eax",  "e21a", str_e21a },
+     { "0x00000007:1.ebx", "7b1", str_7b1 },
+     { "0x00000007:2.edx", "7d2", str_7d2 },
++    { "0x00000007:1.ecx", "7c1", str_7c1 },
++    { "0x00000007:1.edx", "7d1", str_7d1 },
+ };
+ 
+ #define COL_ALIGN "18"
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index dd592a69c5..70e6dea04a 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -435,7 +435,8 @@ static void generic_identify(struct cpuinfo_x86 *c)
+ 			cpuid_count(7, 1,
+ 				    &c->x86_capability[FEATURESET_7a1],
+ 				    &c->x86_capability[FEATURESET_7b1],
+-				    &tmp, &tmp);
++				    &c->x86_capability[FEATURESET_7c1],
++				    &c->x86_capability[FEATURESET_7d1]);
+ 		if (max_subleaf >= 2)
+ 			cpuid_count(7, 2,
+ 				    &tmp, &tmp, &tmp,
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index e536ab42b3..dbfc40fed4 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -292,6 +292,9 @@ XEN_CPUFEATURE(LFENCE_DISPATCH,    11*32+ 2) /*A  LFENCE always serializing */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:1.ebx, word 12 */
+ 
++/* Intel-defined CPU features, CPUID level 0x00000007:1.ecx, word 14 */
++/* Intel-defined CPU features, CPUID level 0x00000007:1.edx, word 15 */
++
+ /* Intel-defined CPU features, CPUID level 0x00000007:2.edx, word 13 */
+ XEN_CPUFEATURE(INTEL_PSFD,         13*32+ 0) /*A  MSR_SPEC_CTRL.PSFD */
+ 
+diff --git a/xen/include/xen/lib/x86/cpuid.h b/xen/include/xen/lib/x86/cpuid.h
+index 50be07c0eb..f909d3e16e 100644
+--- a/xen/include/xen/lib/x86/cpuid.h
++++ b/xen/include/xen/lib/x86/cpuid.h
+@@ -18,6 +18,8 @@
+ #define FEATURESET_e21a  11 /* 0x80000021.eax      */
+ #define FEATURESET_7b1   12 /* 0x00000007:1.ebx    */
+ #define FEATURESET_7d2   13 /* 0x80000007:2.edx    */
++#define FEATURESET_7c1   14 /* 0x00000007:1.ecx    */
++#define FEATURESET_7d1   15 /* 0x00000007:1.edx    */
+ 
+ struct cpuid_leaf
+ {
+@@ -194,7 +196,14 @@ struct cpuid_policy
+                 uint32_t _7b1;
+                 struct { DECL_BITFIELD(7b1); };
+             };
+-            uint32_t /* c */:32, /* d */:32;
++            union {
++                uint32_t _7c1;
++                struct { DECL_BITFIELD(7c1); };
++            };
++            union {
++                uint32_t _7d1;
++                struct { DECL_BITFIELD(7d1); };
++            };
+ 
+             /* Subleaf 2. */
+             uint32_t /* a */:32, /* b */:32, /* c */:32;
+@@ -343,6 +352,8 @@ static inline void cpuid_policy_to_featureset(
+     fs[FEATURESET_e21a] = p->extd.e21a;
+     fs[FEATURESET_7b1] = p->feat._7b1;
+     fs[FEATURESET_7d2] = p->feat._7d2;
++    fs[FEATURESET_7c1] = p->feat._7c1;
++    fs[FEATURESET_7d1] = p->feat._7d1;
+ }
+ 
+ /* Fill in a CPUID policy from a featureset bitmap. */
+@@ -363,6 +374,8 @@ static inline void cpuid_featureset_to_policy(
+     p->extd.e21a  = fs[FEATURESET_e21a];
+     p->feat._7b1  = fs[FEATURESET_7b1];
+     p->feat._7d2  = fs[FEATURESET_7d2];
++    p->feat._7c1  = fs[FEATURESET_7c1];
++    p->feat._7d1  = fs[FEATURESET_7d1];
+ }
+ 
+ static inline uint64_t cpuid_policy_xcr0_max(const struct cpuid_policy *p)
+-- 
+2.38.1
+
