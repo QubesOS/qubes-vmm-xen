@@ -105,6 +105,8 @@ Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0310: 0310-x86-time-prevent-overflow-with-high-frequency-TSCs.patch
+Patch0311: 0311-x86-cpuid-Infrastructure-for-leaves-7-1-ecx-edx.patch
+Patch0312: 0312-x86-shskt-Disable-CET-SS-on-parts-succeptable-to-fra.patch
 
 # Security fixes
 Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
