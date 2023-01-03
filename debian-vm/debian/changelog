@@ -1,3 +1,14 @@
+xen (4.14.5-15) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * ci: add openqa repo build
+  * ci: drop R4.2 builds
+
+  [ Demi Marie Obenour ]
+  * Work around presumed Intel CPU or iGPU PAT errata
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 03 Jan 2023 07:20:51 +0100
+
 xen (4.14.5-14) wheezy; urgency=medium
 
   * Backport timers migration fix
