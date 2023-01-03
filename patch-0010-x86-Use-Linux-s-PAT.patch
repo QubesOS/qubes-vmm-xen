@@ -1,0 +1,88 @@
+From e8a9826dcd835fa6fd8f28f0f5f05c79f429d6fa Mon Sep 17 00:00:00 2001
+Message-Id: <c8f57deb2764de39e04d7f037eb1fdfae150bf03.1671771766.git.demi@invisiblethingslab.com>
+In-Reply-To: <cover.1671771766.git.demi@invisiblethingslab.com>
+References: <cover.1671771766.git.demi@invisiblethingslab.com>
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Sun, 4 Dec 2022 07:57:44 -0500
+Subject: [PATCH 10/10] x86: Use Linux's PAT
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+This works around a bug in Intel's i915 GPU driver.  i915 assumes that
+Linux's PAT is in use, and will cause severe glitching if it is not.
+Attempts to fix the problem in i915 have failed.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ xen/arch/x86/mm.c               |  8 --------
+ xen/include/asm-x86/page.h      |  4 ++--
+ xen/include/asm-x86/processor.h | 10 +++++-----
+ 3 files changed, 7 insertions(+), 15 deletions(-)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index ea7310902a41c278fed332e5a5d5e3b55b043a1f..5b89c5dd13dfb34293b10dceaacdcac79e4c2eba 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -6463,14 +6463,6 @@ unsigned long get_upper_mfn_bound(void)
+  */
+ static void __init __maybe_unused build_assertions(void)
+ {
+-    /*
+-     * If this trips, any guests that blindly rely on the public API in xen.h
+-     * (instead of reading the PAT from Xen, as Linux 3.19+ does) will be
+-     * broken.  Furthermore, live migration of PV guests between Xen versions
+-     * using different PATs will not work.
+-     */
+-    BUILD_BUG_ON(XEN_MSR_PAT != 0x050100070406ULL);
+-
+     /*
+      * _PAGE_WB must be zero for several reasons, not least because Linux
+      * PV guests assume it.
+diff --git a/xen/include/asm-x86/page.h b/xen/include/asm-x86/page.h
+index 52551535a99128bbce6441c44b01f304b3a94210..e3a8f3d62fa70d11115fb7b1671886a8c4d2db43 100644
+--- a/xen/include/asm-x86/page.h
++++ b/xen/include/asm-x86/page.h
+@@ -346,11 +346,11 @@ void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t);
+ 
+ /* Memory types, encoded under Xen's choice of MSR_PAT. */
+ #define _PAGE_WB         (                                0)
+-#define _PAGE_WT         (                        _PAGE_PWT)
++#define _PAGE_WC         (                        _PAGE_PWT)
+ #define _PAGE_UCM        (            _PAGE_PCD            )
+ #define _PAGE_UC         (            _PAGE_PCD | _PAGE_PWT)
+-#define _PAGE_WC         (_PAGE_PAT                        )
+ #define _PAGE_WP         (_PAGE_PAT |             _PAGE_PWT)
++#define _PAGE_WT         (_PAGE_PAT | _PAGE_PCD | _PAGE_PWT)
+ 
+ /*
+  * Debug option: Ensure that granted mappings are not implicitly unmapped.
+diff --git a/xen/include/asm-x86/processor.h b/xen/include/asm-x86/processor.h
+index d7f08a6b28ac709741090be1cd3f8d9ce1d9c054..2ad6379082e316d267a17bcd2910cada6cb03734 100644
+--- a/xen/include/asm-x86/processor.h
++++ b/xen/include/asm-x86/processor.h
+@@ -94,16 +94,16 @@
+ 
+ /*
+  * Host IA32_CR_PAT value to cover all memory types.  This is not the default
+- * MSR_PAT value, and is an ABI with PV guests.
++ * MSR_PAT value, and is needed by the Linux i915 driver.
+  */
+ #define XEN_MSR_PAT ((_AC(X86_MT_WB,  ULL) << 0x00) | \
+-                     (_AC(X86_MT_WT,  ULL) << 0x08) | \
++                     (_AC(X86_MT_WC,  ULL) << 0x08) | \
+                      (_AC(X86_MT_UCM, ULL) << 0x10) | \
+                      (_AC(X86_MT_UC,  ULL) << 0x18) | \
+-                     (_AC(X86_MT_WC,  ULL) << 0x20) | \
++                     (_AC(X86_MT_WB,  ULL) << 0x20) | \
+                      (_AC(X86_MT_WP,  ULL) << 0x28) | \
+-                     (_AC(X86_MT_UC,  ULL) << 0x30) | \
+-                     (_AC(X86_MT_UC,  ULL) << 0x38))
++                     (_AC(X86_MT_UCM, ULL) << 0x30) | \
++                     (_AC(X86_MT_WT,  ULL) << 0x38))
+ 
+ #ifndef __ASSEMBLY__
+ 
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+
