@@ -136,6 +136,8 @@ Patch0623: 0623-tools-kdd-mute-spurious-gcc-warning.patch
 Patch0624: 0624-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
 Patch0625: 0625-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
 Patch0626: 0626-Validate-EFI-memory-descriptors.patch
+Patch0627: 0627-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
+Patch0628: 0628-x86-mm-make-code-robust-to-future-PAT-changes.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
@@ -157,6 +159,7 @@ Patch1015: 1015-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
 Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
 Patch1017: 1017-Disable-TSX-by-default.patch
 Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
+Patch1019: 1019-Use-Linux-s-PAT.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
