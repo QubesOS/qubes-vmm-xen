@@ -52,13 +52,6 @@
 %define with_systemd_presets 0
 %endif
 
-%if 0%{?centos} >= 8
-%define with_systemd_presets 1
-%define build_docs 0
-%define build_hyp 0
-%define build_ovmf 0
-%endif
-
 # workaround for https://bugzilla.redhat.com/1671883 (dwz leaving temp files of
 # hardlinked sources)
 %define _unpackaged_files_terminate_build 0
