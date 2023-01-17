@@ -762,7 +762,8 @@ if [ $1 == 1 -a -f /sbin/grub2-mkconfig ]; then
   if [ -f /boot/grub2/grub.cfg ]; then
     /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
   fi
-  if [ -f /boot/efi/EFI/qubes/grub.cfg ]; then
+  if [ -f /boot/efi/EFI/qubes/grub.cfg ] && \
+        ! grep -q "configfile" /boot/efi/EFI/qubes/grub.cfg; then
     /sbin/grub2-mkconfig -o /boot/efi/EFI/qubes/grub.cfg
   fi
 fi
@@ -772,7 +773,8 @@ if [ -f /sbin/grub2-mkconfig ]; then
   if [ -f /boot/grub2/grub.cfg ]; then
     /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
   fi
-  if [ -f /boot/efi/EFI/qubes/grub.cfg ]; then
+  if [ -f /boot/efi/EFI/qubes/grub.cfg ] && \
+        ! grep -q "configfile" /boot/efi/EFI/qubes/grub.cfg; then
     /sbin/grub2-mkconfig -o /boot/efi/EFI/qubes/grub.cfg
   fi
 fi
