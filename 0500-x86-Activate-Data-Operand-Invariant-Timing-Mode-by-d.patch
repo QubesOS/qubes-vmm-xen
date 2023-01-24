@@ -1,0 +1,94 @@
+From 785ae49f9a2305766ff9198ac780e0ffbae99c1f Mon Sep 17 00:00:00 2001
+Message-Id: <785ae49f9a2305766ff9198ac780e0ffbae99c1f.1674598796.git.demi@invisiblethingslab.com>
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 11 Nov 2022 19:36:59 -0500
+Subject: [PATCH] x86: Activate Data Operand Invariant Timing Mode by default
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+
+Intel IceLake and later CPUs have microarchitectural behaviors which cause
+data-dependent timing behavior.  This is not an issue for 99% of software,
+but it is a problem for cryptography routines.  On these CPUs, a new
+architectural feature, DOITM, was retrofitted in microcode.
+
+For now, Xen can't enumerate DOITM to guest kernels; getting this working is
+still in progress.  The consequence is that guest kernels will incorrectly
+conclude that they are safe.
+
+To maintain the safety of current software, activate DOITM unilaterally.  This
+will be relaxed in the future when we can enumerate the feature properly to
+guests.
+
+[ Demi: add missing MSR values and drop a stopgap command-line option ]
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Co-authored-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ xen/arch/x86/cpu/common.c            | 27 +++++++++++++++++++++++++++
+ xen/arch/x86/include/asm/msr-index.h |  3 +++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 0412dbc915e51a518c4541e50c9690b6afcb79bb..9e35ff506646c474f78971f7abc911b3660f9066 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -209,6 +209,32 @@ void ctxt_switch_levelling(const struct vcpu *next)
+ 		alternative_vcall(ctxt_switch_masking, next);
+ }
+ 
++static void doitm_init(void)
++{
++    uint64_t val;
++
++    if ( !cpu_has_arch_caps )
++        return;
++
++    rdmsrl(MSR_ARCH_CAPABILITIES, val);
++    if ( !(val & ARCH_CAPS_DOITM) )
++        return;
++
++    /*
++     * We are currently unable to enumerate MSR_ARCH_CAPS to guest.  As a
++     * consequence, guest kernels will believe they're safe even when they are
++     * not.
++     *
++     * Until we can enumerate DOITM for guests, set it unilaterally.
++     * This prevents otherwise-correct crypto from becoming vulnerable to
++     * timing sidechannels.
++     */
++
++    rdmsrl(MSR_UARCH_MISC_CTRL, val);
++    val |= UARCH_CTRL_DOITM;
++    wrmsrl(MSR_UARCH_MISC_CTRL, val);
++}
++
+ bool_t opt_cpu_info;
+ boolean_param("cpuinfo", opt_cpu_info);
+ 
+@@ -532,6 +558,7 @@ void identify_cpu(struct cpuinfo_x86 *c)
+ 	/* Now the feature flags better reflect actual CPU features! */
+ 
+ 	xstate_init(c);
++	doitm_init();
+ 
+ #ifdef NOISY_CAPS
+ 	printk(KERN_DEBUG "CPU: After all inits, caps:");
+diff --git a/xen/arch/x86/include/asm/msr-index.h b/xen/arch/x86/include/asm/msr-index.h
+index 0a8852f3c2461145e2a7ac44bf680709a60c0bb4..6908e45e0b91df1c6e0e3a802622689a617b611c 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -104,6 +104,9 @@
+ #define  MCU_OPT_CTRL_RTM_LOCKED            (_AC(1, ULL) <<  2)
+ #define  MCU_OPT_CTRL_FB_CLEAR_DIS          (_AC(1, ULL) <<  3)
+ 
++#define MSR_UARCH_MISC_CTRL                 0x00001b01
++#define  UARCH_CTRL_DOITM                   (_AC(1, ULL) << 0)
++
+ #define MSR_RTIT_OUTPUT_BASE                0x00000560
+ #define MSR_RTIT_OUTPUT_MASK                0x00000561
+ #define MSR_RTIT_CTL                        0x00000570
+-- 
+Sincerely,
+Demi Marie Obenour (she/her/hers)
+Invisible Things Lab
+

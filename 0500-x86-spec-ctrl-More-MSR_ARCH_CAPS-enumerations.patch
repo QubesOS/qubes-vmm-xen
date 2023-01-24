@@ -1,0 +1,51 @@
+From 4ccfee0a08ed258a5f86e3fdef2c01472f40a614 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 10 Jun 2022 16:04:03 +0100
+Subject: [PATCH] x86/spec-ctrl: More MSR_ARCH_CAPS enumerations
+
+https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/best-practices/data-operand-independent-timing-isa-guidance.html
+https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/running-average-power-limit-energy-reporting.html
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/include/asm/msr-index.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/xen/arch/x86/include/asm/msr-index.h b/xen/arch/x86/include/asm/msr-index.h
+index ea47f68d0558..bcb424a32026 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -51,6 +51,9 @@
+ #define  PPIN_ENABLE                        (_AC(1, ULL) <<  1)
+ #define MSR_PPIN                            0x0000004f
+ 
++#define MSR_MISC_PACKAGE_CTRL               0x000000bc
++#define  PGK_CTRL_ENERGY_FILTER_EN          (_AC(1, ULL) <<  0)
++
+ #define MSR_CORE_CAPABILITIES               0x000000cf
+ #define  CORE_CAPS_SPLITLOCK_DETECT         (_AC(1, ULL) <<  5)
+ 
+@@ -71,6 +74,9 @@
+ #define  ARCH_CAPS_IF_PSCHANGE_MC_NO        (_AC(1, ULL) <<  6)
+ #define  ARCH_CAPS_TSX_CTRL                 (_AC(1, ULL) <<  7)
+ #define  ARCH_CAPS_TAA_NO                   (_AC(1, ULL) <<  8)
++#define  ARCH_CAPS_MISC_PACKAGE_CTRL        (_AC(1, ULL) << 10)
++#define  ARCH_CAPS_ENERGY_FILTERING         (_AC(1, ULL) << 11)
++#define  ARCH_CAPS_DOITM                    (_AC(1, ULL) << 12)
+ #define  ARCH_CAPS_SBDR_SSDP_NO             (_AC(1, ULL) << 13)
+ #define  ARCH_CAPS_FBSDP_NO                 (_AC(1, ULL) << 14)
+ #define  ARCH_CAPS_PSDP_NO                  (_AC(1, ULL) << 15)
+@@ -155,6 +161,9 @@
+ #define  PASID_PASID_MASK                   0x000fffff
+ #define  PASID_VALID                        (_AC(1, ULL) << 31)
+ 
++#define MSR_UARCH_MISC_CTRL                 0x00001b01
++#define  UARCH_CTRL_DOITM                   (_AC(1, ULL) <<  0)
++
+ #define MSR_F15H_CU_POWER                   0xc001007a
+ #define MSR_F15H_CU_MAX_POWER               0xc001007b
+ 
+-- 
+2.37.3
+
