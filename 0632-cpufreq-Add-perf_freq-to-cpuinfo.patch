@@ -1,0 +1,61 @@
+From fed49894b171851eefce5a91900217a57cac396e Mon Sep 17 00:00:00 2001
+From: Jason Andryuk <jandryuk@gmail.com>
+Date: Wed, 10 Aug 2022 15:29:33 -0400
+Subject: [PATCH 02/13] cpufreq: Add perf_freq to cpuinfo
+
+acpi-cpufreq scales the aperf/mperf measurements by max_freq, but HWP
+needs to scale by base frequency.  Settings max_freq to base_freq
+"works" but the code is not obvious, and returning values to userspace
+is tricky.  Add an additonal perf_freq member which is used for scaling
+aperf/mperf measurements.
+
+Signed-off-by: Jason Andryuk <jandryuk@gmail.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/acpi/cpufreq/cpufreq.c | 2 +-
+ xen/drivers/cpufreq/utility.c       | 1 +
+ xen/include/acpi/cpufreq/cpufreq.h  | 3 +++
+ 3 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/acpi/cpufreq/cpufreq.c b/xen/arch/x86/acpi/cpufreq/cpufreq.c
+index c27cbb2304f2..ded0150b3b00 100644
+--- a/xen/arch/x86/acpi/cpufreq/cpufreq.c
++++ b/xen/arch/x86/acpi/cpufreq/cpufreq.c
+@@ -317,7 +317,7 @@ unsigned int get_measured_perf(unsigned int cpu, unsigned int flag)
+     else
+         perf_percent = 0;
+ 
+-    return policy->cpuinfo.max_freq * perf_percent / 100;
++    return policy->cpuinfo.perf_freq * perf_percent / 100;
+ }
+ 
+ static unsigned int cf_check get_cur_freq_on_cpu(unsigned int cpu)
+diff --git a/xen/drivers/cpufreq/utility.c b/xen/drivers/cpufreq/utility.c
+index 9eb7ecedcd29..6831f62851cd 100644
+--- a/xen/drivers/cpufreq/utility.c
++++ b/xen/drivers/cpufreq/utility.c
+@@ -236,6 +236,7 @@ int cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy,
+ 
+     policy->min = policy->cpuinfo.min_freq = min_freq;
+     policy->max = policy->cpuinfo.max_freq = max_freq;
++    policy->cpuinfo.perf_freq = max_freq;
+     policy->cpuinfo.second_max_freq = second_max_freq;
+ 
+     if (policy->min == ~0)
+diff --git a/xen/include/acpi/cpufreq/cpufreq.h b/xen/include/acpi/cpufreq/cpufreq.h
+index 0da32ef51903..a06aa92f6209 100644
+--- a/xen/include/acpi/cpufreq/cpufreq.h
++++ b/xen/include/acpi/cpufreq/cpufreq.h
+@@ -37,6 +37,9 @@ extern struct acpi_cpufreq_data *cpufreq_drv_data[NR_CPUS];
+ struct cpufreq_cpuinfo {
+     unsigned int        max_freq;
+     unsigned int        second_max_freq;    /* P1 if Turbo Mode is on */
++    unsigned int        perf_freq; /* Scaling freq for aperf/mpref.
++                                      acpi-cpufreq uses max_freq, but HWP uses
++                                      base_freq.*/
+     unsigned int        min_freq;
+     unsigned int        transition_latency; /* in 10^(-9) s = nanoseconds */
+ };
+-- 
+2.37.3
+
