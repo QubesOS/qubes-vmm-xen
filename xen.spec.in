@@ -222,6 +222,21 @@ Patch650: patch-pvcontrol-0002-libxl-check-control-feature-before-issuing-pvcont
 # GCC8 fixes
 Patch714: patch-tools-kdd-mute-spurious-gcc-warning.patch
 
+# Intel HWP support
+Patch0731: 0631-cpufreq-Allow-restricting-to-internal-governors-only.patch
+Patch0732: 0632-cpufreq-Add-perf_freq-to-cpuinfo.patch
+Patch0733: 0633-cpufreq-Export-intel_feature_detect.patch
+Patch0734: 0634-cpufreq-Add-Hardware-P-State-HWP-driver.patch
+Patch0735: 0635-xenpm-Change-get-cpufreq-para-output-for-internal.patch
+Patch0736: 0636-cpufreq-Export-HWP-parameters-to-userspace.patch
+Patch0737: 0637-libxc-Include-hwp_para-in-definitions.patch
+Patch0738: 0638-xenpm-Print-HWP-parameters.patch
+Patch0739: 0639-xen-Add-SET_CPUFREQ_HWP-xen_sysctl_pm_op.patch
+Patch0740: 0640-libxc-Add-xc_set_cpufreq_hwp.patch
+Patch0741: 0641-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
+Patch0742: 0642-xenpm-Add-set-cpufreq-hwp-subcommand.patch
+Patch0743: 0643-cpufreq-enable-HWP-by-default.patch
+
 # Support for Linux based stubdom
 Patch900: patch-disable-dom0-qemu.patch
 
