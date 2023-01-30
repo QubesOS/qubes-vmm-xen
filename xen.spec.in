@@ -299,6 +299,7 @@ Requires: xen-hypervisor-abi = %{hv_abi}
 # rom file for qemu-xen-traditional
 Recommends: ipxe-roms-qemu
 %endif
+Requires: seabios-bin
 # END QUBES SPECIFIC PART
 
 %description runtime
