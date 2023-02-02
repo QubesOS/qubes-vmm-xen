@@ -1,0 +1,50 @@
+From 6a3be9a4d752ecc5af6fb61dbfc8f53a948c2556 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 2 Feb 2023 20:42:27 +0100
+Subject: [PATCH] xen: tell guests what speculative workarounds are not
+ necessary
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Expose arch caps to guests, so the guest kernel can do a better choice
+what workarounds are necessary on a given platform. This is
+fundamentally incompatible with migration, but since we don't do
+migration, we can recover some performance.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/msr.c                          | 2 +-
+ xen/include/public/arch-x86/cpufeatureset.h | 2+-
+ 2 file changed, 2 insertion(+), 2 deletion(-)
+
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index 7ddf0078c3a2..a1c5aeaa7415 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -157,7 +157,7 @@ int init_domain_msr_policy(struct domain *d)
+      * so dom0 can turn off workarounds as appropriate.  Temporary, until the
+      * domain policy logic gains a better understanding of MSRs.
+      */
+-    if ( is_hardware_domain(d) && cpu_has_arch_caps )
++    if ( d->arch.cpuid->feat.arch_caps )
+     {
+         uint64_t val;
+ 
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 3b85bcca1537..237bee4a5173 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -271,7 +271,7 @@ XEN_CPUFEATURE(AVX512_FP16,   9*32+23) /*   AVX512 FP16 instructions */
+ XEN_CPUFEATURE(IBRSB,         9*32+26) /*A  IBRS and IBPB support (used by Intel) */
+ XEN_CPUFEATURE(STIBP,         9*32+27) /*A  STIBP */
+ XEN_CPUFEATURE(L1D_FLUSH,     9*32+28) /*S  MSR_FLUSH_CMD and L1D flush. */
+-XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*a  IA32_ARCH_CAPABILITIES MSR */
++XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*A  IA32_ARCH_CAPABILITIES MSR */
+ XEN_CPUFEATURE(CORE_CAPS,     9*32+30) /*   IA32_CORE_CAPABILITIES MSR */
+ XEN_CPUFEATURE(SSBD,          9*32+31) /*A  MSR_SPEC_CTRL.SSBD available */
+ 
+-- 
+2.37.3
+

@@ -268,6 +268,8 @@ Patch1025: patch-disable-tsx.patch
 
 Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
 
+Patch1031: 1020-xen-tell-guests-what-speculative-workarounds-are-not.patch
+
 # Reproducible builds
 Patch1050: patch-0001-No-insert-of-the-build-timestamp-into-the-x86-xen-ef.patch
 Patch1051: patch-0002-common-remove-gzip-timestamp.patch
