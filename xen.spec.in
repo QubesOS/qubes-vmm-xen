@@ -175,6 +175,7 @@ Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
 Patch1017: 1017-Disable-TSX-by-default.patch
 Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
 Patch1019: 1019-Use-Linux-s-PAT.patch
+Patch1020: 1020-xen-tell-guests-what-speculative-workarounds-are-not.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
