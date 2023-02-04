@@ -1,3 +1,21 @@
+xen (4.14.5-16) unstable; urgency=medium
+
+  [ Marek Marczykowski-Górecki ]
+  * Remove unused patch-0002-Use-Linux-s-PAT.patch
+
+  [ Neowutran ]
+  * xen backport: prevent overflow with high frequency TSC
+
+  [ Demi Marie Obenour ]
+  * Activate Data Operand Independent Timing Mode by default
+
+  [ Marek Marczykowski-Górecki ]
+  * Backport workaround for broken CET-SS on some parts
+  * Include support for Intel HWP
+  * Recover some performance from unneeded speculative workarounds
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Sat, 04 Feb 2023 04:17:06 +0100
+
 xen (4.14.5-15) unstable; urgency=medium
 
   [ Marek Marczykowski-Górecki ]
