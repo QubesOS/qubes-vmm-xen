@@ -144,6 +144,8 @@ Patch277: patch-0007-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
 Patch278: patch-0008-x86-mm-make-code-robust-to-future-PAT-changes.patch
 Patch279: patch-0009-x86-mm-Reject-invalid-cacheability-in-PV-guests-by-d.patch
 Patch280: 0310-x86-time-prevent-overflow-with-high-frequency-TSCs.patch
+Patch281: patch-0001-x86-cpuid-Infrastructure-for-leaves-7-1-ecx-edx.patch
+Patch282: patch-0002-x86-shskt-Disable-CET-SS-on-parts-succeptable-to-fra.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
