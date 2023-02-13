@@ -1,0 +1,40 @@
+From aa8b1a2c36a3fa694341fa530ffb8586c7002a90 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 13 Feb 2023 15:12:55 +0100
+Subject: [PATCH] Drop ELF notes from non-EFI binary too
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The ELF is repacked from from 64bit to 32bit. With CET-related notes,
+which use 64bit fields, this results in 32bit binary with corrupted
+notes. Drop them all (except build-id and PVH note retained
+explicitly).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/xen.lds.S | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/xen/arch/x86/xen.lds.S b/xen/arch/x86/xen.lds.S
+index 8930e14fc40e..f0831bd677e7 100644
+--- a/xen/arch/x86/xen.lds.S
++++ b/xen/arch/x86/xen.lds.S
+@@ -192,13 +192,6 @@ SECTIONS
+ #endif
+ #endif
+ 
+-#ifndef EFI
+-  /* Retain these just for the purpose of possible analysis tools. */
+-  DECL_SECTION(.note) {
+-       *(.note.*)
+-  } PHDR(note) PHDR(text)
+-#endif
+-
+   _erodata = .;
+ 
+   . = ALIGN(SECTION_ALIGN);
+-- 
+2.37.3
+
