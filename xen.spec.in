@@ -139,6 +139,7 @@ Patch0626: 0626-Validate-EFI-memory-descriptors.patch
 Patch0627: 0627-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
 Patch0628: 0628-x86-mm-make-code-robust-to-future-PAT-changes.patch
 Patch0629: 0629-tools-python-change-s-size-type-for-Python-3.10.patch
+Patch0630: 0630-Drop-ELF-notes-from-non-EFI-binary-too.patch
 
 # Intel HWP support
 Patch0631: 0631-cpufreq-Allow-restricting-to-internal-governors-only.patch
