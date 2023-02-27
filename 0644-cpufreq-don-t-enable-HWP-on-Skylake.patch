@@ -1,0 +1,90 @@
+From 5a2b6ea71d04b9ca685c548418d3f7eb37bfb7b5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 27 Feb 2023 14:30:24 +0100
+Subject: [PATCH] cpufreq: don't enable HWP on Skylake
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+See https://github.com/QubesOS/qubes-issues/issues/4604#issuecomment-1417377172
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/acpi/cpufreq/hwp.c    | 17 +++++++++++++++++
+ xen/drivers/cpufreq/cpufreq.c      |  3 +++
+ xen/include/acpi/cpufreq/cpufreq.h |  1 +
+ 3 files changed, 21 insertions(+)
+
+diff --git a/xen/arch/x86/acpi/cpufreq/hwp.c b/xen/arch/x86/acpi/cpufreq/hwp.c
+index 8406893c0afa..aee694ea2c43 100644
+--- a/xen/arch/x86/acpi/cpufreq/hwp.c
++++ b/xen/arch/x86/acpi/cpufreq/hwp.c
+@@ -23,6 +23,8 @@ static bool feature_hwp_peci;
+ static bool feature_hdc;
+ 
+ __initdata bool opt_cpufreq_hwp = true;
++/* Should decide automatically (true), or use user choice (false) */
++__initdata bool opt_cpufreq_hwp_auto = true;
+ __initdata bool opt_cpufreq_hdc = true;
+ 
+ #define HWP_ENERGY_PERF_MAX_PERFORMANCE 0
+@@ -175,6 +177,21 @@ bool __init hwp_available(void)
+     hwp_verbose("HWP: HW_FEEDBACK %ssupported\n",
+                 (eax & CPUID6_EAX_HW_FEEDBACK) ? "" : "not ");
+ 
++    if (opt_cpufreq_hwp && opt_cpufreq_hwp_auto) {
++        /*
++         * Disable on Skylake as it's reported to cause issues without extra
++         * change on dom0 side.
++         */
++        switch (boot_cpu_data.x86_model) {
++            /* Skylake */
++            case 0x4E:
++            case 0x55:
++            case 0x5E:
++                opt_cpufreq_hwp = false;
++                break;
++        }
++    }
++
+     use_hwp = feature_hwp && opt_cpufreq_hwp;
+     cpufreq_governor_internal = use_hwp;
+ 
+diff --git a/xen/drivers/cpufreq/cpufreq.c b/xen/drivers/cpufreq/cpufreq.c
+index 634f0a8a499d..6fd14256bcc5 100644
+--- a/xen/drivers/cpufreq/cpufreq.c
++++ b/xen/drivers/cpufreq/cpufreq.c
+@@ -584,14 +584,17 @@ static int __init cpufreq_handle_common_option(const char *name, const char *val
+             int ret = parse_bool(val, NULL);
+             if (ret != -1) {
+                 opt_cpufreq_hwp = ret;
++                opt_cpufreq_hwp_auto = false;
+                 return 1;
+             }
+         } else {
+             opt_cpufreq_hwp = true;
++            opt_cpufreq_hwp_auto = false;
+             return 1;
+         }
+     } else if (!strcmp(name, "no-hwp")) {
+         opt_cpufreq_hwp = false;
++        opt_cpufreq_hwp_auto = false;
+         return 1;
+     }
+ 
+diff --git a/xen/include/acpi/cpufreq/cpufreq.h b/xen/include/acpi/cpufreq/cpufreq.h
+index b8831b2cd390..0f615fad51a9 100644
+--- a/xen/include/acpi/cpufreq/cpufreq.h
++++ b/xen/include/acpi/cpufreq/cpufreq.h
+@@ -246,6 +246,7 @@ void cpufreq_dbs_timer_resume(void);
+ void intel_feature_detect(struct cpufreq_policy *policy);
+ 
+ extern bool opt_cpufreq_hwp;
++extern bool opt_cpufreq_hwp_auto;
+ extern bool opt_cpufreq_hdc;
+ int get_hwp_para(const struct cpufreq_policy *policy,
+                  struct xen_hwp_para *hwp_para);
+-- 
+2.39.2
+
