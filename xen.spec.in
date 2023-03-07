@@ -236,8 +236,6 @@ Patch0739: 0639-xen-Add-SET_CPUFREQ_HWP-xen_sysctl_pm_op.patch
 Patch0740: 0640-libxc-Add-xc_set_cpufreq_hwp.patch
 Patch0741: 0641-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
 Patch0742: 0642-xenpm-Add-set-cpufreq-hwp-subcommand.patch
-Patch0743: 0643-cpufreq-enable-HWP-by-default.patch
-Patch0744: 0644-cpufreq-don-t-enable-HWP-on-Skylake.patch
 
 # Support for Linux based stubdom
 Patch900: patch-disable-dom0-qemu.patch
