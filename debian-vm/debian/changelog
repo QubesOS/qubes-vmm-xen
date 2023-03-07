@@ -1,3 +1,9 @@
+xen (4.14.5-19) unstable; urgency=medium
+
+  * Do not enable HWP by default
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 07 Mar 2023 18:07:25 +0100
+
 xen (4.14.5-18) unstable; urgency=medium
 
   * Do not enable HWP by default on Skylake
