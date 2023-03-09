@@ -1,0 +1,128 @@
+# Maintainer: Frédéric Pierret (fepitre) <frederic@invisiblethingslab.com>
+
+_upstream_pkgver=@VERSION@
+pkgname=qubes-vm-xen
+pkgbase="xen-$_upstream_pkgver"
+pkgver=${_upstream_pkgver/-/\~}
+pkgrel=@REL@
+pkgdesc="Xen is a virtual machine monitor"
+arch=("x86_64")
+url="http://qubes-os.org/"
+license=('GPL')
+depends=(bridge-utils python-lxml libutil-linux lzo libsystemd yajl)
+makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config openssl pixman)
+provides=('xen-qubes-vm-essentials')
+
+_patches=(
+  1000-Do-not-access-network-during-the-build.patch
+  1001-hotplug-store-block-params-for-cleanup.patch
+  1020-xen-tools-qubes-vm.patch
+  1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
+  1101-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
+  1102-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
+  1103-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
+)
+source=(xen-$_upstream_pkgver.tar.gz "${_patches[@]}")
+md5sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+
+prepare() {
+    cd "${pkgbase}"
+
+    for p in "${_patches[@]}"; do
+        patch -s -F0 -E -p1 --no-backup-if-mismatch -i "${srcdir}/$p"
+    done
+
+    # Fix Install Paths.
+    sed 's,/var/run,/run,g' -i tools/hotplug/Linux/locking.sh
+    sed 's,/var/run,/run,g' -i tools/misc/xenpvnetboot
+    sed 's,/var/run,/run,g' -i tools/xenmon/xenbaked.c
+    sed 's,/var/run,/run,g' -i tools/xenmon/xenmon.py
+    sed 's,/var/run,/run,g' -i tools/pygrub/src/pygrub
+}
+
+build() {
+    cd "${pkgbase}"
+    autoreconf --install
+    ./configure --prefix=/usr \
+                --sbindir=/usr/bin \
+                --libdir=/usr/lib \
+                --disable-ocaml \
+                --disable-pvshim \
+                --disable-blktap2
+
+    make XEN_VENDORVERSION="-$pkgrel" prefix=/usr dist-tools
+}
+
+package() {
+    set -x
+    cd "${pkgbase}"
+
+    # Note: Archlinux removed use of directory such as /sbin /bin /usr/sbin (https://mailman.archlinux.org/pipermail/arch-dev-public/2012-March/022625.html)
+    make XEN_VENDORVERSION="-$pkgrel" DESTDIR="$pkgdir" LIBDIR=/usr/lib/ SBINDIR=/usr/bin prefix=/usr install-tools
+
+    #
+    # Remove unwanted stuff
+    #
+
+    rm -rf "$pkgdir"/usr/lib/debug
+    rm -rf "$pkgdir"/usr/src/debug
+
+    # stubdom: newlib
+    rm -rf "$pkgdir"/usr/*-xen-elf
+
+    # hypervisor symlinks
+    rm -rf "$pkgdir"/boot/
+
+    # remove documentation
+    rm -rf "$pkgdir"/usr/share/doc
+    rm -rf "$pkgdir"/usr/share/man
+
+    # Pointless helper
+    rm -f "$pkgdir"/usr/bin/xen-python-path
+
+    # qemu stuff (unused or available from upstream)
+    rm -rf "$pkgdir"/usr/share/xen/man
+
+    # README's not intended for end users
+    rm -rf "$pkgdir"/etc/xen/README*
+
+    # standard gnu info files (removed by packaging post actions anyway)
+    rm -rf "$pkgdir"/usr/info
+
+    # adhere to Static Library Packaging Guidelines
+    rm -rf "$pkgdir"/usr/lib/*.a
+
+    # not used in Qubes VM
+    rm -f "$pkgdir"/usr/bin/xenstored
+    rm -f "$pkgdir"/usr/share/xen/create.dtd
+    rm -rf "$pkgdir"/etc/sysconfig
+    rm -rf "$pkgdir"/etc/rc.d/init.d
+
+    rm -r ""$pkgdir"/var/run"
+
+    # udev
+    rm -f "$pkgdir"/etc/udev/rules.d/xend.rules
+
+    # config file only used for hotplug, Fedora uses udev instead
+    rm -f "$pkgdir"/etc/sysconfig/xend
+
+    # Remove /var/lock (it is tmpfs in archlinux anyway)
+    rm -rf "$pkgdir"/var/lock
+
+    rm -rf "$pkgdir"/var/lib/xen
+    rm -rf "$pkgdir"/var/log
+
+
+    #
+    # Assemble license files
+    #
+
+    mkdir licensedir
+    # avoid licensedir to avoid recursion, also stubdom/ioemu and dist
+    # which are copies of files elsewhere
+    find . -path licensedir -prune -o -path stubdom/ioemu -prune -o \
+      -path dist -prune -o -name COPYING -o -name LICENSE | while read file; do
+        mkdir -p licensedir/$(dirname $file)
+        install -m 644 $file licensedir/$file
+    done
+}
