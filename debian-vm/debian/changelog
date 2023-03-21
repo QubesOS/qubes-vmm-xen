@@ -1,3 +1,9 @@
+xen (4.14.5-20) unstable; urgency=medium
+
+  * Apply XSA-428 and XSA-429 patches
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 21 Mar 2023 13:03:05 +0100
+
 xen (4.14.5-19) unstable; urgency=medium
 
   * Do not enable HWP by default
