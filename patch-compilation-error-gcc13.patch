@@ -1,0 +1,21 @@
+libxc: fix compilation error with gcc13
+
+xc_psr.c:161:5: error: conflicting types for 'xc_psr_cmt_get_data'
+due to enum/integer mismatch;
+
+Signed-off-by: Charles Arnold <carnold@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Anthony PERARD <anthony.perard@citrix.com>
+
+diff --git a/tools/libxc/include/xenctrl.h b/tools/libxc/include/xenctrl.h
+index 4c89b72..3e27202 100644
+--- a/tools/libxc/include/xenctrl.h
++++ b/tools/libxc/include/xenctrl.h
+@@ -2506,7 +2506,7 @@ int xc_psr_cmt_get_l3_event_mask(xc_interface *xch, uint32_t *event_mask);
+ int xc_psr_cmt_get_l3_cache_size(xc_interface *xch, uint32_t cpu,
+                                  uint32_t *l3_cache_size);
+ int xc_psr_cmt_get_data(xc_interface *xch, uint32_t rmid, uint32_t cpu,
+-                        uint32_t psr_cmt_type, uint64_t *monitor_data,
++                        xc_psr_cmt_type type, uint64_t *monitor_data,
+                         uint64_t *tsc);
+ int xc_psr_cmt_enabled(xc_interface *xch);
