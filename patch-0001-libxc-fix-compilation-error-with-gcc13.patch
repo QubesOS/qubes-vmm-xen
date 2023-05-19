@@ -1,0 +1,32 @@
+From edfc07cc7aa253412131c659984827da691684a5 Mon Sep 17 00:00:00 2001
+From: Charles Arnold <carnold@suse.com>
+Date: Wed, 6 Jul 2022 13:06:40 +0200
+Subject: [PATCH] libxc: fix compilation error with gcc13
+
+xc_psr.c:161:5: error: conflicting types for 'xc_psr_cmt_get_data'
+due to enum/integer mismatch;
+
+Signed-off-by: Charles Arnold <carnold@suse.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Anthony PERARD <anthony.perard@citrix.com>
+(cherry picked from commit 8eeae8c2b4efefda8e946461e86cf2ae9c18e5a9)
+---
+ tools/libxc/include/xenctrl.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/libxc/include/xenctrl.h b/tools/libxc/include/xenctrl.h
+index 4c89b7294c..3e27202149 100644
+--- a/tools/libxc/include/xenctrl.h
++++ b/tools/libxc/include/xenctrl.h
+@@ -2506,7 +2506,7 @@ int xc_psr_cmt_get_l3_event_mask(xc_interface *xch, uint32_t *event_mask);
+ int xc_psr_cmt_get_l3_cache_size(xc_interface *xch, uint32_t cpu,
+                                  uint32_t *l3_cache_size);
+ int xc_psr_cmt_get_data(xc_interface *xch, uint32_t rmid, uint32_t cpu,
+-                        uint32_t psr_cmt_type, uint64_t *monitor_data,
++                        xc_psr_cmt_type type, uint64_t *monitor_data,
+                         uint64_t *tsc);
+ int xc_psr_cmt_enabled(xc_interface *xch);
+ 
+-- 
+2.40.0
+
