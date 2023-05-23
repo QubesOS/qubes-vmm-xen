@@ -22,8 +22,8 @@ index e82ac9daa7ad..2221cdec681a 100644
 --- a/xen/arch/x86/efi/efi-boot.h
 +++ b/xen/arch/x86/efi/efi-boot.h
 @@ -816,7 +816,7 @@ void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
-     if ( gop )
-         efi_set_gop_mode(gop, gop_mode);
+ 
+     efi_relocate_esrt(SystemTable);
  
 -    efi_exit_boot(ImageHandle, SystemTable);
 +    efi_exit_boot(ImageHandle, SystemTable, true);
@@ -39,13 +39,13 @@ index db0340c8e262..d78a315e56e0 100644
  static void efi_variables(void);
  static void efi_set_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN gop_mode);
 -static void efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable);
-+static void efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool efit_boot_services);
++static void efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool exit_boot_services);
  
  static const EFI_BOOT_SERVICES *__initdata efi_bs;
  static UINT32 __initdata efi_bs_revision;
 @@ -1175,7 +1175,7 @@ static void __init efi_relocate_esrt(EFI_SYSTEM_TABLE *SystemTable)
-     efi_bs->FreePool(memory_map);
- }
+ #define INVALID_VIRTUAL_ADDRESS (0xBAAADUL << \
+                                  (EFI_PAGE_SHIFT + BITS_PER_LONG - 32))
  
 -static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 +static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable, bool exit_boot_services)

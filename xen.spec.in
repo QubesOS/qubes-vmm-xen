@@ -94,7 +94,6 @@ Patch0203: 0203-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 Patch0204: 0204-xen.efi.build.patch
 
 # Backports
-Patch0300: 0300-Relocate-the-ESRT-when-booting-via-multiboot2.patch
 Patch0301: 0301-x86-mm-shadow-avoid-assuming-a-specific-Xen-PAT.patch
 Patch0302: 0302-x86-mm-shadow-do-not-open-code-PAGE_CACHE_ATTRS.patch
 Patch0303: 0303-p2m-pt-Avoid-hard-coding-Xen-s-PAT.patch
@@ -104,13 +103,10 @@ Patch0306: 0306-x86-Replace-PAT_-with-X86_MT_.patch
 Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
-Patch0310: 0310-x86-time-prevent-overflow-with-high-frequency-TSCs.patch
-Patch0311: 0311-x86-cpuid-Infrastructure-for-leaves-7-1-ecx-edx.patch
-Patch0312: 0312-x86-shskt-Disable-CET-SS-on-parts-succeptable-to-fra.patch
-Patch0313: 0313-x86-spec-ctrl-Mitigate-Cross-Thread-Return-Address-P.patch
 
 # Security fixes
 Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
+Patch0501: 0501-xsa431.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
@@ -138,7 +134,6 @@ Patch0625: 0625-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
 Patch0626: 0626-Validate-EFI-memory-descriptors.patch
 Patch0627: 0627-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
 Patch0628: 0628-x86-mm-make-code-robust-to-future-PAT-changes.patch
-Patch0629: 0629-tools-python-change-s-size-type-for-Python-3.10.patch
 Patch0630: 0630-Drop-ELF-notes-from-non-EFI-binary-too.patch
 
 # Intel HWP support

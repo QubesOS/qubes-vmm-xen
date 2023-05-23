@@ -162,7 +162,7 @@ index 4d2aa6def86de45aeeaade7a1a7815c5ef2b3d7a..242623f3c239ee18a44f882ecb3910a0
                      /* fall through */
                  default:
 @@ -638,12 +638,12 @@ int hvm_set_mem_pinned_cacheattr(struct domain *d, uint64_t gfn_start,
-         rcu_read_unlock(&pinned_cacheattr_rcu_lock);
+         domain_unlock(d);
          return -ENOENT;
  
 -    case PAT_TYPE_UC_MINUS:
@@ -181,14 +181,14 @@ index 4d2aa6def86de45aeeaade7a1a7815c5ef2b3d7a..242623f3c239ee18a44f882ecb3910a0
  
      default:
 @@ -681,7 +681,7 @@ int hvm_set_mem_pinned_cacheattr(struct domain *d, uint64_t gfn_start,
+     xfree(newr);
  
-     list_add_rcu(&range->list, &d->arch.hvm.pinned_cacheattr_ranges);
      p2m_memory_type_changed(d);
 -    if ( type != PAT_TYPE_WRBACK )
 +    if ( type != X86_MT_WB )
          flush_all(FLUSH_CACHE);
  
-     return 0;
+     return rc;
 diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
 index 7c81b80710f99e08fe8291d3e413c449322b777d..b543c3983d77ae807e8bd97330691a79d8d39bae 100644
 --- a/xen/arch/x86/hvm/vmx/vmx.c
