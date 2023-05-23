@@ -14,6 +14,7 @@ makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config openssl pi
 provides=('xen-qubes-vm-essentials')
 
 _patches=(
+  0311-tools-libs-guest-assist-gcc13-s-realloc-analyzer.patch
   1000-Do-not-access-network-during-the-build.patch
   1001-hotplug-store-block-params-for-cleanup.patch
   1020-xen-tools-qubes-vm.patch
@@ -23,7 +24,7 @@ _patches=(
   1103-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 )
 source=(xen-$_upstream_pkgver.tar.gz "${_patches[@]}")
-md5sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+md5sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 prepare() {
     cd "${pkgbase}"

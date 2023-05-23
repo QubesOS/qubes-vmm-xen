@@ -1,0 +1,51 @@
+From a16fb78515d54be95f81c0d1c0a3a7b954a54d0a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 8 May 2023 14:15:38 +0200
+Subject: [PATCH] ns16550: enable memory decoding on MMIO-based PCI console
+ card
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+pci_serial_early_init() enables PCI_COMMAND_IO for IO-based UART
+devices, add setting PCI_COMMAND_MEMORY for MMIO-based UART devices too.
+Note the MMIO-based devices in practice need a "pci" sub-option,
+otherwise a few parameters are not initialized (including bar_idx,
+reg_shift, reg_width etc). The "pci" is not supposed to be used with
+explicit BDF, so do not key setting PCI_COMMAND_MEMORY on explicit BDF
+being set. Contrary to the IO-based UART, pci_serial_early_init() will
+not attempt to set BAR0 address, even if user provided io_base manually
+- in most cases, those are with an offest and the current cmdline syntax
+doesn't allow expressing it. Due to this, enable PCI_COMMAND_MEMORY only
+if uart->bar is already populated. In similar spirit, this patch does
+not support setting BAR0 of the bridge.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/drivers/char/ns16550.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/xen/drivers/char/ns16550.c b/xen/drivers/char/ns16550.c
+index 1b21eb93c45f..212a9c49ae8e 100644
+--- a/xen/drivers/char/ns16550.c
++++ b/xen/drivers/char/ns16550.c
+@@ -272,6 +272,14 @@ static int cf_check ns16550_getc(struct serial_port *port, char *pc)
+ static void pci_serial_early_init(struct ns16550 *uart)
+ {
+ #ifdef NS16550_PCI
++    if ( uart->bar && uart->io_base >= 0x10000 )
++    {
++        pci_conf_write16(PCI_SBDF(0, uart->ps_bdf[0], uart->ps_bdf[1],
++                                  uart->ps_bdf[2]),
++                         PCI_COMMAND, PCI_COMMAND_MEMORY);
++        return;
++    }
++
+     if ( !uart->ps_bdf_enable || uart->io_base >= 0x10000 )
+         return;
+ 
+-- 
+2.39.2
+

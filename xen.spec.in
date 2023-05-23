@@ -103,6 +103,8 @@ Patch0306: 0306-x86-Replace-PAT_-with-X86_MT_.patch
 Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
+Patch0310: 0310-ns16550-enable-memory-decoding-on-MMIO-based-PCI-con.patch
+Patch0311: 0311-tools-libs-guest-assist-gcc13-s-realloc-analyzer.patch
 
 # Security fixes
 Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
