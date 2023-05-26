@@ -394,17 +394,6 @@ This package contains libraries for developing ocaml tools to
 manage Xen virtual machines.
 %endif
 
-# BEGIN QUBES SPECIFIC PART
-%package qubes-vm
-Summary: Xen files required in Qubes VM
-Requires: xen-libs = %{epoch}:%{version}-%{release}
-Conflicts: xen
-Provides: xen-qubes-vm-essentials = %{epoch}:%{version}-%{release}
-
-%description qubes-vm
-Just a few xenstore-* tools and Xen hotplug scripts needed by Qubes VMs
-# END QUBES SPECIFIC PART
-
 %prep
 %autosetup -p1 -n %{name}-%{upstream_version}
 
@@ -728,13 +717,6 @@ fi
 %ldconfig_scriptlets libs
 
 # BEGIN QUBES SPECIFIC PART
-%post qubes-vm
-# Unconditionally enable this service in Qubes VM
-systemctl enable xendriverdomain.service >/dev/null 2>&1 || :
-
-%preun qubes-vm
-%systemd_preun xendriverdomain.service
-
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
 # END QUBES SPECIFIC PART
@@ -1106,32 +1088,6 @@ fi
 %{_libdir}/ocaml/xen*/*.cmxa
 %{_libdir}/ocaml/xen*/*.cmx
 %endif
-
-# BEGIN QUBES SPECIFIC PART
-%files qubes-vm
-%{_bindir}/xenstore
-%{_bindir}/xenstore-*
-%{_sbindir}/xl
-%{_unitdir}/xendriverdomain.service
-%config(noreplace) %{_sysconfdir}/xen/xl.conf
-
-%dir %attr(0700,root,root) %{_sysconfdir}/xen
-%dir %attr(0700,root,root) %{_sysconfdir}/xen/scripts/
-%config %attr(0700,root,root) %{_sysconfdir}/xen/scripts/*
-
-# General Xen state
-%dir %{_localstatedir}/lib/xen
-%dir %{_localstatedir}/lib/xen/dump
-
-# Xen logfiles
-%dir %attr(0700,root,root) %{_localstatedir}/log/xen
-
-# Python modules
-%dir %{python3_sitearch}/xen
-%{python3_sitearch}/xen/__init__.*
-%{python3_sitearch}/xen/lowlevel
-%{python3_sitearch}/xen-*.egg-info
-# END QUBES SPECIFIC PART
 
 %changelog
 @CHANGELOG@
