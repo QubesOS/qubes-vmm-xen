@@ -1,0 +1,423 @@
+From 1b87ec7dfde8c0d6d52bb7286e3f280061b361b5 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 29 Mar 2023 11:32:25 +0100
+Subject: [PATCH 08/35] x86: Merge a domain's {cpuid,msr} policy objects
+
+Right now, they're the same underlying type, containing disjoint information.
+
+Drop the d->arch.msr pointer, and union d->arch.cpuid to give it a second name
+of cpu_policy in the interim.
+
+Merge init_domain_{cpuid,msr}_policy() into a single init_domain_cpu_policy(),
+moving the implementation into cpu-policy.c
+
+No practical change.  This undoes the transient doubling of storage space from
+earlier patches.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit bd13dae34809e61e37ba1cd5de893c5c10c46256)
+---
+ xen/arch/x86/cpu-policy.c             | 49 +++++++++++++++++++++++++++
+ xen/arch/x86/cpuid.c                  | 23 -------------
+ xen/arch/x86/domain.c                 | 15 +++-----
+ xen/arch/x86/domctl.c                 | 35 ++++++++++---------
+ xen/arch/x86/include/asm/cpu-policy.h |  4 +++
+ xen/arch/x86/include/asm/cpuid.h      |  3 --
+ xen/arch/x86/include/asm/domain.h     | 13 +++++--
+ xen/arch/x86/include/asm/msr.h        |  1 -
+ xen/arch/x86/mm/mem_sharing.c         |  3 +-
+ xen/arch/x86/msr.c                    | 44 ------------------------
+ 10 files changed, 86 insertions(+), 104 deletions(-)
+
+diff --git a/xen/arch/x86/cpu-policy.c b/xen/arch/x86/cpu-policy.c
+index 663e9a084c53..e9ac1269c35a 100644
+--- a/xen/arch/x86/cpu-policy.c
++++ b/xen/arch/x86/cpu-policy.c
+@@ -1,10 +1,13 @@
+ /* SPDX-License-Identifier: GPL-2.0-or-later */
+ #include <xen/cache.h>
+ #include <xen/kernel.h>
++#include <xen/sched.h>
+ 
+ #include <xen/lib/x86/cpu-policy.h>
+ 
+ #include <asm/cpu-policy.h>
++#include <asm/msr-index.h>
++#include <asm/setup.h>
+ 
+ struct cpu_policy __ro_after_init     raw_cpu_policy;
+ struct cpu_policy __ro_after_init    host_cpu_policy;
+@@ -16,3 +19,49 @@ struct cpu_policy __ro_after_init  pv_def_cpu_policy;
+ struct cpu_policy __ro_after_init hvm_max_cpu_policy;
+ struct cpu_policy __ro_after_init hvm_def_cpu_policy;
+ #endif
++
++int init_domain_cpu_policy(struct domain *d)
++{
++    struct cpu_policy *p = is_pv_domain(d)
++        ? (IS_ENABLED(CONFIG_PV)  ?  &pv_def_cpu_policy : NULL)
++        : (IS_ENABLED(CONFIG_HVM) ? &hvm_def_cpu_policy : NULL);
++
++    if ( !p )
++    {
++        ASSERT_UNREACHABLE();
++        return -EOPNOTSUPP;
++    }
++
++    p = xmemdup(p);
++    if ( !p )
++        return -ENOMEM;
++
++    /* See comment in ctxt_switch_levelling() */
++    if ( !opt_dom0_cpuid_faulting && is_control_domain(d) && is_pv_domain(d) )
++        p->platform_info.cpuid_faulting = false;
++
++    /*
++     * Expose the "hardware speculation behaviour" bits of ARCH_CAPS to dom0,
++     * so dom0 can turn off workarounds as appropriate.  Temporary, until the
++     * domain policy logic gains a better understanding of MSRs.
++     */
++    if ( is_hardware_domain(d) && cpu_has_arch_caps )
++    {
++        uint64_t val;
++
++        rdmsrl(MSR_ARCH_CAPABILITIES, val);
++
++        p->arch_caps.raw = val &
++            (ARCH_CAPS_RDCL_NO | ARCH_CAPS_IBRS_ALL | ARCH_CAPS_RSBA |
++             ARCH_CAPS_SSB_NO | ARCH_CAPS_MDS_NO | ARCH_CAPS_IF_PSCHANGE_MC_NO |
++             ARCH_CAPS_TAA_NO | ARCH_CAPS_SBDR_SSDP_NO | ARCH_CAPS_FBSDP_NO |
++             ARCH_CAPS_PSDP_NO | ARCH_CAPS_FB_CLEAR | ARCH_CAPS_RRSBA |
++             ARCH_CAPS_BHI_NO | ARCH_CAPS_PBRSB_NO);
++    }
++
++    d->arch.cpu_policy = p;
++
++    recalculate_cpuid_policy(d);
++
++    return 0;
++}
+diff --git a/xen/arch/x86/cpuid.c b/xen/arch/x86/cpuid.c
+index 1327dba30dd8..e074befb721d 100644
+--- a/xen/arch/x86/cpuid.c
++++ b/xen/arch/x86/cpuid.c
+@@ -775,29 +775,6 @@ void recalculate_cpuid_policy(struct domain *d)
+         p->extd.raw[0x19] = EMPTY_LEAF;
+ }
+ 
+-int init_domain_cpuid_policy(struct domain *d)
+-{
+-    struct cpuid_policy *p = is_pv_domain(d)
+-        ? (IS_ENABLED(CONFIG_PV)  ?  &pv_def_cpu_policy : NULL)
+-        : (IS_ENABLED(CONFIG_HVM) ? &hvm_def_cpu_policy : NULL);
+-
+-    if ( !p )
+-    {
+-        ASSERT_UNREACHABLE();
+-        return -EOPNOTSUPP;
+-    }
+-
+-    p = xmemdup(p);
+-    if ( !p )
+-        return -ENOMEM;
+-
+-    d->arch.cpuid = p;
+-
+-    recalculate_cpuid_policy(d);
+-
+-    return 0;
+-}
+-
+ void __init init_dom0_cpuid_policy(struct domain *d)
+ {
+     struct cpuid_policy *p = d->arch.cpuid;
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index e546c9832225..faea542286c0 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -66,6 +66,7 @@
+ #ifdef CONFIG_COMPAT
+ #include <compat/vcpu.h>
+ #endif
++#include <asm/cpu-policy.h>
+ #include <asm/psr.h>
+ #include <asm/pv/domain.h>
+ #include <asm/pv/mm.h>
+@@ -743,8 +744,7 @@ int arch_domain_create(struct domain *d,
+ 
+         d->arch.ctxt_switch = &idle_csw;
+ 
+-        d->arch.cpuid = ZERO_BLOCK_PTR; /* Catch stray misuses. */
+-        d->arch.msr = ZERO_BLOCK_PTR;
++        d->arch.cpu_policy = ZERO_BLOCK_PTR; /* Catch stray misuses. */
+ 
+         return 0;
+     }
+@@ -799,10 +799,7 @@ int arch_domain_create(struct domain *d,
+         goto fail;
+     paging_initialised = true;
+ 
+-    if ( (rc = init_domain_cpuid_policy(d)) )
+-        goto fail;
+-
+-    if ( (rc = init_domain_msr_policy(d)) )
++    if ( (rc = init_domain_cpu_policy(d)) )
+         goto fail;
+ 
+     d->arch.ioport_caps =
+@@ -873,8 +870,7 @@ int arch_domain_create(struct domain *d,
+     iommu_domain_destroy(d);
+     cleanup_domain_irq_mapping(d);
+     free_xenheap_page(d->shared_info);
+-    xfree(d->arch.cpuid);
+-    xfree(d->arch.msr);
++    XFREE(d->arch.cpu_policy);
+     if ( paging_initialised )
+         paging_final_teardown(d);
+     free_perdomain_mappings(d);
+@@ -888,8 +884,7 @@ void arch_domain_destroy(struct domain *d)
+         hvm_domain_destroy(d);
+ 
+     xfree(d->arch.e820);
+-    xfree(d->arch.cpuid);
+-    xfree(d->arch.msr);
++    XFREE(d->arch.cpu_policy);
+ 
+     free_domain_pirqs(d);
+     if ( !is_idle_domain(d) )
+diff --git a/xen/arch/x86/domctl.c b/xen/arch/x86/domctl.c
+index 2689df813b39..857d0abe323e 100644
+--- a/xen/arch/x86/domctl.c
++++ b/xen/arch/x86/domctl.c
+@@ -41,11 +41,11 @@
+ static int update_domain_cpu_policy(struct domain *d,
+                                     xen_domctl_cpu_policy_t *xdpc)
+ {
+-    struct old_cpu_policy new = {};
++    struct cpu_policy *new;
+     struct cpu_policy *sys = is_pv_domain(d)
+         ? (IS_ENABLED(CONFIG_PV)  ?  &pv_max_cpu_policy : NULL)
+         : (IS_ENABLED(CONFIG_HVM) ? &hvm_max_cpu_policy : NULL);
+-    struct old_cpu_policy old_sys = { sys, sys };
++    struct old_cpu_policy old_sys = { sys, sys }, old_new;
+     struct cpu_policy_errors err = INIT_CPU_POLICY_ERRORS;
+     int ret = -ENOMEM;
+ 
+@@ -55,33 +55,33 @@ static int update_domain_cpu_policy(struct domain *d,
+         return -EOPNOTSUPP;
+     }
+ 
+-    /* Start by copying the domain's existing policies. */
+-    if ( !(new.cpuid = xmemdup(d->arch.cpuid)) ||
+-         !(new.msr   = xmemdup(d->arch.msr)) )
++    /* Start by copying the domain's existing policy. */
++    if ( !(new = xmemdup(d->arch.cpu_policy)) )
+         goto out;
+ 
++    old_new = (struct old_cpu_policy){ new, new };
++
+     /* Merge the toolstack provided data. */
+     if ( (ret = x86_cpuid_copy_from_buffer(
+-              new.cpuid, xdpc->leaves, xdpc->nr_leaves,
++              new, xdpc->leaves, xdpc->nr_leaves,
+               &err.leaf, &err.subleaf)) ||
+          (ret = x86_msr_copy_from_buffer(
+-              new.msr, xdpc->msrs, xdpc->nr_msrs, &err.msr)) )
++              new, xdpc->msrs, xdpc->nr_msrs, &err.msr)) )
+         goto out;
+ 
+     /* Trim any newly-stale out-of-range leaves. */
+-    x86_cpuid_policy_clear_out_of_range_leaves(new.cpuid);
++    x86_cpuid_policy_clear_out_of_range_leaves(new);
+ 
+     /* Audit the combined dataset. */
+-    ret = x86_cpu_policies_are_compatible(&old_sys, &new, &err);
++    ret = x86_cpu_policies_are_compatible(&old_sys, &old_new, &err);
+     if ( ret )
+         goto out;
+ 
+     /*
+-     * Audit was successful.  Replace existing policies, leaving the old
+-     * policies to be freed.
++     * Audit was successful.  Replace the existing policy, leaving the old one
++     * to be freed.
+      */
+-    SWAP(new.cpuid, d->arch.cpuid);
+-    SWAP(new.msr,   d->arch.msr);
++    SWAP(new, d->arch.cpu_policy);
+ 
+     /* TODO: Drop when x86_cpu_policies_are_compatible() is completed. */
+     recalculate_cpuid_policy(d);
+@@ -90,9 +90,8 @@ static int update_domain_cpu_policy(struct domain *d,
+     domain_cpu_policy_changed(d);
+ 
+  out:
+-    /* Free whichever cpuid/msr structs are not installed in struct domain. */
+-    xfree(new.cpuid);
+-    xfree(new.msr);
++    /* Free whichever struct is not installed in struct domain. */
++    xfree(new);
+ 
+     if ( ret )
+     {
+@@ -1328,7 +1327,7 @@ long arch_do_domctl(
+         if ( guest_handle_is_null(domctl->u.cpu_policy.leaves) )
+             domctl->u.cpu_policy.nr_leaves = CPUID_MAX_SERIALISED_LEAVES;
+         else if ( (ret = x86_cpuid_copy_to_buffer(
+-                       d->arch.cpuid,
++                       d->arch.cpu_policy,
+                        domctl->u.cpu_policy.leaves,
+                        &domctl->u.cpu_policy.nr_leaves)) )
+             break;
+@@ -1337,7 +1336,7 @@ long arch_do_domctl(
+         if ( guest_handle_is_null(domctl->u.cpu_policy.msrs) )
+             domctl->u.cpu_policy.nr_msrs = MSR_MAX_SERIALISED_ENTRIES;
+         else if ( (ret = x86_msr_copy_to_buffer(
+-                       d->arch.msr,
++                       d->arch.cpu_policy,
+                        domctl->u.cpu_policy.msrs,
+                        &domctl->u.cpu_policy.nr_msrs)) )
+             break;
+diff --git a/xen/arch/x86/include/asm/cpu-policy.h b/xen/arch/x86/include/asm/cpu-policy.h
+index eef14bb4267e..9ba34bbf5ea1 100644
+--- a/xen/arch/x86/include/asm/cpu-policy.h
++++ b/xen/arch/x86/include/asm/cpu-policy.h
+@@ -3,6 +3,7 @@
+ #define X86_CPU_POLICY_H
+ 
+ struct cpu_policy;
++struct domain;
+ 
+ extern struct cpu_policy     raw_cpu_policy;
+ extern struct cpu_policy    host_cpu_policy;
+@@ -11,4 +12,7 @@ extern struct cpu_policy  pv_def_cpu_policy;
+ extern struct cpu_policy hvm_max_cpu_policy;
+ extern struct cpu_policy hvm_def_cpu_policy;
+ 
++/* Allocate and initialise a CPU policy suitable for the domain. */
++int init_domain_cpu_policy(struct domain *d);
++
+ #endif /* X86_CPU_POLICY_H */
+diff --git a/xen/arch/x86/include/asm/cpuid.h b/xen/arch/x86/include/asm/cpuid.h
+index ea0586277331..7f81b998ce01 100644
+--- a/xen/arch/x86/include/asm/cpuid.h
++++ b/xen/arch/x86/include/asm/cpuid.h
+@@ -49,9 +49,6 @@ extern struct cpuidmasks cpuidmask_defaults;
+ /* Check that all previously present features are still available. */
+ bool recheck_cpu_features(unsigned int cpu);
+ 
+-/* Allocate and initialise a CPUID policy suitable for the domain. */
+-int init_domain_cpuid_policy(struct domain *d);
+-
+ /* Apply dom0-specific tweaks to the CPUID policy. */
+ void init_dom0_cpuid_policy(struct domain *d);
+ 
+diff --git a/xen/arch/x86/include/asm/domain.h b/xen/arch/x86/include/asm/domain.h
+index 4e59ca8c4e14..5293c0cde405 100644
+--- a/xen/arch/x86/include/asm/domain.h
++++ b/xen/arch/x86/include/asm/domain.h
+@@ -384,9 +384,16 @@ struct arch_domain
+      */
+     uint8_t x87_fip_width;
+ 
+-    /* CPUID and MSR policy objects. */
+-    struct cpuid_policy *cpuid;
+-    struct msr_policy *msr;
++    /*
++     * The domain's CPU Policy.  "cpu_policy" is considered the canonical
++     * pointer, but the "cpuid" and "msr" aliases exist so the most
++     * appropriate one can be used for local code clarity.
++     */
++    union {
++        struct cpu_policy *cpu_policy;
++        struct cpu_policy *cpuid;
++        struct cpu_policy *msr;
++    };
+ 
+     struct PITState vpit;
+ 
+diff --git a/xen/arch/x86/include/asm/msr.h b/xen/arch/x86/include/asm/msr.h
+index 8a4da50c500a..a174bc6e892b 100644
+--- a/xen/arch/x86/include/asm/msr.h
++++ b/xen/arch/x86/include/asm/msr.h
+@@ -398,7 +398,6 @@ struct vcpu_msrs
+ };
+ 
+ void init_guest_msr_policy(void);
+-int init_domain_msr_policy(struct domain *d);
+ int init_vcpu_msr_policy(struct vcpu *v);
+ 
+ /*
+diff --git a/xen/arch/x86/mm/mem_sharing.c b/xen/arch/x86/mm/mem_sharing.c
+index 649d93dc5444..5b3449db7a11 100644
+--- a/xen/arch/x86/mm/mem_sharing.c
++++ b/xen/arch/x86/mm/mem_sharing.c
+@@ -1902,8 +1902,7 @@ static int fork(struct domain *cd, struct domain *d)
+ 
+         domain_pause(d);
+         cd->max_pages = d->max_pages;
+-        *cd->arch.cpuid = *d->arch.cpuid;
+-        *cd->arch.msr = *d->arch.msr;
++        *cd->arch.cpu_policy = *d->arch.cpu_policy;
+         cd->vmtrace_size = d->vmtrace_size;
+         cd->parent = d;
+     }
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index 01f95603e297..d3ca861454a7 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -122,50 +122,6 @@ void __init init_guest_msr_policy(void)
+     }
+ }
+ 
+-int init_domain_msr_policy(struct domain *d)
+-{
+-    struct msr_policy *mp = is_pv_domain(d)
+-        ? (IS_ENABLED(CONFIG_PV)  ?  &pv_def_cpu_policy : NULL)
+-        : (IS_ENABLED(CONFIG_HVM) ? &hvm_def_cpu_policy : NULL);
+-
+-    if ( !mp )
+-    {
+-        ASSERT_UNREACHABLE();
+-        return -EOPNOTSUPP;
+-    }
+-
+-    mp = xmemdup(mp);
+-    if ( !mp )
+-        return -ENOMEM;
+-
+-    /* See comment in ctxt_switch_levelling() */
+-    if ( !opt_dom0_cpuid_faulting && is_control_domain(d) && is_pv_domain(d) )
+-        mp->platform_info.cpuid_faulting = false;
+-
+-    /*
+-     * Expose the "hardware speculation behaviour" bits of ARCH_CAPS to dom0,
+-     * so dom0 can turn off workarounds as appropriate.  Temporary, until the
+-     * domain policy logic gains a better understanding of MSRs.
+-     */
+-    if ( is_hardware_domain(d) && cpu_has_arch_caps )
+-    {
+-        uint64_t val;
+-
+-        rdmsrl(MSR_ARCH_CAPABILITIES, val);
+-
+-        mp->arch_caps.raw = val &
+-            (ARCH_CAPS_RDCL_NO | ARCH_CAPS_IBRS_ALL | ARCH_CAPS_RSBA |
+-             ARCH_CAPS_SSB_NO | ARCH_CAPS_MDS_NO | ARCH_CAPS_IF_PSCHANGE_MC_NO |
+-             ARCH_CAPS_TAA_NO | ARCH_CAPS_SBDR_SSDP_NO | ARCH_CAPS_FBSDP_NO |
+-             ARCH_CAPS_PSDP_NO | ARCH_CAPS_FB_CLEAR | ARCH_CAPS_RRSBA |
+-             ARCH_CAPS_BHI_NO | ARCH_CAPS_PBRSB_NO);
+-    }
+-
+-    d->arch.msr = mp;
+-
+-    return 0;
+-}
+-
+ int init_vcpu_msr_policy(struct vcpu *v)
+ {
+     struct vcpu_msrs *msrs = xzalloc(struct vcpu_msrs);
+-- 
+2.39.2
+

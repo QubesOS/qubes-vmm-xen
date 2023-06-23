@@ -1,0 +1,58 @@
+From f2c655a3dc286d287b7aa8974e15a712db9bf713 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 15 May 2023 16:59:25 +0100
+Subject: [PATCH 25/35] x86/vtx: Remove opencoded MSR_ARCH_CAPS check
+
+MSR_ARCH_CAPS data is now included in featureset information.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 8f6bc7f9b72eb7cf0c8c5ae5d80498a58ba0b7c3)
+---
+ xen/arch/x86/hvm/vmx/vmx.c            | 8 ++------
+ xen/arch/x86/include/asm/cpufeature.h | 3 +++
+ 2 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index 8da6be33eeec..f256dc2635f5 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2808,8 +2808,6 @@ static void __init ler_to_fixup_check(void);
+  */
+ static bool __init has_if_pschange_mc(void)
+ {
+-    uint64_t caps = 0;
+-
+     /*
+      * If we are virtualised, there is nothing we can do.  Our EPT tables are
+      * shadowed by our hypervisor, and not walked by hardware.
+@@ -2817,10 +2815,8 @@ static bool __init has_if_pschange_mc(void)
+     if ( cpu_has_hypervisor )
+         return false;
+ 
+-    if ( cpu_has_arch_caps )
+-        rdmsrl(MSR_ARCH_CAPABILITIES, caps);
+-
+-    if ( caps & ARCH_CAPS_IF_PSCHANGE_MC_NO )
++    /* Hardware reports itself as fixed. */
++    if ( cpu_has_if_pschange_mc_no )
+         return false;
+ 
+     /*
+diff --git a/xen/arch/x86/include/asm/cpufeature.h b/xen/arch/x86/include/asm/cpufeature.h
+index a3ad9ebee4e9..448d5c1e0560 100644
+--- a/xen/arch/x86/include/asm/cpufeature.h
++++ b/xen/arch/x86/include/asm/cpufeature.h
+@@ -145,6 +145,9 @@
+ #define cpu_has_avx_vnni        boot_cpu_has(X86_FEATURE_AVX_VNNI)
+ #define cpu_has_avx512_bf16     boot_cpu_has(X86_FEATURE_AVX512_BF16)
+ 
++/* MSR_ARCH_CAPS */
++#define cpu_has_if_pschange_mc_no boot_cpu_has(X86_FEATURE_IF_PSCHANGE_MC_NO)
++
+ /* Synthesized. */
+ #define cpu_has_arch_perfmon    boot_cpu_has(X86_FEATURE_ARCH_PERFMON)
+ #define cpu_has_cpuid_faulting  boot_cpu_has(X86_FEATURE_CPUID_FAULTING)
+-- 
+2.39.2
+

@@ -1,0 +1,95 @@
+From d5b1cad4fa54bc67d5743ff21cd3d1eadafc6e72 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 15 May 2023 19:05:01 +0100
+Subject: [PATCH 26/35] x86/tsx: Remove opencoded MSR_ARCH_CAPS check
+
+The current cpu_has_tsx_ctrl tristate is serving double pupose; to signal the
+first pass through tsx_init(), and the availability of MSR_TSX_CTRL.
+
+Drop the variable, replacing it with a once boolean, and altering
+cpu_has_tsx_ctrl to come out of the feature information.
+
+No functional change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 205a9f970378c31ae3e00b52d59103a2e881b9e0)
+---
+ xen/arch/x86/include/asm/cpufeature.h |  1 +
+ xen/arch/x86/include/asm/processor.h  |  2 +-
+ xen/arch/x86/tsx.c                    | 13 ++++++++-----
+ 3 files changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/include/asm/cpufeature.h b/xen/arch/x86/include/asm/cpufeature.h
+index 448d5c1e0560..31ab4495b3a6 100644
+--- a/xen/arch/x86/include/asm/cpufeature.h
++++ b/xen/arch/x86/include/asm/cpufeature.h
+@@ -147,6 +147,7 @@
+ 
+ /* MSR_ARCH_CAPS */
+ #define cpu_has_if_pschange_mc_no boot_cpu_has(X86_FEATURE_IF_PSCHANGE_MC_NO)
++#define cpu_has_tsx_ctrl        boot_cpu_has(X86_FEATURE_TSX_CTRL)
+ 
+ /* Synthesized. */
+ #define cpu_has_arch_perfmon    boot_cpu_has(X86_FEATURE_ARCH_PERFMON)
+diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/processor.h
+index 8e2816fae9b9..40e4e2b02442 100644
+--- a/xen/arch/x86/include/asm/processor.h
++++ b/xen/arch/x86/include/asm/processor.h
+@@ -624,7 +624,7 @@ static inline uint8_t get_cpu_family(uint32_t raw, uint8_t *model,
+     return fam;
+ }
+ 
+-extern int8_t opt_tsx, cpu_has_tsx_ctrl;
++extern int8_t opt_tsx;
+ extern bool rtm_disabled;
+ void tsx_init(void);
+ 
+diff --git a/xen/arch/x86/tsx.c b/xen/arch/x86/tsx.c
+index 41b6092cfe16..80c6f4cedd6b 100644
+--- a/xen/arch/x86/tsx.c
++++ b/xen/arch/x86/tsx.c
+@@ -19,7 +19,6 @@
+  * controlling TSX behaviour, and where TSX isn't force-disabled by firmware.
+  */
+ int8_t __read_mostly opt_tsx = -1;
+-int8_t __read_mostly cpu_has_tsx_ctrl = -1;
+ bool __read_mostly rtm_disabled;
+ 
+ static int __init cf_check parse_tsx(const char *s)
+@@ -37,24 +36,28 @@ custom_param("tsx", parse_tsx);
+ 
+ void tsx_init(void)
+ {
++    static bool __read_mostly once;
++
+     /*
+      * This function is first called between microcode being loaded, and CPUID
+      * being scanned generally.  Read into boot_cpu_data.x86_capability[] for
+      * the cpu_has_* bits we care about using here.
+      */
+-    if ( unlikely(cpu_has_tsx_ctrl < 0) )
++    if ( unlikely(!once) )
+     {
+-        uint64_t caps = 0;
+         bool has_rtm_always_abort;
+ 
++        once = true;
++
+         if ( boot_cpu_data.cpuid_level >= 7 )
+             boot_cpu_data.x86_capability[FEATURESET_7d0]
+                 = cpuid_count_edx(7, 0);
+ 
+         if ( cpu_has_arch_caps )
+-            rdmsrl(MSR_ARCH_CAPABILITIES, caps);
++            rdmsr(MSR_ARCH_CAPABILITIES,
++                  boot_cpu_data.x86_capability[FEATURESET_m10Al],
++                  boot_cpu_data.x86_capability[FEATURESET_m10Ah]);
+ 
+-        cpu_has_tsx_ctrl = !!(caps & ARCH_CAPS_TSX_CTRL);
+         has_rtm_always_abort = cpu_has_rtm_always_abort;
+ 
+         if ( cpu_has_tsx_ctrl && cpu_has_srbds_ctrl )
+-- 
+2.39.2
+

@@ -1,0 +1,173 @@
+From ea2ccf5cdbea3bbe8684ee2f1eb440644c8e385d Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 28 Mar 2023 20:48:29 +0100
+Subject: [PATCH 04/35] x86: Rename
+ {domctl,sysctl}.cpu_policy.{cpuid,msr}_policy fields
+
+These weren't great names to begin with, and using {leaves,msrs} matches up
+better with the existing nr_{leaves,msr} parameters anyway.
+
+Furthermore, by renaming these fields we can get away with using some #define
+trickery to avoid the struct {cpuid,msr}_policy merge needing to happen in a
+single changeset.
+
+No functional change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 21e3ef57e0406b6b9a783f721f29df8f91a00f99)
+---
+ tools/libs/guest/xg_cpuid_x86.c | 12 ++++++------
+ xen/arch/x86/domctl.c           | 12 ++++++------
+ xen/arch/x86/sysctl.c           |  8 ++++----
+ xen/include/public/domctl.h     |  4 ++--
+ xen/include/public/sysctl.h     |  4 ++--
+ 5 files changed, 20 insertions(+), 20 deletions(-)
+
+diff --git a/tools/libs/guest/xg_cpuid_x86.c b/tools/libs/guest/xg_cpuid_x86.c
+index a22c7bf7923f..76d9522c3a7c 100644
+--- a/tools/libs/guest/xg_cpuid_x86.c
++++ b/tools/libs/guest/xg_cpuid_x86.c
+@@ -145,9 +145,9 @@ static int get_system_cpu_policy(xc_interface *xch, uint32_t index,
+     sysctl.cmd = XEN_SYSCTL_get_cpu_policy;
+     sysctl.u.cpu_policy.index = index;
+     sysctl.u.cpu_policy.nr_leaves = *nr_leaves;
+-    set_xen_guest_handle(sysctl.u.cpu_policy.cpuid_policy, leaves);
++    set_xen_guest_handle(sysctl.u.cpu_policy.leaves, leaves);
+     sysctl.u.cpu_policy.nr_msrs = *nr_msrs;
+-    set_xen_guest_handle(sysctl.u.cpu_policy.msr_policy, msrs);
++    set_xen_guest_handle(sysctl.u.cpu_policy.msrs, msrs);
+ 
+     ret = do_sysctl(xch, &sysctl);
+ 
+@@ -183,9 +183,9 @@ static int get_domain_cpu_policy(xc_interface *xch, uint32_t domid,
+     domctl.cmd = XEN_DOMCTL_get_cpu_policy;
+     domctl.domain = domid;
+     domctl.u.cpu_policy.nr_leaves = *nr_leaves;
+-    set_xen_guest_handle(domctl.u.cpu_policy.cpuid_policy, leaves);
++    set_xen_guest_handle(domctl.u.cpu_policy.leaves, leaves);
+     domctl.u.cpu_policy.nr_msrs = *nr_msrs;
+-    set_xen_guest_handle(domctl.u.cpu_policy.msr_policy, msrs);
++    set_xen_guest_handle(domctl.u.cpu_policy.msrs, msrs);
+ 
+     ret = do_domctl(xch, &domctl);
+ 
+@@ -232,9 +232,9 @@ int xc_set_domain_cpu_policy(xc_interface *xch, uint32_t domid,
+     domctl.cmd = XEN_DOMCTL_set_cpu_policy;
+     domctl.domain = domid;
+     domctl.u.cpu_policy.nr_leaves = nr_leaves;
+-    set_xen_guest_handle(domctl.u.cpu_policy.cpuid_policy, leaves);
++    set_xen_guest_handle(domctl.u.cpu_policy.leaves, leaves);
+     domctl.u.cpu_policy.nr_msrs = nr_msrs;
+-    set_xen_guest_handle(domctl.u.cpu_policy.msr_policy, msrs);
++    set_xen_guest_handle(domctl.u.cpu_policy.msrs, msrs);
+     domctl.u.cpu_policy.err_leaf = -1;
+     domctl.u.cpu_policy.err_subleaf = -1;
+     domctl.u.cpu_policy.err_msr = -1;
+diff --git a/xen/arch/x86/domctl.c b/xen/arch/x86/domctl.c
+index 971d4937a1e6..175d473e412a 100644
+--- a/xen/arch/x86/domctl.c
++++ b/xen/arch/x86/domctl.c
+@@ -55,10 +55,10 @@ static int update_domain_cpu_policy(struct domain *d,
+ 
+     /* Merge the toolstack provided data. */
+     if ( (ret = x86_cpuid_copy_from_buffer(
+-              new.cpuid, xdpc->cpuid_policy, xdpc->nr_leaves,
++              new.cpuid, xdpc->leaves, xdpc->nr_leaves,
+               &err.leaf, &err.subleaf)) ||
+          (ret = x86_msr_copy_from_buffer(
+-              new.msr, xdpc->msr_policy, xdpc->nr_msrs, &err.msr)) )
++              new.msr, xdpc->msrs, xdpc->nr_msrs, &err.msr)) )
+         goto out;
+ 
+     /* Trim any newly-stale out-of-range leaves. */
+@@ -1318,20 +1318,20 @@ long arch_do_domctl(
+ 
+     case XEN_DOMCTL_get_cpu_policy:
+         /* Process the CPUID leaves. */
+-        if ( guest_handle_is_null(domctl->u.cpu_policy.cpuid_policy) )
++        if ( guest_handle_is_null(domctl->u.cpu_policy.leaves) )
+             domctl->u.cpu_policy.nr_leaves = CPUID_MAX_SERIALISED_LEAVES;
+         else if ( (ret = x86_cpuid_copy_to_buffer(
+                        d->arch.cpuid,
+-                       domctl->u.cpu_policy.cpuid_policy,
++                       domctl->u.cpu_policy.leaves,
+                        &domctl->u.cpu_policy.nr_leaves)) )
+             break;
+ 
+         /* Process the MSR entries. */
+-        if ( guest_handle_is_null(domctl->u.cpu_policy.msr_policy) )
++        if ( guest_handle_is_null(domctl->u.cpu_policy.msrs) )
+             domctl->u.cpu_policy.nr_msrs = MSR_MAX_SERIALISED_ENTRIES;
+         else if ( (ret = x86_msr_copy_to_buffer(
+                        d->arch.msr,
+-                       domctl->u.cpu_policy.msr_policy,
++                       domctl->u.cpu_policy.msrs,
+                        &domctl->u.cpu_policy.nr_msrs)) )
+             break;
+ 
+diff --git a/xen/arch/x86/sysctl.c b/xen/arch/x86/sysctl.c
+index 4afe73ff4f4f..838a9947bfe3 100644
+--- a/xen/arch/x86/sysctl.c
++++ b/xen/arch/x86/sysctl.c
+@@ -412,11 +412,11 @@ long arch_do_sysctl(
+         }
+ 
+         /* Process the CPUID leaves. */
+-        if ( guest_handle_is_null(sysctl->u.cpu_policy.cpuid_policy) )
++        if ( guest_handle_is_null(sysctl->u.cpu_policy.leaves) )
+             sysctl->u.cpu_policy.nr_leaves = CPUID_MAX_SERIALISED_LEAVES;
+         else if ( (ret = x86_cpuid_copy_to_buffer(
+                        policy->cpuid,
+-                       sysctl->u.cpu_policy.cpuid_policy,
++                       sysctl->u.cpu_policy.leaves,
+                        &sysctl->u.cpu_policy.nr_leaves)) )
+             break;
+ 
+@@ -428,11 +428,11 @@ long arch_do_sysctl(
+         }
+ 
+         /* Process the MSR entries. */
+-        if ( guest_handle_is_null(sysctl->u.cpu_policy.msr_policy) )
++        if ( guest_handle_is_null(sysctl->u.cpu_policy.msrs) )
+             sysctl->u.cpu_policy.nr_msrs = MSR_MAX_SERIALISED_ENTRIES;
+         else if ( (ret = x86_msr_copy_to_buffer(
+                        policy->msr,
+-                       sysctl->u.cpu_policy.msr_policy,
++                       sysctl->u.cpu_policy.msrs,
+                        &sysctl->u.cpu_policy.nr_msrs)) )
+             break;
+ 
+diff --git a/xen/include/public/domctl.h b/xen/include/public/domctl.h
+index 51be28c3de7c..c377e8365225 100644
+--- a/xen/include/public/domctl.h
++++ b/xen/include/public/domctl.h
+@@ -683,8 +683,8 @@ struct xen_domctl_cpu_policy {
+                          * 'cpuid_policy'. */
+     uint32_t nr_msrs;   /* IN/OUT: Number of MSRs in/written to
+                          * 'msr_policy' */
+-    XEN_GUEST_HANDLE_64(xen_cpuid_leaf_t) cpuid_policy; /* IN/OUT */
+-    XEN_GUEST_HANDLE_64(xen_msr_entry_t) msr_policy;    /* IN/OUT */
++    XEN_GUEST_HANDLE_64(xen_cpuid_leaf_t) leaves; /* IN/OUT */
++    XEN_GUEST_HANDLE_64(xen_msr_entry_t)  msrs;   /* IN/OUT */
+ 
+     /*
+      * OUT, set_policy only.  Written in some (but not all) error cases to
+diff --git a/xen/include/public/sysctl.h b/xen/include/public/sysctl.h
+index e8dded9fb94a..2b24d6bfd00e 100644
+--- a/xen/include/public/sysctl.h
++++ b/xen/include/public/sysctl.h
+@@ -1050,8 +1050,8 @@ struct xen_sysctl_cpu_policy {
+                            * 'msr_policy', or the maximum number of MSRs if
+                            * the guest handle is NULL. */
+     uint32_t _rsvd;       /* Must be zero. */
+-    XEN_GUEST_HANDLE_64(xen_cpuid_leaf_t) cpuid_policy; /* OUT */
+-    XEN_GUEST_HANDLE_64(xen_msr_entry_t) msr_policy;    /* OUT */
++    XEN_GUEST_HANDLE_64(xen_cpuid_leaf_t) leaves; /* OUT */
++    XEN_GUEST_HANDLE_64(xen_msr_entry_t)  msrs;   /* OUT */
+ };
+ typedef struct xen_sysctl_cpu_policy xen_sysctl_cpu_policy_t;
+ DEFINE_XEN_GUEST_HANDLE(xen_sysctl_cpu_policy_t);
+-- 
+2.39.2
+

@@ -1,0 +1,142 @@
+From 42b3d10d5d0e10586a4e3cbb5b428fd4ecac570b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 3 Apr 2023 20:03:57 +0100
+Subject: [PATCH 14/35] x86/emul: Switch x86_emulate_ctxt to cpu_policy
+
+As with struct domain, retain cpuid as a valid alias for local code clarity.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 441b1b2a50ea3656954d75e06d42c96d619ea0fc)
+---
+ tools/fuzz/x86_instruction_emulator/fuzz-emul.c | 2 +-
+ tools/tests/x86_emulator/test_x86_emulator.c    | 2 +-
+ tools/tests/x86_emulator/x86-emulate.c          | 2 +-
+ xen/arch/x86/hvm/emulate.c                      | 4 ++--
+ xen/arch/x86/mm/shadow/hvm.c                    | 2 +-
+ xen/arch/x86/pv/emul-priv-op.c                  | 2 +-
+ xen/arch/x86/pv/ro-page-fault.c                 | 2 +-
+ xen/arch/x86/x86_emulate/x86_emulate.h          | 7 +++++--
+ 8 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/tools/fuzz/x86_instruction_emulator/fuzz-emul.c b/tools/fuzz/x86_instruction_emulator/fuzz-emul.c
+index 966e46bee199..4885a68210d0 100644
+--- a/tools/fuzz/x86_instruction_emulator/fuzz-emul.c
++++ b/tools/fuzz/x86_instruction_emulator/fuzz-emul.c
+@@ -893,7 +893,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data_p, size_t size)
+     struct x86_emulate_ctxt ctxt = {
+         .data = &state,
+         .regs = &input.regs,
+-        .cpuid = &cp,
++        .cpu_policy = &cp,
+         .addr_size = 8 * sizeof(void *),
+         .sp_size = 8 * sizeof(void *),
+     };
+diff --git a/tools/tests/x86_emulator/test_x86_emulator.c b/tools/tests/x86_emulator/test_x86_emulator.c
+index 31586f805726..7b7fbaaf45ec 100644
+--- a/tools/tests/x86_emulator/test_x86_emulator.c
++++ b/tools/tests/x86_emulator/test_x86_emulator.c
+@@ -909,7 +909,7 @@ int main(int argc, char **argv)
+ 
+     ctxt.regs = &regs;
+     ctxt.force_writeback = 0;
+-    ctxt.cpuid     = &cp;
++    ctxt.cpu_policy = &cp;
+     ctxt.lma       = sizeof(void *) == 8;
+     ctxt.addr_size = 8 * sizeof(void *);
+     ctxt.sp_size   = 8 * sizeof(void *);
+diff --git a/tools/tests/x86_emulator/x86-emulate.c b/tools/tests/x86_emulator/x86-emulate.c
+index ea286d6ad87b..5ad282b57545 100644
+--- a/tools/tests/x86_emulator/x86-emulate.c
++++ b/tools/tests/x86_emulator/x86-emulate.c
+@@ -38,7 +38,7 @@
+ #define put_stub(stb) ((stb).addr = 0)
+ 
+ uint32_t mxcsr_mask = 0x0000ffbf;
+-struct cpuid_policy cp;
++struct cpu_policy cp;
+ 
+ static char fpu_save_area[0x4000] __attribute__((__aligned__((64))));
+ static bool use_xsave;
+diff --git a/xen/arch/x86/hvm/emulate.c b/xen/arch/x86/hvm/emulate.c
+index cb221f70e8f0..275451dd3615 100644
+--- a/xen/arch/x86/hvm/emulate.c
++++ b/xen/arch/x86/hvm/emulate.c
+@@ -2772,7 +2772,7 @@ int hvm_emulate_one_mmio(unsigned long mfn, unsigned long gla)
+ void hvm_emulate_one_vm_event(enum emul_kind kind, unsigned int trapnr,
+     unsigned int errcode)
+ {
+-    struct hvm_emulate_ctxt ctx = {{ 0 }};
++    struct hvm_emulate_ctxt ctx = {};
+     int rc;
+ 
+     hvm_emulate_init_once(&ctx, NULL, guest_cpu_user_regs());
+@@ -2847,7 +2847,7 @@ void hvm_emulate_init_once(
+ 
+     hvmemul_ctxt->validate = validate;
+     hvmemul_ctxt->ctxt.regs = regs;
+-    hvmemul_ctxt->ctxt.cpuid = curr->domain->arch.cpuid;
++    hvmemul_ctxt->ctxt.cpu_policy = curr->domain->arch.cpu_policy;
+     hvmemul_ctxt->ctxt.force_writeback = true;
+ }
+ 
+diff --git a/xen/arch/x86/mm/shadow/hvm.c b/xen/arch/x86/mm/shadow/hvm.c
+index 39abf4732d91..c00ce550a1da 100644
+--- a/xen/arch/x86/mm/shadow/hvm.c
++++ b/xen/arch/x86/mm/shadow/hvm.c
+@@ -319,7 +319,7 @@ const struct x86_emulate_ops *shadow_init_emulation(
+     memset(sh_ctxt, 0, sizeof(*sh_ctxt));
+ 
+     sh_ctxt->ctxt.regs = regs;
+-    sh_ctxt->ctxt.cpuid = curr->domain->arch.cpuid;
++    sh_ctxt->ctxt.cpu_policy = curr->domain->arch.cpu_policy;
+     sh_ctxt->ctxt.lma = hvm_long_mode_active(curr);
+ 
+     /* Segment cache initialisation. Primed with CS. */
+diff --git a/xen/arch/x86/pv/emul-priv-op.c b/xen/arch/x86/pv/emul-priv-op.c
+index 5da00e24e4ff..ab52768271c5 100644
+--- a/xen/arch/x86/pv/emul-priv-op.c
++++ b/xen/arch/x86/pv/emul-priv-op.c
+@@ -1327,7 +1327,7 @@ int pv_emulate_privileged_op(struct cpu_user_regs *regs)
+     struct domain *currd = curr->domain;
+     struct priv_op_ctxt ctxt = {
+         .ctxt.regs = regs,
+-        .ctxt.cpuid = currd->arch.cpuid,
++        .ctxt.cpu_policy = currd->arch.cpu_policy,
+         .ctxt.lma = !is_pv_32bit_domain(currd),
+     };
+     int rc;
+diff --git a/xen/arch/x86/pv/ro-page-fault.c b/xen/arch/x86/pv/ro-page-fault.c
+index 5963f5ee2d51..0d02c7d2ab10 100644
+--- a/xen/arch/x86/pv/ro-page-fault.c
++++ b/xen/arch/x86/pv/ro-page-fault.c
+@@ -356,7 +356,7 @@ int pv_ro_page_fault(unsigned long addr, struct cpu_user_regs *regs)
+     unsigned int addr_size = is_pv_32bit_domain(currd) ? 32 : BITS_PER_LONG;
+     struct x86_emulate_ctxt ctxt = {
+         .regs      = regs,
+-        .cpuid     = currd->arch.cpuid,
++        .cpu_policy = currd->arch.cpu_policy,
+         .addr_size = addr_size,
+         .sp_size   = addr_size,
+         .lma       = addr_size > 32,
+diff --git a/xen/arch/x86/x86_emulate/x86_emulate.h b/xen/arch/x86/x86_emulate/x86_emulate.h
+index c89c53e83bfe..e1be0435f891 100644
+--- a/xen/arch/x86/x86_emulate/x86_emulate.h
++++ b/xen/arch/x86/x86_emulate/x86_emulate.h
+@@ -565,8 +565,11 @@ struct x86_emulate_ctxt
+      * Input-only state:
+      */
+ 
+-    /* CPUID Policy for the domain. */
+-    const struct cpuid_policy *cpuid;
++    /* CPU policy for the domain.  Allow aliases for local code clarity. */
++    union {
++        struct cpu_policy *cpu_policy;
++        struct cpu_policy *cpuid;
++    };
+ 
+     /* Set this if writes may have side effects. */
+     bool force_writeback;
+-- 
+2.39.2
+

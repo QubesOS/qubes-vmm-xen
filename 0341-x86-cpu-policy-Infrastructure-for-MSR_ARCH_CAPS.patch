@@ -1,0 +1,216 @@
+From b088cf5f3a9553bfc6ac1238fdcd32e854d62c3f Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 12 May 2023 17:55:21 +0100
+Subject: [PATCH 21/35] x86/cpu-policy: Infrastructure for MSR_ARCH_CAPS
+
+Bits through 24 are already defined, meaning that we're not far off needing
+the second word.  Put both in right away.
+
+As both halves are present now, the arch_caps field is full width.  Adjust the
+unit test, which notices.
+
+The bool bitfield names in the arch_caps union are unused, and somewhat out of
+date.  They'll shortly be automatically generated.
+
+Add CPUID and MSR prefixes to the ./xen-cpuid verbose output, now that there
+are a mix of the two.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit d9fe459ffad8a6eac2f695adb2331aff83c345d1)
+---
+ tools/misc/xen-cpuid.c                      | 44 +++++++++++-------
+ tools/tests/cpu-policy/test-cpu-policy.c    |  5 ---
+ xen/include/public/arch-x86/cpufeatureset.h |  4 ++
+ xen/include/xen/lib/x86/cpu-policy.h        | 50 ++++++++++-----------
+ xen/lib/x86/cpuid.c                         |  4 ++
+ 5 files changed, 59 insertions(+), 48 deletions(-)
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 859345ae8ab2..642e62efdf20 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -218,31 +218,41 @@ static const char *const str_7d2[32] =
+     [ 4] = "bhi-ctrl",      [ 5] = "mcdt-no",
+ };
+ 
++static const char *const str_m10Al[32] =
++{
++};
++
++static const char *const str_m10Ah[32] =
++{
++};
++
+ static const struct {
+     const char *name;
+     const char *abbr;
+     const char *const *strs;
+ } decodes[] =
+ {
+-    { "0x00000001.edx",   "1d",  str_1d },
+-    { "0x00000001.ecx",   "1c",  str_1c },
+-    { "0x80000001.edx",   "e1d", str_e1d },
+-    { "0x80000001.ecx",   "e1c", str_e1c },
+-    { "0x0000000d:1.eax", "Da1", str_Da1 },
+-    { "0x00000007:0.ebx", "7b0", str_7b0 },
+-    { "0x00000007:0.ecx", "7c0", str_7c0 },
+-    { "0x80000007.edx",   "e7d", str_e7d },
+-    { "0x80000008.ebx",   "e8b", str_e8b },
+-    { "0x00000007:0.edx", "7d0", str_7d0 },
+-    { "0x00000007:1.eax", "7a1", str_7a1 },
+-    { "0x80000021.eax",  "e21a", str_e21a },
+-    { "0x00000007:1.ebx", "7b1", str_7b1 },
+-    { "0x00000007:2.edx", "7d2", str_7d2 },
+-    { "0x00000007:1.ecx", "7c1", str_7c1 },
+-    { "0x00000007:1.edx", "7d1", str_7d1 },
++    { "CPUID 0x00000001.edx",        "1d", str_1d },
++    { "CPUID 0x00000001.ecx",        "1c", str_1c },
++    { "CPUID 0x80000001.edx",       "e1d", str_e1d },
++    { "CPUID 0x80000001.ecx",       "e1c", str_e1c },
++    { "CPUID 0x0000000d:1.eax",     "Da1", str_Da1 },
++    { "CPUID 0x00000007:0.ebx",     "7b0", str_7b0 },
++    { "CPUID 0x00000007:0.ecx",     "7c0", str_7c0 },
++    { "CPUID 0x80000007.edx",       "e7d", str_e7d },
++    { "CPUID 0x80000008.ebx",       "e8b", str_e8b },
++    { "CPUID 0x00000007:0.edx",     "7d0", str_7d0 },
++    { "CPUID 0x00000007:1.eax",     "7a1", str_7a1 },
++    { "CPUID 0x80000021.eax",      "e21a", str_e21a },
++    { "CPUID 0x00000007:1.ebx",     "7b1", str_7b1 },
++    { "CPUID 0x00000007:2.edx",     "7d2", str_7d2 },
++    { "CPUID 0x00000007:1.ecx",     "7c1", str_7c1 },
++    { "CPUID 0x00000007:1.edx",     "7d1", str_7d1 },
++    { "MSR_ARCH_CAPS.lo",         "m10Al", str_m10Al },
++    { "MSR_ARCH_CAPS.hi",         "m10Ah", str_m10Ah },
+ };
+ 
+-#define COL_ALIGN "18"
++#define COL_ALIGN "24"
+ 
+ static const char *const fs_names[] = {
+     [XEN_SYSCTL_cpu_featureset_raw]     = "Raw",
+diff --git a/tools/tests/cpu-policy/test-cpu-policy.c b/tools/tests/cpu-policy/test-cpu-policy.c
+index fea0eb8c3549..cac28c76256c 100644
+--- a/tools/tests/cpu-policy/test-cpu-policy.c
++++ b/tools/tests/cpu-policy/test-cpu-policy.c
+@@ -391,11 +391,6 @@ static void test_msr_deserialise_failure(void)
+             .msr = { .idx = 0xce, .val = ~0ull },
+             .rc = -EOVERFLOW,
+         },
+-        {
+-            .name = "truncated val",
+-            .msr = { .idx = 0x10a, .val = ~0ull },
+-            .rc = -EOVERFLOW,
+-        },
+     };
+ 
+     printf("Testing MSR deserialise failure:\n");
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 08600cfdc784..52e862b67810 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -300,6 +300,10 @@ XEN_CPUFEATURE(MCDT_NO,            13*32+ 5) /*A  MCDT_NO */
+ /* Intel-defined CPU features, CPUID level 0x00000007:1.edx, word 15 */
+ XEN_CPUFEATURE(CET_SSS,            15*32+18) /*   CET Supervisor Shadow Stacks safe to use */
+ 
++/* Intel-defined CPU features, MSR_ARCH_CAPS 0x10a.eax, word 16 */
++
++/* Intel-defined CPU features, MSR_ARCH_CAPS 0x10a.edx, word 17 */
++
+ #endif /* XEN_CPUFEATURE */
+ 
+ /* Clean up from a default include.  Close the enum (for C). */
+diff --git a/xen/include/xen/lib/x86/cpu-policy.h b/xen/include/xen/lib/x86/cpu-policy.h
+index bfa425060464..6d5e9edd269b 100644
+--- a/xen/include/xen/lib/x86/cpu-policy.h
++++ b/xen/include/xen/lib/x86/cpu-policy.h
+@@ -4,22 +4,24 @@
+ 
+ #include <xen/lib/x86/cpuid-autogen.h>
+ 
+-#define FEATURESET_1d     0 /* 0x00000001.edx      */
+-#define FEATURESET_1c     1 /* 0x00000001.ecx      */
+-#define FEATURESET_e1d    2 /* 0x80000001.edx      */
+-#define FEATURESET_e1c    3 /* 0x80000001.ecx      */
+-#define FEATURESET_Da1    4 /* 0x0000000d:1.eax    */
+-#define FEATURESET_7b0    5 /* 0x00000007:0.ebx    */
+-#define FEATURESET_7c0    6 /* 0x00000007:0.ecx    */
+-#define FEATURESET_e7d    7 /* 0x80000007.edx      */
+-#define FEATURESET_e8b    8 /* 0x80000008.ebx      */
+-#define FEATURESET_7d0    9 /* 0x00000007:0.edx    */
+-#define FEATURESET_7a1   10 /* 0x00000007:1.eax    */
+-#define FEATURESET_e21a  11 /* 0x80000021.eax      */
+-#define FEATURESET_7b1   12 /* 0x00000007:1.ebx    */
+-#define FEATURESET_7d2   13 /* 0x00000007:2.edx    */
+-#define FEATURESET_7c1   14 /* 0x00000007:1.ecx    */
+-#define FEATURESET_7d1   15 /* 0x00000007:1.edx    */
++#define FEATURESET_1d         0 /* 0x00000001.edx      */
++#define FEATURESET_1c         1 /* 0x00000001.ecx      */
++#define FEATURESET_e1d        2 /* 0x80000001.edx      */
++#define FEATURESET_e1c        3 /* 0x80000001.ecx      */
++#define FEATURESET_Da1        4 /* 0x0000000d:1.eax    */
++#define FEATURESET_7b0        5 /* 0x00000007:0.ebx    */
++#define FEATURESET_7c0        6 /* 0x00000007:0.ecx    */
++#define FEATURESET_e7d        7 /* 0x80000007.edx      */
++#define FEATURESET_e8b        8 /* 0x80000008.ebx      */
++#define FEATURESET_7d0        9 /* 0x00000007:0.edx    */
++#define FEATURESET_7a1       10 /* 0x00000007:1.eax    */
++#define FEATURESET_e21a      11 /* 0x80000021.eax      */
++#define FEATURESET_7b1       12 /* 0x00000007:1.ebx    */
++#define FEATURESET_7d2       13 /* 0x00000007:2.edx    */
++#define FEATURESET_7c1       14 /* 0x00000007:1.ecx    */
++#define FEATURESET_7d1       15 /* 0x00000007:1.edx    */
++#define FEATURESET_m10Al     16 /* 0x0000010a.eax      */
++#define FEATURESET_m10Ah     17 /* 0x0000010a.edx      */
+ 
+ struct cpuid_leaf
+ {
+@@ -350,17 +352,13 @@ struct cpu_policy
+      * fixed in hardware.
+      */
+     union {
+-        uint32_t raw;
++        uint64_t raw;
++        struct {
++            uint32_t lo, hi;
++        };
+         struct {
+-            bool rdcl_no:1;
+-            bool ibrs_all:1;
+-            bool rsba:1;
+-            bool skip_l1dfl:1;
+-            bool ssb_no:1;
+-            bool mds_no:1;
+-            bool if_pschange_mc_no:1;
+-            bool tsx_ctrl:1;
+-            bool taa_no:1;
++            DECL_BITFIELD(m10Al);
++            DECL_BITFIELD(m10Ah);
+         };
+     } arch_caps;
+ 
+diff --git a/xen/lib/x86/cpuid.c b/xen/lib/x86/cpuid.c
+index 68aafb404927..e795ce375032 100644
+--- a/xen/lib/x86/cpuid.c
++++ b/xen/lib/x86/cpuid.c
+@@ -79,6 +79,8 @@ void x86_cpu_policy_to_featureset(
+     fs[FEATURESET_7d2]       = p->feat._7d2;
+     fs[FEATURESET_7c1]       = p->feat._7c1;
+     fs[FEATURESET_7d1]       = p->feat._7d1;
++    fs[FEATURESET_m10Al]     = p->arch_caps.lo;
++    fs[FEATURESET_m10Ah]     = p->arch_caps.hi;
+ }
+ 
+ void x86_cpu_featureset_to_policy(
+@@ -100,6 +102,8 @@ void x86_cpu_featureset_to_policy(
+     p->feat._7d2             = fs[FEATURESET_7d2];
+     p->feat._7c1             = fs[FEATURESET_7c1];
+     p->feat._7d1             = fs[FEATURESET_7d1];
++    p->arch_caps.lo          = fs[FEATURESET_m10Al];
++    p->arch_caps.hi          = fs[FEATURESET_m10Ah];
+ }
+ 
+ void x86_cpu_policy_recalc_synth(struct cpu_policy *p)
+-- 
+2.39.2
+

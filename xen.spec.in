@@ -105,6 +105,41 @@ Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0310: 0310-ns16550-enable-memory-decoding-on-MMIO-based-PCI-con.patch
 Patch0311: 0311-tools-libs-guest-assist-gcc13-s-realloc-analyzer.patch
+Patch0321: 0321-tools-xen-cpuid-Rework-the-handling-of-dynamic-featu.patch
+Patch0322: 0322-x86-sysctl-Retrofit-XEN_SYSCTL_cpu_featureset_-pv-hv.patch
+Patch0323: 0323-x86-Rename-struct-cpu_policy-to-struct-old_cpuid_pol.patch
+Patch0324: 0324-x86-Rename-domctl-sysctl-.cpu_policy.-cpuid-msr-_pol.patch
+Patch0325: 0325-x86-Rename-struct-cpuid_policy-to-struct-cpu_policy.patch
+Patch0326: 0326-x86-Merge-struct-msr_policy-into-struct-cpu_policy.patch
+Patch0327: 0327-x86-Merge-the-system-cpuid-msr-policy-objects.patch
+Patch0328: 0328-x86-Merge-a-domain-s-cpuid-msr-policy-objects.patch
+Patch0329: 0329-x86-Merge-xc_cpu_policy-s-cpuid-and-msr-objects.patch
+Patch0330: 0330-x86-Drop-struct-old_cpu_policy.patch
+Patch0331: 0331-x86-Out-of-inline-the-policy-featureset-convertors.patch
+Patch0332: 0332-x86-boot-Move-MSR-policy-initialisation-logic-into-c.patch
+Patch0333: 0333-x86-boot-Merge-CPUID-policy-initialisation-logic-int.patch
+Patch0334: 0334-x86-emul-Switch-x86_emulate_ctxt-to-cpu_policy.patch
+Patch0335: 0335-tools-fuzz-Rework-afl-policy-fuzzer.patch
+Patch0336: 0336-libx86-Update-library-API-for-cpu_policy.patch
+Patch0337: 0337-x86-Remove-temporary-cpuid-msr-_policy-defines.patch
+Patch0338: 0338-x86-cpuid-Calculate-FEATURESET_NR_ENTRIES-more-helpf.patch
+Patch0339: 0339-x86-boot-Rework-dom0-feature-configuration.patch
+Patch0340: 0340-x86-boot-Adjust-MSR_ARCH_CAPS-handling-for-the-Host-.patch
+Patch0341: 0341-x86-cpu-policy-Infrastructure-for-MSR_ARCH_CAPS.patch
+Patch0342: 0342-x86-cpu-policy-MSR_ARCH_CAPS-feature-names.patch
+Patch0343: 0343-x86-boot-Record-MSR_ARCH_CAPS-for-the-Raw-and-Host-C.patch
+Patch0344: 0344-x86-boot-Expose-MSR_ARCH_CAPS-data-in-guest-max-poli.patch
+Patch0345: 0345-x86-vtx-Remove-opencoded-MSR_ARCH_CAPS-check.patch
+Patch0346: 0346-x86-tsx-Remove-opencoded-MSR_ARCH_CAPS-check.patch
+Patch0347: 0347-x86-spec-ctrl-Remove-opencoded-MSR_ARCH_CAPS-check.patch
+Patch0348: 0348-x86-spec-ctrl-Update-hardware-hints.patch
+Patch0349: 0349-x86-cpu-policy-Rearrange-guest_common_default_featur.patch
+Patch0350: 0350-x86-spec-ctrl-Fix-the-rendering-of-FB_CLEAR.patch
+Patch0351: 0351-x86-spec-ctrl-Use-a-taint-for-CET-without-MSR_SPEC_C.patch
+Patch0352: 0352-x86-spec-ctrl-Rename-retpoline_safe-to-retpoline_cal.patch
+Patch0353: 0353-x86-spec-ctrl-Fix-up-the-RSBA-RRSBA-bits-as-appropri.patch
+Patch0354: 0354-x86-cpu-policy-Derive-RSBA-RRSBA-for-guest-policies.patch
+Patch0355: 0355-def-arch-caps.patch
 
 # Security fixes
 Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
@@ -174,7 +209,6 @@ Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
 Patch1017: 1017-Disable-TSX-by-default.patch
 Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
 Patch1019: 1019-Use-Linux-s-PAT.patch
-Patch1020: 1020-xen-tell-guests-what-speculative-workarounds-are-not.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch

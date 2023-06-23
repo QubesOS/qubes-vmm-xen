@@ -26,9 +26,9 @@ index 41b6092cfe16..996c22b56be7 100644
   */
 -int8_t __read_mostly opt_tsx = -1;
 +int8_t __read_mostly opt_tsx = -2;
- int8_t __read_mostly cpu_has_tsx_ctrl = -1;
  bool __read_mostly rtm_disabled;
  
+ static int __init cf_check parse_tsx(const char *s)
 @@ -197,6 +197,13 @@ void tsx_init(void)
          }
      }

@@ -1,0 +1,50 @@
+From 74b8fcb1279fb4f1267d0ce85146b3108c12ee1c Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 17 May 2023 10:13:36 +0100
+Subject: [PATCH 35/35] def-arch-caps
+
+---
+ xen/arch/x86/cpu-policy.c                   | 6 ++++++
+ xen/include/public/arch-x86/cpufeatureset.h | 2 +-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/cpu-policy.c b/xen/arch/x86/cpu-policy.c
+index 55524e28e168..3e8cbe984957 100644
+--- a/xen/arch/x86/cpu-policy.c
++++ b/xen/arch/x86/cpu-policy.c
+@@ -27,6 +27,9 @@ struct cpu_policy __ro_after_init hvm_max_cpu_policy;
+ struct cpu_policy __ro_after_init hvm_def_cpu_policy;
+ #endif
+ 
++static bool opt_def_ac = true;
++boolean_param("def-ac", opt_def_ac);
++
+ const uint32_t known_features[] = INIT_KNOWN_FEATURES;
+ 
+ static const uint32_t __initconst pv_max_featuremask[] = INIT_PV_MAX_FEATURES;
+@@ -467,6 +470,9 @@ static void __init guest_common_default_feature_adjustments(uint32_t *fs)
+      */
+     if ( rtm_disabled )
+         __clear_bit(X86_FEATURE_RTM, fs);
++
++    if ( !opt_def_ac )
++        __clear_bit(X86_FEATURE_ARCH_CAPS, fs);
+ }
+ 
+ static void __init guest_common_feature_adjustments(uint32_t *fs)
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index fe01dc231e5f..6ae3117687c9 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -270,7 +270,7 @@ XEN_CPUFEATURE(AVX512_FP16,   9*32+23) /*   AVX512 FP16 instructions */
+ XEN_CPUFEATURE(IBRSB,         9*32+26) /*A  IBRS and IBPB support (used by Intel) */
+ XEN_CPUFEATURE(STIBP,         9*32+27) /*A  STIBP */
+ XEN_CPUFEATURE(L1D_FLUSH,     9*32+28) /*S  MSR_FLUSH_CMD and L1D flush. */
+-XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*!a IA32_ARCH_CAPABILITIES MSR */
++XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*!A IA32_ARCH_CAPABILITIES MSR */
+ XEN_CPUFEATURE(CORE_CAPS,     9*32+30) /*   IA32_CORE_CAPABILITIES MSR */
+ XEN_CPUFEATURE(SSBD,          9*32+31) /*A  MSR_SPEC_CTRL.SSBD available */
+ 
+-- 
+2.39.2
+

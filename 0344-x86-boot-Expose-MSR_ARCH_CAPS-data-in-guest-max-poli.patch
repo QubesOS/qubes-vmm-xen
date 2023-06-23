@@ -1,0 +1,138 @@
+From fb06e624f268c5fc4b8bd7c4e5ed7b1b6c9032f9 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 12 May 2023 15:53:35 +0100
+Subject: [PATCH 24/35] x86/boot: Expose MSR_ARCH_CAPS data in guest max
+ policies
+
+We already have common and default feature adjustment helpers.  Introduce one
+for max featuresets too.
+
+Offer MSR_ARCH_CAPS unconditionally in the max policy, and stop clobbering the
+data inherited from the Host policy.  This will be necessary to level a VM
+safely for migration.  Annotate the ARCH_CAPS CPUID bit as special.  Note:
+ARCH_CAPS is still max-only for now, so will not be inhereted by the default
+policies.
+
+With this done, the special case for dom0 can be shrunk to just resampling the
+Host policy (as ARCH_CAPS isn't visible by default yet).
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit bbb289f3d5bdd3358af748d7c567343532ac45b5)
+---
+ xen/arch/x86/cpu-policy.c                   | 42 ++++++++++++---------
+ xen/include/public/arch-x86/cpufeatureset.h |  2 +-
+ 2 files changed, 25 insertions(+), 19 deletions(-)
+
+diff --git a/xen/arch/x86/cpu-policy.c b/xen/arch/x86/cpu-policy.c
+index db04ffb8992d..d76b544816dd 100644
+--- a/xen/arch/x86/cpu-policy.c
++++ b/xen/arch/x86/cpu-policy.c
+@@ -408,6 +408,25 @@ static void __init calculate_host_policy(void)
+     p->platform_info.cpuid_faulting = cpu_has_cpuid_faulting;
+ }
+ 
++static void __init guest_common_max_feature_adjustments(uint32_t *fs)
++{
++    if ( boot_cpu_data.x86_vendor == X86_VENDOR_INTEL )
++    {
++        /*
++         * MSR_ARCH_CAPS is just feature data, and we can offer it to guests
++         * unconditionally, although limit it to Intel systems as it is highly
++         * uarch-specific.
++         *
++         * In particular, the RSBA and RRSBA bits mean "you might migrate to a
++         * system where RSB underflow uses alternative predictors (a.k.a
++         * Retpoline not safe)", so these need to be visible to a guest in all
++         * cases, even when it's only some other server in the pool which
++         * suffers the identified behaviour.
++         */
++        __set_bit(X86_FEATURE_ARCH_CAPS, fs);
++    }
++}
++
+ static void __init guest_common_default_feature_adjustments(uint32_t *fs)
+ {
+     /*
+@@ -483,6 +502,7 @@ static void __init calculate_pv_max_policy(void)
+         __clear_bit(X86_FEATURE_IBRS, fs);
+     }
+ 
++    guest_common_max_feature_adjustments(fs);
+     guest_common_feature_adjustments(fs);
+ 
+     sanitise_featureset(fs);
+@@ -490,8 +510,6 @@ static void __init calculate_pv_max_policy(void)
+     recalculate_xstate(p);
+ 
+     p->extd.raw[0xa] = EMPTY_LEAF; /* No SVM for PV guests. */
+-
+-    p->arch_caps.raw = 0; /* Not supported yet. */
+ }
+ 
+ static void __init calculate_pv_def_policy(void)
+@@ -589,6 +607,7 @@ static void __init calculate_hvm_max_policy(void)
+             __clear_bit(X86_FEATURE_XSAVES, fs);
+     }
+ 
++    guest_common_max_feature_adjustments(fs);
+     guest_common_feature_adjustments(fs);
+ 
+     sanitise_featureset(fs);
+@@ -597,8 +616,6 @@ static void __init calculate_hvm_max_policy(void)
+ 
+     /* It's always possible to emulate CPUID faulting for HVM guests */
+     p->platform_info.cpuid_faulting = true;
+-
+-    p->arch_caps.raw = 0; /* Not supported yet. */
+ }
+ 
+ static void __init calculate_hvm_def_policy(void)
+@@ -819,7 +836,10 @@ void __init init_dom0_cpuid_policy(struct domain *d)
+      * domain policy logic gains a better understanding of MSRs.
+      */
+     if ( is_hardware_domain(d) && cpu_has_arch_caps )
++    {
+         p->feat.arch_caps = true;
++        p->arch_caps.raw = host_cpu_policy.arch_caps.raw;
++    }
+ 
+     /* Apply dom0-cpuid= command line settings, if provided. */
+     if ( dom0_cpuid_cmdline )
+@@ -849,20 +869,6 @@ void __init init_dom0_cpuid_policy(struct domain *d)
+         p->platform_info.cpuid_faulting = false;
+ 
+     recalculate_cpuid_policy(d);
+-
+-    if ( is_hardware_domain(d) && cpu_has_arch_caps )
+-    {
+-        uint64_t val;
+-
+-        rdmsrl(MSR_ARCH_CAPABILITIES, val);
+-
+-        p->arch_caps.raw = val &
+-            (ARCH_CAPS_RDCL_NO | ARCH_CAPS_IBRS_ALL | ARCH_CAPS_RSBA |
+-             ARCH_CAPS_SSB_NO | ARCH_CAPS_MDS_NO | ARCH_CAPS_IF_PSCHANGE_MC_NO |
+-             ARCH_CAPS_TAA_NO | ARCH_CAPS_SBDR_SSDP_NO | ARCH_CAPS_FBSDP_NO |
+-             ARCH_CAPS_PSDP_NO | ARCH_CAPS_FB_CLEAR | ARCH_CAPS_RRSBA |
+-             ARCH_CAPS_BHI_NO | ARCH_CAPS_PBRSB_NO);
+-    }
+ }
+ 
+ static void __init __maybe_unused build_assertions(void)
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 23b72094c64f..02a80b0c0c35 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -270,7 +270,7 @@ XEN_CPUFEATURE(AVX512_FP16,   9*32+23) /*   AVX512 FP16 instructions */
+ XEN_CPUFEATURE(IBRSB,         9*32+26) /*A  IBRS and IBPB support (used by Intel) */
+ XEN_CPUFEATURE(STIBP,         9*32+27) /*A  STIBP */
+ XEN_CPUFEATURE(L1D_FLUSH,     9*32+28) /*S  MSR_FLUSH_CMD and L1D flush. */
+-XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*a  IA32_ARCH_CAPABILITIES MSR */
++XEN_CPUFEATURE(ARCH_CAPS,     9*32+29) /*!a IA32_ARCH_CAPABILITIES MSR */
+ XEN_CPUFEATURE(CORE_CAPS,     9*32+30) /*   IA32_CORE_CAPABILITIES MSR */
+ XEN_CPUFEATURE(SSBD,          9*32+31) /*A  MSR_SPEC_CTRL.SSBD available */
+ 
+-- 
+2.39.2
+

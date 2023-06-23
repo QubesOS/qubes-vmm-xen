@@ -1,0 +1,157 @@
+From 7dac2c4267256ffd0e2bcab53d27281e7d26510e Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 28 Mar 2023 20:31:33 +0100
+Subject: [PATCH 03/35] x86: Rename struct cpu_policy to struct
+ old_cpuid_policy
+
+We want to merge struct cpuid_policy and struct msr_policy together, and the
+result wants to be called struct cpu_policy.
+
+The current struct cpu_policy, being a pair of pointers, isn't terribly
+useful.  Rename the type to struct old_cpu_policy, but it will disappear
+entirely once the merge is complete.
+
+No functional change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit c2ec94c370f211d73f336ccfbdb32499f1b05f82)
+---
+ tools/libs/guest/xg_cpuid_x86.c          | 4 ++--
+ tools/tests/cpu-policy/test-cpu-policy.c | 4 ++--
+ xen/arch/x86/domctl.c                    | 4 ++--
+ xen/arch/x86/include/asm/cpuid.h         | 2 +-
+ xen/arch/x86/sysctl.c                    | 4 ++--
+ xen/include/xen/lib/x86/cpu-policy.h     | 6 +++---
+ xen/lib/x86/policy.c                     | 4 ++--
+ 7 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/tools/libs/guest/xg_cpuid_x86.c b/tools/libs/guest/xg_cpuid_x86.c
+index 57f81eb0a082..a22c7bf7923f 100644
+--- a/tools/libs/guest/xg_cpuid_x86.c
++++ b/tools/libs/guest/xg_cpuid_x86.c
+@@ -868,8 +868,8 @@ bool xc_cpu_policy_is_compatible(xc_interface *xch, xc_cpu_policy_t *host,
+                                  xc_cpu_policy_t *guest)
+ {
+     struct cpu_policy_errors err = INIT_CPU_POLICY_ERRORS;
+-    struct cpu_policy h = { &host->cpuid, &host->msr };
+-    struct cpu_policy g = { &guest->cpuid, &guest->msr };
++    struct old_cpu_policy h = { &host->cpuid, &host->msr };
++    struct old_cpu_policy g = { &guest->cpuid, &guest->msr };
+     int rc = x86_cpu_policies_are_compatible(&h, &g, &err);
+ 
+     if ( !rc )
+diff --git a/tools/tests/cpu-policy/test-cpu-policy.c b/tools/tests/cpu-policy/test-cpu-policy.c
+index ed450a099709..8a223fddb3da 100644
+--- a/tools/tests/cpu-policy/test-cpu-policy.c
++++ b/tools/tests/cpu-policy/test-cpu-policy.c
+@@ -602,7 +602,7 @@ static void test_is_compatible_success(void)
+     for ( size_t i = 0; i < ARRAY_SIZE(tests); ++i )
+     {
+         struct test *t = &tests[i];
+-        struct cpu_policy sys = {
++        struct old_cpu_policy sys = {
+             &t->host_cpuid,
+             &t->host_msr,
+         }, new = {
+@@ -654,7 +654,7 @@ static void test_is_compatible_failure(void)
+     for ( size_t i = 0; i < ARRAY_SIZE(tests); ++i )
+     {
+         struct test *t = &tests[i];
+-        struct cpu_policy sys = {
++        struct old_cpu_policy sys = {
+             &t->host_cpuid,
+             &t->host_msr,
+         }, new = {
+diff --git a/xen/arch/x86/domctl.c b/xen/arch/x86/domctl.c
+index e9bfbc57a794..971d4937a1e6 100644
+--- a/xen/arch/x86/domctl.c
++++ b/xen/arch/x86/domctl.c
+@@ -41,8 +41,8 @@
+ static int update_domain_cpu_policy(struct domain *d,
+                                     xen_domctl_cpu_policy_t *xdpc)
+ {
+-    struct cpu_policy new = {};
+-    const struct cpu_policy *sys = is_pv_domain(d)
++    struct old_cpu_policy new = {};
++    const struct old_cpu_policy *sys = is_pv_domain(d)
+         ? &system_policies[XEN_SYSCTL_cpu_policy_pv_max]
+         : &system_policies[XEN_SYSCTL_cpu_policy_hvm_max];
+     struct cpu_policy_errors err = INIT_CPU_POLICY_ERRORS;
+diff --git a/xen/arch/x86/include/asm/cpuid.h b/xen/arch/x86/include/asm/cpuid.h
+index 9c3637549a10..49b3128f06f9 100644
+--- a/xen/arch/x86/include/asm/cpuid.h
++++ b/xen/arch/x86/include/asm/cpuid.h
+@@ -51,7 +51,7 @@ extern struct cpuid_policy raw_cpuid_policy, host_cpuid_policy,
+     pv_max_cpuid_policy, pv_def_cpuid_policy,
+     hvm_max_cpuid_policy, hvm_def_cpuid_policy;
+ 
+-extern const struct cpu_policy system_policies[];
++extern const struct old_cpu_policy system_policies[];
+ 
+ /* Check that all previously present features are still available. */
+ bool recheck_cpu_features(unsigned int cpu);
+diff --git a/xen/arch/x86/sysctl.c b/xen/arch/x86/sysctl.c
+index d6612a17078d..4afe73ff4f4f 100644
+--- a/xen/arch/x86/sysctl.c
++++ b/xen/arch/x86/sysctl.c
+@@ -33,7 +33,7 @@
+ #include <asm/psr.h>
+ #include <asm/cpuid.h>
+ 
+-const struct cpu_policy system_policies[6] = {
++const struct old_cpu_policy system_policies[6] = {
+     [ XEN_SYSCTL_cpu_policy_raw ] = {
+         &raw_cpuid_policy,
+         &raw_msr_policy,
+@@ -392,7 +392,7 @@ long arch_do_sysctl(
+ 
+     case XEN_SYSCTL_get_cpu_policy:
+     {
+-        const struct cpu_policy *policy;
++        const struct old_cpu_policy *policy;
+ 
+         /* Reserved field set, or bad policy index? */
+         if ( sysctl->u.cpu_policy._rsvd ||
+diff --git a/xen/include/xen/lib/x86/cpu-policy.h b/xen/include/xen/lib/x86/cpu-policy.h
+index 5a2c4c7b2d90..3a5300d1078c 100644
+--- a/xen/include/xen/lib/x86/cpu-policy.h
++++ b/xen/include/xen/lib/x86/cpu-policy.h
+@@ -5,7 +5,7 @@
+ #include <xen/lib/x86/cpuid.h>
+ #include <xen/lib/x86/msr.h>
+ 
+-struct cpu_policy
++struct old_cpu_policy
+ {
+     struct cpuid_policy *cpuid;
+     struct msr_policy *msr;
+@@ -33,8 +33,8 @@ struct cpu_policy_errors
+  * incompatibility is detected, the optional err pointer may identify the
+  * problematic leaf/subleaf and/or MSR.
+  */
+-int x86_cpu_policies_are_compatible(const struct cpu_policy *host,
+-                                    const struct cpu_policy *guest,
++int x86_cpu_policies_are_compatible(const struct old_cpu_policy *host,
++                                    const struct old_cpu_policy *guest,
+                                     struct cpu_policy_errors *err);
+ 
+ #endif /* !XEN_LIB_X86_POLICIES_H */
+diff --git a/xen/lib/x86/policy.c b/xen/lib/x86/policy.c
+index f6cea4e2f9bd..2975711d7c6c 100644
+--- a/xen/lib/x86/policy.c
++++ b/xen/lib/x86/policy.c
+@@ -2,8 +2,8 @@
+ 
+ #include <xen/lib/x86/cpu-policy.h>
+ 
+-int x86_cpu_policies_are_compatible(const struct cpu_policy *host,
+-                                    const struct cpu_policy *guest,
++int x86_cpu_policies_are_compatible(const struct old_cpu_policy *host,
++                                    const struct old_cpu_policy *guest,
+                                     struct cpu_policy_errors *err)
+ {
+     struct cpu_policy_errors e = INIT_CPU_POLICY_ERRORS;
+-- 
+2.39.2
+
