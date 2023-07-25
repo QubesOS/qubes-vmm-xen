@@ -144,6 +144,7 @@ Patch0355: 0355-def-arch-caps.patch
 # Security fixes
 Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
 Patch0501: 0501-xsa431.patch
+Patch0502: 0502-xsa433-4.17.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
