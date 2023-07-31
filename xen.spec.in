@@ -196,6 +196,7 @@ Patch529: patch-xsa428-4.16-1.patch
 Patch530: patch-xsa428-4.16-2.patch
 Patch531: patch-xsa429-4.15.patch
 Patch532: patch-xsa433-4.14.patch
+Patch533: patch-xsa433-bugfix.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
