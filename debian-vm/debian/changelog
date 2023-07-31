@@ -1,3 +1,9 @@
+xen (4.14.5-22) unstable; urgency=medium
+
+  * Apply fix for the original XSA-433 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Mon, 31 Jul 2023 22:28:01 +0200
+
 xen (4.14.5-21) unstable; urgency=medium
 
   [ Nedyalko Andreev ]
