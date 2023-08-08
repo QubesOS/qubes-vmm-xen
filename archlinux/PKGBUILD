@@ -25,7 +25,7 @@ options=()
 install=
 changelog=
 
-source=(xen-$pkgver.tar.gz series-vm.conf apply-patches)
+source=(xen-$pkgver-git.tar.gz series-vm.conf apply-patches)
 
 noextract=()
 md5sums=() #generate with 'makepkg -g'
