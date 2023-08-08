@@ -8,6 +8,8 @@
 %define build_stubdom %{?_with_stubdom: 1} %{?!_with_stubdom: 0}
 # Build without qemu-traditional unless rpmbuild was run with --with qemutrad
 %define build_qemutrad %{?_with_qemutrad: 1} %{?!_with_qemutrad: 0}
+# Build without qemu-xen unless rpmbuild was run with --with qemuxen
+%define build_qemuxen %{?_with_qemuxen: 1} %{?!_with_qemuxen: 0}
 # build with ovmf from edk2-ovmf unless rpmbuild was run with --without ovmf
 %define build_ovmf %{?_without_ovmf: 0} %{?!_without_ovmf: 1}
 # set to 0 for archs that don't use qemu or ovmf (reduces build dependencies)
@@ -567,7 +569,11 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-pvshim"
 %endif
+%if %build_qemuxen
 CONFIG_EXTRA="$CONFIG_EXTRA --with-extra-qemuu-configure-args='--disable-spice'"
+%else
+CONFIG_EXTRA="$CONFIG_EXTRA --with-system-qemu=/usr/bin/qemu-system-x86_64"
+%endif
 export PATH="/usr/bin:$PATH"
 autoreconf -i
 # END QUBES SPECIFIC PART
@@ -940,9 +946,11 @@ fi
 %endif
 %endif
 # BEGIN QUBES SPECIFIC PART
+%if %build_qemuxen
 %dir %{_datadir}/qemu-xen
 %dir %{_datadir}/qemu-xen/qemu
 %{_datadir}/qemu-xen/qemu/*
+%endif
 # END QUBES SPECIFIC PART
 
 # man pages
