@@ -146,7 +146,6 @@ Patch277: patch-0007-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
 Patch278: patch-0008-x86-mm-make-code-robust-to-future-PAT-changes.patch
 Patch279: patch-0009-x86-mm-Reject-invalid-cacheability-in-PV-guests-by-d.patch
 Patch280: 0310-x86-time-prevent-overflow-with-high-frequency-TSCs.patch
-Patch281: patch-0001-x86-cpuid-Infrastructure-for-leaves-7-1-ecx-edx.patch
 Patch282: patch-0002-x86-shskt-Disable-CET-SS-on-parts-succeptable-to-fra.patch
 Patch283: 0313-x86-spec-ctrl-Mitigate-Cross-Thread-Return-Address-P.patch
 
@@ -165,40 +164,9 @@ Patch310: patch-unified-0010-EFI-further-need_to_free-adjustments.patch
 Patch320: patch-libxl-resume.patch
 
 # Security fixes
-Patch500: patch-xsa401-4.16-1.patch
-Patch501: patch-xsa401-4.16-2.patch
-Patch502: patch-xsa402-4.14-1.patch
-Patch503: patch-xsa402-4.14-2.patch
-Patch504: patch-xsa402-4.14-3.patch
-Patch505: patch-xsa402-4.14-4.patch
-Patch506: patch-xsa402-4.14-5.patch
-Patch507: patch-xsa404-4.14-1.patch
-Patch508: patch-xsa404-4.14-2.patch
-Patch509: patch-xsa404-4.14-3.patch
-Patch510: patch-xsa403-4.14-1.patch
 Patch511: patch-xsa403-4.14-trusted-dom0.patch
-Patch512: patch-xsa407-4.14-01.patch
-Patch513: patch-xsa407-4.14-02.patch
-Patch514: patch-xsa407-4.14-03.patch
-Patch515: patch-xsa407-4.14-04.patch
-Patch516: patch-xsa407-4.14-05.patch
-Patch517: patch-xsa407-4.14-06.patch
-Patch518: patch-xsa407-4.14-07.patch
-Patch519: patch-xsa407-4.14-08.patch
-Patch520: patch-xsa407-4.14-09.patch
-Patch521: patch-xsa407-4.14-10.patch
-Patch522: patch-xsa407-4.14-11.patch
-Patch523: patch-xsa407-4.14-12.patch
-Patch524: patch-xsa414-4.14.patch
-Patch525: patch-xsa422-4.14-1.patch
-Patch526: patch-xsa422-4.14-2.patch
 Patch527: 0500-x86-spec-ctrl-More-MSR_ARCH_CAPS-enumerations.patch
 Patch528: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
-Patch529: patch-xsa428-4.16-1.patch
-Patch530: patch-xsa428-4.16-2.patch
-Patch531: patch-xsa429-4.15.patch
-Patch532: patch-xsa433-4.14.patch
-Patch533: patch-xsa433-bugfix.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
@@ -251,7 +219,6 @@ Patch900: patch-disable-dom0-qemu.patch
 Patch950: patch-stubdom-allow-msi-enable.patch
 
 # Qubes specific patches
-Patch1001: patch-stubdom-vbd-non-dom0-backend.patch
 Patch1002: patch-xen-no-downloads.patch
 Patch1003: patch-xen-hotplug-external-store.patch
 Patch1006: patch-xen-libxl-qubes-minimal-stubdom.patch
@@ -274,8 +241,6 @@ Patch1024: patch-gnttab-disable-grant-tables-v2-by-default.patch
 Patch1025: patch-disable-tsx.patch
 
 Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
-
-Patch1031: 1020-xen-tell-guests-what-speculative-workarounds-are-not.patch
 
 # Reproducible builds
 Patch1050: patch-0001-No-insert-of-the-build-timestamp-into-the-x86-xen-ef.patch

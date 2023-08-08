@@ -64,14 +64,14 @@ index 1b7626f7d4..818eebccd6 100644
 --- a/tools/libxl/libxl_cpuid.c
 +++ b/tools/libxl/libxl_cpuid.c
 @@ -227,6 +227,8 @@ int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str)
- 
-         {"avx512-bf16",  0x00000007,  1, CPUID_REG_EAX,  5,  1},
+         {"tsc_adjust",   0x00000007,  0, CPUID_REG_EBX,  1,  1},
+         {"cmt",          0x00000007,  0, CPUID_REG_EBX, 12,  1},
  
 +        {"cet-sss",      0x00000007,  1, CPUID_REG_EDX, 18,  1},
 +
-         {"intel-psfd",   0x00000007,  2, CPUID_REG_EDX,  0,  1},
- 
          {"lahfsahf",     0x80000001, NA, CPUID_REG_ECX,  0,  1},
+         {"cmplegacy",    0x80000001, NA, CPUID_REG_ECX,  1,  1},
+         {"altmovcr8",    0x80000001, NA, CPUID_REG_ECX,  4,  1},
 diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
 index 913e0e5dc1..9d4d0c270b 100644
 --- a/tools/misc/xen-cpuid.c
@@ -170,13 +170,13 @@ index dbfc40fed4..635fa72947 100644
 --- a/xen/include/public/arch-x86/cpufeatureset.h
 +++ b/xen/include/public/arch-x86/cpufeatureset.h
 @@ -294,6 +294,7 @@ XEN_CPUFEATURE(LFENCE_DISPATCH,    11*32+ 2) /*A  LFENCE always serializing */
- 
  /* Intel-defined CPU features, CPUID level 0x00000007:1.ecx, word 14 */
+ 
  /* Intel-defined CPU features, CPUID level 0x00000007:1.edx, word 15 */
 +XEN_CPUFEATURE(CET_SSS,            15*32+18) /*   CET Supervisor Shadow Stacks safe to use */
  
- /* Intel-defined CPU features, CPUID level 0x00000007:2.edx, word 13 */
- XEN_CPUFEATURE(INTEL_PSFD,         13*32+ 0) /*A  MSR_SPEC_CTRL.PSFD */
+ /* Intel-defined CPU features, MSR_ARCH_CAPS 0x10a.eax, word 16 */
+ XEN_CPUFEATURE(RDCL_NO,            16*32+ 0) /*A  No Rogue Data Cache Load (Meltdown) */
 -- 
 2.38.1
 

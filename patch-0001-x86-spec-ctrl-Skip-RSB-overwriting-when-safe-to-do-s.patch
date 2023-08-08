@@ -44,10 +44,10 @@ index 739b7913ff86..750110e9dfcc 100644
 -static bool __initdata opt_rsb_pv = true;
 +static int8_t __initdata opt_rsb_pv = -1;
  static bool __initdata opt_rsb_hvm = true;
- static int8_t __initdata opt_md_clear_pv = -1;
- static int8_t __initdata opt_md_clear_hvm = -1;
+ static int8_t __read_mostly opt_md_clear_pv = -1;
+ static int8_t __read_mostly opt_md_clear_hvm = -1;
 @@ -554,6 +554,35 @@ static bool __init retpoline_safe(uint64_t caps)
-     }
+     return safe;
  }
  
 +/*
@@ -83,7 +83,7 @@ index 739b7913ff86..750110e9dfcc 100644
  static bool __init should_use_eager_fpu(void)
  {
 @@ -992,18 +1021,36 @@ void __init init_speculation_mitigations(void)
-         default_xen_spec_ctrl |= SPEC_CTRL_SSBD;
+         default_xen_spec_ctrl |= SPEC_CTRL_PSFD;
  
      /*
 -     * PV guests can poison the RSB to any virtual address from which

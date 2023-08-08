@@ -33,9 +33,9 @@ index 865f1109866d..da0593de8542 100644
 --- a/xen/include/asm-x86/cpufeatures.h
 +++ b/xen/include/asm-x86/cpufeatures.h
 @@ -35,6 +35,7 @@ XEN_CPUFEATURE(SC_RSB_HVM,        X86_SYNTH(19)) /* RSB overwrite needed for HVM
- XEN_CPUFEATURE(SC_VERW_IDLE,      X86_SYNTH(25)) /* VERW used by Xen for idle */
- XEN_CPUFEATURE(XEN_SHSTK,         X86_SYNTH(26)) /* Xen uses CET Shadow Stacks */
  XEN_CPUFEATURE(XEN_IBT,           X86_SYNTH(27)) /* Xen uses CET Indirect Branch Tracking */
+ XEN_CPUFEATURE(IBPB_ENTRY_PV,     X86_SYNTH(28)) /* MSR_PRED_CMD used by Xen for PV */
+ XEN_CPUFEATURE(IBPB_ENTRY_HVM,    X86_SYNTH(29)) /* MSR_PRED_CMD used by Xen for HVM */
 +XEN_CPUFEATURE(SC_RSB_IDLE,       X86_SYNTH(30)) /* RSB overwrite needed for idle. */
  
  /* Bug words follow the synthetic words. */
