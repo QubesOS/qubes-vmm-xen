@@ -73,20 +73,6 @@ index 0412dbc915e51a518c4541e50c9690b6afcb79bb..9e35ff506646c474f78971f7abc911b3
  
  #ifdef NOISY_CAPS
  	printk(KERN_DEBUG "CPU: After all inits, caps:");
-diff --git a/xen/arch/x86/include/asm/msr-index.h b/xen/arch/x86/include/asm/msr-index.h
-index 0a8852f3c2461145e2a7ac44bf680709a60c0bb4..6908e45e0b91df1c6e0e3a802622689a617b611c 100644
---- a/xen/arch/x86/include/asm/msr-index.h
-+++ b/xen/arch/x86/include/asm/msr-index.h
-@@ -104,6 +104,9 @@
- #define  MCU_OPT_CTRL_RTM_LOCKED            (_AC(1, ULL) <<  2)
- #define  MCU_OPT_CTRL_FB_CLEAR_DIS          (_AC(1, ULL) <<  3)
- 
-+#define MSR_UARCH_MISC_CTRL                 0x00001b01
-+#define  UARCH_CTRL_DOITM                   (_AC(1, ULL) << 0)
-+
- #define MSR_RTIT_OUTPUT_BASE                0x00000560
- #define MSR_RTIT_OUTPUT_MASK                0x00000561
- #define MSR_RTIT_CTL                        0x00000570
 -- 
 Sincerely,
 Demi Marie Obenour (she/her/hers)
