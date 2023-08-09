@@ -69,7 +69,8 @@ Release: %{?rctag}@REL@%{?dist}
 Epoch:   2001
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
-Source0: https://downloads.xenproject.org/release/xen/%{upstream_version}/xen-%{upstream_version}.tar.gz
+#Source0: https://downloads.xenproject.org/release/xen/%%{upstream_version}/xen-%%{upstream_version}.tar.gz
+Source0: xen-%{upstream_version}-git.tar.gz
 Source2: %{name}.logrotate
 # .config file for xen hypervisor
 Source3: config

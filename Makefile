@@ -12,12 +12,19 @@ UNTRUSTED_SUFF := .UNTRUSTED
 URLS := \
     https://downloads.xenproject.org/release/xen/$(VERSION)/xen-$(VERSION).tar.gz.sig
 
+# temporarily use git snapshot
+URLS := \
+		https://ftp.qubes-os.org/distfiles/xen-$(VERSION)-git.tar.gz
+
+
 ALL_FILES := $(notdir $(URLS:%.sig=%)) $(notdir $(filter %.sig, $(URLS)))
 ALL_URLS := $(URLS:%.sig=%) $(filter %.sig, $(URLS))
 
 ifneq ($(DISTFILES_MIRROR),)
 ALL_URLS := $(addprefix $(DISTFILES_MIRROR),$(ALL_FILES))
 endif
+
+SHELL := bash
 
 get-sources: $(ALL_FILES)
 	git submodule update --init --recursive
@@ -47,10 +54,10 @@ $(filter %.sig, $(ALL_FILES)): %:
 		{ echo "Wrong signature on $@$(UNTRUSTED_SUFF)!"; exit 1; }
 	@mv $@$(UNTRUSTED_SUFF) $@
 
-%: %.sha1sum
+%: %.sha512
 	@$(FETCH_CMD) $@$(UNTRUSTED_SUFF) $(filter %$@,$(ALL_URLS))
-	@sha1sum --status -c $< <$@$(UNTRUSTED_SUFF) || \
-		{ echo "Wrong SHA1 checksum on $@$(UNTRUSTED_SUFF)!"; exit 1; }
+	@sha512sum --status -c <(printf "$$(cat $<)  -\n") <$@$(UNTRUSTED_SUFF) || \
+		{ echo "Wrong SHA512 checksum on $@$(UNTRUSTED_SUFF)!"; exit 1; }
 	@mv $@$(UNTRUSTED_SUFF) $@
 
 .PHONY: clean-sources

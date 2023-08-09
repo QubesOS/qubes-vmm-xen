@@ -8,7 +8,9 @@ vm:
     - archlinux
 source:
   files:
-  - url: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz
-    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
-    pubkeys:
-    - xen.org-key.asc
+#  - url: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz
+#    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
+#    pubkeys:
+#    - xen.org-key.asc
+  - url: https://ftp.qubes-os.org/distfiles/xen-@VERSION@-git.tar.gz
+    sha512: xen-@VERSION@-git.tar.gz.sha512
