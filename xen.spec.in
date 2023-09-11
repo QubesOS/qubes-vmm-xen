@@ -135,21 +135,23 @@ Patch0626: 0626-Validate-EFI-memory-descriptors.patch
 Patch0627: 0627-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
 Patch0628: 0628-x86-mm-make-code-robust-to-future-PAT-changes.patch
 Patch0630: 0630-Drop-ELF-notes-from-non-EFI-binary-too.patch
+Patch0631: patch-msix-0001-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
+Patch0632: patch-msix-0002-x86-msi-Allow-writes-to-registers-on-the-same-page-a.patch
 
 # Intel HWP support
-Patch0631: 0631-cpufreq-Allow-restricting-to-internal-governors-only.patch
-Patch0632: 0632-cpufreq-Add-perf_freq-to-cpuinfo.patch
-Patch0633: 0633-cpufreq-Export-intel_feature_detect.patch
-Patch0634: 0634-cpufreq-Add-Hardware-P-State-HWP-driver.patch
-Patch0635: 0635-xenpm-Change-get-cpufreq-para-output-for-internal.patch
-Patch0636: 0636-cpufreq-Export-HWP-parameters-to-userspace.patch
-Patch0637: 0637-libxc-Include-hwp_para-in-definitions.patch
-Patch0638: 0638-xenpm-Print-HWP-parameters.patch
-Patch0639: 0639-xen-Add-SET_CPUFREQ_HWP-xen_sysctl_pm_op.patch
-Patch0640: 0640-libxc-Add-xc_set_cpufreq_hwp.patch
-Patch0641: 0641-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
-Patch0642: 0642-xenpm-Add-set-cpufreq-hwp-subcommand.patch
-Patch0643: 0643-cpufreq-enable-HWP-by-default.patch
+Patch0633: 0631-cpufreq-Allow-restricting-to-internal-governors-only.patch
+Patch0634: 0632-cpufreq-Add-perf_freq-to-cpuinfo.patch
+Patch0635: 0633-cpufreq-Export-intel_feature_detect.patch
+Patch0636: 0634-cpufreq-Add-Hardware-P-State-HWP-driver.patch
+Patch0637: 0635-xenpm-Change-get-cpufreq-para-output-for-internal.patch
+Patch0638: 0636-cpufreq-Export-HWP-parameters-to-userspace.patch
+Patch0639: 0637-libxc-Include-hwp_para-in-definitions.patch
+Patch0641: 0638-xenpm-Print-HWP-parameters.patch
+Patch0642: 0639-xen-Add-SET_CPUFREQ_HWP-xen_sysctl_pm_op.patch
+Patch0643: 0640-libxc-Add-xc_set_cpufreq_hwp.patch
+Patch0644: 0641-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
+Patch0645: 0642-xenpm-Add-set-cpufreq-hwp-subcommand.patch
+Patch0646: 0643-cpufreq-enable-HWP-by-default.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch

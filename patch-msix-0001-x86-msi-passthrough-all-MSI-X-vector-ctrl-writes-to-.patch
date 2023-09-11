@@ -1,0 +1,68 @@
+From fe591cbc1568d3952d877ef54f26d9cd4543dfa1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Mon, 14 Nov 2022 13:56:56 +0100
+Subject: [PATCH 1/2] x86/msi: passthrough all MSI-X vector ctrl writes to
+ device model
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+QEMU needs to know whether clearing maskbit of a vector is really
+clearing, or was already cleared before. Currently Xen sends only
+clearing that bit to the device model, but not setting it, so QEMU
+cannot detect it. Because of that, QEMU is working this around by
+checking via /dev/mem, but that isn't the proper approach.
+
+Give all necessary information to QEMU by passing all ctrl writes,
+including masking a vector.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/hvm/vmsi.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/vmsi.c b/xen/arch/x86/hvm/vmsi.c
+index 75f92885dc5e..ba4cf46dfe91 100644
+--- a/xen/arch/x86/hvm/vmsi.c
++++ b/xen/arch/x86/hvm/vmsi.c
+@@ -271,7 +271,8 @@ out:
+ }
+ 
+ static int msixtbl_write(struct vcpu *v, unsigned long address,
+-                         unsigned int len, unsigned long val)
++                         unsigned int len, unsigned long val,
++                         bool completion)
+ {
+     unsigned long offset;
+     struct msixtbl_entry *entry;
+@@ -343,7 +344,7 @@ static int msixtbl_write(struct vcpu *v, unsigned long address,
+ 
+ unlock:
+     spin_unlock_irqrestore(&desc->lock, flags);
+-    if ( len == 4 )
++    if ( len == 4 && completion )
+         r = X86EMUL_OKAY;
+ 
+ out:
+@@ -355,7 +356,7 @@ static int cf_check _msixtbl_write(
+     const struct hvm_io_handler *handler, uint64_t address, uint32_t len,
+     uint64_t val)
+ {
+-    return msixtbl_write(current, address, len, val);
++    return msixtbl_write(current, address, len, val, false);
+ }
+ 
+ static bool cf_check msixtbl_range(
+@@ -633,7 +634,7 @@ void msix_write_completion(struct vcpu *v)
+         return;
+ 
+     v->arch.hvm.hvm_io.msix_unmask_address = 0;
+-    if ( msixtbl_write(v, ctrl_address, 4, 0) != X86EMUL_OKAY )
++    if ( msixtbl_write(v, ctrl_address, 4, 0, true) != X86EMUL_OKAY )
+         gdprintk(XENLOG_WARNING, "MSI-X write completion failure\n");
+ }
+ 
+-- 
+2.37.3
+
