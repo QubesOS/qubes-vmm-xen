@@ -18,9 +18,7 @@ vm-centos-stream8:
     - xen.spec
 source:
   files:
-#  - url: https://downloads.xenproject.org/release/xen/4.14.5/xen-4.14.5.tar.gz
-#    signature: https://downloads.xenproject.org/release/xen/4.14.5/xen-4.14.5.tar.gz.sig
-#    pubkeys:
-#    - xen.org-key.asc
-  - url: https://ftp.qubes-os.org/distfiles/xen-@VERSION@-git.tar.gz
-    sha512: xen-@VERSION@-git.tar.gz.sha512
+  - url: https://downloads.xenproject.org/release/xen/4.14.5/xen-4.14.5.tar.gz
+    signature: https://downloads.xenproject.org/release/xen/4.14.5/xen-4.14.5.tar.gz.sig
+    pubkeys:
+    - xen.org-key.asc
