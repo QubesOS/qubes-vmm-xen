@@ -22,7 +22,7 @@ _patches=(
   1102-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
   1103-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 )
-source=(xen-$_upstream_pkgver-git.tar.gz "${_patches[@]}")
+source=(xen-$_upstream_pkgver.tar.gz "${_patches[@]}")
 md5sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 prepare() {

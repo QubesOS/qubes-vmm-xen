@@ -12,11 +12,6 @@ UNTRUSTED_SUFF := .UNTRUSTED
 URLS := \
     https://downloads.xenproject.org/release/xen/$(VERSION)/xen-$(VERSION).tar.gz.sig
 
-# temporarily use git snapshot
-URLS := \
-		https://ftp.qubes-os.org/distfiles/xen-$(VERSION)-git.tar.gz
-
-
 ALL_FILES := $(notdir $(URLS:%.sig=%)) $(notdir $(filter %.sig, $(URLS)))
 ALL_URLS := $(URLS:%.sig=%) $(filter %.sig, $(URLS))
 
