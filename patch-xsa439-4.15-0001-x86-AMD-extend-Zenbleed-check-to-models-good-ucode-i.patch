@@ -1,0 +1,48 @@
+From db3386e6cad6065c2a9155d4056b59164edb64dd Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 23 Aug 2023 09:26:36 +0200
+Subject: [PATCH 01/10] x86/AMD: extend Zenbleed check to models "good" ucode
+ isn't known for
+
+Reportedly the AMD Custom APU 0405 found on SteamDeck, models 0x90 and
+0x91, (quoting the respective Linux commit) is similarly affected. Put
+another instance of our Zen1 vs Zen2 distinction checks in
+amd_check_zenbleed(), forcing use of the chickenbit irrespective of
+ucode version (building upon real hardware never surfacing a version of
+0xffffffff).
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 145a69c0944ac70cfcf9d247c85dee9e99d9d302)
+---
+ xen/arch/x86/cpu/amd.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/amd.c b/xen/arch/x86/cpu/amd.c
+index 82375bf242..d8b78ae111 100644
+--- a/xen/arch/x86/cpu/amd.c
++++ b/xen/arch/x86/cpu/amd.c
+@@ -783,10 +783,17 @@ void amd_check_zenbleed(void)
+ 	case 0xa0 ... 0xaf: good_rev = 0x08a00008; break;
+ 	default:
+ 		/*
+-		 * With the Fam17h check above, parts getting here are Zen1.
+-		 * They're not affected.
++		 * With the Fam17h check above, most parts getting here are
++		 * Zen1.  They're not affected.  Assume Zen2 ones making it
++		 * here are affected regardless of microcode version.
++		 *
++		 * Zen1 vs Zen2 isn't a simple model number comparison, so use
++		 * STIBP as a heuristic to distinguish.
+ 		 */
+-		return;
++		if (!boot_cpu_has(X86_FEATURE_AMD_STIBP))
++			return;
++		good_rev = ~0U;
++		break;
+ 	}
+ 
+ 	rdmsrl(MSR_AMD64_DE_CFG, val);
+-- 
+2.41.0
+
