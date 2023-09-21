@@ -1,0 +1,59 @@
+From e4ca4e261da3fdddd541c3a9842b1e9e2ad00525 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Mon, 18 Sep 2023 15:07:49 +0200
+Subject: [PATCH] x86/amd: do not expose HWCR.TscFreqSel to guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+OpenBSD 7.3 will unconditionally access HWCR if the TSC is reported as
+Invariant, and it will then attempt to also unconditionally access PSTATE0 if
+HWCR.TscFreqSel is set (currently the case on Xen).
+
+The motivation for exposing HWCR.TscFreqSel was to avoid warning messages from
+Linux.  It has been agreed that Linux should be changed instead to not
+complaint about missing HWCR.TscFreqSel when running virtualized.
+
+The relation between HWCR.TscFreqSel and PSTATE0 is not clearly written down in
+the PPR, but it's natural for OSes to attempt to fetch the P0 frequency if the
+TSC is stated to increment at the P0 frequency.
+
+Exposing PSTATEn (PSTATE0 at least) with all zeroes is not a suitable solution
+because the PstateEn bit is read-write, and OSes could legitimately attempt to
+set PstateEn=1 which Xen couldn't handle.
+
+Furthermore, the TscFreqSel bit is model specific and was never safe to expose
+like this in the first place.  At a minimum it should have had a toolstack
+adjustment to know not to migrate such a VM.
+
+Therefore, simply remove the bit.  Note the HWCR itself is an architectural
+register, and does need to be accessible by the guest.  Since HWCR contains
+both architectural and non-architectural bits, going forward care must be taken
+to assert the exposed value is correct on newer CPU families.
+
+Reported-by: Solène Rapenne <solene@openbsd.org>
+Link: https://github.com/QubesOS/qubes-issues/issues/8502
+Fixes: 14b95b3b8546 ('x86/AMD: expose HWCR.TscFreqSel to guests')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/arch/x86/msr.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index 3f0450259cdf..c33dc78cd8f6 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -240,8 +240,7 @@ int guest_rdmsr(struct vcpu *v, uint32_t msr, uint64_t *val)
+     case MSR_K8_HWCR:
+         if ( !(cp->x86_vendor & (X86_VENDOR_AMD | X86_VENDOR_HYGON)) )
+             goto gp_fault;
+-        *val = get_cpu_family(cp->basic.raw_fms, NULL, NULL) >= 0x10
+-               ? K8_HWCR_TSC_FREQ_SEL : 0;
++        *val = 0;
+         break;
+ 
+     case MSR_VIRT_SPEC_CTRL:
+-- 
+2.41.0
+
