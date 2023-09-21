@@ -1,0 +1,109 @@
+From e4a71bc0da0baf7464bb0d8e33053f330e5ea366 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 13 Sep 2023 12:20:12 +0100
+Subject: [PATCH 507/510] x86/entry: Track the IST-ness of an entry for the
+ exit paths
+
+Use %r12 to hold an ist_exit boolean.  This register is zero elsewhere in the
+entry/exit asm, so it only needs setting in the IST path.
+
+As this is subtle and fragile, add check_ist_exit() to be used in debugging
+builds to cross-check that the ist_exit boolean matches the entry vector.
+
+Write check_ist_exit() it in C, because it's debug only and the logic more
+complicated than I care to maintain in asm.
+
+For now, we only need to use this signal in the exit-to-Xen path, but some
+exit-to-guest paths happen in IST context too.  Check the correctness in all
+exit paths to avoid the logic bit-rotting.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 21bdc25b05a0f8ab6bc73520a9ca01327360732c)
+
+x86/entry: Partially revert IST-exit checks
+
+The patch adding check_ist_exit() didn't account for the fact that
+reset_stack_and_jump() is not an ABI-preserving boundary.  The IST-ness in
+%r12 doesn't survive into the next context, and is a stale value C.
+
+This shows up in Gitlab CI for the Clang build:
+
+  https://gitlab.com/xen-project/people/andyhhp/xen/-/jobs/5112783827
+
+and in OSSTest for GCC 8:
+
+  http://logs.test-lab.xenproject.org/osstest/logs/183045/test-amd64-amd64-xl-qemuu-debianhvm-amd64/serial-pinot0.log
+
+There's no straightforward way to reconstruct the IST-exit-ness on the
+exit-to-guest path after a context switch.  For now, we only need IST-exit on
+the return-to-Xen path.
+
+Fixes: 21bdc25b05a0 ("x86/entry: Track the IST-ness of an entry for the exit paths")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 9b57c800b79b96769ea3dcd6468578fa664d19f9)
+---
+ xen/arch/x86/traps.c        | 13 +++++++++++++
+ xen/arch/x86/x86_64/entry.S | 13 ++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index d12004b1c6fc..e65cc6004148 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -2315,6 +2315,19 @@ void asm_domain_crash_synchronous(unsigned long addr)
+         do_softirq();
+ }
+ 
++#ifdef CONFIG_DEBUG
++void check_ist_exit(const struct cpu_user_regs *regs, bool ist_exit)
++{
++    const unsigned int ist_mask =
++        (1U << X86_EXC_NMI) | (1U << X86_EXC_DB) |
++        (1U << X86_EXC_DF)  | (1U << X86_EXC_MC);
++    uint8_t ev = regs->entry_vector;
++    bool is_ist = (ev < TRAP_nr) && ((1U << ev) & ist_mask);
++
++    ASSERT(is_ist == ist_exit);
++}
++#endif
++
+ /*
+  * Local variables:
+  * mode: C
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 92279a225dd6..4cebc4fbe33f 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -659,8 +659,15 @@ ENTRY(early_page_fault)
+         .section .text.entry, "ax", @progbits
+ 
+         ALIGN
+-/* No special register assumptions. */
++/* %r12=ist_exit */
+ restore_all_xen:
++
++#ifdef CONFIG_DEBUG
++        mov   %rsp, %rdi
++        mov   %r12, %rsi
++        call  check_ist_exit
++#endif
++
+         /*
+          * Check whether we need to switch to the per-CPU page tables, in
+          * case we return to late PV exit code (from an NMI or #MC).
+@@ -1091,6 +1098,10 @@ handle_ist_exception:
+ .L_ist_dispatch_done:
+         mov   %r15, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
+         mov   %bl, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
++
++        /* This is an IST exit */
++        mov   $1, %r12d
++
+         cmpb  $TRAP_nmi,UREGS_entry_vector(%rsp)
+         jne   ret_from_intr
+ 
+-- 
+2.41.0
+
