@@ -3,6 +3,7 @@
 /var/log/xen/console/*.log{
     notifempty
     missingok
+    compress
     copytruncate
     su root qubes
 }
