@@ -1,3 +1,9 @@
+xen (4.14.6-3) unstable; urgency=medium
+
+  * Apply XSA-442 patch
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 10 Oct 2023 12:40:58 +0200
+
 xen (4.14.6-2) unstable; urgency=medium
 
   * 
