@@ -117,6 +117,7 @@ Patch0507: 0507-x86-entry-Track-the-IST-ness-of-an-entry-for-the-exi.patch
 Patch0508: 0508-x86-spec-ctrl-Issue-VERW-during-IST-exit-to-Xen.patch
 Patch0509: 0509-x86-amd-Introduce-is_zen-1-2-_uarch-predicates.patch
 Patch0510: 0510-x86-spec-ctrl-Mitigate-the-Zen1-DIV-leakage.patch
+Patch0511: 0511-xsa442-4.17.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
