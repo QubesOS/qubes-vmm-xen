@@ -722,12 +722,10 @@ if [ ! -e /usr/lib/xen ]; then
   ln -s /usr/libexec/xen /usr/lib/xen
 fi
 
-%ldconfig_scriptlets libs
-
-# BEGIN QUBES SPECIFIC PART
+# QUBES SPECIFIC PART: next 2 lines (do not put comment before next section)
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
-# END QUBES SPECIFIC PART
+
 %if %build_hyp
 %post hypervisor
 %if %build_efi
