@@ -178,6 +178,7 @@ Patch538: patch-xsa439-4.15-0008-x86-spec-ctrl-Issue-VERW-during-IST-exit-to-Xen
 Patch539: patch-xsa439-4.15-0009-x86-amd-Introduce-is_zen-1-2-_uarch-predicates.patch
 Patch540: patch-xsa439-4.15-0010-x86-spec-ctrl-Mitigate-the-Zen1-DIV-leakage.patch
 Patch541: patch-xsa442-4.14.patch
+Patch542: patch-xsa446-4.14.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
