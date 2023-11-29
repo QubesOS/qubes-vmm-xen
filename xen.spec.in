@@ -462,6 +462,8 @@ export LDFLAGS="$LDFLAGS_SAVE"
 export CFLAGS="$CFLAGS_SAVE -Wno-error=address"
 
 %if %build_hyp
+# QUBES SPECIFIC LINE
+export CFLAGS=`echo $CFLAGS | sed -e 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g'`
 %if %build_crosshyp
 export CFLAGS=`echo $CFLAGS | sed -e 's/-m32//g' -e 's/-march=i686//g' 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g'`
 XEN_TARGET_ARCH=x86_64 %make_build %{?efi_flags} prefix=/usr xen CC="/usr/bin/x86_64-linux-gnu-gcc"
