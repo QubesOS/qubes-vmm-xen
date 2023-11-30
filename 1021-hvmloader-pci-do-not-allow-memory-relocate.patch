@@ -1,0 +1,30 @@
+From bc81cb8b47b2c489fbc6068dff46898167cd760b Mon Sep 17 00:00:00 2001
+Message-ID: <bc81cb8b47b2c489fbc6068dff46898167cd760b.1701370770.git.git@neowutran.ovh>
+From: Neowutran <git@neowutran.ovh>
+Date: Wed, 29 Nov 2023 20:35:02 +0100
+Subject: [PATCH] fix hvmloader relocating memory and overwritting some part of guest memory
+
+---
+ tools/firmware/hvmloader/pci.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
+index 257a6feb..03b464da 100644
+--- a/tools/firmware/hvmloader/pci.c
++++ b/tools/firmware/hvmloader/pci.c
+@@ -118,7 +118,12 @@ void pci_setup(void)
+      * Since xend can only use qemu-traditional, I think this is the
+      * option that will have the least impact.
+      */
+-    bool allow_memory_relocate = 1;
++    /*
++     *  For QubesOS we default to 0. qemu-traditional is not used. 
++     *  Settings this parameter to 1 can result in memory corruption
++     *  in the guest when passingthrough big pci device like GPU.
++     */
++    bool allow_memory_relocate = 0;
+ 
+     BUILD_BUG_ON((typeof(*pci_devfn_decode_type))PCI_COMMAND_IO !=
+                  PCI_COMMAND_IO);
+-- 
+2.43.0
