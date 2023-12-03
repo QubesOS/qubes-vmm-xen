@@ -106,6 +106,7 @@ Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0310: 0310-x86-amd-do-not-expose-HWCR.TscFreqSel-to-guests.patch
 Patch0311: 0311-x86-x2apic-remove-usage-of-ACPI_FADT_APIC_CLUSTER.patch
 Patch0312: 0312-x86-x2apic-introduce-a-mixed-physical-cluster-mode.patch
+Patch0313: 0313-xen-sched-fix-sched_move_domain.patch
 
 # Security fixes
 Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
