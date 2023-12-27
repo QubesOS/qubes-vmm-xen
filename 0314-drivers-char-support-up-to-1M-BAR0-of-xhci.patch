@@ -1,0 +1,66 @@
+From 549b042943a57b748ce80070d1174e4ff5b8ef0b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 14 Dec 2022 12:04:26 +0100
+Subject: [PATCH] drivers/char: support up to 1M BAR0 of xhci
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+AMD's XHCI has BAR0 of 1M (compared to 64K on Intel). Map it as a whole
+(reserving more space in the fixmap). Make fixmap slot conditional on
+CONFIG_XHCI.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/include/asm/fixmap.h | 4 +++-
+ xen/drivers/char/xhci-dbc.c       | 6 ++++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/include/asm/fixmap.h b/xen/arch/x86/include/asm/fixmap.h
+index bc39ffe896b1..516ec3fa6c95 100644
+--- a/xen/arch/x86/include/asm/fixmap.h
++++ b/xen/arch/x86/include/asm/fixmap.h
+@@ -25,7 +25,7 @@
+ #include <asm/msi.h>
+ #include <acpi/apei.h>
+ 
+-#define MAX_XHCI_PAGES 16
++#define MAX_XHCI_PAGES 256
+ 
+ /*
+  * Here we define all the compile-time 'special' virtual
+@@ -45,8 +45,10 @@ enum fixed_addresses {
+     FIX_COM_BEGIN,
+     FIX_COM_END,
+     FIX_EHCI_DBGP,
++#ifdef CONFIG_XHCI
+     FIX_XHCI_BEGIN,
+     FIX_XHCI_END = FIX_XHCI_BEGIN + MAX_XHCI_PAGES - 1,
++#endif
+ #ifdef CONFIG_XEN_GUEST
+     FIX_PV_CONSOLE,
+     FIX_XEN_SHARED_INFO,
+diff --git a/xen/drivers/char/xhci-dbc.c b/xen/drivers/char/xhci-dbc.c
+index 86f6df6bef67..60b781f87202 100644
+--- a/xen/drivers/char/xhci-dbc.c
++++ b/xen/drivers/char/xhci-dbc.c
+@@ -268,10 +268,12 @@ static void *dbc_sys_map_xhc(uint64_t phys, size_t size)
+ {
+     size_t i;
+ 
+-    if ( size != MAX_XHCI_PAGES * PAGE_SIZE )
++    if ( size > MAX_XHCI_PAGES * PAGE_SIZE )
+         return NULL;
+ 
+-    for ( i = FIX_XHCI_END; i >= FIX_XHCI_BEGIN; i-- )
++    size >>= PAGE_SHIFT;
++
++    for ( i = FIX_XHCI_END; i > FIX_XHCI_END - size; i-- )
+     {
+         set_fixmap_nocache(i, phys);
+         phys += PAGE_SIZE;
+-- 
+2.41.0
+
