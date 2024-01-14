@@ -1,4 +1,4 @@
-From 8b9073d98074295d08bab005d9a6f5b470ff9f6c Mon Sep 17 00:00:00 2001
+From 4c7ed3308ce0270d47c196c910e7aad0f6032d3a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sun, 8 Nov 2020 16:17:29 +0100
@@ -14,7 +14,7 @@ properly pathes in strings sections
  3 files changed, 5 insertions(+)
 
 diff --git a/tools/Rules.mk b/tools/Rules.mk
-index 6e135387bd7e..c75695fc5cfc 100644
+index a5229bb5acb4..e4ec18fc7782 100644
 --- a/tools/Rules.mk
 +++ b/tools/Rules.mk
 @@ -176,6 +176,8 @@ endif
@@ -27,10 +27,10 @@ index 6e135387bd7e..c75695fc5cfc 100644
  
  INSTALL_PYTHON_PROG = \
 diff --git a/xen/Makefile b/xen/Makefile
-index f8e3db7f128e..0ec7602ddf89 100644
+index 9ac87ea9b27c..bc9656b8ab41 100644
 --- a/xen/Makefile
 +++ b/xen/Makefile
-@@ -400,6 +400,8 @@ ifneq ($(CONFIG_CC_IS_CLANG),y)
+@@ -404,6 +404,8 @@ ifneq ($(CONFIG_CC_IS_CLANG),y)
  CFLAGS += -Wa,--strip-local-absolute
  endif
  
@@ -38,12 +38,12 @@ index f8e3db7f128e..0ec7602ddf89 100644
 +
  AFLAGS += -D__ASSEMBLY__
  
- $(call cc-option-add,AFLAGS,CC,-Wa$(comma)--noexecstack)
+ $(call cc-option-add,AFLAGS,CC,-Wa$$(comma)--noexecstack)
 diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
-index 177a2ff74272..7340d44a9705 100644
+index f213a6b56a4d..4eec76510612 100644
 --- a/xen/arch/x86/Makefile
 +++ b/xen/arch/x86/Makefile
-@@ -132,6 +132,7 @@ $(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
+@@ -133,6 +133,7 @@ $(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
  	mv $(TMP) $(TARGET)
  
  CFLAGS-$(XEN_BUILD_EFI) += -DXEN_BUILD_EFI
@@ -52,5 +52,5 @@ index 177a2ff74272..7340d44a9705 100644
  $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
  	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
 -- 
-2.37.3
+2.41.0
 

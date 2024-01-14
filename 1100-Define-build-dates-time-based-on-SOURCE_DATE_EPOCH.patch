@@ -1,4 +1,4 @@
-From b66d690cfae5e75e18ce29057df6fa82467fc3ed Mon Sep 17 00:00:00 2001
+From ff55b35b061b87748304b3776042394b9af01364 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sat, 31 Oct 2020 14:57:49 +0100
@@ -13,11 +13,11 @@ Improvements from Jan Beuluch <jbeulich@suse.com>.
  INSTALL                           | 6 ++++++
  tools/firmware/hvmloader/Makefile | 2 +-
  tools/firmware/vgabios/Makefile   | 3 ++-
- xen/Makefile                      | 5 +++--
- 5 files changed, 14 insertions(+), 4 deletions(-)
+ xen/Makefile                      | 4 ++--
+ 5 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/Config.mk b/Config.mk
-index e0ce59346896..21b300008b18 100644
+index 8d91e4c4d5b5..b4985f044913 100644
 --- a/Config.mk
 +++ b/Config.mk
 @@ -253,3 +253,5 @@ QEMU_UPSTREAM_LOC ?= $(call or,$(wildcard $(QEMU_UPSTREAM_INTREE)),\
@@ -72,21 +72,22 @@ index 3284812fdec8..4350ef402127 100644
  
  VGABIOS_DATE = "-DVGABIOS_DATE=\"$(VGABIOS_REL_DATE)\""
 diff --git a/xen/Makefile b/xen/Makefile
-index 9d0df5e2c543..f8e3db7f128e 100644
+index a46e6330dbca..9ac87ea9b27c 100644
 --- a/xen/Makefile
 +++ b/xen/Makefile
-@@ -12,8 +12,9 @@ export XEN_FULLVERSION   = $(XEN_VERSION).$(XEN_SUBVERSION)$(XEN_EXTRAVERSION)
- 
- export XEN_WHOAMI	?= $(USER)
- export XEN_DOMAIN	?= $(shell ([ -x /bin/dnsdomainname ] && /bin/dnsdomainname) || ([ -x /bin/domainname ] && /bin/domainname || echo [unknown]))
--export XEN_BUILD_DATE	?= $(shell LC_ALL=C date)
--export XEN_BUILD_TIME	?= $(shell LC_ALL=C date +%T)
-+
-+export XEN_BUILD_DATE	?= $(shell LC_ALL=C date $(DATE_EPOCH_OPTS))
-+export XEN_BUILD_TIME	?= $(shell LC_ALL=C date $(DATE_EPOCH_OPTS) +%T)
- export XEN_BUILD_HOST	?= $(shell hostname)
- 
- # Best effort attempt to find a python interpreter, defaulting to Python 3 if
+@@ -15,10 +15,10 @@ ifeq ($(origin XEN_DOMAIN), undefined)
+ export XEN_DOMAIN	:= $(shell ([ -x /bin/dnsdomainname ] && /bin/dnsdomainname) || ([ -x /bin/domainname ] && /bin/domainname || echo [unknown]))
+ endif
+ ifeq ($(origin XEN_BUILD_DATE), undefined)
+-export XEN_BUILD_DATE	:= $(shell LC_ALL=C date)
++export XEN_BUILD_DATE	:= $(shell LC_ALL=C date $(DATE_EPOCH_OPTS))
+ endif
+ ifeq ($(origin XEN_BUILD_TIME), undefined)
+-export XEN_BUILD_TIME	:= $(shell LC_ALL=C date +%T)
++export XEN_BUILD_TIME	:= $(shell LC_ALL=C date $(DATE_EPOCH_OPTS) +%T)
+ endif
+ ifeq ($(origin XEN_BUILD_HOST), undefined)
+ export XEN_BUILD_HOST	:= $(shell hostname)
 -- 
-2.37.3
+2.41.0
 

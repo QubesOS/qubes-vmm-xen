@@ -103,26 +103,9 @@ Patch0306: 0306-x86-Replace-PAT_-with-X86_MT_.patch
 Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
-Patch0310: 0310-x86-amd-do-not-expose-HWCR.TscFreqSel-to-guests.patch
-Patch0311: 0311-x86-x2apic-remove-usage-of-ACPI_FADT_APIC_CLUSTER.patch
-Patch0312: 0312-x86-x2apic-introduce-a-mixed-physical-cluster-mode.patch
-Patch0313: 0313-xen-sched-fix-sched_move_domain.patch
 Patch0314: 0314-drivers-char-support-up-to-1M-BAR0-of-xhci.patch
 
 # Security fixes
-Patch0500: 0500-x86-Activate-Data-Operand-Invariant-Timing-Mode-by-d.patch
-Patch0501: 0501-x86-AMD-extend-Zenbleed-check-to-models-good-ucode-i.patch
-Patch0502: 0502-x86-spec-ctrl-Fix-confusion-between-SPEC_CTRL_EXIT_T.patch
-Patch0503: 0503-x86-spec-ctrl-Fold-DO_SPEC_CTRL_EXIT_TO_XEN-into-it-.patch
-Patch0504: 0504-x86-spec-ctrl-Turn-the-remaining-SPEC_CTRL_-ENTRY-EX.patch
-Patch0505: 0505-x86-spec-ctrl-Improve-all-SPEC_CTRL_-ENTER-EXIT-_-co.patch
-Patch0506: 0506-x86-entry-Adjust-restore_all_xen-to-hold-stack_end-i.patch
-Patch0507: 0507-x86-entry-Track-the-IST-ness-of-an-entry-for-the-exi.patch
-Patch0508: 0508-x86-spec-ctrl-Issue-VERW-during-IST-exit-to-Xen.patch
-Patch0509: 0509-x86-amd-Introduce-is_zen-1-2-_uarch-predicates.patch
-Patch0510: 0510-x86-spec-ctrl-Mitigate-the-Zen1-DIV-leakage.patch
-Patch0511: 0511-xsa442-4.17.patch
-Patch0512: 0512-xsa446.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
