@@ -1,3 +1,10 @@
+xen (4.14.6-5) unstable; urgency=medium
+
+  [ xaki23 ]
+  * backport of libxl hvmloader fix
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 23 Jan 2024 04:59:11 +0100
+
 xen (4.14.6-4) unstable; urgency=medium
 
   * Apply XSA-446 patch
