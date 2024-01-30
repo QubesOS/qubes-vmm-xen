@@ -106,6 +106,7 @@ Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0314: 0314-drivers-char-support-up-to-1M-BAR0-of-xhci.patch
 
 # Security fixes
+Patch0500: 0500-xsa449.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
