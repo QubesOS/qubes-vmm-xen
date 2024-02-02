@@ -1,0 +1,46 @@
+From: Roger Pau Monne <roger.pau@citrix.com>
+Subject: [PATCH 1/4] amd-vi: fix IVMD memory type checks
+Date: Thu,  1 Feb 2024 18:01:56 +0100
+
+The current code that parses the IVMD blocks is relaxed with regard to the
+restriction that such unity regions should always fall into memory ranges
+marked as reserved in the memory map.
+
+However the type checks for the IVMD addresses are inverted, and as a result
+IVMD ranges falling into RAM areas are accepted.  Note that having such ranges
+in the first place is a firmware bug, as IVMD should always fall into reserved
+ranges.
+
+Fixes: ed6c77ebf0c1 ('AMD/IOMMU: check / convert IVMD ranges for being / to be reserved')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+---
+ xen/drivers/passthrough/amd/iommu_acpi.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/xen/drivers/passthrough/amd/iommu_acpi.c b/xen/drivers/passthrough/amd/iommu_acpi.c
+index 2e3b83014beb..ca70f4f3ae2c 100644
+--- a/xen/drivers/passthrough/amd/iommu_acpi.c
++++ b/xen/drivers/passthrough/amd/iommu_acpi.c
+@@ -426,9 +426,14 @@ static int __init parse_ivmd_block(const struct acpi_ivrs_memory *ivmd_block)
+                 return -EIO;
+             }
+ 
+-            /* Types which won't be handed out are considered good enough. */
+-            if ( !(type & (RAM_TYPE_RESERVED | RAM_TYPE_ACPI |
+-                           RAM_TYPE_UNUSABLE)) )
++            /*
++             * Types which aren't RAM are considered good enough.
++             * Note that a page being partially RESERVED, ACPI or UNUSABLE will
++             * force Xen into assuming the whole page as having that type in
++             * practice.
++             */
++            if ( type & (RAM_TYPE_RESERVED | RAM_TYPE_ACPI |
++                         RAM_TYPE_UNUSABLE) )
+                 continue;
+ 
+             AMD_IOMMU_ERROR("IVMD: page at %lx can't be converted\n", addr);
+-- 
+2.43.0
+
+
+
