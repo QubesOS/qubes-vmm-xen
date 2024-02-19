@@ -156,6 +156,14 @@ PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
 PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
 Patch0653: 0653-libxl-Disable-relocating-memory-for-qemu-xen-in-stub.patch
 
+# S0ix support
+Patch0670: 0670-x86-hpet-Disable-legacy-replacement-mode-after-test-.patch
+Patch0671: 0671-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
+Patch0672: 0672-x86-ACPI-Ignore-entries-marked-as-unusable-when-pars.patch
+Patch0673: 0673-x86-msr-Allow-hardware-domain-to-read-C-state-reside.patch
+Patch0674: 0674-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
+Patch0675: 0675-libxl_pci-Pass-power_mgmt-via-QMP.patch
+
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
 Patch1001: 1001-hotplug-store-block-params-for-cleanup.patch

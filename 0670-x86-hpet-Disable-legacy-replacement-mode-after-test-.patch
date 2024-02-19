@@ -1,0 +1,60 @@
+From a112f0fbbb333fc29a35d0a81853d59409a33fde Mon Sep 17 00:00:00 2001
+:
+: Upstreaming should be done soon:
+: https://lore.kernel.org/xen-devel/20230807113117.1277-1-simon@invisiblethingslab.com/
+:
+From: Simon Gaiser <simon@invisiblethingslab.com>
+To: xen-devel@lists.xenproject.org
+Cc: Jan Beulich <jbeulich@suse.com>
+Cc: Andrew Cooper <andrew.cooper3@citrix.com>
+Cc: "Roger Pau Monné" <roger.pau@citrix.com>
+Cc: Wei Liu <wl@xen.org>
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Date: Mon, 31 Jul 2023 12:13:42 +0200
+Subject: [XEN PATCH v3] x86/hpet: Disable legacy replacement mode after IRQ test
+
+As far as I understand the HPET legacy mode is not required after the
+timer IRQ test. For previous discussion see [1] and [2]. Keeping it
+enabled prevents reaching deeper C-states on some systems and thereby
+also S0ix residency. So disable it after the timer IRQ test worked. Note
+that this code path is only reached when opt_hpet_legacy_replacement < 0,
+so explicit user choice is still honored.
+
+Link: https://lore.kernel.org/xen-devel/cb408368-077d-edb5-b4ad-f80086db48c1@invisiblethingslab.com/ # [1]
+Link: https://lore.kernel.org/xen-devel/20230718122603.2002-1-simon@invisiblethingslab.com/ # [2]
+Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
+---
+
+[ Resending v3, now with a unique Message-ID, sorry. ]
+
+Changes in v3:
+
+ - Edit log message and downgrade it to XENLOG_DEBUG.
+
+Changes in v2:
+
+ - Always disable legacy mode after test, not only when ARAT is
+   available. See [3] for reasoning.
+
+[3]: https://lore.kernel.org/xen-devel/ac77ecba-6804-1d16-60dc-f184e5d31dcb@invisiblethingslab.com/
+
+---
+ xen/arch/x86/io_apic.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xen/arch/x86/io_apic.c b/xen/arch/x86/io_apic.c
+index 041233b9b7..b4b4cd5939 100644
+--- a/xen/arch/x86/io_apic.c
++++ b/xen/arch/x86/io_apic.c
+@@ -1967,6 +1967,8 @@ static void __init check_timer(void)
+ 
+             if ( timer_irq_works() )
+             {
++                printk(XENLOG_DEBUG "IRQ test with HPET Legacy Replacement Mode worked - disabling it again\n");
++                hpet_disable_legacy_replacement_mode();
+                 local_irq_restore(flags);
+                 return;
+             }
+-- 
+2.40.1
+
