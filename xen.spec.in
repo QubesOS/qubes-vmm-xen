@@ -189,7 +189,6 @@ Patch1014: 1014-Additional-support-in-ACPI-builder-to-support-SLIC-a.patch
 Patch1015: 1015-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
 Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
 Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
-Patch1019: 1019-Use-Linux-s-PAT.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
