@@ -1,0 +1,81 @@
+From 7deddb4e27b7f4b89d80b1d5a44210f0cfe386e7 Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Fri, 16 Jun 2023 14:31:27 +0200
+Subject: [PATCH 1317/1323] arch/x86/smp: remove MONITOR/MWAIT loop for TXT AP
+ bringup
+
+This is no longer necessary, since AP loops on cpu_state and CPU
+index is passed as argument.
+
+In addition, move TXT JOIN structure to static data. There is no
+guarantee that it would be consumed before it is overwritten on BSP
+stack.
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/smpboot.c | 42 +++++++++++++-----------------------------
+ 1 file changed, 13 insertions(+), 29 deletions(-)
+
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 5478a6b76b..85c5d14414 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -327,28 +327,6 @@ void start_secondary(unsigned int cpu)
+      * want to limit the things done here to the most necessary things.
+      */
+ 
+-    if ( slaunch_active ) {
+-        uint64_t misc_enable;
+-        uint32_t my_apicid;
+-        struct txt_sinit_mle_data *sinit_mle =
+-              txt_sinit_mle_data_start(__va(read_txt_reg(TXTCR_HEAP_BASE)));
+-
+-        /* TXT released us with MONITOR disabled in IA32_MISC_ENABLE. */
+-        rdmsrl(MSR_IA32_MISC_ENABLE, misc_enable);
+-        wrmsrl(MSR_IA32_MISC_ENABLE,
+-               misc_enable | MSR_IA32_MISC_ENABLE_MONITOR_ENABLE);
+-
+-        /* get_apic_id() reads from x2APIC if it thinks it is enabled. */
+-        x2apic_ap_setup();
+-        my_apicid = get_apic_id();
+-
+-        while ( my_apicid != cpu_physical_id(cpu) ) {
+-            asm volatile ("monitor; xor %0,%0; mwait"
+-                          :: "a"(__va(sinit_mle->rlp_wakeup_addr)), "c"(0),
+-                          "d"(0) : "memory");
+-        }
+-    }
+-
+     /* Critical region without IDT or TSS.  Any fault is deadly! */
+ 
+     /* Wait until data set up by CPU_UP_PREPARE notifiers is ready. */
+@@ -459,13 +437,19 @@ static int slaunch_wake_aps(unsigned long trampoline_rm)
+     struct txt_sinit_mle_data *sinit_mle =
+               txt_sinit_mle_data_start(__va(read_txt_reg(TXTCR_HEAP_BASE)));
+     uint32_t *wakeup_addr = __va(sinit_mle->rlp_wakeup_addr);
+-#define trampoline_relative(x)  (trampoline_rm + ((char *)(x) - trampoline_realmode_entry))
+-    uint32_t join[4] = {
+-        trampoline_gdt[1],                      /* GDT limit */
+-        trampoline_relative(trampoline_gdt),    /* GDT base */
+-        TXT_AP_BOOT_CS,                         /* CS selector, DS = CS+8 */
+-        trampoline_relative(txt_ap_entry)       /* EIP */
+-    };
++    static uint32_t join[4] = {0};
++
++    /* Check if already started. */
++    if ( join[0] != 0)
++        return -1;
++
++#define trampoline_relative(x) \
++    (trampoline_rm + ((char *)(x) - trampoline_realmode_entry))
++
++    join[0] = trampoline_gdt[1];                    /* GDT limit */
++    join[1] = trampoline_relative(trampoline_gdt);  /* GDT base */
++    join[2] = TXT_AP_BOOT_CS;                       /* CS selector, DS = CS+8 */
++    join[3] = trampoline_relative(txt_ap_entry);    /* EIP */
+ 
+     write_txt_reg(TXTCR_MLE_JOIN, __pa(join));
+ 
+-- 
+2.44.0
+
