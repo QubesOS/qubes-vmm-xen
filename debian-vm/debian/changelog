@@ -1,3 +1,9 @@
+xen (4.14.6-7) unstable; urgency=medium
+
+  * Apply XSA-452 patches and their dependencies
+
+ -- Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>  Tue, 12 Mar 2024 20:56:24 +0100
+
 xen (4.14.6-6) unstable; urgency=medium
 
   * Apply XSA-449 patch
