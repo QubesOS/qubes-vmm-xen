@@ -1,0 +1,36 @@
+From 091466ba55d1e2e75738f751818ace2e3ed08ccf Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Fri, 2 Feb 2024 08:04:33 +0100
+Subject: [PATCH 323/349] x86/p2m-pt: fix off by one in entry check assert
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The MMIO RO rangeset overlap check is bogus: the rangeset is inclusive so the
+passed end mfn should be the last mfn to be mapped (not last + 1).
+
+Fixes: 6fa1755644d0 ('amd/npt/shadow: replace assert that prevents creating 2M/1G MMIO entries')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: George Dunlap <george.dunlap@cloud.com>
+master commit: 610775d0dd61c1bd2f4720c755986098e6a5bafd
+master date: 2024-01-25 16:09:04 +0100
+---
+ xen/arch/x86/mm/p2m-pt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/mm/p2m-pt.c b/xen/arch/x86/mm/p2m-pt.c
+index eaba2b0fb4..f02ebae372 100644
+--- a/xen/arch/x86/mm/p2m-pt.c
++++ b/xen/arch/x86/mm/p2m-pt.c
+@@ -564,7 +564,7 @@ static void check_entry(mfn_t mfn, p2m_type_t new, p2m_type_t old,
+     if ( new == p2m_mmio_direct )
+         ASSERT(!mfn_eq(mfn, INVALID_MFN) &&
+                !rangeset_overlaps_range(mmio_ro_ranges, mfn_x(mfn),
+-                                        mfn_x(mfn) + (1ul << order)));
++                                        mfn_x(mfn) + (1UL << order) - 1));
+     else if ( p2m_allows_invalid_mfn(new) || new == p2m_invalid ||
+               new == p2m_mmio_dm )
+         ASSERT(mfn_valid(mfn) || mfn_eq(mfn, INVALID_MFN));
+-- 
+2.44.0
+

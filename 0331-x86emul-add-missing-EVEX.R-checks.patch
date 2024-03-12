@@ -1,0 +1,50 @@
+From 16f2e47eb1207d866f95cf694a60a7ceb8f96a36 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 27 Feb 2024 14:09:55 +0100
+Subject: [PATCH 331/349] x86emul: add missing EVEX.R' checks
+
+EVEX.R' is not ignored in 64-bit code when encoding a GPR or mask
+register. While for mask registers suitable checks are in place (there
+also covering EVEX.R), they were missing for the few cases where in
+EVEX-encoded instructions ModR/M.reg encodes a GPR. While for VPEXTRW
+the bit is replaced before an emulation stub is invoked, for
+VCVT{,T}{S,D,H}2{,U}SI this actually would have led to #UD from inside
+an emulation stub, in turn raising #UD to the guest, but accompanied by
+log messages indicating something's wrong in Xen nevertheless.
+
+Fixes: 001bd91ad864 ("x86emul: support AVX512{F,BW,DQ} extract insns")
+Fixes: baf4a376f550 ("x86emul: support AVX512F legacy-equivalent scalar int/FP conversion insns")
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: cb319824bfa8d3c9ea0410cc71daaedc3e11aa2a
+master date: 2024-02-22 11:54:07 +0100
+---
+ xen/arch/x86/x86_emulate/x86_emulate.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/x86_emulate/x86_emulate.c b/xen/arch/x86/x86_emulate/x86_emulate.c
+index 0c0336f737..995670cbc8 100644
+--- a/xen/arch/x86/x86_emulate/x86_emulate.c
++++ b/xen/arch/x86/x86_emulate/x86_emulate.c
+@@ -6829,7 +6829,8 @@ x86_emulate(
+     CASE_SIMD_SCALAR_FP(_EVEX, 0x0f, 0x2d): /* vcvts{s,d}2si xmm/mem,reg */
+     CASE_SIMD_SCALAR_FP(_EVEX, 0x0f, 0x78): /* vcvtts{s,d}2usi xmm/mem,reg */
+     CASE_SIMD_SCALAR_FP(_EVEX, 0x0f, 0x79): /* vcvts{s,d}2usi xmm/mem,reg */
+-        generate_exception_if((evex.reg != 0xf || !evex.RX || evex.opmsk ||
++        generate_exception_if((evex.reg != 0xf || !evex.RX || !evex.R ||
++                               evex.opmsk ||
+                                (ea.type != OP_REG && evex.brs)),
+                               EXC_UD);
+         host_and_vcpu_must_have(avx512f);
+@@ -10705,7 +10706,7 @@ x86_emulate(
+         goto pextr;
+ 
+     case X86EMUL_OPC_EVEX_66(0x0f, 0xc5):   /* vpextrw $imm8,xmm,reg */
+-        generate_exception_if(ea.type != OP_REG, EXC_UD);
++        generate_exception_if(ea.type != OP_REG || !evex.R, EXC_UD);
+         /* Convert to alternative encoding: We want to use a memory operand. */
+         evex.opcx = ext_0f3a;
+         b = 0x15;
+-- 
+2.44.0
+

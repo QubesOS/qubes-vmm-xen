@@ -1,0 +1,36 @@
+From f6b12792542e372f36a71ea4c2563e6dd6e4fa57 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 27 Feb 2024 14:10:24 +0100
+Subject: [PATCH 332/349] xen/livepatch: fix norevert test hook setup typo
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The test code has a typo in using LIVEPATCH_APPLY_HOOK() instead of
+LIVEPATCH_REVERT_HOOK().
+
+Fixes: 6047104c3ccc ('livepatch: Add per-function applied/reverted state tracking marker')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+master commit: f0622dd4fd6ae6ddb523a45d89ed9b8f3a9a8f36
+master date: 2024-02-26 10:13:46 +0100
+---
+ xen/test/livepatch/xen_action_hooks_norevert.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/test/livepatch/xen_action_hooks_norevert.c b/xen/test/livepatch/xen_action_hooks_norevert.c
+index 3e21ade6ab..c173855192 100644
+--- a/xen/test/livepatch/xen_action_hooks_norevert.c
++++ b/xen/test/livepatch/xen_action_hooks_norevert.c
+@@ -120,7 +120,7 @@ static void post_revert_hook(livepatch_payload_t *payload)
+     printk(KERN_DEBUG "%s: Hook done.\n", __func__);
+ }
+ 
+-LIVEPATCH_APPLY_HOOK(revert_hook);
++LIVEPATCH_REVERT_HOOK(revert_hook);
+ 
+ LIVEPATCH_PREAPPLY_HOOK(pre_apply_hook);
+ LIVEPATCH_POSTAPPLY_HOOK(post_apply_hook);
+-- 
+2.44.0
+

@@ -1,0 +1,50 @@
+From 0ce25b46ab2fb53a1b58f7682ca14971453f4f2c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 5 Mar 2024 11:58:36 +0100
+Subject: [PATCH 342/349] x86/spec: do not print thunk option selection if not
+ built-in
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since the thunk built-in enable is printed as part of the "Compiled-in
+support:" line, avoid printing anything in "Xen settings:" if the thunk is
+disabled at build time.
+
+Note the BTI-Thunk option printing is also adjusted to print a colon in the
+same way the other options on the line do.
+
+Requested-by: Jan Beulich <jbeulich@suse.com>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 576528a2a742069af203e90c613c5c93e23c9755
+master date: 2024-02-27 14:58:40 +0100
+---
+ xen/arch/x86/spec_ctrl.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 098fa3184d..25a18ac598 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -516,11 +516,12 @@ static void __init print_details(enum ind_thunk thunk)
+                "\n");
+ 
+     /* Settings for Xen's protection, irrespective of guests. */
+-    printk("  Xen settings: BTI-Thunk %s, SPEC_CTRL: %s%s%s%s%s, Other:%s%s%s%s%s%s\n",
+-           thunk == THUNK_NONE      ? "N/A" :
+-           thunk == THUNK_RETPOLINE ? "RETPOLINE" :
+-           thunk == THUNK_LFENCE    ? "LFENCE" :
+-           thunk == THUNK_JMP       ? "JMP" : "?",
++    printk("  Xen settings: %s%sSPEC_CTRL: %s%s%s%s%s, Other:%s%s%s%s%s%s\n",
++           thunk != THUNK_NONE      ? "BTI-Thunk: " : "",
++           thunk == THUNK_NONE      ? "" :
++           thunk == THUNK_RETPOLINE ? "RETPOLINE, " :
++           thunk == THUNK_LFENCE    ? "LFENCE, " :
++           thunk == THUNK_JMP       ? "JMP, " : "?, ",
+            (!boot_cpu_has(X86_FEATURE_IBRSB) &&
+             !boot_cpu_has(X86_FEATURE_IBRS))         ? "No" :
+            (default_xen_spec_ctrl & SPEC_CTRL_IBRS)  ? "IBRS+" :  "IBRS-",
+-- 
+2.44.0
+

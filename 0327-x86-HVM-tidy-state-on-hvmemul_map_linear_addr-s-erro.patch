@@ -1,0 +1,63 @@
+From b3ae0e6201495216b12157bd8b2382b28fdd7dae Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 27 Feb 2024 14:08:20 +0100
+Subject: [PATCH 327/349] x86/HVM: tidy state on hvmemul_map_linear_addr()'s
+ error path
+
+While in the vast majority of cases failure of the function will not
+be followed by re-invocation with the same emulation context, a few
+very specific insns - involving multiple independent writes, e.g. ENTER
+and PUSHA - exist where this can happen. Since failure of the function
+only signals to the caller that it ought to try an MMIO write instead,
+such failure also cannot be assumed to result in wholesale failure of
+emulation of the current insn. Instead we have to maintain internal
+state such that another invocation of the function with the same
+emulation context remains possible. To achieve that we need to reset MFN
+slots after putting page references on the error path.
+
+Note that all of this affects debugging code only, in causing an
+assertion to trigger (higher up in the function). There's otherwise no
+misbehavior - such a "leftover" slot would simply be overwritten by new
+contents in a release build.
+
+Also extend the related unmap() assertion, to further check for MFN 0.
+
+Fixes: 8cbd4fb0b7ea ("x86/hvm: implement hvmemul_write() using real mappings")
+Reported-by: Manuel Andreas <manuel.andreas@tum.de>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Paul Durrant <paul@xen.org>
+master commit: e72f951df407bc3be82faac64d8733a270036ba1
+master date: 2024-02-13 09:36:14 +0100
+---
+ xen/arch/x86/hvm/emulate.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/emulate.c b/xen/arch/x86/hvm/emulate.c
+index 275451dd36..27928dc3f3 100644
+--- a/xen/arch/x86/hvm/emulate.c
++++ b/xen/arch/x86/hvm/emulate.c
+@@ -697,7 +697,12 @@ static void *hvmemul_map_linear_addr(
+  out:
+     /* Drop all held references. */
+     while ( mfn-- > hvmemul_ctxt->mfn )
++    {
+         put_page(mfn_to_page(*mfn));
++#ifndef NDEBUG /* Clean slot for a subsequent map()'s error checking. */
++        *mfn = _mfn(0);
++#endif
++    }
+ 
+     return err;
+ }
+@@ -719,7 +724,7 @@ static void hvmemul_unmap_linear_addr(
+ 
+     for ( i = 0; i < nr_frames; i++ )
+     {
+-        ASSERT(mfn_valid(*mfn));
++        ASSERT(mfn_x(*mfn) && mfn_valid(*mfn));
+         paging_mark_dirty(currd, *mfn);
+         put_page(mfn_to_page(*mfn));
+ 
+-- 
+2.44.0
+

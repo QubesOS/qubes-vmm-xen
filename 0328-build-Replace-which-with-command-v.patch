@@ -1,0 +1,57 @@
+From 1330a5fe44ca91f98857b53fe8bbe06522d9db27 Mon Sep 17 00:00:00 2001
+From: Anthony PERARD <anthony.perard@citrix.com>
+Date: Tue, 27 Feb 2024 14:08:50 +0100
+Subject: [PATCH 328/349] build: Replace `which` with `command -v`
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The `which` command is not standard, may not exist on the build host,
+or may not behave as expected by the build system. It is recommended
+to use `command -v` to find out if a command exist and have its path,
+and it's part of a POSIX shell standard (at least, it seems to be
+mandatory since IEEE Std 1003.1-2008, but was optional before).
+
+Fixes: c8a8645f1efe ("xen/build: Automatically locate a suitable python interpreter")
+Fixes: 3b47bcdb6d38 ("xen/build: Use a distro version of figlet")
+Signed-off-by: Anthony PERARD <anthony.perard@citrix.com>
+Tested-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: f93629b18b528a5ab1b1092949c5420069c7226c
+master date: 2024-02-19 12:45:48 +0100
+---
+ xen/Makefile | 4 ++--
+ xen/build.mk | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/Makefile b/xen/Makefile
+index dd0b004e1c..7ea13a6791 100644
+--- a/xen/Makefile
++++ b/xen/Makefile
+@@ -25,8 +25,8 @@ export XEN_BUILD_HOST	:= $(shell hostname)
+ endif
+ 
+ # Best effort attempt to find a python interpreter, defaulting to Python 3 if
+-# available.  Fall back to just `python` if `which` is nowhere to be found.
+-PYTHON_INTERPRETER	:= $(word 1,$(shell which python3 python python2 2>/dev/null) python)
++# available.  Fall back to just `python`.
++PYTHON_INTERPRETER	:= $(word 1,$(shell command -v python3 || command -v python || command -v python2) python)
+ export PYTHON		?= $(PYTHON_INTERPRETER)
+ 
+ export CHECKPOLICY	?= checkpolicy
+diff --git a/xen/build.mk b/xen/build.mk
+index 9ecb104f1e..b489f77b7c 100644
+--- a/xen/build.mk
++++ b/xen/build.mk
+@@ -1,6 +1,6 @@
+ quiet_cmd_banner = BANNER  $@
+ define cmd_banner
+-    if which figlet >/dev/null 2>&1 ; then \
++    if command -v figlet >/dev/null 2>&1 ; then \
+ 	echo " Xen $(XEN_FULLVERSION)" | figlet -f $< > $@.tmp; \
+     else \
+ 	echo " Xen $(XEN_FULLVERSION)" > $@.tmp; \
+-- 
+2.44.0
+

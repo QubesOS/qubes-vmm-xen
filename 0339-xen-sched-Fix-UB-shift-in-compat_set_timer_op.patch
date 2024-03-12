@@ -1,0 +1,86 @@
+From b75bee183210318150e678e14b35224d7c73edb6 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 5 Mar 2024 11:57:02 +0100
+Subject: [PATCH 339/349] xen/sched: Fix UB shift in compat_set_timer_op()
+
+Tamas reported this UBSAN failure from fuzzing:
+
+  (XEN) ================================================================================
+  (XEN) UBSAN: Undefined behaviour in common/sched/compat.c:48:37
+  (XEN) left shift of negative value -2147425536
+  (XEN) ----[ Xen-4.19-unstable  x86_64  debug=y ubsan=y  Not tainted ]----
+  ...
+  (XEN) Xen call trace:
+  (XEN)    [<ffff82d040307c1c>] R ubsan.c#ubsan_epilogue+0xa/0xd9
+  (XEN)    [<ffff82d040308afb>] F __ubsan_handle_shift_out_of_bounds+0x11a/0x1c5
+  (XEN)    [<ffff82d040307758>] F compat_set_timer_op+0x41/0x43
+  (XEN)    [<ffff82d04040e4cc>] F hvm_do_multicall_call+0x77f/0xa75
+  (XEN)    [<ffff82d040519462>] F arch_do_multicall_call+0xec/0xf1
+  (XEN)    [<ffff82d040261567>] F do_multicall+0x1dc/0xde3
+  (XEN)    [<ffff82d04040d2b3>] F hvm_hypercall+0xa00/0x149a
+  (XEN)    [<ffff82d0403cd072>] F vmx_vmexit_handler+0x1596/0x279c
+  (XEN)    [<ffff82d0403d909b>] F vmx_asm_vmexit_handler+0xdb/0x200
+
+Left-shifting any negative value is strictly undefined behaviour in C, and
+the two parameters here come straight from the guest.
+
+The fuzzer happened to choose lo 0xf, hi 0x8000e300.
+
+Switch everything to be unsigned values, making the shift well defined.
+
+As GCC documents:
+
+  As an extension to the C language, GCC does not use the latitude given in
+  C99 and C11 only to treat certain aspects of signed '<<' as undefined.
+  However, -fsanitize=shift (and -fsanitize=undefined) will diagnose such
+  cases.
+
+this was deemed not to need an XSA.
+
+Note: The unsigned -> signed conversion for do_set_timer_op()'s s_time_t
+parameter is also well defined.  C makes it implementation defined, and GCC
+defines it as reduction modulo 2^N to be within range of the new type.
+
+Fixes: 2942f45e09fb ("Enable compatibility mode operation for HYPERVISOR_sched_op and HYPERVISOR_set_timer_op.")
+Reported-by: Tamas K Lengyel <tamas@tklengyel.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: ae6d4fd876765e6d623eec67d14f5d0464be09cb
+master date: 2024-02-01 19:52:44 +0000
+---
+ xen/common/sched/compat.c    | 4 ++--
+ xen/include/hypercall-defs.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xen/common/sched/compat.c b/xen/common/sched/compat.c
+index 040b4caca2..b827fdecb8 100644
+--- a/xen/common/sched/compat.c
++++ b/xen/common/sched/compat.c
+@@ -39,9 +39,9 @@ static int compat_poll(struct compat_sched_poll *compat)
+ 
+ #include "core.c"
+ 
+-int compat_set_timer_op(u32 lo, s32 hi)
++int compat_set_timer_op(uint32_t lo, uint32_t hi)
+ {
+-    return do_set_timer_op(((s64)hi << 32) | lo);
++    return do_set_timer_op(((uint64_t)hi << 32) | lo);
+ }
+ 
+ /*
+diff --git a/xen/include/hypercall-defs.c b/xen/include/hypercall-defs.c
+index 1896121074..c442dee284 100644
+--- a/xen/include/hypercall-defs.c
++++ b/xen/include/hypercall-defs.c
+@@ -127,7 +127,7 @@ xenoprof_op(int op, void *arg)
+ 
+ #ifdef CONFIG_COMPAT
+ prefix: compat
+-set_timer_op(uint32_t lo, int32_t hi)
++set_timer_op(uint32_t lo, uint32_t hi)
+ multicall(multicall_entry_compat_t *call_list, uint32_t nr_calls)
+ memory_op(unsigned int cmd, void *arg)
+ #ifdef CONFIG_IOREQ_SERVER
+-- 
+2.44.0
+

@@ -104,10 +104,43 @@ Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0314: 0314-drivers-char-support-up-to-1M-BAR0-of-xhci.patch
-Patch0315: 0315-amd-vi-fix-IVMD-memory-type-checks.patch
+Patch0315: 0315-pci-fail-device-assignment-if-phantom-functions-cann.patch
+Patch0316: 0316-VT-d-Fix-else-vs-endif-misplacement.patch
+Patch0317: 0317-x86-amd-Extend-CPU-erratum-1474-fix-to-more-affected.patch
+Patch0318: 0318-CirrusCI-drop-FreeBSD-12.patch
+Patch0319: 0319-x86-intel-ensure-Global-Performance-Counter-Control-.patch
+Patch0320: 0320-x86-vmx-Fix-IRQ-handling-for-EXIT_REASON_INIT.patch
+Patch0321: 0321-x86-vmx-Disallow-the-use-of-inactivity-states.patch
+Patch0322: 0322-lib-fdt-elf-move-lib-fdt-elf-temp.o-and-their-deps-t.patch
+Patch0323: 0323-x86-p2m-pt-fix-off-by-one-in-entry-check-assert.patch
+Patch0324: 0324-tools-xentop-fix-sorting-bug-for-some-columns.patch
+Patch0325: 0325-amd-vi-fix-IVMD-memory-type-checks.patch
+Patch0326: 0326-x86-hvm-Fix-fast-singlestep-state-persistence.patch
+Patch0327: 0327-x86-HVM-tidy-state-on-hvmemul_map_linear_addr-s-erro.patch
+Patch0328: 0328-build-Replace-which-with-command-v.patch
+Patch0329: 0329-libxl-Disable-relocating-memory-for-qemu-xen-in-stub.patch
+Patch0330: 0330-build-make-sure-build-fails-when-running-kconfig-fai.patch
+Patch0331: 0331-x86emul-add-missing-EVEX.R-checks.patch
+Patch0332: 0332-xen-livepatch-fix-norevert-test-hook-setup-typo.patch
+Patch0333: 0333-xen-cmdline-fix-printf-format-specifier-in-no_config.patch
+Patch0334: 0334-x86-altcall-use-a-union-as-register-type-for-functio.patch
+Patch0335: 0335-x86-spec-fix-BRANCH_HARDEN-option-to-only-be-set-whe.patch
+Patch0336: 0336-x86-account-for-shadow-stack-in-exception-from-stub-.patch
+Patch0337: 0337-xen-arm-Fix-UBSAN-failure-in-start_xen.patch
+Patch0338: 0338-x86-HVM-hide-SVM-VMX-when-their-enabling-is-prohibit.patch
+Patch0339: 0339-xen-sched-Fix-UB-shift-in-compat_set_timer_op.patch
+Patch0340: 0340-x86-spec-print-the-built-in-SPECULATIVE_HARDEN_-opti.patch
+Patch0341: 0341-x86-spec-fix-INDIRECT_THUNK-option-to-only-be-set-wh.patch
+Patch0342: 0342-x86-spec-do-not-print-thunk-option-selection-if-not-.patch
+Patch0343: 0343-xen-livepatch-register-livepatch-regions-when-loaded.patch
+Patch0344: 0344-xen-livepatch-search-for-symbols-in-all-loaded-paylo.patch
+Patch0345: 0345-xen-livepatch-fix-norevert-test-attempt-to-open-code.patch
+Patch0346: 0346-xen-livepatch-properly-build-the-noapply-and-norever.patch
+Patch0347: 0347-libxl-Fix-segfault-in-device_model_spawn_outcome.patch
+Patch0348: 0348-x86-altcall-always-use-a-temporary-parameter-stashin.patch
+Patch0349: 0349-x86-cpu-policy-Allow-for-levelling-of-VERW-side-effe.patch
 
 # Security fixes
-Patch0500: 0500-xsa449.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
@@ -154,7 +187,6 @@ Patch0643: 0643-cpufreq-enable-HWP-by-default.patch
 
 PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
 PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
-Patch0653: 0653-libxl-Disable-relocating-memory-for-qemu-xen-in-stub.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch

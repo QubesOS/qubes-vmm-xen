@@ -1,0 +1,67 @@
+From 693455c3c370e535eb6cd065800ff91e147815fa Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 5 Mar 2024 11:58:04 +0100
+Subject: [PATCH 341/349] x86/spec: fix INDIRECT_THUNK option to only be set
+ when build-enabled
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Attempt to provide a more helpful error message when the user attempts to set
+spec-ctrl=bti-thunk option but the support is build-time disabled.
+
+While there also adjust the command line documentation to mention
+CONFIG_INDIRECT_THUNK instead of INDIRECT_THUNK.
+
+Reported-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: 8441fa806a3b778867867cd0159fa1722e90397e
+master date: 2024-02-27 14:58:20 +0100
+---
+ docs/misc/xen-command-line.pandoc | 10 +++++-----
+ xen/arch/x86/spec_ctrl.c          |  7 ++++++-
+ 2 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.pandoc b/docs/misc/xen-command-line.pandoc
+index 05f613c71c..2006697226 100644
+--- a/docs/misc/xen-command-line.pandoc
++++ b/docs/misc/xen-command-line.pandoc
+@@ -2378,11 +2378,11 @@ guests to use.
+   performance reasons dom0 is unprotected by default.  If it is necessary to
+   protect dom0 too, boot with `spec-ctrl=ibpb-entry`.
+ 
+-If Xen was compiled with INDIRECT_THUNK support, `bti-thunk=` can be used to
+-select which of the thunks gets patched into the `__x86_indirect_thunk_%reg`
+-locations.  The default thunk is `retpoline` (generally preferred), with the
+-alternatives being `jmp` (a `jmp *%reg` gadget, minimal overhead), and
+-`lfence` (an `lfence; jmp *%reg` gadget).
++If Xen was compiled with `CONFIG_INDIRECT_THUNK` support, `bti-thunk=` can be
++used to select which of the thunks gets patched into the
++`__x86_indirect_thunk_%reg` locations.  The default thunk is `retpoline`
++(generally preferred), with the alternatives being `jmp` (a `jmp *%reg` gadget,
++minimal overhead), and `lfence` (an `lfence; jmp *%reg` gadget).
+ 
+ On hardware supporting IBRS (Indirect Branch Restricted Speculation), the
+ `ibrs=` option can be used to force or prevent Xen using the feature itself.
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 93f1cf3bb5..098fa3184d 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -253,7 +253,12 @@ static int __init cf_check parse_spec_ctrl(const char *s)
+         {
+             s += 10;
+ 
+-            if ( !cmdline_strcmp(s, "retpoline") )
++            if ( !IS_ENABLED(CONFIG_INDIRECT_THUNK) )
++            {
++                no_config_param("INDIRECT_THUNK", "spec-ctrl", s - 10, ss);
++                rc = -EINVAL;
++            }
++            else if ( !cmdline_strcmp(s, "retpoline") )
+                 opt_thunk = THUNK_RETPOLINE;
+             else if ( !cmdline_strcmp(s, "lfence") )
+                 opt_thunk = THUNK_LFENCE;
+-- 
+2.44.0
+

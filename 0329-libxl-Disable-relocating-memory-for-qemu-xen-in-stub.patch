@@ -1,9 +1,9 @@
-From 02ef8192418af1b2b9d13658a5dd46a2e938d721 Mon Sep 17 00:00:00 2001
+From b9745280736ee526374873aa3c4142596e2ba10b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
-Date: Wed, 27 Dec 2023 03:24:00 +0100
-Subject: [PATCH] libxl: Disable relocating memory for qemu-xen in stubdomain
- too
+Date: Tue, 27 Feb 2024 14:09:19 +0100
+Subject: [PATCH 329/349] libxl: Disable relocating memory for qemu-xen in
+ stubdomain too
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -16,12 +16,16 @@ be consistent in this regard.
 
 Reported-by: Neowutran <xen@neowutran.ovh>
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jason Andryuk <jandryuk@gmail.com>
+Acked-by: Anthony PERARD <anthony.perard@citrix.com>
+master commit: 97883aa269f6745a6ded232be3a855abb1297e0d
+master date: 2024-02-22 11:48:22 +0100
 ---
  tools/libs/light/libxl_dm.c | 10 ++++++++++
  1 file changed, 10 insertions(+)
 
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index 14b593110f7c..ed620a9d8e14 100644
+index 14b593110f..ed620a9d8e 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
 @@ -2432,6 +2432,16 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
@@ -42,5 +46,5 @@ index 14b593110f7c..ed620a9d8e14 100644
      if (ret<0) {
          LOGED(ERROR, guest_domid, "setting target domain %d -> %d",
 -- 
-2.41.0
+2.44.0
 

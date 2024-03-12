@@ -1,8 +1,8 @@
-From d8b92b21b224126860978e4c604302f3c1e3bf75 Mon Sep 17 00:00:00 2001
-From: Roger Pau Monne <roger.pau@citrix.com>
-Date: Wed, 13 Dec 2023 15:51:59 +0100
-Subject: [PATCH] pci: fail device assignment if phantom functions cannot be
- assigned
+From f9e1ed51bdba31017ea17e1819eb2ade6b5c8615 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 30 Jan 2024 14:37:39 +0100
+Subject: [PATCH 315/349] pci: fail device assignment if phantom functions
+ cannot be assigned
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -34,15 +34,17 @@ This is XSA-449 / CVE-2023-46839
 Fixes: 4e9950dc1bd2 ('IOMMU: add phantom function support')
 Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
 Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: cb4ecb3cc17b02c2814bc817efd05f3f3ba33d1e
+master date: 2024-01-30 14:28:01 +0100
 ---
  xen/drivers/passthrough/pci.c | 27 +++++++++++++++++++++------
  1 file changed, 21 insertions(+), 6 deletions(-)
 
 diff --git a/xen/drivers/passthrough/pci.c b/xen/drivers/passthrough/pci.c
-index 1439d1ef2b26..47c0eee7bdcc 100644
+index 07d1986d33..8c62b14d19 100644
 --- a/xen/drivers/passthrough/pci.c
 +++ b/xen/drivers/passthrough/pci.c
-@@ -1488,11 +1488,10 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
+@@ -1444,11 +1444,10 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
  
      pdev->fault.count = 0;
  
@@ -57,7 +59,7 @@ index 1439d1ef2b26..47c0eee7bdcc 100644
      {
          devfn += pdev->phantom_stride;
          if ( PCI_SLOT(devfn) != PCI_SLOT(pdev->devfn) )
-@@ -1503,8 +1502,24 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
+@@ -1459,8 +1458,24 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
  
   done:
      if ( rc )
@@ -85,5 +87,5 @@ index 1439d1ef2b26..47c0eee7bdcc 100644
      else if ( d == dom_io )
          pdev->quarantine = true;
 -- 
-2.43.0
+2.44.0
 
