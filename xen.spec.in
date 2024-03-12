@@ -141,6 +141,13 @@ Patch0348: 0348-x86-altcall-always-use-a-temporary-parameter-stashin.patch
 Patch0349: 0349-x86-cpu-policy-Allow-for-levelling-of-VERW-side-effe.patch
 
 # Security fixes
+Patch0500: 0500-xsa452-4.17-1.patch
+Patch0501: 0501-xsa452-4.17-2.patch
+Patch0502: 0502-xsa452-4.17-3.patch
+Patch0503: 0503-xsa452-4.17-4.patch
+Patch0504: 0504-xsa452-4.17-5.patch
+Patch0505: 0505-xsa452-4.17-6.patch
+Patch0506: 0506-xsa452-4.17-7.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
