@@ -1,0 +1,56 @@
+From 47a9f03ede1cb20f1abd927a7845297a1ac16e90 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Mon, 26 Feb 2024 16:06:42 +0100
+Subject: [PATCH 1/5] x86/spec: fix BRANCH_HARDEN option to only be set when
+ build-enabled
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The current logic to handle the BRANCH_HARDEN option will report it as enabled
+even when build-time disabled. Fix this by only allowing the option to be set
+when support for it is built into Xen.
+
+Fixes: 2d6f36daa086 ('x86/nospec: Introduce CONFIG_SPECULATIVE_HARDEN_BRANCH')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 60e00f77a5cc671d30c5ef3318f5b8e9b74e4aa3)
+---
+ xen/arch/x86/spec_ctrl.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index f052f24dff77..00728aefd5b6 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -62,7 +62,8 @@ int8_t __initdata opt_psfd = -1;
+ int8_t __read_mostly opt_ibpb_ctxt_switch = -1;
+ int8_t __read_mostly opt_eager_fpu = -1;
+ int8_t __read_mostly opt_l1d_flush = -1;
+-bool __read_mostly opt_branch_harden = true;
++bool __read_mostly opt_branch_harden =
++    IS_ENABLED(CONFIG_SPECULATIVE_HARDEN_BRANCH);
+ 
+ bool __initdata bsp_delay_spec_ctrl;
+ uint8_t __read_mostly default_xen_spec_ctrl;
+@@ -280,7 +281,16 @@ static int __init parse_spec_ctrl(const char *s)
+         else if ( (val = parse_boolean("l1d-flush", s, ss)) >= 0 )
+             opt_l1d_flush = val;
+         else if ( (val = parse_boolean("branch-harden", s, ss)) >= 0 )
+-            opt_branch_harden = val;
++        {
++            if ( IS_ENABLED(CONFIG_SPECULATIVE_HARDEN_BRANCH) )
++                opt_branch_harden = val;
++            else
++            {
++                no_config_param("SPECULATIVE_HARDEN_BRANCH", "spec-ctrl", s,
++                                ss);
++                rc = -EINVAL;
++            }
++        }
+         else if ( (val = parse_boolean("srb-lock", s, ss)) >= 0 )
+             opt_srb_lock = val;
+         else if ( (val = parse_boolean("unpriv-mmio", s, ss)) >= 0 )
+-- 
+2.43.0
+

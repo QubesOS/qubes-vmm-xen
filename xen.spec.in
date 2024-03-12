@@ -180,6 +180,19 @@ Patch540: patch-xsa439-4.15-0010-x86-spec-ctrl-Mitigate-the-Zen1-DIV-leakage.pat
 Patch541: patch-xsa442-4.14.patch
 Patch542: patch-xsa446-4.14.patch
 Patch543: patch-xsa449-4.14.patch
+Patch544: patch-xsa452-req-0001-x86-spec-fix-BRANCH_HARDEN-option-to-only-be-set-whe.patch
+Patch545: patch-xsa452-req-0002-x86-spec-print-the-built-in-SPECULATIVE_HARDEN_-opti.patch
+Patch546: patch-xsa452-req-0003-x86-spec-fix-INDIRECT_THUNK-option-to-only-be-set-wh.patch
+Patch547: patch-xsa452-req-0004-x86-spec-do-not-print-thunk-option-selection-if-not-.patch
+Patch548: patch-xsa452-req-0005-x86-cpu-policy-Allow-for-levelling-of-VERW-side-effe.patch
+Patch549: patch-xsa452-req-0006-x86-spec-ctrl-correct-per-guest-type-reporting-of-MD.patch
+Patch550: patch-xsa452-4.14-1.patch
+# patch-xsa452-4.15-2.patch is patch-xsa452-req-0005-x86-cpu-policy-Allow-for-levelling-of-VERW-side-effe.patch
+Patch551: patch-xsa452-4.15-3.patch
+Patch552: patch-xsa452-4.15-4.patch
+Patch553: patch-xsa452-4.15-5.patch
+Patch554: patch-xsa452-4.15-6.patch
+Patch555: patch-xsa452-4.14-7.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
