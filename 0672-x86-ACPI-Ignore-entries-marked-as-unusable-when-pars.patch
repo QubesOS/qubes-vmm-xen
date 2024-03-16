@@ -1,0 +1,104 @@
+From 5d7a1a552199908db046b47893c9312ecf119e62 Mon Sep 17 00:00:00 2001
+:
+: Upstreaming in progress
+: https://lore.kernel.org/xen-devel/ac77ecba-6804-1d16-60dc-f184e5d31dcb@invisiblethingslab.com/
+: (And also see Link [5] for previous upstream discussion)
+:
+From: Simon Gaiser <simon@invisiblethingslab.com>
+Date: Mon, 14 Aug 2023 10:21:38 +0200
+Subject: [XEN PATCH] x86/ACPI: Ignore entries marked as unusable when parsing MADT
+
+Up to version 6.2 Errata B [2] the ACPI spec only defines
+ACPI_MADT_ENABLE as:
+
+    If zero, this processor is unusable, and the operating system
+    support will not attempt to use it.
+
+The bit that later will be ACPI_MADT_ONLINE_CAPABLE is reserved with
+"Must be zero".
+
+Version 6.3 [3] then adds ACPI_MADT_ONLINE_CAPABLE and changes the
+meaning of ACPI_MADT_ENABLE:
+
+    Enabled
+        If this bit is set the processor is ready for use. If this bit
+        is clear and the Online Capable bit is set, system hardware
+        supports enabling this processor during OS runtime. If this bit
+        is clear and the Online Capable bit is also clear, this
+        processor is unusable, and OSPM shall ignore the contents of the
+        Processor Local APIC Structure.
+
+    Online Capbable
+        The information conveyed by this bit depends on the value of the
+        Enabled bit. If the Enabled bit is set, this bit is reserved and
+        must be zero. Otherwise, if this this bit is set, system
+        hardware supports enabling this processor during OS runtime.
+
+So with conforming firmwares it should be safe to simply ignore the
+entry if !ACPI_MADT_ENABLED && !ACPI_MADT_ONLINE_CAPABLE
+
+As a precaution against buggy firmwares this change, like Linux [4],
+ignores ACPI_MADT_ONLINE_CAPABLE completely if MADT revision < 5. Note
+that the MADT revision was already increased to 5 with spec version 6.2
+Errata A [1], so before introducing the online capable flag. But it
+wasn't changed for the new flag, so this is the best we can do here.
+
+For previous discussion see thread [5].
+
+Link: http://www.uefi.org/sites/default/files/resources/ACPI%206_2_A_Sept29.pdf # [1]
+Link: https://uefi.org/sites/default/files/resources/ACPI_6_2_B_final_Jan30.pdf # [2]
+Link: https://uefi.org/sites/default/files/resources/ACPI_6_3_May16.pdf # [3]
+Link: https://git.kernel.org/torvalds/c/e2869bd7af608c343988429ceb1c2fe99644a01f # [4]
+Link: https://lore.kernel.org/xen-devel/80bae614-052e-0f90-cf13-0e5e4ed1a5cd@invisiblethingslab.com/ # [5]
+Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
+---
+ xen/arch/x86/acpi/boot.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/boot.c b/xen/arch/x86/acpi/boot.c
+index 54b72d716b..df5e0c4f25 100644
+--- a/xen/arch/x86/acpi/boot.c
++++ b/xen/arch/x86/acpi/boot.c
+@@ -77,6 +77,17 @@ static int __init cf_check acpi_parse_madt(struct acpi_table_header *table)
+ 	return 0;
+ }
+ 
++static bool __init acpi_is_processor_usable(uint32_t lapic_flags)
++{
++	if (lapic_flags & ACPI_MADT_ENABLED)
++		return true;
++
++	if (madt_revision >= 5 && (lapic_flags & ACPI_MADT_ONLINE_CAPABLE))
++		return true;
++
++	return false;
++}
++
+ static int __init cf_check
+ acpi_parse_x2apic(struct acpi_subtable_header *header, const unsigned long end)
+ {
+@@ -88,9 +99,7 @@ acpi_parse_x2apic(struct acpi_subtable_header *header, const unsigned long end)
+ 		return -EINVAL;
+ 
+ 	/* Don't register processors that cannot be onlined. */
+-	if (madt_revision >= 5 &&
+-	    !(processor->lapic_flags & ACPI_MADT_ENABLED) &&
+-	    !(processor->lapic_flags & ACPI_MADT_ONLINE_CAPABLE))
++	if (!acpi_is_processor_usable(processor->lapic_flags))
+ 		return 0;
+ 
+ 	if ((processor->lapic_flags & ACPI_MADT_ENABLED) ||
+@@ -144,9 +153,7 @@ acpi_parse_lapic(struct acpi_subtable_header * header, const unsigned long end)
+ 		return -EINVAL;
+ 
+ 	/* Don't register processors that cannot be onlined. */
+-	if (madt_revision >= 5 &&
+-	    !(processor->lapic_flags & ACPI_MADT_ENABLED) &&
+-	    !(processor->lapic_flags & ACPI_MADT_ONLINE_CAPABLE))
++	if (!acpi_is_processor_usable(processor->lapic_flags))
+ 		return 0;
+ 
+ 	if ((processor->lapic_flags & ACPI_MADT_ENABLED) ||
+-- 
+2.40.1
+

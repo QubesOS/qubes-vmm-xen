@@ -1,0 +1,59 @@
+From 6ca7bb0e831200eb9bec6cb850489be514591e7f Mon Sep 17 00:00:00 2001
+:
+: Upstreaming needs more verbose log message and since Intel's SDM doesn't
+: properly document those MSRs we need to argue about that.
+: 
+: https://lore.kernel.org/xen-devel/20230718132334.2087-1-simon@invisiblethingslab.com/
+: 
+From: Simon Gaiser <simon@invisiblethingslab.com>
+To: xen-devel@lists.xenproject.org
+Cc: Jan Beulich <jbeulich@suse.com>
+Cc: Andrew Cooper <andrew.cooper3@citrix.com>
+Cc: "Roger Pau Monné" <roger.pau@citrix.com>
+Cc: Wei Liu <wl@xen.org>
+Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Subject: [XEN PATCH v2] x86/idle: Get PC{8..10} counters for Tiger and Alder Lake
+
+TODO
+
+Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
+---
+Changes in v2:
+ - Fix wrong subject prefix
+ - Add missing Signed-off-by
+ - TODO
+---
+
+ xen/arch/x86/acpi/cpu_idle.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
+index 557bc6ef86..a6d3175156 100644
+--- a/xen/arch/x86/acpi/cpu_idle.c
++++ b/xen/arch/x86/acpi/cpu_idle.c
+@@ -155,6 +155,12 @@ static void cf_check do_get_hw_residencies(void *arg)
+ 
+     switch ( c->x86_model )
+     {
++    /* Tiger Lake */
++    case 0x8C:
++    case 0x8D:
++    /* Alder Lake */
++    case 0x97:
++    case 0x9A:
+     /* 4th generation Intel Core (Haswell) */
+     case 0x45:
+         GET_PC8_RES(hw_res->pc8);
+@@ -185,9 +191,6 @@ static void cf_check do_get_hw_residencies(void *arg)
+     case 0x6C:
+     case 0x7D:
+     case 0x7E:
+-    /* Tiger Lake */
+-    case 0x8C:
+-    case 0x8D:
+     /* Kaby Lake */
+     case 0x8E:
+     case 0x9E:
+-- 
+2.40.1
+

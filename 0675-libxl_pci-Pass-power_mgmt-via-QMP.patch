@@ -1,0 +1,29 @@
+From cace989bbe09b45b6936f32a8a06d03d6cf5d5d7 Mon Sep 17 00:00:00 2001
+:
+: Upstreaming only makes sense once QEMU has proper support for this.
+:
+From: Simon Gaiser <simon@invisiblethingslab.com>
+Date: Mon, 12 Feb 2024 11:18:40 +0100
+Subject: [PATCH] libxl_pci: Pass power_mgmt via QMP
+
+Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_pci.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
+index f4c4f17545..4b48698f18 100644
+--- a/tools/libs/light/libxl_pci.c
++++ b/tools/libs/light/libxl_pci.c
+@@ -1240,6 +1240,8 @@ static void pci_add_qmp_device_add(libxl__egc *egc, pci_add_state *pas)
+      */
+     if (pci->permissive)
+         libxl__qmp_param_add_bool(gc, &args, "permissive", true);
++    if (pci->power_mgmt)
++        libxl__qmp_param_add_bool(gc, &args, "power_mgmt", true);
+ 
+     qmp->ao = pas->aodev->ao;
+     qmp->domid = domid;
+-- 
+2.43.0
+
