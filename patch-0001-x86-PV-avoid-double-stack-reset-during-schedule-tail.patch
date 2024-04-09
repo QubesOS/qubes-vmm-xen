@@ -1,0 +1,92 @@
+From 2c2c941686d2aedac0f09b6546c844c391c0f7e8 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 16 Dec 2020 16:42:50 +0100
+Subject: [PATCH] x86/PV: avoid double stack reset during schedule tail
+ handling
+
+Invoking check_wakeup_from_wait() from assembly allows the new
+continue_pv_domain() to replace the prior continue_nonidle_domain() as
+the tail hook, eliminating an extra reset_stack_and_jump().
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Wei Liu <wl@xen.org>
+---
+ xen/arch/x86/pv/domain.c        | 9 ++-------
+ xen/arch/x86/x86_64/entry.S     | 5 ++++-
+ xen/include/asm-x86/asm_defns.h | 1 -
+ 3 files changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/xen/arch/x86/pv/domain.c b/xen/arch/x86/pv/domain.c
+index 1a607f856e..23d6009143 100644
+--- a/xen/arch/x86/pv/domain.c
++++ b/xen/arch/x86/pv/domain.c
+@@ -110,12 +110,6 @@ static int parse_pcid(const char *s)
+     return rc;
+ }
+ 
+-static void noreturn continue_nonidle_domain(void)
+-{
+-    check_wakeup_from_wait();
+-    reset_stack_and_jump(ret_from_intr);
+-}
+-
+ static int setup_compat_l4(struct vcpu *v)
+ {
+     struct page_info *pg;
+@@ -341,13 +335,14 @@ void pv_domain_destroy(struct domain *d)
+     FREE_XENHEAP_PAGE(d->arch.pv.gdt_ldt_l1tab);
+ }
+ 
++void noreturn continue_pv_domain(void);
+ 
+ int pv_domain_initialise(struct domain *d)
+ {
+     static const struct arch_csw pv_csw = {
+         .from = paravirt_ctxt_switch_from,
+         .to   = paravirt_ctxt_switch_to,
+-        .tail = continue_nonidle_domain,
++        .tail = continue_pv_domain,
+     };
+     int rc = -ENOMEM;
+ 
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 000eb9722b..526c388458 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -557,9 +557,11 @@ ENTRY(dom_crash_sync_extable)
+         .text
+ 
+ /* No special register assumptions. */
+-ENTRY(ret_from_intr)
+ #ifdef CONFIG_PV
++ENTRY(continue_pv_domain)
+         ENDBR64
++        call  check_wakeup_from_wait
++ret_from_intr:
+         GET_CURRENT(bx)
+         testb $3, UREGS_cs(%rsp)
+         jz    restore_all_xen
+@@ -567,6 +569,7 @@ ENTRY(ret_from_intr)
+         je    test_all_events
+         jmp   compat_test_all_events
+ #else
++ret_from_intr:
+         ASSERT_CONTEXT_IS_XEN
+         jmp   restore_all_xen
+ #endif
+diff --git a/xen/include/asm-x86/asm_defns.h b/xen/include/asm-x86/asm_defns.h
+index b42a19b654..774a294d15 100644
+--- a/xen/include/asm-x86/asm_defns.h
++++ b/xen/include/asm-x86/asm_defns.h
+@@ -23,7 +23,6 @@ asm ( "\t.equ CONFIG_INDIRECT_THUNK, "
+ #include <asm/indirect_thunk_asm.h>
+ 
+ #ifndef __ASSEMBLY__
+-void ret_from_intr(void);
+ 
+ /*
+  * This output constraint should be used for any inline asm which has a "call"
+-- 
+2.44.0
+

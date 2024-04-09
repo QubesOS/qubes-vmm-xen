@@ -1,0 +1,122 @@
+From 38b55be646e885e283134c51faa014507c8102fd Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 22 Mar 2024 12:08:02 +0000
+Subject: [PATCH 12/23] x86/spec_ctrl: Hold SCF in %ebx across
+ SPEC_CTRL_ENTRY_{PV,INTR}
+
+... as we do in the exit paths too.  This will allow simplification to the
+sub-blocks.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 9607aeb6602b8ed9962404de3f5f90170ffddb66)
+---
+ xen/arch/x86/x86_64/compat/entry.S  |  4 ++--
+ xen/arch/x86/x86_64/entry.S         | 10 +++++-----
+ xen/include/asm-x86/spec_ctrl_asm.h | 10 +++++++---
+ 3 files changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/xen/arch/x86/x86_64/compat/entry.S b/xen/arch/x86/x86_64/compat/entry.S
+index 19a20aec63..2728ea7b49 100644
+--- a/xen/arch/x86/x86_64/compat/entry.S
++++ b/xen/arch/x86/x86_64/compat/entry.S
+@@ -22,7 +22,7 @@ ENTRY(entry_int82)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         sti
+@@ -227,7 +227,7 @@ ENTRY(cstar_enter)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 45c8644069..8f07eb0877 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -268,7 +268,7 @@ ENTRY(lstar_enter)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+@@ -307,7 +307,7 @@ GLOBAL(sysenter_eflags_saved)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         /* PUSHF above has saved EFLAGS.IF clear (the caller had it set). */
+@@ -360,7 +360,7 @@ ENTRY(int80_direct_trap)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_PV /* Req: %rsp=regs/cpuinfo, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+@@ -646,7 +646,7 @@ ENTRY(common_interrupt)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+@@ -680,7 +680,7 @@ GLOBAL(handle_exception)
+ 
+         GET_STACK_END(14)
+ 
+-        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, %rdx=0, Clob: acd */
++        SPEC_CTRL_ENTRY_FROM_INTR /* Req: %rsp=regs, %r14=end, %rdx=0, Clob: abcd */
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+         mov   STACK_CPUINFO_FIELD(xen_cr3)(%r14), %rcx
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+index 150159e782..b583fd3ed4 100644
+--- a/xen/include/asm-x86/spec_ctrl_asm.h
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -263,9 +263,11 @@
+  */
+ .macro SPEC_CTRL_ENTRY_FROM_PV
+ /*
+- * Requires %rsp=regs/cpuinfo, %rdx=0
+- * Clobbers %rax, %rcx, %rdx
++ * Requires %rsp=regs/cpuinfo, %r14=stack_end, %rdx=0
++ * Clobbers %rax, %rbx, %rcx, %rdx
+  */
++    movzbl STACK_CPUINFO_FIELD(scf)(%r14), %ebx
++
+     ALTERNATIVE "", __stringify(DO_SPEC_CTRL_COND_IBPB maybexen=0),     \
+         X86_FEATURE_IBPB_ENTRY_PV
+ 
+@@ -289,8 +291,10 @@
+ .macro SPEC_CTRL_ENTRY_FROM_INTR
+ /*
+  * Requires %rsp=regs, %r14=stack_end, %rdx=0
+- * Clobbers %rax, %rcx, %rdx
++ * Clobbers %rax, %rbx, %rcx, %rdx
+  */
++    movzbl STACK_CPUINFO_FIELD(scf)(%r14), %ebx
++
+     testb $3, UREGS_cs(%rsp)
+     jz .L\@_skip
+ 
+-- 
+2.44.0
+

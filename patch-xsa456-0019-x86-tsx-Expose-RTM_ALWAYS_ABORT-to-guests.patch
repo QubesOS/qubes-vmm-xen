@@ -1,0 +1,85 @@
+From 1baac154c4fbf3ed33d9d027cd316c51ebe3adcc Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Sat, 6 Apr 2024 20:36:54 +0100
+Subject: [PATCH 19/23] x86/tsx: Expose RTM_ALWAYS_ABORT to guests
+
+A TSX Abort is one option mitigate Native-BHI, but a guest kernel doesn't get
+to see this if Xen has turned RTM off using MSR_TSX_{CTRL,FORCE_ABORT}.
+
+Therefore, the meaning of RTM_ALWAYS_ABORT has been adjusted to "XBEGIN won't
+fault", and it should be exposed to guests so they can make a better decision.
+
+Expose it in the max policy for any RTM-capable system.  Offer it by default
+only if RTM has been disabled.
+
+Update test-tsx to account for this new meaning.  While adjusting the logic in
+test_guest_policies(), take the opportunity to use feature names (now they're
+available) to make the logic easier to follow.
+
+This is part of XSA-456 / CVE-2024-2201.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit c94e2105924347de0d9f32065370e802a20cc829)
+---
+ xen/arch/x86/cpu-policy.c                   | 20 ++++++++++++++++++++
+ xen/include/public/arch-x86/cpufeatureset.h |  2 +-
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/cpu-policy.c b/xen/arch/x86/cpu-policy.c
+index c98b8fc93a..8424b3cff8 100644
+--- a/xen/arch/x86/cpu-policy.c
++++ b/xen/arch/x86/cpu-policy.c
+@@ -457,6 +457,21 @@ static void __init guest_common_max_feature_adjustments(uint32_t *fs)
+              raw_cpu_policy.feat.clwb )
+             __set_bit(X86_FEATURE_CLWB, fs);
+     }
++
++    /*
++     * To mitigate Native-BHI, one option is to use a TSX Abort on capable
++     * systems.  This is safe even if RTM has been disabled for other reasons
++     * via MSR_TSX_{CTRL,FORCE_ABORT}.  However, a guest kernel doesn't get to
++     * know this type of information.
++     *
++     * Therefore the meaning of RTM_ALWAYS_ABORT has been adjusted, to instead
++     * mean "XBEGIN won't fault".  This is enough for a guest kernel to make
++     * an informed choice WRT mitigating Native-BHI.
++     *
++     * If RTM-capable, we can run a VM which has seen RTM_ALWAYS_ABORT.
++     */
++    if ( test_bit(X86_FEATURE_RTM, fs) )
++        __set_bit(X86_FEATURE_RTM_ALWAYS_ABORT, fs);
+ }
+ 
+ static void __init guest_common_default_feature_adjustments(uint32_t *fs)
+@@ -517,9 +532,14 @@ static void __init guest_common_default_feature_adjustments(uint32_t *fs)
+      * function as expected, but is technically compatible with the ISA.
+      *
+      * Do not advertise RTM to guests by default if it won't actually work.
++     * Instead, advertise RTM_ALWAYS_ABORT indicating that TSX Aborts are safe
++     * to use, e.g. for mitigating Native-BHI.
+      */
+     if ( rtm_disabled )
++    {
+         __clear_bit(X86_FEATURE_RTM, fs);
++        __set_bit(X86_FEATURE_RTM_ALWAYS_ABORT, fs);
++    }
+ }
+ 
+ static void __init guest_common_feature_adjustments(uint32_t *fs)
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 0139c1a81f..662f4e4193 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -274,7 +274,7 @@ XEN_CPUFEATURE(AVX512_4FMAPS, 9*32+ 3) /*A  AVX512 Multiply Accumulation Single
+ XEN_CPUFEATURE(AVX512_4FMAPS, 9*32+ 3) /*A  AVX512 Multiply Accumulation Single Precision */
+ XEN_CPUFEATURE(SRBDS_CTRL,    9*32+ 9) /*   MSR_MCU_OPT_CTRL and RNGDS_MITG_DIS. */
+ XEN_CPUFEATURE(MD_CLEAR,      9*32+10) /*!A VERW clears microarchitectural buffers */
+-XEN_CPUFEATURE(RTM_ALWAYS_ABORT, 9*32+11) /*! June 2021 TSX defeaturing in microcode. */
++XEN_CPUFEATURE(RTM_ALWAYS_ABORT, 9*32+11) /*! RTM disabled (but XBEGIN wont fault) */
+ XEN_CPUFEATURE(TSX_FORCE_ABORT, 9*32+13) /* MSR_TSX_FORCE_ABORT.RTM_ABORT */
+ XEN_CPUFEATURE(SERIALIZE,     9*32+14) /*a  SERIALIZE insn */
+ XEN_CPUFEATURE(HYBRID,        9*32+15) /*   Heterogeneous platform */
+-- 
+2.44.0
+

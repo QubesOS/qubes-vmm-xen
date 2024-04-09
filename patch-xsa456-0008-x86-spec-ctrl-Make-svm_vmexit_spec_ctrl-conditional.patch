@@ -1,0 +1,47 @@
+From 3fbd85d08734214aa48a003e3430b8ada0c232e4 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 18 Jul 2022 14:15:08 +0100
+Subject: [PATCH 08/23] x86/spec-ctrl: Make svm_vmexit_spec_ctrl conditional
+
+The logic was written this way out of an abundance of caution, but the reality
+is that AMD parts don't currently have the RAS-flushing side effect, nor do
+they intend to gain it.
+
+This removes one WRMSR from the VMExit path by default on Zen2 systems.
+
+Fixes: 614cec7d79d7 ("x86/svm: VMEntry/Exit logic for MSR_SPEC_CTRL")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit c16a9eda77b2089206d5bc39ab6488c3793e11bf)
+---
+ xen/arch/x86/hvm/svm/entry.S | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/svm/entry.S b/xen/arch/x86/hvm/svm/entry.S
+index d1ca530315..1974eaff97 100644
+--- a/xen/arch/x86/hvm/svm/entry.S
++++ b/xen/arch/x86/hvm/svm/entry.S
+@@ -114,15 +114,15 @@ __UNLIKELY_END(nsvm_hap)
+         ALTERNATIVE "", DO_OVERWRITE_RSB, X86_FEATURE_SC_RSB_HVM
+ 
+         .macro svm_vmexit_spec_ctrl
+-            /*
+-             * Write to MSR_SPEC_CTRL unconditionally, for the RAS[:32]
+-             * flushing side effect.
+-             */
+-            mov    $MSR_SPEC_CTRL, %ecx
+             movzbl CPUINFO_xen_spec_ctrl(%rsp), %eax
++            movzbl CPUINFO_last_spec_ctrl(%rsp), %edx
++            cmp    %edx, %eax
++            je     1f /* Skip write if value is correct. */
++            mov    $MSR_SPEC_CTRL, %ecx
+             xor    %edx, %edx
+             wrmsr
+             mov    %al, CPUINFO_last_spec_ctrl(%rsp)
++1:
+         .endm
+         ALTERNATIVE "", svm_vmexit_spec_ctrl, X86_FEATURE_SC_MSR_HVM
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+-- 
+2.44.0
+

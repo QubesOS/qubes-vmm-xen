@@ -1,0 +1,90 @@
+From 0f640366e5f8fa43ed464c56d00ef960824c9611 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 30 Jan 2024 10:14:00 +0100
+Subject: [PATCH 03/23] x86/spec-ctrl: Expose BHI_CTRL to guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The CPUID feature bit signals the presence of the BHI_DIS_S control in
+SPEC_CTRL MSR, first available in Intel AlderLake and Sapphire Rapids CPUs
+
+Xen already knows how to context switch MSR_SPEC_CTRL properly between guest
+and hypervisor context.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 583f1d0950529f3517b1741c2b21a028a82ba831)
+---
+ tools/misc/xen-cpuid.c                      | 1 +
+ xen/arch/x86/msr.c                          | 1 +
+ xen/include/asm-x86/msr-index.h             | 1 +
+ xen/include/public/arch-x86/cpufeatureset.h | 1 +
+ xen/tools/gen-cpuid.py                      | 2 +-
+ 5 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 350a7fdc45..6af86ba798 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -208,6 +208,7 @@ static const char *const str_7d2[32] =
+ {
+     [ 0] = "intel-psfd",    [ 1] = "ipred-ctrl",
+     [ 2] = "rrsba-ctrl",
++    [ 4] = "bhi-ctrl",
+ };
+ 
+ static const char *const str_m10Al[32] =
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index 0000d4a4c2..4e67381d9a 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -325,6 +325,7 @@ uint64_t msr_spec_ctrl_valid_bits(const struct cpu_policy *cp)
+              ? (SPEC_CTRL_IPRED_DIS_U | SPEC_CTRL_IPRED_DIS_S) : 0) |
+             (cp->feat.rrsba_ctrl
+              ? (SPEC_CTRL_RRSBA_DIS_U | SPEC_CTRL_RRSBA_DIS_S) : 0) |
++            (cp->feat.bhi_ctrl   ? SPEC_CTRL_BHI_DIS_S : 0) |
+             0);
+ }
+ 
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index b6c77049c4..5433ee199d 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -41,6 +41,7 @@
+ #define  SPEC_CTRL_RRSBA_DIS_U              (_AC(1, ULL) <<  5)
+ #define  SPEC_CTRL_RRSBA_DIS_S              (_AC(1, ULL) <<  6)
+ #define  SPEC_CTRL_PSFD                     (_AC(1, ULL) <<  7)
++#define  SPEC_CTRL_BHI_DIS_S                (_AC(1, ULL) << 10)
+ 
+ #define MSR_PRED_CMD                        0x00000049
+ #define  PRED_CMD_IBPB                      (_AC(1, ULL) <<  0)
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index 0d333ae0b6..6e9fbcc38c 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -303,6 +303,7 @@ XEN_CPUFEATURE(SRSO_NO,            11*32+29) /*A  Hardware not vulenrable to Spe
+ XEN_CPUFEATURE(INTEL_PSFD,         13*32+ 0) /*A  MSR_SPEC_CTRL.PSFD */
+ XEN_CPUFEATURE(IPRED_CTRL,         13*32+ 1) /*A  MSR_SPEC_CTRL.IPRED_DIS_* */
+ XEN_CPUFEATURE(RRSBA_CTRL,         13*32+ 2) /*A  MSR_SPEC_CTRL.RRSBA_DIS_* */
++XEN_CPUFEATURE(BHI_CTRL,           13*32+ 4) /*A  MSR_SPEC_CTRL.BHI_DIS_S */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:1.ecx, word 14 */
+ 
+diff --git a/xen/tools/gen-cpuid.py b/xen/tools/gen-cpuid.py
+index 6fc4392654..564477b392 100755
+--- a/xen/tools/gen-cpuid.py
++++ b/xen/tools/gen-cpuid.py
+@@ -316,7 +316,7 @@ def crunch_numbers(state):
+         # as dependent features simplifies Xen's logic, and prevents the guest
+         # from seeing implausible configurations.
+         IBRSB: [STIBP, SSBD, INTEL_PSFD, EIBRS,
+-                IPRED_CTRL, RRSBA_CTRL],
++                IPRED_CTRL, RRSBA_CTRL, BHI_CTRL],
+         IBRS: [AMD_STIBP, AMD_SSBD, PSFD,
+                IBRS_ALWAYS, IBRS_FAST, IBRS_SAME_MODE],
+         IBPB: [IBPB_RET, SBPB, IBPB_BRTYPE],
+-- 
+2.44.0
+

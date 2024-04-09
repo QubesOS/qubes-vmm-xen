@@ -1,0 +1,105 @@
+From 2a33c31e4affbca0651599e3b204a01ce7b48a3e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 30 Jan 2024 10:13:58 +0100
+Subject: [PATCH 01/23] x86/spec-ctrl: Expose IPRED_CTRL to guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The CPUID feature bit signals the presence of the IPRED_DIS_{U,S} controls in
+SPEC_CTRL MSR, first available in Intel AlderLake and Sapphire Rapids CPUs.
+
+Xen already knows how to context switch MSR_SPEC_CTRL properly between guest
+and hypervisor context.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 4dd6760706848de30f7c8b5f83462b9bcb070c91)
+---
+ tools/misc/xen-cpuid.c                      | 2 +-
+ xen/arch/x86/msr.c                          | 6 ++++--
+ xen/include/asm-x86/msr-index.h             | 2 ++
+ xen/include/public/arch-x86/cpufeatureset.h | 1 +
+ xen/tools/gen-cpuid.py                      | 3 ++-
+ 5 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 3faf1e4304..dcb90e364f 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -206,7 +206,7 @@ static const char *const str_7d1[32] =
+ 
+ static const char *const str_7d2[32] =
+ {
+-    [ 0] = "intel-psfd",
++    [ 0] = "intel-psfd",    [ 1] = "ipred-ctrl",
+ };
+ 
+ static const char *const str_m10Al[32] =
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index 22f86f2785..91b7402fba 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -306,8 +306,8 @@ int guest_rdmsr(struct vcpu *v, uint32_t msr, uint64_t *val)
+ 
+ /*
+  * Caller to confirm that MSR_SPEC_CTRL is available.  Intel and AMD have
+- * separate CPUID features for this functionality, but only set will be
+- * active.
++ * separate CPUID features for some of this functionality, but only one
++ * vendors-worth will be active on a single host.
+  */
+ uint64_t msr_spec_ctrl_valid_bits(const struct cpu_policy *cp)
+ {
+@@ -321,6 +321,8 @@ uint64_t msr_spec_ctrl_valid_bits(const struct cpu_policy *cp)
+     return (SPEC_CTRL_IBRS | SPEC_CTRL_STIBP |
+             (ssbd       ? SPEC_CTRL_SSBD       : 0) |
+             (psfd       ? SPEC_CTRL_PSFD       : 0) |
++            (cp->feat.ipred_ctrl
++             ? (SPEC_CTRL_IPRED_DIS_U | SPEC_CTRL_IPRED_DIS_S) : 0) |
+             0);
+ }
+ 
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index 17abfa0e4a..f7f44b85d2 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -36,6 +36,8 @@
+ #define  SPEC_CTRL_IBRS                     (_AC(1, ULL) <<  0)
+ #define  SPEC_CTRL_STIBP                    (_AC(1, ULL) <<  1)
+ #define  SPEC_CTRL_SSBD                     (_AC(1, ULL) <<  2)
++#define  SPEC_CTRL_IPRED_DIS_U              (_AC(1, ULL) <<  3)
++#define  SPEC_CTRL_IPRED_DIS_S              (_AC(1, ULL) <<  4)
+ #define  SPEC_CTRL_PSFD                     (_AC(1, ULL) <<  7)
+ 
+ #define MSR_PRED_CMD                        0x00000049
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index e027a31d67..d80618c21c 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -301,6 +301,7 @@ XEN_CPUFEATURE(SRSO_NO,            11*32+29) /*A  Hardware not vulenrable to Spe
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:2.edx, word 13 */
+ XEN_CPUFEATURE(INTEL_PSFD,         13*32+ 0) /*A  MSR_SPEC_CTRL.PSFD */
++XEN_CPUFEATURE(IPRED_CTRL,         13*32+ 1) /*A  MSR_SPEC_CTRL.IPRED_DIS_* */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:1.ecx, word 14 */
+ 
+diff --git a/xen/tools/gen-cpuid.py b/xen/tools/gen-cpuid.py
+index c255bf4305..b5018ea234 100755
+--- a/xen/tools/gen-cpuid.py
++++ b/xen/tools/gen-cpuid.py
+@@ -315,7 +315,8 @@ def crunch_numbers(state):
+         # IBRSB/IBRS, and we pass this MSR directly to guests.  Treating them
+         # as dependent features simplifies Xen's logic, and prevents the guest
+         # from seeing implausible configurations.
+-        IBRSB: [STIBP, SSBD, INTEL_PSFD, EIBRS],
++        IBRSB: [STIBP, SSBD, INTEL_PSFD, EIBRS,
++                IPRED_CTRL],
+         IBRS: [AMD_STIBP, AMD_SSBD, PSFD,
+                IBRS_ALWAYS, IBRS_FAST, IBRS_SAME_MODE],
+         IBPB: [IBPB_RET, SBPB, IBPB_BRTYPE],
+-- 
+2.44.0
+

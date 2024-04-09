@@ -1,0 +1,92 @@
+From bc7f292b554137cfab1a70dd06a78e8ba0f3d01a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 30 Jan 2024 10:13:59 +0100
+Subject: [PATCH 02/23] x86/spec-ctrl: Expose RRSBA_CTRL to guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The CPUID feature bit signals the presence of the RRSBA_DIS_{U,S} controls in
+SPEC_CTRL MSR, first available in Intel AlderLake and Sapphire Rapids CPUs.
+
+Xen already knows how to context switch MSR_SPEC_CTRL properly between guest
+and hypervisor context.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 478e4787fa64b621061177a7843c452e9a19916d)
+---
+ tools/misc/xen-cpuid.c                      | 1 +
+ xen/arch/x86/msr.c                          | 2 ++
+ xen/include/asm-x86/msr-index.h             | 2 ++
+ xen/include/public/arch-x86/cpufeatureset.h | 1 +
+ xen/tools/gen-cpuid.py                      | 2 +-
+ 5 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index dcb90e364f..350a7fdc45 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -207,6 +207,7 @@ static const char *const str_7d1[32] =
+ static const char *const str_7d2[32] =
+ {
+     [ 0] = "intel-psfd",    [ 1] = "ipred-ctrl",
++    [ 2] = "rrsba-ctrl",
+ };
+ 
+ static const char *const str_m10Al[32] =
+diff --git a/xen/arch/x86/msr.c b/xen/arch/x86/msr.c
+index 91b7402fba..0000d4a4c2 100644
+--- a/xen/arch/x86/msr.c
++++ b/xen/arch/x86/msr.c
+@@ -323,6 +323,8 @@ uint64_t msr_spec_ctrl_valid_bits(const struct cpu_policy *cp)
+             (psfd       ? SPEC_CTRL_PSFD       : 0) |
+             (cp->feat.ipred_ctrl
+              ? (SPEC_CTRL_IPRED_DIS_U | SPEC_CTRL_IPRED_DIS_S) : 0) |
++            (cp->feat.rrsba_ctrl
++             ? (SPEC_CTRL_RRSBA_DIS_U | SPEC_CTRL_RRSBA_DIS_S) : 0) |
+             0);
+ }
+ 
+diff --git a/xen/include/asm-x86/msr-index.h b/xen/include/asm-x86/msr-index.h
+index f7f44b85d2..b6c77049c4 100644
+--- a/xen/include/asm-x86/msr-index.h
++++ b/xen/include/asm-x86/msr-index.h
+@@ -38,6 +38,8 @@
+ #define  SPEC_CTRL_SSBD                     (_AC(1, ULL) <<  2)
+ #define  SPEC_CTRL_IPRED_DIS_U              (_AC(1, ULL) <<  3)
+ #define  SPEC_CTRL_IPRED_DIS_S              (_AC(1, ULL) <<  4)
++#define  SPEC_CTRL_RRSBA_DIS_U              (_AC(1, ULL) <<  5)
++#define  SPEC_CTRL_RRSBA_DIS_S              (_AC(1, ULL) <<  6)
+ #define  SPEC_CTRL_PSFD                     (_AC(1, ULL) <<  7)
+ 
+ #define MSR_PRED_CMD                        0x00000049
+diff --git a/xen/include/public/arch-x86/cpufeatureset.h b/xen/include/public/arch-x86/cpufeatureset.h
+index d80618c21c..0d333ae0b6 100644
+--- a/xen/include/public/arch-x86/cpufeatureset.h
++++ b/xen/include/public/arch-x86/cpufeatureset.h
+@@ -302,6 +302,7 @@ XEN_CPUFEATURE(SRSO_NO,            11*32+29) /*A  Hardware not vulenrable to Spe
+ /* Intel-defined CPU features, CPUID level 0x00000007:2.edx, word 13 */
+ XEN_CPUFEATURE(INTEL_PSFD,         13*32+ 0) /*A  MSR_SPEC_CTRL.PSFD */
+ XEN_CPUFEATURE(IPRED_CTRL,         13*32+ 1) /*A  MSR_SPEC_CTRL.IPRED_DIS_* */
++XEN_CPUFEATURE(RRSBA_CTRL,         13*32+ 2) /*A  MSR_SPEC_CTRL.RRSBA_DIS_* */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:1.ecx, word 14 */
+ 
+diff --git a/xen/tools/gen-cpuid.py b/xen/tools/gen-cpuid.py
+index b5018ea234..6fc4392654 100755
+--- a/xen/tools/gen-cpuid.py
++++ b/xen/tools/gen-cpuid.py
+@@ -316,7 +316,7 @@ def crunch_numbers(state):
+         # as dependent features simplifies Xen's logic, and prevents the guest
+         # from seeing implausible configurations.
+         IBRSB: [STIBP, SSBD, INTEL_PSFD, EIBRS,
+-                IPRED_CTRL],
++                IPRED_CTRL, RRSBA_CTRL],
+         IBRS: [AMD_STIBP, AMD_SSBD, PSFD,
+                IBRS_ALWAYS, IBRS_FAST, IBRS_SAME_MODE],
+         IBPB: [IBPB_RET, SBPB, IBPB_BRTYPE],
+-- 
+2.44.0
+

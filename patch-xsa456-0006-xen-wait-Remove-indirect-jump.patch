@@ -1,0 +1,68 @@
+From 1e37e4d2c0e78108e06a6661ea82b785dc5a58fe Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 22 Oct 2021 16:07:07 +0100
+Subject: [PATCH 06/23] xen/wait: Remove indirect jump
+
+There is no need for this to be an indirect jump at all.  Execution always
+returns to a specific location, so use a direct jump instead.
+
+Use a named label for the jump.  As both 1 and 2 have disappeared as labels,
+rename 3 to skip to better describe its purpose.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit f03567bd7e8efc0f667a67905862e6047babdb7a)
+---
+ xen/common/wait.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/xen/common/wait.c b/xen/common/wait.c
+index 24716e7676..9276d76464 100644
+--- a/xen/common/wait.c
++++ b/xen/common/wait.c
+@@ -144,18 +144,16 @@ static void __prepare_to_wait(struct waitqueue_vcpu *wqv)
+         "push %%r8;  push %%r9;  push %%r10; push %%r11;"
+         "push %%r12; push %%r13; push %%r14; push %%r15;"
+ 
+-        "call 1f;"
+-        "1: addq $2f-1b,(%%rsp);"
+         "sub %%esp,%%ecx;"
+         "cmp %3,%%ecx;"
+-        "ja 3f;"
++        "ja .L_skip;"
+         "mov %%rsp,%%rsi;"
+ 
+         /* check_wakeup_from_wait() longjmp()'s to this point. */
+-        "2: rep movsb;"
++        ".L_wq_resume: rep movsb;"
+         "mov %%rsp,%%rsi;"
+-        "3: pop %%rax;"
+ 
++        ".L_skip:"
+         "pop %%r15; pop %%r14; pop %%r13; pop %%r12;"
+         "pop %%r11; pop %%r10; pop %%r9;  pop %%r8;"
+         "pop %%rbp; pop %%rdx; pop %%rbx; pop %%rax"
+@@ -204,15 +202,14 @@ void check_wakeup_from_wait(void)
+     }
+ 
+     /*
+-     * Hand-rolled longjmp().  Returns to the pointer on the top of
+-     * wqv->stack, and lands on a `rep movs` instruction.  All other GPRs are
+-     * restored from the stack, so are available for use here.
++     * Hand-rolled longjmp().  Returns to __prepare_to_wait(), and lands on a
++     * `rep movs` instruction.  All other GPRs are restored from the stack, so
++     * are available for use here.
+      */
+     asm volatile (
+-        "mov %1,%%"__OP"sp; INDIRECT_JMP %[ip]"
++        "mov %1,%%"__OP"sp; jmp .L_wq_resume;"
+         : : "S" (wqv->stack), "D" (wqv->esp),
+-          "c" ((char *)get_cpu_info() - (char *)wqv->esp),
+-          [ip] "r" (*(unsigned long *)wqv->stack)
++          "c" ((char *)get_cpu_info() - (char *)wqv->esp)
+         : "memory" );
+     unreachable();
+ }
+-- 
+2.44.0
+

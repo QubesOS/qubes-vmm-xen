@@ -1,0 +1,145 @@
+From d7b6631ca84829bd696dc50cddc6dc0419acd3de Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 26 Mar 2024 22:43:18 +0000
+Subject: [PATCH 16/23] x86/spec-ctrl: Widen the {xen,last,default}_spec_ctrl
+ fields
+
+Right now, they're all bytes, but MSR_SPEC_CTRL has been steadily gaining new
+features.
+
+No functional change.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 45dac88e78e8a2d9d8738eef884fe6730faf9e67)
+---
+ xen/arch/x86/hvm/svm/entry.S        | 10 +++++-----
+ xen/arch/x86/hvm/vmx/entry.S        |  2 +-
+ xen/arch/x86/spec_ctrl.c            |  2 +-
+ xen/include/asm-x86/current.h       |  4 ++--
+ xen/include/asm-x86/spec_ctrl.h     |  2 +-
+ xen/include/asm-x86/spec_ctrl_asm.h |  6 +++---
+ 6 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/svm/entry.S b/xen/arch/x86/hvm/svm/entry.S
+index 19a148ee32..badfed87ae 100644
+--- a/xen/arch/x86/hvm/svm/entry.S
++++ b/xen/arch/x86/hvm/svm/entry.S
+@@ -61,14 +61,14 @@ __UNLIKELY_END(nsvm_hap)
+         /* SPEC_CTRL_EXIT_TO_SVM       Req: b=curr %rsp=regs/cpuinfo, Clob: acd */
+         .macro svm_vmentry_spec_ctrl
+             mov    VCPU_arch_msrs(%rbx), %rax
+-            movzbl CPUINFO_last_spec_ctrl(%rsp), %edx
++            mov    CPUINFO_last_spec_ctrl(%rsp), %edx
+             mov    VCPUMSR_spec_ctrl_raw(%rax), %eax
+             cmp    %edx, %eax
+             je     1f /* Skip write if value is correct. */
+             mov    $MSR_SPEC_CTRL, %ecx
+             xor    %edx, %edx
+             wrmsr
+-            mov    %al, CPUINFO_last_spec_ctrl(%rsp)
++            mov    %eax, CPUINFO_last_spec_ctrl(%rsp)
+ 1:          /* No Spectre v1 concerns.  Execution will hit VMRUN imminently. */
+         .endm
+         ALTERNATIVE "", svm_vmentry_spec_ctrl, X86_FEATURE_SC_MSR_HVM
+@@ -128,14 +128,14 @@ __UNLIKELY_END(nsvm_hap)
+          * safe to use.  The guest's setting resides in the VMCB.
+          */
+         .macro svm_vmexit_spec_ctrl
+-            movzbl CPUINFO_xen_spec_ctrl(%rsp), %eax
+-            movzbl CPUINFO_last_spec_ctrl(%rsp), %edx
++            mov    CPUINFO_xen_spec_ctrl(%rsp), %eax
++            mov    CPUINFO_last_spec_ctrl(%rsp), %edx
+             cmp    %edx, %eax
+             je     1f /* Skip write if value is correct. */
+             mov    $MSR_SPEC_CTRL, %ecx
+             xor    %edx, %edx
+             wrmsr
+-            mov    %al, CPUINFO_last_spec_ctrl(%rsp)
++            mov    %eax, CPUINFO_last_spec_ctrl(%rsp)
+ 1:
+         .endm
+         ALTERNATIVE "", svm_vmexit_spec_ctrl, X86_FEATURE_SC_MSR_HVM
+diff --git a/xen/arch/x86/hvm/vmx/entry.S b/xen/arch/x86/hvm/vmx/entry.S
+index 008d76a6e1..9250eb1839 100644
+--- a/xen/arch/x86/hvm/vmx/entry.S
++++ b/xen/arch/x86/hvm/vmx/entry.S
+@@ -52,7 +52,7 @@ ENTRY(vmx_asm_vmexit_handler)
+          */
+         .macro restore_spec_ctrl
+             mov    $MSR_SPEC_CTRL, %ecx
+-            movzbl CPUINFO_xen_spec_ctrl(%rsp), %eax
++            mov    CPUINFO_xen_spec_ctrl(%rsp), %eax
+             xor    %edx, %edx
+             wrmsr
+         .endm
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index d2fef8d1ba..381ce21557 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -66,7 +66,7 @@ bool __read_mostly opt_branch_harden = true;
+     IS_ENABLED(CONFIG_SPECULATIVE_HARDEN_BRANCH);
+ 
+ bool __initdata bsp_delay_spec_ctrl;
+-uint8_t __read_mostly default_xen_spec_ctrl;
++unsigned int __read_mostly default_xen_spec_ctrl;
+ uint8_t __read_mostly default_scf;
+ 
+ paddr_t __read_mostly l1tf_addr_mask, __read_mostly l1tf_safe_maddr;
+diff --git a/xen/include/asm-x86/current.h b/xen/include/asm-x86/current.h
+index 138ad63165..2641573d52 100644
+--- a/xen/include/asm-x86/current.h
++++ b/xen/include/asm-x86/current.h
+@@ -55,8 +55,8 @@ struct cpu_info {
+ 
+     /* See asm-x86/spec_ctrl_asm.h for usage. */
+     unsigned int shadow_spec_ctrl;
+-    uint8_t      xen_spec_ctrl;
+-    uint8_t      last_spec_ctrl;
++    unsigned int xen_spec_ctrl;
++    unsigned int last_spec_ctrl;
+     uint8_t      scf; /* SCF_* */
+ 
+     /*
+diff --git a/xen/include/asm-x86/spec_ctrl.h b/xen/include/asm-x86/spec_ctrl.h
+index dfe7b37795..0e28851507 100644
+--- a/xen/include/asm-x86/spec_ctrl.h
++++ b/xen/include/asm-x86/spec_ctrl.h
+@@ -94,7 +94,7 @@ extern int8_t opt_l1d_flush;
+ extern bool opt_branch_harden;
+ 
+ extern bool bsp_delay_spec_ctrl;
+-extern uint8_t default_xen_spec_ctrl;
++extern unsigned int default_xen_spec_ctrl;
+ extern uint8_t default_scf;
+ 
+ extern int8_t opt_xpti_hwdom, opt_xpti_domu;
+diff --git a/xen/include/asm-x86/spec_ctrl_asm.h b/xen/include/asm-x86/spec_ctrl_asm.h
+index 741915d90c..c66be1f94b 100644
+--- a/xen/include/asm-x86/spec_ctrl_asm.h
++++ b/xen/include/asm-x86/spec_ctrl_asm.h
+@@ -217,10 +217,10 @@
+         setnz %al
+         not %eax
+         and %al, STACK_CPUINFO_FIELD(scf)(%r14)
+-        movzbl STACK_CPUINFO_FIELD(xen_spec_ctrl)(%r14), %eax
++        mov STACK_CPUINFO_FIELD(xen_spec_ctrl)(%r14), %eax
+     .else
+         andb $~SCF_use_shadow, CPUINFO_scf(%rsp)
+-        movzbl CPUINFO_xen_spec_ctrl(%rsp), %eax
++        mov  CPUINFO_xen_spec_ctrl(%rsp), %eax
+     .endif
+ 
+     wrmsr
+@@ -418,7 +418,7 @@
+ 
+     /* Load Xen's intended value. */
+     mov $MSR_SPEC_CTRL, %ecx
+-    movzbl STACK_CPUINFO_FIELD(xen_spec_ctrl)(%r14), %eax
++    mov STACK_CPUINFO_FIELD(xen_spec_ctrl)(%r14), %eax
+     wrmsr
+ 
+ .L\@_skip_msr_spec_ctrl:
+-- 
+2.44.0
+

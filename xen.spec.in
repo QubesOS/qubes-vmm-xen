@@ -148,6 +148,7 @@ Patch279: patch-0009-x86-mm-Reject-invalid-cacheability-in-PV-guests-by-d.patch
 Patch280: 0310-x86-time-prevent-overflow-with-high-frequency-TSCs.patch
 Patch282: patch-0002-x86-shskt-Disable-CET-SS-on-parts-succeptable-to-fra.patch
 Patch283: 0313-x86-spec-ctrl-Mitigate-Cross-Thread-Return-Address-P.patch
+Patch284: patch-0001-x86-PV-avoid-double-stack-reset-during-schedule-tail.patch
 
 # Backport unified xen hypervisor patches from Xen 4.15
 Patch301: patch-unified-0001-x86-setup-Ignore-early-boot-parameters-like-no-real-.patch
@@ -194,6 +195,30 @@ Patch553: patch-xsa452-4.15-5.patch
 Patch554: patch-xsa452-4.15-6.patch
 Patch555: patch-xsa452-4.14-7.patch
 Patch556: patch-xsa455-4.16.patch
+Patch557: patch-xsa456-0001-x86-spec-ctrl-Expose-IPRED_CTRL-to-guests.patch
+Patch558: patch-xsa456-0002-x86-spec-ctrl-Expose-RRSBA_CTRL-to-guests.patch
+Patch559: patch-xsa456-0003-x86-spec-ctrl-Expose-BHI_CTRL-to-guests.patch
+Patch560: patch-xsa456-0004-VMX-tertiary-execution-control-infrastructure.patch
+Patch561: patch-xsa456-0005-x86-tsx-Cope-with-RTM_ALWAYS_ABORT-vs-RTM-mismatch.patch
+Patch562: patch-xsa456-0006-xen-wait-Remove-indirect-jump.patch
+Patch563: patch-xsa456-0007-x86-cpuid-Don-t-expose-IPRED-RRSBA-BHI-_CTRL-to-PV-g.patch
+Patch564: patch-xsa456-0008-x86-spec-ctrl-Make-svm_vmexit_spec_ctrl-conditional.patch
+Patch565: patch-xsa456-0009-x86-spec-ctrl-Rename-spec_ctrl_flags-to-scf.patch
+Patch566: patch-xsa456-0010-x86-spec-ctrl-Rework-conditional-safety-for-SPEC_CTR.patch
+Patch567: patch-xsa456-0011-x86-entry-Arrange-for-r14-to-be-STACK_END-across-SPE.patch
+Patch568: patch-xsa456-0012-x86-spec_ctrl-Hold-SCF-in-ebx-across-SPEC_CTRL_ENTRY.patch
+Patch569: patch-xsa456-0013-x86-spec-ctrl-Simplify-DO_COND_IBPB.patch
+Patch570: patch-xsa456-0014-x86-spec-ctrl-Detail-the-safety-properties-in-SPEC_C.patch
+Patch571: patch-xsa456-0015-x86-vmx-Add-support-for-virtualize-SPEC_CTRL.patch
+Patch572: patch-xsa456-0016-x86-spec-ctrl-Widen-the-xen-last-default-_spec_ctrl-.patch
+Patch573: patch-xsa456-0017-x86-Use-indirect-calls-in-reset-stack-infrastructure.patch
+Patch574: patch-xsa456-0018-x86-Drop-INDIRECT_JMP.patch
+Patch575: patch-xsa456-0019-x86-tsx-Expose-RTM_ALWAYS_ABORT-to-guests.patch
+Patch576: patch-xsa456-0020-x86-spec-ctrl-Support-BHI_DIS_S-in-order-to-mitigate.patch
+Patch577: patch-xsa456-0021-x86-spec-ctrl-Software-BHB-clearing-sequences.patch
+Patch578: patch-xsa456-0022-x86-spec-ctrl-Wire-up-the-Native-BHI-software-sequen.patch
+Patch579: patch-xsa456-0023-x86-spec-ctrl-Support-the-long-BHB-loop-sequence.patch
+
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
@@ -266,7 +291,6 @@ Patch1021: patch-stubdom-linux-libxl-do-not-force-qdisk-backend-for-cdrom.patch
 Patch1022: patch-xen-acpi-slic-support.patch
 Patch1023: patch-0001-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
 Patch1024: patch-gnttab-disable-grant-tables-v2-by-default.patch
-Patch1025: patch-disable-tsx.patch
 
 Patch1030: patch-fix-igd-passthrough-with-linux-stubdomain.patch
 
