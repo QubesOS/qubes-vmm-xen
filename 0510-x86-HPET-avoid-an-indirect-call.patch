@@ -1,0 +1,107 @@
+From 06c81ea90c18c71725f51dfff79d4c4396b53d6c Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 17 Jan 2024 10:43:02 +0100
+Subject: [PATCH 510/542] x86/HPET: avoid an indirect call
+
+When this code was written, indirect branches still weren't considered
+much of a problem (besides being a little slower). Instead of a function
+pointer, pass a boolean to _disable_pit_irq(), thus allowing to
+eliminate two ENDBR (one of them in .text).
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 730d2637a8e5b98dc8e4e366179b4cedc496b3ad)
+---
+ xen/arch/x86/hpet.c             |  4 ++--
+ xen/arch/x86/include/asm/hpet.h |  4 ++--
+ xen/arch/x86/time.c             | 12 ++++++------
+ 3 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/xen/arch/x86/hpet.c b/xen/arch/x86/hpet.c
+index bc164dd82c..50d788cb6e 100644
+--- a/xen/arch/x86/hpet.c
++++ b/xen/arch/x86/hpet.c
+@@ -563,7 +563,7 @@ static void cf_check handle_rtc_once(uint8_t index, uint8_t value)
+     }
+ }
+ 
+-void __init cf_check hpet_broadcast_init(void)
++void __init hpet_broadcast_init(void)
+ {
+     u64 hpet_rate = hpet_setup();
+     u32 hpet_id, cfg;
+@@ -634,7 +634,7 @@ void __init cf_check hpet_broadcast_init(void)
+         hpet_events->flags = HPET_EVT_LEGACY;
+ }
+ 
+-void cf_check hpet_broadcast_resume(void)
++void hpet_broadcast_resume(void)
+ {
+     u32 cfg;
+     unsigned int i, n;
+diff --git a/xen/arch/x86/include/asm/hpet.h b/xen/arch/x86/include/asm/hpet.h
+index 9919f74730..f343fe4740 100644
+--- a/xen/arch/x86/include/asm/hpet.h
++++ b/xen/arch/x86/include/asm/hpet.h
+@@ -89,8 +89,8 @@ void hpet_disable_legacy_replacement_mode(void);
+  * Temporarily use an HPET event counter for timer interrupt handling,
+  * rather than using the LAPIC timer. Used for Cx state entry.
+  */
+-void cf_check hpet_broadcast_init(void);
+-void cf_check hpet_broadcast_resume(void);
++void hpet_broadcast_init(void);
++void hpet_broadcast_resume(void);
+ void cf_check hpet_broadcast_enter(void);
+ void cf_check hpet_broadcast_exit(void);
+ int hpet_broadcast_is_available(void);
+diff --git a/xen/arch/x86/time.c b/xen/arch/x86/time.c
+index b664ae4c83..4d1766284f 100644
+--- a/xen/arch/x86/time.c
++++ b/xen/arch/x86/time.c
+@@ -2288,7 +2288,7 @@ void __init early_time_init(void)
+ }
+ 
+ /* keep pit enabled for pit_broadcast working while cpuidle enabled */
+-static int _disable_pit_irq(void(*hpet_broadcast_setup)(void))
++static int _disable_pit_irq(bool init)
+ {
+     int ret = 1;
+ 
+@@ -2303,13 +2303,13 @@ static int _disable_pit_irq(void(*hpet_broadcast_setup)(void))
+      */
+     if ( cpuidle_using_deep_cstate() && !boot_cpu_has(X86_FEATURE_ARAT) )
+     {
+-        hpet_broadcast_setup();
++        init ? hpet_broadcast_init() : hpet_broadcast_resume();
+         if ( !hpet_broadcast_is_available() )
+         {
+             if ( xen_cpuidle > 0 )
+             {
+-                printk("%ps() failed, turning to PIT broadcast\n",
+-                       hpet_broadcast_setup);
++                printk("hpet_broadcast_%s() failed, turning to PIT broadcast\n",
++                       init ? "init" : "resume");
+                 return -1;
+             }
+             ret = 0;
+@@ -2326,7 +2326,7 @@ static int _disable_pit_irq(void(*hpet_broadcast_setup)(void))
+ 
+ static int __init cf_check disable_pit_irq(void)
+ {
+-    if ( !_disable_pit_irq(hpet_broadcast_init) )
++    if ( !_disable_pit_irq(true) )
+     {
+         xen_cpuidle = 0;
+         printk("CPUIDLE: disabled due to no HPET. "
+@@ -2387,7 +2387,7 @@ int time_resume(void)
+ 
+     resume_platform_timer();
+ 
+-    if ( !_disable_pit_irq(hpet_broadcast_resume) )
++    if ( !_disable_pit_irq(false) )
+         BUG();
+ 
+     init_percpu_time();
+-- 
+2.44.0
+

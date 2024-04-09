@@ -1,0 +1,48 @@
+From 19887194865cff7d87650c323d5c6b185dfe3ddc Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 26 Mar 2024 22:47:25 +0000
+Subject: [PATCH] x86/spec-ctrl: Fix BTC/SRSO mitigations
+
+We were looking for SCF_entry_ibpb in the wrong variable in the top-of-stack
+block, and xen_spec_ctrl won't have had bit 5 set because Xen doesn't
+understand SPEC_CTRL_RRSBA_DIS_U yet.
+
+This is XSA-455 / CVE-2024-31142.
+
+Fixes: 53a570b28569 ("x86/spec-ctrl: Support IBPB-on-entry")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/hvm/svm/entry.S             | 2 +-
+ xen/arch/x86/include/asm/spec_ctrl_asm.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/hvm/svm/entry.S b/xen/arch/x86/hvm/svm/entry.S
+index 934f12cf5c..c19e964bc6 100644
+--- a/xen/arch/x86/hvm/svm/entry.S
++++ b/xen/arch/x86/hvm/svm/entry.S
+@@ -103,7 +103,7 @@ __UNLIKELY_END(nsvm_hap)
+         /* SPEC_CTRL_ENTRY_FROM_SVM    Req: %rsp=regs/cpuinfo, %rdx=0 Clob: acd */
+ 
+         .macro svm_vmexit_cond_ibpb
+-            testb  $SCF_entry_ibpb, CPUINFO_xen_spec_ctrl(%rsp)
++            testb  $SCF_entry_ibpb, CPUINFO_spec_ctrl_flags(%rsp)
+             jz     .L_skip_ibpb
+ 
+             mov    $MSR_PRED_CMD, %ecx
+diff --git a/xen/arch/x86/include/asm/spec_ctrl_asm.h b/xen/arch/x86/include/asm/spec_ctrl_asm.h
+index 97a97b2b82..e85db1a329 100644
+--- a/xen/arch/x86/include/asm/spec_ctrl_asm.h
++++ b/xen/arch/x86/include/asm/spec_ctrl_asm.h
+@@ -102,7 +102,7 @@
+         jz     .L\@_skip
+         testb  $3, UREGS_cs(%rsp)
+     .else
+-        testb  $SCF_entry_ibpb, CPUINFO_xen_spec_ctrl(%rsp)
++        testb  $SCF_entry_ibpb, CPUINFO_spec_ctrl_flags(%rsp)
+     .endif
+     jz     .L\@_skip
+ 
+-- 
+2.44.0
+

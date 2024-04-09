@@ -1,0 +1,43 @@
+From e60fc805d8a2ee2822dc96715bca44ebed135a8c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 9 Apr 2024 14:50:46 +0200
+Subject: [PATCH 526/542] x86/alternatives: fix .init section reference in
+ _apply_alternatives()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The code in _apply_alternatives() will unconditionally attempt to read
+__initdata_cf_clobber_{start,end} when called as part of applying alternatives
+to a livepatch payload when Xen is using IBT.
+
+That leads to a page-fault as __initdata_cf_clobber_{start,end} living in
+.init section will have been unmapped by the time a livepatch gets loaded.
+
+Fix by adding a check that limits the clobbering of endbr64 instructions to
+boot time only.
+
+Fixes: 37ed5da851b8 ('x86/altcall: Optimise away endbr64 instruction where possible')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 4be1fef1e6572c2be0bd378902ffb62a6e73faeb)
+---
+ xen/arch/x86/alternative.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/alternative.c b/xen/arch/x86/alternative.c
+index 1d59dffc46..8356414be7 100644
+--- a/xen/arch/x86/alternative.c
++++ b/xen/arch/x86/alternative.c
+@@ -338,7 +338,7 @@ static void init_or_livepatch _apply_alternatives(struct alt_instr *start,
+      * Clobber endbr64 instructions now that altcall has finished optimising
+      * all indirect branches to direct ones.
+      */
+-    if ( force && cpu_has_xen_ibt )
++    if ( force && cpu_has_xen_ibt && system_state < SYS_STATE_active )
+     {
+         void *const *val;
+         unsigned int clobbered = 0;
+-- 
+2.44.0
+

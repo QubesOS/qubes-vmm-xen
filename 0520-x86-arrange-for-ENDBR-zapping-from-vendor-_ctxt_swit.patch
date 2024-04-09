@@ -1,0 +1,69 @@
+From f2947a0da348eafc72e166dea14983f6d7c8300e Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 5 Feb 2024 10:44:46 +0100
+Subject: [PATCH 520/542] x86: arrange for ENDBR zapping from
+ <vendor>_ctxt_switch_masking()
+
+While altcall is already used for them, the functions want announcing in
+.init.rodata.cf_clobber, even if the resulting static variables aren't
+otherwise used.
+
+While doing this also move ctxt_switch_masking to .data.ro_after_init.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 044168fa3a65b6542bda5c21e373742de1bd5980)
+---
+ xen/arch/x86/cpu/amd.c    | 5 +++++
+ xen/arch/x86/cpu/common.c | 2 +-
+ xen/arch/x86/cpu/intel.c  | 5 +++++
+ 3 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/cpu/amd.c b/xen/arch/x86/cpu/amd.c
+index 3d85e9797d..d5e9ad7598 100644
+--- a/xen/arch/x86/cpu/amd.c
++++ b/xen/arch/x86/cpu/amd.c
+@@ -258,6 +258,11 @@ static void cf_check amd_ctxt_switch_masking(const struct vcpu *next)
+ #undef LAZY
+ }
+ 
++#ifdef CONFIG_XEN_IBT /* Announce the function to ENDBR clobbering logic. */
++static const typeof(ctxt_switch_masking) __initconst_cf_clobber __used csm =
++    amd_ctxt_switch_masking;
++#endif
++
+ /*
+  * Mask the features and extended features returned by CPUID.  Parameters are
+  * set from the boot line via two methods:
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 54ea7fa831..60e472da26 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -121,7 +121,7 @@ static const struct cpu_dev default_cpu = {
+ static const struct cpu_dev *this_cpu = &default_cpu;
+ 
+ static DEFINE_PER_CPU(uint64_t, msr_misc_features);
+-void (* __read_mostly ctxt_switch_masking)(const struct vcpu *next);
++void (* __ro_after_init ctxt_switch_masking)(const struct vcpu *next);
+ 
+ bool __init probe_cpuid_faulting(void)
+ {
+diff --git a/xen/arch/x86/cpu/intel.c b/xen/arch/x86/cpu/intel.c
+index 96723b5d44..532e845f66 100644
+--- a/xen/arch/x86/cpu/intel.c
++++ b/xen/arch/x86/cpu/intel.c
+@@ -220,6 +220,11 @@ static void cf_check intel_ctxt_switch_masking(const struct vcpu *next)
+ #undef LAZY
+ }
+ 
++#ifdef CONFIG_XEN_IBT /* Announce the function to ENDBR clobbering logic. */
++static const typeof(ctxt_switch_masking) __initconst_cf_clobber __used csm =
++    intel_ctxt_switch_masking;
++#endif
++
+ /*
+  * opt_cpuid_mask_ecx/edx: cpuid.1[ecx, edx] feature mask.
+  * For example, E8400[Intel Core 2 Duo Processor series] ecx = 0x0008E3FD,
+-- 
+2.44.0
+

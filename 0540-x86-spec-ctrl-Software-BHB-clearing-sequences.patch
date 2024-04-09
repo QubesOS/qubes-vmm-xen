@@ -1,0 +1,349 @@
+From 4abd50dc17ced2e1221226b7893c437acbbd0d1b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 8 Jun 2023 19:41:44 +0100
+Subject: [PATCH 540/542] x86/spec-ctrl: Software BHB-clearing sequences
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Implement clear_bhb_{tsx,loops}() as per the BHI guidance.  The loops variant
+is set up as the "short" sequence.
+
+Introduce SCF_entry_bhb and extend SPEC_CTRL_ENTRY_* with a conditional call
+to selected clearing routine.
+
+Note that due to a limitation in the ALTERNATIVE capability, the TEST/JZ can't
+be included alongside a CALL in a single alternative block.  This is going to
+require further work to untangle.
+
+The BHB sequences (if used) must be after the restoration of Xen's
+MSR_SPEC_CTRL value, which must be accounted for when judging whether it is
+safe to skip the safety LFENCEs.
+
+This is part of XSA-456 / CVE-2024-2201.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Roger Pau Monné <roger.pau@citrix.com>
+(cherry picked from commit 954c983abceee97bf5f6230b9ae164f2c49a9aa9)
+---
+ xen/arch/x86/Makefile                    |  1 +
+ xen/arch/x86/bhb-thunk.S                 | 98 ++++++++++++++++++++++++
+ xen/arch/x86/hvm/vmx/entry.S             | 12 +++
+ xen/arch/x86/include/asm/cpufeature.h    |  3 +
+ xen/arch/x86/include/asm/cpufeatures.h   |  3 +
+ xen/arch/x86/include/asm/spec_ctrl.h     |  3 +-
+ xen/arch/x86/include/asm/spec_ctrl_asm.h | 30 ++++++++
+ xen/arch/x86/spec_ctrl.c                 | 39 ++++++----
+ 8 files changed, 171 insertions(+), 18 deletions(-)
+ create mode 100644 xen/arch/x86/bhb-thunk.S
+
+diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
+index cb9d952659..6a070a8cf8 100644
+--- a/xen/arch/x86/Makefile
++++ b/xen/arch/x86/Makefile
+@@ -14,6 +14,7 @@ alternative-y := alternative.init.o
+ alternative-$(CONFIG_LIVEPATCH) :=
+ obj-bin-y += $(alternative-y)
+ obj-y += apic.o
++obj-y += bhb-thunk.o
+ obj-y += bitops.o
+ obj-bin-y += bzimage.init.o
+ obj-bin-y += clear_page.o
+diff --git a/xen/arch/x86/bhb-thunk.S b/xen/arch/x86/bhb-thunk.S
+new file mode 100644
+index 0000000000..f52cfb9bc2
+--- /dev/null
++++ b/xen/arch/x86/bhb-thunk.S
+@@ -0,0 +1,98 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/*
++ * Branch History Injection clearing sequences.
++ *
++ * https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/branch-history-injection.html
++ *
++ * Copyright (c) 2023, 2024 XenServer.
++ */
++        .file __FILE__
++
++#include <asm/asm_defns.h>
++
++        .section .text.entry, "ax", @progbits
++
++/*
++ * Clear the Branch History Buffer using a TSX Abort.
++ *
++ * Any TSX Abort has a side effect of clearing the BHB, even when TSX is
++ * disabled for e.g. TAA mitigation reasons.
++ */
++ENTRY(clear_bhb_tsx)
++        .byte 0xc7, 0xf8; .long 1f - 0f /* xbegin 1f */
++0:      .byte 0xc6, 0xf8, 0             /* xabort $0 */
++        int3
++1:
++        ret
++
++        .size clear_bhb_tsx, . - clear_bhb_tsx
++        .type clear_bhb_tsx, @function
++
++/*
++ * Clear the Branch History Buffer using the software sequence.
++ *
++ * Clobbers: %eax, %ecx
++ *
++ * This executes a specific number of taken branches, sufficient to displace
++ * all prior entries in the history tracker, therefore removing prior
++ * influence on subsequent BTB lookups.
++ *
++ * Structurally, it looks like this:
++ *
++ *   call 1
++ *     call 2
++ *       ... 5x jmp loop
++ *       call 2
++ *         ... 5x jmp loop
++ *         ... 5x call2's deep
++ *
++ *         ret
++ *       ret
++ *     ret
++ *   ret
++ *
++ * The CALL/RETs are necessary to prevent the Loop Stream Detector from
++ * interfering.  The alignment is for performance and not safety.
++ *
++ * The "short" sequence (5 and 5) is for CPUs prior to Alder Lake / Sapphire
++ * Rapids (i.e. Cores prior to Golden Cove and/or Gracemont).
++ */
++ENTRY(clear_bhb_loops)
++        mov     $5, %ecx
++
++        call    1f
++        jmp     5f
++        int3
++
++        .align 64
++1:      call    2f
++        ret
++        int3
++
++        .align 64
++2:      mov     $5, %eax
++
++3:      jmp     4f
++        int3
++
++4:      sub     $1, %eax
++        jnz     3b
++
++        sub     $1, %ecx
++        jnz     1b
++
++        ret
++5:
++        /*
++         * The Intel sequence has an LFENCE here.  The purpose is to ensure
++         * that all prior branches have executed, before dispatching a
++         * subsequent indirect branch.
++         *
++         * Xen's SPEC_CTRL_ENTRY_* blocks have safety LFENCEs at the end when
++         * protections are active, which suffices for this purpose.
++         */
++
++        ret
++
++        .size clear_bhb_loops, . - clear_bhb_loops
++        .type clear_bhb_loops, @function
+diff --git a/xen/arch/x86/hvm/vmx/entry.S b/xen/arch/x86/hvm/vmx/entry.S
+index 9250eb1839..1092d1918c 100644
+--- a/xen/arch/x86/hvm/vmx/entry.S
++++ b/xen/arch/x86/hvm/vmx/entry.S
+@@ -57,6 +57,18 @@ ENTRY(vmx_asm_vmexit_handler)
+             wrmsr
+         .endm
+         ALTERNATIVE "", restore_spec_ctrl, X86_FEATURE_SC_MSR_HVM
++
++        /*
++         * Clear the BHB to mitigate BHI.  Used on eIBRS parts, and uses RETs
++         * itself so must be after we've perfomed all the RET-safety we can.
++         */
++        testb $SCF_entry_bhb, CPUINFO_scf(%rsp)
++        jz .L_skip_bhb
++        ALTERNATIVE_2 "",                                    \
++            "call clear_bhb_loops", X86_SPEC_BHB_LOOPS,      \
++            "call clear_bhb_tsx", X86_SPEC_BHB_TSX
++.L_skip_bhb:
++
+         ALTERNATIVE "lfence", "", X86_SPEC_NO_LFENCE_ENTRY_VMX
+         /* WARNING! `ret`, `call *`, `jmp *` not safe before this point. */
+ 
+diff --git a/xen/arch/x86/include/asm/cpufeature.h b/xen/arch/x86/include/asm/cpufeature.h
+index a6b8af1296..b24d535080 100644
+--- a/xen/arch/x86/include/asm/cpufeature.h
++++ b/xen/arch/x86/include/asm/cpufeature.h
+@@ -181,6 +181,9 @@
+ #define cpu_bug_fpu_ptrs        boot_cpu_has(X86_BUG_FPU_PTRS)
+ #define cpu_bug_null_seg        boot_cpu_has(X86_BUG_NULL_SEG)
+ 
++#define cpu_has_bhb_seq        (boot_cpu_has(X86_SPEC_BHB_TSX) ||       \
++                                boot_cpu_has(X86_SPEC_BHB_LOOPS))
++
+ enum _cache_type {
+     CACHE_TYPE_NULL = 0,
+     CACHE_TYPE_DATA = 1,
+diff --git a/xen/arch/x86/include/asm/cpufeatures.h b/xen/arch/x86/include/asm/cpufeatures.h
+index 6422c66b0f..bada8912e0 100644
+--- a/xen/arch/x86/include/asm/cpufeatures.h
++++ b/xen/arch/x86/include/asm/cpufeatures.h
+@@ -56,5 +56,8 @@ XEN_CPUFEATURE(IBPB_ENTRY_HVM,    X86_SYNTH(29)) /* MSR_PRED_CMD used by Xen for
+ #define X86_SPEC_NO_LFENCE_ENTRY_INTR X86_BUG(17) /* (No) safety LFENCE for SPEC_CTRL_ENTRY_INTR. */
+ #define X86_SPEC_NO_LFENCE_ENTRY_VMX X86_BUG(18) /* (No) safety LFENCE for SPEC_CTRL_ENTRY_VMX. */
+ 
++#define X86_SPEC_BHB_TSX          X86_BUG(19) /* Use clear_bhb_tsx for BHI mitigation. */
++#define X86_SPEC_BHB_LOOPS        X86_BUG(20) /* Use clear_bhb_loops for BHI mitigation.*/
++
+ /* Total number of capability words, inc synth and bug words. */
+ #define NCAPINTS (FSCAPINTS + X86_NR_SYNTH + X86_NR_BUG) /* N 32-bit words worth of info */
+diff --git a/xen/arch/x86/include/asm/spec_ctrl.h b/xen/arch/x86/include/asm/spec_ctrl.h
+index 617209202b..4439a1b243 100644
+--- a/xen/arch/x86/include/asm/spec_ctrl.h
++++ b/xen/arch/x86/include/asm/spec_ctrl.h
+@@ -36,6 +36,7 @@
+ #define SCF_verw       (1 << 3)
+ #define SCF_ist_ibpb   (1 << 4)
+ #define SCF_entry_ibpb (1 << 5)
++#define SCF_entry_bhb  (1 << 6)
+ 
+ /*
+  * The IST paths (NMI/#MC) can interrupt any arbitrary context.  Some
+@@ -54,7 +55,7 @@
+  * Some speculative protections are per-domain.  These settings are merged
+  * into the top-of-stack block in the context switch path.
+  */
+-#define SCF_DOM_MASK (SCF_verw | SCF_entry_ibpb)
++#define SCF_DOM_MASK (SCF_verw | SCF_entry_ibpb | SCF_entry_bhb)
+ 
+ #ifndef __ASSEMBLY__
+ 
+diff --git a/xen/arch/x86/include/asm/spec_ctrl_asm.h b/xen/arch/x86/include/asm/spec_ctrl_asm.h
+index d232172159..1d7c4f4a68 100644
+--- a/xen/arch/x86/include/asm/spec_ctrl_asm.h
++++ b/xen/arch/x86/include/asm/spec_ctrl_asm.h
+@@ -285,6 +285,17 @@
+     ALTERNATIVE "", __stringify(DO_SPEC_CTRL_ENTRY maybexen=0),         \
+         X86_FEATURE_SC_MSR_PV
+ 
++    /*
++     * Clear the BHB to mitigate BHI.  Used on eIBRS parts, and uses RETs
++     * itself so must be after we've perfomed all the RET-safety we can.
++     */
++    testb $SCF_entry_bhb, %bl
++    jz .L\@_skip_bhb
++    ALTERNATIVE_2 "",                                    \
++        "call clear_bhb_loops", X86_SPEC_BHB_LOOPS,      \
++        "call clear_bhb_tsx", X86_SPEC_BHB_TSX
++.L\@_skip_bhb:
++
+     ALTERNATIVE "lfence", "", X86_SPEC_NO_LFENCE_ENTRY_PV
+ .endm
+ 
+@@ -323,6 +334,13 @@
+     ALTERNATIVE "", __stringify(DO_SPEC_CTRL_ENTRY maybexen=1),         \
+         X86_FEATURE_SC_MSR_PV
+ 
++    testb $SCF_entry_bhb, %bl
++    jz .L\@_skip_bhb
++    ALTERNATIVE_2 "",                                    \
++        "call clear_bhb_loops", X86_SPEC_BHB_LOOPS,      \
++        "call clear_bhb_tsx", X86_SPEC_BHB_TSX
++.L\@_skip_bhb:
++
+     ALTERNATIVE "lfence", "", X86_SPEC_NO_LFENCE_ENTRY_INTR
+ .endm
+ 
+@@ -423,6 +441,18 @@
+ 
+ .L\@_skip_msr_spec_ctrl:
+ 
++    /*
++     * Clear the BHB to mitigate BHI.  Used on eIBRS parts, and uses RETs
++     * itself so must be after we've perfomed all the RET-safety we can.
++     */
++    testb $SCF_entry_bhb, %bl
++    jz .L\@_skip_bhb
++
++    ALTERNATIVE_2 "",                                    \
++        "call clear_bhb_loops", X86_SPEC_BHB_LOOPS,      \
++        "call clear_bhb_tsx", X86_SPEC_BHB_TSX
++.L\@_skip_bhb:
++
+     lfence
+ .endm
+ 
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 085e37525d..546199fabe 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -2194,38 +2194,43 @@ void __init init_speculation_mitigations(void)
+         /*
+          * SPEC_CTRL_ENTRY_FROM_PV conditional safety
+          *
+-         * DO_SPEC_CTRL_ENTRY (X86_FEATURE_SC_MSR_PV if used) is an
+-         * unconditional WRMSR as the last action.
++         * A BHB sequence, if used, is a conditional action and last.  If we
++         * have this, then we must have the LFENCE.
+          *
+-         * If we have it, or we're not using any prior conditional mitigation,
+-         * then it's safe to drop the LFENCE.
++         * Otherwise, DO_SPEC_CTRL_ENTRY (X86_FEATURE_SC_MSR_PV if used) is an
++         * unconditional WRMSR.  If we do have it, or we're not using any
++         * prior conditional block, then it's safe to drop the LFENCE.
+          */
+-        if ( boot_cpu_has(X86_FEATURE_SC_MSR_PV) ||
+-             !boot_cpu_has(X86_FEATURE_IBPB_ENTRY_PV) )
++        if ( !cpu_has_bhb_seq &&
++             (boot_cpu_has(X86_FEATURE_SC_MSR_PV) ||
++              !boot_cpu_has(X86_FEATURE_IBPB_ENTRY_PV)) )
+             setup_force_cpu_cap(X86_SPEC_NO_LFENCE_ENTRY_PV);
+ 
+         /*
+          * SPEC_CTRL_ENTRY_FROM_INTR conditional safety
+          *
+-         * DO_SPEC_CTRL_ENTRY (X86_FEATURE_SC_MSR_PV if used) is an
+-         * unconditional WRMSR as the last action.
++         * A BHB sequence, if used, is a conditional action and last.  If we
++         * have this, then we must have the LFENCE.
+          *
+-         * If we have it, or we have no protections active in the block that
+-         * is skipped when interrupting guest context, then it's safe to drop
+-         * the LFENCE.
++         * Otherwise DO_SPEC_CTRL_ENTRY (X86_FEATURE_SC_MSR_PV if used) is an
++         * unconditional WRMSR.  If we have it, or we have no protections
++         * active in the block that is skipped when interrupting guest
++         * context, then it's safe to drop the LFENCE.
+          */
+-        if ( boot_cpu_has(X86_FEATURE_SC_MSR_PV) ||
+-             (!boot_cpu_has(X86_FEATURE_IBPB_ENTRY_PV) &&
+-              !boot_cpu_has(X86_FEATURE_SC_RSB_PV)) )
++        if ( !cpu_has_bhb_seq &&
++             (boot_cpu_has(X86_FEATURE_SC_MSR_PV) ||
++              (!boot_cpu_has(X86_FEATURE_IBPB_ENTRY_PV) &&
++               !boot_cpu_has(X86_FEATURE_SC_RSB_PV))) )
+             setup_force_cpu_cap(X86_SPEC_NO_LFENCE_ENTRY_INTR);
+ 
+         /*
+          * SPEC_CTRL_ENTRY_FROM_VMX conditional safety
+          *
+-         * Currently there are no safety actions with conditional branches, so
+-         * no need for the extra safety LFENCE.
++         * A BHB sequence, if used, is the only conditional action, so if we
++         * don't have it, we don't need the safety LFENCE.
+          */
+-        setup_force_cpu_cap(X86_SPEC_NO_LFENCE_ENTRY_VMX);
++        if ( !cpu_has_bhb_seq )
++            setup_force_cpu_cap(X86_SPEC_NO_LFENCE_ENTRY_VMX);
+     }
+ 
+     /*
+-- 
+2.44.0
+

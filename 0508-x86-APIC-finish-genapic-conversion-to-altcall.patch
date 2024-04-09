@@ -1,0 +1,111 @@
+From 88d5e21e165351feef0f17157005dece78275cea Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 17 Jan 2024 10:41:52 +0100
+Subject: [PATCH 508/542] x86/APIC: finish genapic conversion to altcall
+
+While .probe() doesn't need fiddling with for being run only very early,
+init_apic_ldr() wants converting too despite not being on a frequently
+executed path: This way all pre-filled struct genapic instances can
+become __initconst_cf_clobber, thus allowing to eliminate 15 more ENDBR
+during the 2nd phase of alternatives patching.
+
+While fiddling with section annotations here, also move "genapic" itself
+to .data.ro_after_init.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit b1cc53753cba4c3253f2e1093a3a6a9a828314bf)
+---
+ xen/arch/x86/genapic/bigsmp.c                     | 2 +-
+ xen/arch/x86/genapic/default.c                    | 2 +-
+ xen/arch/x86/genapic/probe.c                      | 2 +-
+ xen/arch/x86/genapic/x2apic.c                     | 6 +++---
+ xen/arch/x86/include/asm/mach-generic/mach_apic.h | 2 +-
+ 5 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/xen/arch/x86/genapic/bigsmp.c b/xen/arch/x86/genapic/bigsmp.c
+index 2000383ab0..7219ec53b0 100644
+--- a/xen/arch/x86/genapic/bigsmp.c
++++ b/xen/arch/x86/genapic/bigsmp.c
+@@ -41,7 +41,7 @@ static int __init cf_check probe_bigsmp(void)
+ 	return def_to_bigsmp;
+ } 
+ 
+-const struct genapic __initconstrel apic_bigsmp = {
++const struct genapic __initconst_cf_clobber apic_bigsmp = {
+ 	APIC_INIT("bigsmp", probe_bigsmp),
+ 	GENAPIC_PHYS
+ };
+diff --git a/xen/arch/x86/genapic/default.c b/xen/arch/x86/genapic/default.c
+index 2c63c1f917..a968836a18 100644
+--- a/xen/arch/x86/genapic/default.c
++++ b/xen/arch/x86/genapic/default.c
+@@ -14,7 +14,7 @@
+ #include <asm/io_apic.h>
+ 
+ /* should be called last. */
+-const struct genapic __initconstrel apic_default = {
++const struct genapic __initconst_cf_clobber apic_default = {
+ 	APIC_INIT("default", NULL),
+ 	GENAPIC_FLAT
+ };
+diff --git a/xen/arch/x86/genapic/probe.c b/xen/arch/x86/genapic/probe.c
+index ad57912f50..10ceeae4d2 100644
+--- a/xen/arch/x86/genapic/probe.c
++++ b/xen/arch/x86/genapic/probe.c
+@@ -16,7 +16,7 @@
+ #include <asm/mach-generic/mach_apic.h>
+ #include <asm/setup.h>
+ 
+-struct genapic __read_mostly genapic;
++struct genapic __ro_after_init genapic;
+ 
+ static const struct genapic *const __initconstrel apic_probe[] = {
+ 	&apic_bigsmp, 
+diff --git a/xen/arch/x86/genapic/x2apic.c b/xen/arch/x86/genapic/x2apic.c
+index c64038adaa..eba09d7719 100644
+--- a/xen/arch/x86/genapic/x2apic.c
++++ b/xen/arch/x86/genapic/x2apic.c
+@@ -169,7 +169,7 @@ static void cf_check send_IPI_mask_x2apic_cluster(
+     local_irq_restore(flags);
+ }
+ 
+-static const struct genapic __initconstrel apic_x2apic_phys = {
++static const struct genapic __initconst_cf_clobber apic_x2apic_phys = {
+     APIC_INIT("x2apic_phys", NULL),
+     .int_delivery_mode = dest_Fixed,
+     .int_dest_mode = 0 /* physical delivery */,
+@@ -180,7 +180,7 @@ static const struct genapic __initconstrel apic_x2apic_phys = {
+     .send_IPI_self = send_IPI_self_x2apic
+ };
+ 
+-static const struct genapic __initconstrel apic_x2apic_cluster = {
++static const struct genapic __initconst_cf_clobber apic_x2apic_cluster = {
+     APIC_INIT("x2apic_cluster", NULL),
+     .int_delivery_mode = dest_LowestPrio,
+     .int_dest_mode = 1 /* logical delivery */,
+@@ -198,7 +198,7 @@ static const struct genapic __initconstrel apic_x2apic_cluster = {
+  * IPIs to be more efficiently delivered by not having to perform an ICR write
+  * for each target CPU.
+  */
+-static const struct genapic __initconstrel apic_x2apic_mixed = {
++static const struct genapic __initconst_cf_clobber apic_x2apic_mixed = {
+     APIC_INIT("x2apic_mixed", NULL),
+ 
+     /*
+diff --git a/xen/arch/x86/include/asm/mach-generic/mach_apic.h b/xen/arch/x86/include/asm/mach-generic/mach_apic.h
+index b6f6361c60..d9e02f0bc4 100644
+--- a/xen/arch/x86/include/asm/mach-generic/mach_apic.h
++++ b/xen/arch/x86/include/asm/mach-generic/mach_apic.h
+@@ -13,7 +13,7 @@
+ #define INT_DELIVERY_MODE (genapic.int_delivery_mode)
+ #define INT_DEST_MODE (genapic.int_dest_mode)
+ #define TARGET_CPUS ((const typeof(cpu_online_map) *)&cpu_online_map)
+-#define init_apic_ldr (genapic.init_apic_ldr)
++#define init_apic_ldr() alternative_vcall(genapic.init_apic_ldr)
+ #define cpu_mask_to_apicid(mask) ({ \
+ 	/* \
+ 	 * There are a number of places where the address of a local variable \
+-- 
+2.44.0
+

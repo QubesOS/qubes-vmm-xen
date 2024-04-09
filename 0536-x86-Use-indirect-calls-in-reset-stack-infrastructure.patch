@@ -1,0 +1,111 @@
+From e2a2cfb4ddf05a76e072ea84172d6a83ba392d20 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 22 Dec 2023 17:44:48 +0000
+Subject: [PATCH 536/542] x86: Use indirect calls in reset-stack infrastructure
+
+Mixing up JMP and CALL indirect targets leads a very fun form of speculative
+type confusion.  A target which is expecting to be called CALLed needs a
+return address on the stack, and an indirect JMP doesn't place one there.
+
+An indirect JMP which predicts to a target intending to be CALLed can end up
+with a RET speculatively executing with a value from the JMPers stack frame.
+
+There are several ways get indirect JMPs in Xen.
+
+ * From tailcall optimisations.  These are safe because the compiler has
+   arranged the stack to point at the callee's return address.
+
+ * From jump tables.  These are unsafe, but Xen is built with -fno-jump-tables
+   to work around several compiler issues.
+
+ * From reset_stack_and_jump_ind(), which is particularly unsafe.  Because of
+   the additional stack adjustment made, the value picked up off the stack is
+   regs->r15 of the next vCPU to run.
+
+In order to mitigate this type confusion, we want to make all indirect targets
+be CALL targets, and remove the use of indirect JMP except via tailcall
+optimisation.
+
+Luckily due to XSA-348, all C target functions of reset_stack_and_jump_ind()
+are noreturn.  {svm,vmx}_do_resume() exits via reset_stack_and_jump(); a
+direct JMP with entirely different prediction properties.  idle_loop() is an
+infinite loop which eventually exits via reset_stack_and_jump_ind() from a new
+schedule.  i.e. These paths are all fine having one extra return address on
+the stack.
+
+This leaves continue_pv_domain(), which is expecting to be a JMP target.
+Alter it to strip the return address off the stack, which is safe because
+there isn't actually a RET expecting to return to its caller.
+
+This allows us change reset_stack_and_jump_ind() to reset_stack_and_call_ind()
+in order to mitigate the speculative type confusion.
+
+This is part of XSA-456 / CVE-2024-2201.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 8e186f98ce0e35d1754ec9299da41ec98873b65c)
+---
+ xen/arch/x86/domain.c              | 4 ++--
+ xen/arch/x86/include/asm/current.h | 4 ++--
+ xen/arch/x86/x86_64/entry.S        | 8 ++++++++
+ 3 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 228763b5e9..5dbd1d8a12 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -2112,12 +2112,12 @@ void context_switch(struct vcpu *prev, struct vcpu *next)
+     /* Ensure that the vcpu has an up-to-date time base. */
+     update_vcpu_system_time(next);
+ 
+-    reset_stack_and_jump_ind(nextd->arch.ctxt_switch->tail);
++    reset_stack_and_call_ind(nextd->arch.ctxt_switch->tail);
+ }
+ 
+ void continue_running(struct vcpu *same)
+ {
+-    reset_stack_and_jump_ind(same->domain->arch.ctxt_switch->tail);
++    reset_stack_and_call_ind(same->domain->arch.ctxt_switch->tail);
+ }
+ 
+ int __sync_local_execstate(void)
+diff --git a/xen/arch/x86/include/asm/current.h b/xen/arch/x86/include/asm/current.h
+index ba82b413e2..2f723bcf1b 100644
+--- a/xen/arch/x86/include/asm/current.h
++++ b/xen/arch/x86/include/asm/current.h
+@@ -196,10 +196,10 @@ unsigned long get_stack_dump_bottom (unsigned long sp);
+     switch_stack_and_jump(fn, "jmp %c", "i")
+ 
+ /* The constraint may only specify non-call-clobbered registers. */
+-#define reset_stack_and_jump_ind(fn)                                    \
++#define reset_stack_and_call_ind(fn)                                    \
+     ({                                                                  \
+         (void)((fn) == (void (*)(void))NULL);                           \
+-        switch_stack_and_jump(fn, "INDIRECT_JMP %", "b");               \
++        switch_stack_and_jump(fn, "INDIRECT_CALL %", "b");              \
+     })
+ 
+ /*
+diff --git a/xen/arch/x86/x86_64/entry.S b/xen/arch/x86/x86_64/entry.S
+index 801d241337..9c256746ba 100644
+--- a/xen/arch/x86/x86_64/entry.S
++++ b/xen/arch/x86/x86_64/entry.S
+@@ -637,6 +637,14 @@ ENTRY(dom_crash_sync_extable)
+ #ifdef CONFIG_PV
+ ENTRY(continue_pv_domain)
+         ENDBR64
++
++        /*
++         * For speculative type confusion reasons, we're CALLed rather than
++         * JMPed to.  Drop the return address.
++         */
++        add   $8, %rsp
++        ALTERNATIVE "", "mov $2, %eax; incsspd %eax", X86_FEATURE_XEN_SHSTK
++
+         call  check_wakeup_from_wait
+ ret_from_intr:
+         GET_CURRENT(bx)
+-- 
+2.44.0
+

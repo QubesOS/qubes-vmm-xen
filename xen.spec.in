@@ -139,6 +139,8 @@ Patch0346: 0346-xen-livepatch-properly-build-the-noapply-and-norever.patch
 Patch0347: 0347-libxl-Fix-segfault-in-device_model_spawn_outcome.patch
 Patch0348: 0348-x86-altcall-always-use-a-temporary-parameter-stashin.patch
 Patch0349: 0349-x86-cpu-policy-Allow-for-levelling-of-VERW-side-effe.patch
+Patch0350: 0350-x86-cpu-policy-Hide-x2APIC-from-PV-guests.patch
+Patch0351: 0351-x86-cpu-policy-Fix-visibility-of-HTT-CMP_LEGACY-in-m.patch
 
 # Security fixes
 Patch0500: 0500-xsa452-4.17-1.patch
@@ -148,6 +150,43 @@ Patch0503: 0503-xsa452-4.17-4.patch
 Patch0504: 0504-xsa452-4.17-5.patch
 Patch0505: 0505-xsa452-4.17-6.patch
 Patch0506: 0506-xsa452-4.17-7.patch
+Patch0507: 0507-xsa455-4.17.patch
+# XSA-456
+Patch0508: 0508-x86-APIC-finish-genapic-conversion-to-altcall.patch
+Patch0509: 0509-cpufreq-finish-conversion-to-altcall.patch
+Patch0510: 0510-x86-HPET-avoid-an-indirect-call.patch
+Patch0511: 0511-core-parking-use-alternative_call.patch
+Patch0512: 0512-x86-MTRR-avoid-several-indirect-calls.patch
+Patch0513: 0513-x86-PV-avoid-indirect-call-for-I-O-emulation-quirk-h.patch
+Patch0514: 0514-x86-MCE-separate-BSP-only-initialization.patch
+Patch0515: 0515-x86-MCE-switch-some-callback-invocations-to-altcall.patch
+Patch0516: 0516-IRQ-generalize-gs-et_irq_regs.patch
+Patch0517: 0517-x86-spec-ctrl-Expose-IPRED_CTRL-to-guests.patch
+Patch0518: 0518-x86-spec-ctrl-Expose-RRSBA_CTRL-to-guests.patch
+Patch0519: 0519-x86-spec-ctrl-Expose-BHI_CTRL-to-guests.patch
+Patch0520: 0520-x86-arrange-for-ENDBR-zapping-from-vendor-_ctxt_swit.patch
+Patch0521: 0521-x86-guest-finish-conversion-to-altcall.patch
+Patch0522: 0522-x86-CPU-convert-vendor-hook-invocations-to-altcall.patch
+Patch0523: 0523-VMX-tertiary-execution-control-infrastructure.patch
+Patch0524: 0524-x86-spec-ctrl-Move-__read_mostly-data-into-__ro_afte.patch
+Patch0525: 0525-x86-tsx-Cope-with-RTM_ALWAYS_ABORT-vs-RTM-mismatch.patch
+Patch0526: 0526-x86-alternatives-fix-.init-section-reference-in-_app.patch
+Patch0527: 0527-x86-cpuid-Don-t-expose-IPRED-RRSBA-BHI-_CTRL-to-PV-g.patch
+Patch0528: 0528-x86-spec-ctrl-Rename-spec_ctrl_flags-to-scf.patch
+Patch0529: 0529-x86-spec-ctrl-Rework-conditional-safety-for-SPEC_CTR.patch
+Patch0530: 0530-x86-entry-Arrange-for-r14-to-be-STACK_END-across-SPE.patch
+Patch0531: 0531-x86-spec_ctrl-Hold-SCF-in-ebx-across-SPEC_CTRL_ENTRY.patch
+Patch0532: 0532-x86-spec-ctrl-Simplify-DO_COND_IBPB.patch
+Patch0533: 0533-x86-spec-ctrl-Detail-the-safety-properties-in-SPEC_C.patch
+Patch0534: 0534-x86-vmx-Add-support-for-virtualize-SPEC_CTRL.patch
+Patch0535: 0535-x86-spec-ctrl-Widen-the-xen-last-default-_spec_ctrl-.patch
+Patch0536: 0536-x86-Use-indirect-calls-in-reset-stack-infrastructure.patch
+Patch0537: 0537-x86-Drop-INDIRECT_JMP.patch
+Patch0538: 0538-x86-tsx-Expose-RTM_ALWAYS_ABORT-to-guests.patch
+Patch0539: 0539-x86-spec-ctrl-Support-BHI_DIS_S-in-order-to-mitigate.patch
+Patch0540: 0540-x86-spec-ctrl-Software-BHB-clearing-sequences.patch
+Patch0541: 0541-x86-spec-ctrl-Wire-up-the-Native-BHI-software-sequen.patch
+Patch0542: 0542-x86-spec-ctrl-Support-the-long-BHB-loop-sequence.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
@@ -213,7 +252,6 @@ Patch1013: 1013-libxl-do-not-force-qdisk-backend-for-cdrom.patch
 Patch1014: 1014-Additional-support-in-ACPI-builder-to-support-SLIC-a.patch
 Patch1015: 1015-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
 Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
-Patch1017: 1017-Disable-TSX-by-default.patch
 Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
 Patch1019: 1019-Use-Linux-s-PAT.patch
 

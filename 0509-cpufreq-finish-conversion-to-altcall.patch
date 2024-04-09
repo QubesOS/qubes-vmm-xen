@@ -1,0 +1,157 @@
+From 653560e02d40c480d08032f3cf1e450db79f5d71 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Wed, 17 Jan 2024 10:42:27 +0100
+Subject: [PATCH 509/542] cpufreq: finish conversion to altcall
+
+Even functions used on infrequently executed paths want converting: This
+way all pre-filled struct cpufreq_driver instances can become
+__initconst_cf_clobber, thus allowing to eliminate another 15 ENDBR
+during the 2nd phase of alternatives patching.
+
+For acpi-cpufreq's optionally populated .get hook make sure alternatives
+patching can actually see the pointer. See also the code comment.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 467ae515caee491e9b6ae1da8b9b98d094955822)
+---
+ xen/arch/x86/acpi/cpufreq/cpufreq.c  | 17 ++++++++++++++++-
+ xen/arch/x86/acpi/cpufreq/powernow.c |  3 ++-
+ xen/drivers/acpi/pmstat.c            |  3 ++-
+ xen/drivers/cpufreq/cpufreq.c        |  6 +++---
+ xen/drivers/cpufreq/utility.c        |  6 +++---
+ 5 files changed, 26 insertions(+), 9 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/cpufreq/cpufreq.c b/xen/arch/x86/acpi/cpufreq/cpufreq.c
+index c27cbb2304..5786943cfb 100644
+--- a/xen/arch/x86/acpi/cpufreq/cpufreq.c
++++ b/xen/arch/x86/acpi/cpufreq/cpufreq.c
+@@ -622,12 +622,14 @@ static int cf_check acpi_cpufreq_cpu_exit(struct cpufreq_policy *policy)
+     return 0;
+ }
+ 
+-static const struct cpufreq_driver __initconstrel acpi_cpufreq_driver = {
++static const struct cpufreq_driver __initconst_cf_clobber
++acpi_cpufreq_driver = {
+     .name   = "acpi-cpufreq",
+     .verify = acpi_cpufreq_verify,
+     .target = acpi_cpufreq_target,
+     .init   = acpi_cpufreq_cpu_init,
+     .exit   = acpi_cpufreq_cpu_exit,
++    .get    = get_cur_freq_on_cpu,
+ };
+ 
+ static int __init cf_check cpufreq_driver_init(void)
+@@ -653,6 +655,19 @@ static int __init cf_check cpufreq_driver_init(void)
+ }
+ presmp_initcall(cpufreq_driver_init);
+ 
++static int __init cf_check cpufreq_driver_late_init(void)
++{
++    /*
++     * While acpi_cpufreq_driver wants to unconditionally have all hooks
++     * populated for __initconst_cf_clobber to have as much of an effect as
++     * possible, zap the .get hook here (but not in cpufreq_driver_init()),
++     * until acpi_cpufreq_cpu_init() knows whether it's wanted / needed.
++     */
++    cpufreq_driver.get = NULL;
++    return 0;
++}
++__initcall(cpufreq_driver_late_init);
++
+ int cpufreq_cpu_init(unsigned int cpuid)
+ {
+     int ret;
+diff --git a/xen/arch/x86/acpi/cpufreq/powernow.c b/xen/arch/x86/acpi/cpufreq/powernow.c
+index d4c7dcd5d9..497bf24470 100644
+--- a/xen/arch/x86/acpi/cpufreq/powernow.c
++++ b/xen/arch/x86/acpi/cpufreq/powernow.c
+@@ -317,7 +317,8 @@ static int cf_check powernow_cpufreq_cpu_exit(struct cpufreq_policy *policy)
+     return 0;
+ }
+ 
+-static const struct cpufreq_driver __initconstrel powernow_cpufreq_driver = {
++static const struct cpufreq_driver __initconst_cf_clobber
++powernow_cpufreq_driver = {
+     .name   = "powernow",
+     .verify = powernow_cpufreq_verify,
+     .target = powernow_cpufreq_target,
+diff --git a/xen/drivers/acpi/pmstat.c b/xen/drivers/acpi/pmstat.c
+index 1bae635101..0c51c220a7 100644
+--- a/xen/drivers/acpi/pmstat.c
++++ b/xen/drivers/acpi/pmstat.c
+@@ -255,7 +255,8 @@ static int get_cpufreq_para(struct xen_sysctl_pm_op *op)
+         return ret;
+ 
+     op->u.get_para.cpuinfo_cur_freq =
+-        cpufreq_driver.get ? cpufreq_driver.get(op->cpuid) : policy->cur;
++        cpufreq_driver.get ? alternative_call(cpufreq_driver.get, op->cpuid)
++                           : policy->cur;
+     op->u.get_para.cpuinfo_max_freq = policy->cpuinfo.max_freq;
+     op->u.get_para.cpuinfo_min_freq = policy->cpuinfo.min_freq;
+     op->u.get_para.scaling_cur_freq = policy->cur;
+diff --git a/xen/drivers/cpufreq/cpufreq.c b/xen/drivers/cpufreq/cpufreq.c
+index a94520ee57..daa399bbec 100644
+--- a/xen/drivers/cpufreq/cpufreq.c
++++ b/xen/drivers/cpufreq/cpufreq.c
+@@ -240,7 +240,7 @@ int cpufreq_add_cpu(unsigned int cpu)
+         policy->cpu = cpu;
+         per_cpu(cpufreq_cpu_policy, cpu) = policy;
+ 
+-        ret = cpufreq_driver.init(policy);
++        ret = alternative_call(cpufreq_driver.init, policy);
+         if (ret) {
+             free_cpumask_var(policy->cpus);
+             xfree(policy);
+@@ -299,7 +299,7 @@ err1:
+     cpumask_clear_cpu(cpu, cpufreq_dom->map);
+ 
+     if (cpumask_empty(policy->cpus)) {
+-        cpufreq_driver.exit(policy);
++        alternative_call(cpufreq_driver.exit, policy);
+         free_cpumask_var(policy->cpus);
+         xfree(policy);
+     }
+@@ -363,7 +363,7 @@ int cpufreq_del_cpu(unsigned int cpu)
+     cpumask_clear_cpu(cpu, cpufreq_dom->map);
+ 
+     if (cpumask_empty(policy->cpus)) {
+-        cpufreq_driver.exit(policy);
++        alternative_call(cpufreq_driver.exit, policy);
+         free_cpumask_var(policy->cpus);
+         xfree(policy);
+     }
+diff --git a/xen/drivers/cpufreq/utility.c b/xen/drivers/cpufreq/utility.c
+index 9eb7ecedcd..ec7072078c 100644
+--- a/xen/drivers/cpufreq/utility.c
++++ b/xen/drivers/cpufreq/utility.c
+@@ -412,7 +412,7 @@ int cpufreq_update_turbo(int cpuid, int new_state)
+     policy->turbo = new_state;
+     if (cpufreq_driver.update)
+     {
+-        ret = cpufreq_driver.update(cpuid, policy);
++        ret = alternative_call(cpufreq_driver.update, cpuid, policy);
+         if (ret)
+             policy->turbo = curr_state;
+     }
+@@ -448,7 +448,7 @@ int __cpufreq_set_policy(struct cpufreq_policy *data,
+         return -EINVAL;
+ 
+     /* verify the cpu speed can be set within this limit */
+-    ret = cpufreq_driver.verify(policy);
++    ret = alternative_call(cpufreq_driver.verify, policy);
+     if (ret)
+         return ret;
+ 
+@@ -456,7 +456,7 @@ int __cpufreq_set_policy(struct cpufreq_policy *data,
+     data->max = policy->max;
+     data->limits = policy->limits;
+     if (cpufreq_driver.setpolicy)
+-        return cpufreq_driver.setpolicy(data);
++        return alternative_call(cpufreq_driver.setpolicy, data);
+ 
+     if (policy->governor != data->governor) {
+         /* save old, working values */
+-- 
+2.44.0
+

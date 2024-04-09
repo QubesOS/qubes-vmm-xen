@@ -1,0 +1,84 @@
+From d11255f909e4b77ae1d1aa7e928cdfca5964a574 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 5 Feb 2024 10:45:31 +0100
+Subject: [PATCH 521/542] x86/guest: finish conversion to altcall
+
+While .setup() and .e820_fixup() don't need fiddling with for being run
+only very early, both .ap_setup() and .resume() want converting too:
+This way both pre-filled struct hypervisor_ops instances can become
+__initconst_cf_clobber, thus allowing to eliminate up to 5 more ENDBR
+(configuration dependent) during the 2nd phase of alternatives patching.
+
+While fiddling with section annotations here, also move "ops" itself to
+.data.ro_after_init.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Paul Durrant <paul@xen.org>
+(cherry picked from commit e931edccc53c9dd6e9a505ad0ff3a03d985669bc)
+---
+ xen/arch/x86/guest/hyperv/hyperv.c | 2 +-
+ xen/arch/x86/guest/hypervisor.c    | 6 +++---
+ xen/arch/x86/guest/xen/xen.c       | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/xen/arch/x86/guest/hyperv/hyperv.c b/xen/arch/x86/guest/hyperv/hyperv.c
+index b101ba3080..5c58a0c457 100644
+--- a/xen/arch/x86/guest/hyperv/hyperv.c
++++ b/xen/arch/x86/guest/hyperv/hyperv.c
+@@ -219,7 +219,7 @@ static int cf_check flush_tlb(
+     return hyperv_flush_tlb(mask, va, flags);
+ }
+ 
+-static const struct hypervisor_ops __initconstrel ops = {
++static const struct hypervisor_ops __initconst_cf_clobber ops = {
+     .name = "Hyper-V",
+     .setup = setup,
+     .ap_setup = ap_setup,
+diff --git a/xen/arch/x86/guest/hypervisor.c b/xen/arch/x86/guest/hypervisor.c
+index 366af1d650..c3e10c3586 100644
+--- a/xen/arch/x86/guest/hypervisor.c
++++ b/xen/arch/x86/guest/hypervisor.c
+@@ -25,7 +25,7 @@
+ #include <asm/cache.h>
+ #include <asm/guest.h>
+ 
+-static struct hypervisor_ops __read_mostly ops;
++static struct hypervisor_ops __ro_after_init ops;
+ 
+ const char *__init hypervisor_probe(void)
+ {
+@@ -61,7 +61,7 @@ void __init hypervisor_setup(void)
+ int hypervisor_ap_setup(void)
+ {
+     if ( ops.ap_setup )
+-        return ops.ap_setup();
++        return alternative_call(ops.ap_setup);
+ 
+     return 0;
+ }
+@@ -69,7 +69,7 @@ int hypervisor_ap_setup(void)
+ void hypervisor_resume(void)
+ {
+     if ( ops.resume )
+-        ops.resume();
++        alternative_vcall(ops.resume);
+ }
+ 
+ void __init hypervisor_e820_fixup(struct e820map *e820)
+diff --git a/xen/arch/x86/guest/xen/xen.c b/xen/arch/x86/guest/xen/xen.c
+index 9c2defaa66..c4cb16df38 100644
+--- a/xen/arch/x86/guest/xen/xen.c
++++ b/xen/arch/x86/guest/xen/xen.c
+@@ -330,7 +330,7 @@ static int cf_check flush_tlb(
+     return xen_hypercall_hvm_op(HVMOP_flush_tlbs, NULL);
+ }
+ 
+-static const struct hypervisor_ops __initconstrel ops = {
++static const struct hypervisor_ops __initconst_cf_clobber ops = {
+     .name = "Xen",
+     .setup = setup,
+     .ap_setup = ap_setup,
+-- 
+2.44.0
+

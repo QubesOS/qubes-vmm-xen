@@ -1,0 +1,134 @@
+From e356ac136aac6cddf26f0287112813a9344a8aed Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 23 Jan 2024 12:03:23 +0100
+Subject: [PATCH 516/542] IRQ: generalize [gs]et_irq_regs()
+
+Move functions (and their data) to common code, and invoke the functions
+on Arm as well. This is in preparation of dropping the register
+parameters from handler functions.
+
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Julien Grall <jgrall@amazon.com>
+(cherry picked from commit f67bddf3bccd99a5fee968c3b3f288db6a57d3be)
+---
+ xen/arch/arm/irq.c             |  2 ++
+ xen/arch/x86/include/asm/irq.h | 21 ---------------------
+ xen/arch/x86/irq.c             |  2 --
+ xen/common/irq.c               |  2 ++
+ xen/include/xen/irq.h          | 21 +++++++++++++++++++++
+ 5 files changed, 25 insertions(+), 23 deletions(-)
+
+diff --git a/xen/arch/arm/irq.c b/xen/arch/arm/irq.c
+index fd0c15fffd..8649c636a3 100644
+--- a/xen/arch/arm/irq.c
++++ b/xen/arch/arm/irq.c
+@@ -229,6 +229,7 @@ void do_IRQ(struct cpu_user_regs *regs, unsigned int irq, int is_fiq)
+ {
+     struct irq_desc *desc = irq_to_desc(irq);
+     struct irqaction *action;
++    struct cpu_user_regs *old_regs = set_irq_regs(regs);
+ 
+     perfc_incr(irqs);
+ 
+@@ -296,6 +297,7 @@ out:
+ out_no_end:
+     spin_unlock(&desc->lock);
+     irq_exit();
++    set_irq_regs(old_regs);
+ }
+ 
+ void release_irq(unsigned int irq, const void *dev_id)
+diff --git a/xen/arch/x86/include/asm/irq.h b/xen/arch/x86/include/asm/irq.h
+index 823d627fd0..26850e5077 100644
+--- a/xen/arch/x86/include/asm/irq.h
++++ b/xen/arch/x86/include/asm/irq.h
+@@ -70,27 +70,6 @@ extern bool opt_noirqbalance;
+ 
+ extern int opt_irq_vector_map;
+ 
+-/*
+- * Per-cpu current frame pointer - the location of the last exception frame on
+- * the stack
+- */
+-DECLARE_PER_CPU(struct cpu_user_regs *, __irq_regs);
+-
+-static inline struct cpu_user_regs *get_irq_regs(void)
+-{
+-	return this_cpu(__irq_regs);
+-}
+-
+-static inline struct cpu_user_regs *set_irq_regs(struct cpu_user_regs *new_regs)
+-{
+-	struct cpu_user_regs *old_regs, **pp_regs = &this_cpu(__irq_regs);
+-
+-	old_regs = *pp_regs;
+-	*pp_regs = new_regs;
+-	return old_regs;
+-}
+-
+-
+ #define platform_legacy_irq(irq)	((irq) < 16)
+ 
+ void cf_check event_check_interrupt(struct cpu_user_regs *regs);
+diff --git a/xen/arch/x86/irq.c b/xen/arch/x86/irq.c
+index 51b4837cd3..abd6f577dd 100644
+--- a/xen/arch/x86/irq.c
++++ b/xen/arch/x86/irq.c
+@@ -53,8 +53,6 @@ static DEFINE_SPINLOCK(vector_lock);
+ 
+ DEFINE_PER_CPU(vector_irq_t, vector_irq);
+ 
+-DEFINE_PER_CPU(struct cpu_user_regs *, __irq_regs);
+-
+ static LIST_HEAD(irq_ratelimit_list);
+ static DEFINE_SPINLOCK(irq_ratelimit_lock);
+ static struct timer irq_ratelimit_timer;
+diff --git a/xen/common/irq.c b/xen/common/irq.c
+index 727cf8bd22..236cf171e2 100644
+--- a/xen/common/irq.c
++++ b/xen/common/irq.c
+@@ -1,6 +1,8 @@
+ #include <xen/irq.h>
+ #include <xen/errno.h>
+ 
++DEFINE_PER_CPU(struct cpu_user_regs *, irq_regs);
++
+ int init_one_irq_desc(struct irq_desc *desc)
+ {
+     int err;
+diff --git a/xen/include/xen/irq.h b/xen/include/xen/irq.h
+index 300625e56d..c93ef31a9c 100644
+--- a/xen/include/xen/irq.h
++++ b/xen/include/xen/irq.h
+@@ -130,6 +130,27 @@ void cf_check irq_actor_none(struct irq_desc *);
+ #define irq_disable_none irq_actor_none
+ #define irq_enable_none irq_actor_none
+ 
++/*
++ * Per-cpu interrupted context register state - the inner-most interrupt frame
++ * on the stack.
++ */
++DECLARE_PER_CPU(struct cpu_user_regs *, irq_regs);
++
++static inline struct cpu_user_regs *get_irq_regs(void)
++{
++	return this_cpu(irq_regs);
++}
++
++static inline struct cpu_user_regs *set_irq_regs(struct cpu_user_regs *new_regs)
++{
++	struct cpu_user_regs *old_regs, **pp_regs = &this_cpu(irq_regs);
++
++	old_regs = *pp_regs;
++	*pp_regs = new_regs;
++
++	return old_regs;
++}
++
+ struct domain;
+ struct vcpu;
+ 
+-- 
+2.44.0
+
