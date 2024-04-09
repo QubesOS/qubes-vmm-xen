@@ -193,6 +193,7 @@ Patch552: patch-xsa452-4.15-4.patch
 Patch553: patch-xsa452-4.15-5.patch
 Patch554: patch-xsa452-4.15-6.patch
 Patch555: patch-xsa452-4.14-7.patch
+Patch556: patch-xsa455-4.16.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
