@@ -1,0 +1,57 @@
+From 0a1c1a01a8028a929d460a966c8f8e7384f5b3a6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Mon, 15 Apr 2024 11:22:31 +0100
+Subject: [PATCH] x86/vmx: prevent fallthrough in vmx_set_reg() for handled
+ registers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+vmx_set_reg() logic is split into two parts, the top one handles registers
+that don't require loading the VMCS into context (ie: don't require a
+VMWRITE).  The second half handles registers that do require the VMCS to be
+loaded.
+
+SPEC_CTRL MSR is handled differently depending on whether there's support for
+virtualize SPEC_CTRL.  Without hardware help for virtualizing SPEC_CTRL the
+value is handled using MSR load lists, that don't require the VMCS to be
+loaded.  When there's hardware assistance however the value is stored in the
+VMCS, and requires a VMWRITE.  The lack of a return statement when handling
+SPEC_CTRL in the first half of the function leads to SPEC_CTRL being
+unconditionally handled as if the host had virtualize SPEC_CTRL, which means
+Xen will either hit an ASSERT in debug builds, or will attempt to perform a
+VMWRITE to an unhandled VMCS field if the host doesn't support the virtualize
+SPEC_CTRL feature.
+
+This bug occured because the context wasn't adjusted accordingly to account
+for the absence commit 0626219dcc6a ("x86/hvm: Drop
+hvm_{get,set}_guest_bndcfgs() and use {get,set}_regs() instead") in the 4.15
+and 4.16 branches.
+
+Fix by returning early from the function if the register is handled without
+requiring the VMCS context to be loaded.
+
+Fixes: 295bf24af77c ('x86/vmx: Add support for virtualize SPEC_CTRL')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit cd2df4561edef2c104f46f8d0998e8ccefdf9c5e)
+---
+ xen/arch/x86/hvm/vmx/vmx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/vmx.c b/xen/arch/x86/hvm/vmx/vmx.c
+index c4d401b56be9..3b7a57233b71 100644
+--- a/xen/arch/x86/hvm/vmx/vmx.c
++++ b/xen/arch/x86/hvm/vmx/vmx.c
+@@ -2524,7 +2524,7 @@ static void vmx_set_reg(struct vcpu *v, unsigned int reg, uint64_t val)
+                    __func__, v, reg, rc);
+             domain_crash(d);
+         }
+-        break;
++        return;
+     }
+ 
+     /* Logic which maybe requires remote VMCS acquisition. */
+-- 
+2.43.0
+

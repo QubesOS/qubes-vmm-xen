@@ -218,7 +218,7 @@ Patch576: patch-xsa456-0020-x86-spec-ctrl-Support-BHI_DIS_S-in-order-to-mitigate
 Patch577: patch-xsa456-0021-x86-spec-ctrl-Software-BHB-clearing-sequences.patch
 Patch578: patch-xsa456-0022-x86-spec-ctrl-Wire-up-the-Native-BHI-software-sequen.patch
 Patch579: patch-xsa456-0023-x86-spec-ctrl-Support-the-long-BHB-loop-sequence.patch
-
+Patch580: patxh-xsa456-0024-x86-vmx-prevent-fallthrough-in-vmx_set_reg-for-handl.patch
 
 # Upstreamable patches
 Patch601: patch-xen-libxl-error-write-perm.patch
