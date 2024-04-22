@@ -9,7 +9,6 @@ vm:
 source:
   files:
   - url: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz
-#    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
-#    pubkeys:
-#    - xen.org-key.asc
-    sha512: xen-@VERSION@.tar.gz.sha512
+    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
+    pubkeys:
+    - xen.org-key.asc
