@@ -95,8 +95,8 @@ index 4e01c8d6f9df6562b94438f265d79a0a6fca8de6..2946003b84938f3b83c98b62dfaa3ace
  	}
  
  	/*  If the type is WC, check that this processor supports it  */
--	if ((type == MTRR_TYPE_WRCOMB) && !have_wrcomb()) {
-+	if ((type == X86_MT_WC) && !have_wrcomb()) {
+-	if ((type == MTRR_TYPE_WRCOMB) && mtrr_have_wrcomb()) {
++	if ((type == X86_MT_WC) && !mtrr_have_wrcomb()) {
  		printk(KERN_WARNING
  		       "mtrr: your processor doesn't support write-combining\n");
  		return -EOPNOTSUPP;
