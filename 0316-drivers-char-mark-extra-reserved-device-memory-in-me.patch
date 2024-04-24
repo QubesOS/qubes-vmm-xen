@@ -1,0 +1,96 @@
+From dd5101a6169f89b9e3f3b72f0b0fcdb38db2fb35 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 3 Apr 2024 09:34:22 +0200
+Subject: [PATCH] drivers/char: mark extra reserved device memory in memory map
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The IOMMU driver checks if RMRR/IVMD are marked as reserved in memory
+map. This should be true for addresses coming from the firmware, but
+when extra pages used by Xen itself are included in the mapping, those
+are taken from usable RAM used. Mark those pages as reserved too.
+
+Not marking the pages as reserved didn't caused issues before due to
+another a bug in IOMMU driver code, that was fixed in 83afa3135830
+("amd-vi: fix IVMD memory type checks").
+
+Failing to reserve memory will lead to panic in IOMMU setup code. And
+not including the page in IOMMU mapping will lead to broken console (due
+to IOMMU faults). The pages chosen by the XHCI console driver should
+still be usable by the CPU though, and the console code already can deal
+with too slow console by dropping characters (and console not printing
+anything is a special case of "slow"). When reserving fails print an error
+message showing which pages failed and who requested them. This should
+be enough hint to find why XHCI console doesn't work.
+
+Fixes: 3a1a7b809ffa "drivers/char: mark DMA buffers as reserved for the XHCI"
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/drivers/passthrough/iommu.c | 17 +++++++++++++++++
+ xen/include/xen/iommu.h         |  5 ++++-
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/xen/drivers/passthrough/iommu.c b/xen/drivers/passthrough/iommu.c
+index 03587c0cd680..ba18136c461c 100644
+--- a/xen/drivers/passthrough/iommu.c
++++ b/xen/drivers/passthrough/iommu.c
+@@ -22,6 +22,10 @@
+ #include <xen/keyhandler.h>
+ #include <xsm/xsm.h>
+ 
++#ifdef CONFIG_X86
++#include <asm/e820.h>
++#endif
++
+ unsigned int __read_mostly iommu_dev_iotlb_timeout = 1000;
+ integer_param("iommu_dev_iotlb_timeout", iommu_dev_iotlb_timeout);
+ 
+@@ -715,6 +719,19 @@ int __init iommu_get_extra_reserved_device_memory(iommu_grdm_t *func,
+ 
+     for ( idx = 0; idx < nr_extra_reserved_ranges; idx++ )
+     {
++#ifdef CONFIG_X86
++        paddr_t start = pfn_to_paddr(extra_reserved_ranges[idx].start);
++        paddr_t end = pfn_to_paddr(extra_reserved_ranges[idx].start +
++                                   extra_reserved_ranges[idx].nr);
++
++        if ( !reserve_e820_ram(&e820, start, end) )
++        {
++            printk(XENLOG_ERR "Failed to reserve [%"PRIx64"-%"PRIx64") for %s, "
++                   "skipping IOMMU mapping for it, some functionality may be broken\n",
++                   start, end, extra_reserved_ranges[idx].name);
++            continue;
++        }
++#endif
+         ret = func(extra_reserved_ranges[idx].start,
+                    extra_reserved_ranges[idx].nr,
+                    extra_reserved_ranges[idx].sbdf.sbdf,
+diff --git a/xen/include/xen/iommu.h b/xen/include/xen/iommu.h
+index a9c9457c07b2..92db6f124f13 100644
+--- a/xen/include/xen/iommu.h
++++ b/xen/include/xen/iommu.h
+@@ -321,7 +321,8 @@ struct iommu_ops {
+ };
+ 
+ /*
+- * To be called by Xen internally, to register extra RMRR/IVMD ranges.
++ * To be called by Xen internally, to register extra RMRR/IVMD ranges for RAM
++ * pages.
+  * Needs to be called before IOMMU initialization.
+  */
+ extern int iommu_add_extra_reserved_device_memory(unsigned long start,
+@@ -331,6 +332,8 @@ extern int iommu_add_extra_reserved_device_memory(unsigned long start,
+ /*
+  * To be called by specific IOMMU driver during initialization,
+  * to fetch ranges registered with iommu_add_extra_reserved_device_memory().
++ * This has a side effect of marking requested ranges as "reserved" in the
++ * memory map.
+  */
+ extern int iommu_get_extra_reserved_device_memory(iommu_grdm_t *func,
+                                                   void *ctxt);
+-- 
+2.44.0
+

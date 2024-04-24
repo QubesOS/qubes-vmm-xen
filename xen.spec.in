@@ -104,6 +104,8 @@ Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
 Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
 Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0314: 0314-drivers-char-support-up-to-1M-BAR0-of-xhci.patch
+Patch0315: 0315-IOMMU-store-name-for-extra-reserved-device-memory.patch
+Patch0316: 0316-drivers-char-mark-extra-reserved-device-memory-in-me.patch
 
 # Security fixes
 

@@ -1,0 +1,80 @@
+From a97de92e76a62e786cb8a3b5cd75f9df5c96e8e6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 19 Mar 2024 11:23:06 +0100
+Subject: [PATCH] IOMMU: store name for extra reserved device memory
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It will be useful for error reporting in a subsequent patch.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/drivers/char/xhci-dbc.c     | 3 ++-
+ xen/drivers/passthrough/iommu.c | 5 ++++-
+ xen/include/xen/iommu.h         | 3 ++-
+ 3 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/xen/drivers/char/xhci-dbc.c b/xen/drivers/char/xhci-dbc.c
+index 3bf389be7d0b..8e2037f1a5f7 100644
+--- a/xen/drivers/char/xhci-dbc.c
++++ b/xen/drivers/char/xhci-dbc.c
+@@ -1421,7 +1421,8 @@ void __init xhci_dbc_uart_init(void)
+         iommu_add_extra_reserved_device_memory(
+                 PFN_DOWN(virt_to_maddr(&dbc_dma_bufs)),
+                 PFN_UP(sizeof(dbc_dma_bufs)),
+-                uart->dbc.sbdf);
++                uart->dbc.sbdf,
++                "XHCI console");
+         serial_register_uart(SERHND_XHCI, &dbc_uart_driver, &dbc_uart);
+     }
+ }
+diff --git a/xen/drivers/passthrough/iommu.c b/xen/drivers/passthrough/iommu.c
+index 996c31be1284..03587c0cd680 100644
+--- a/xen/drivers/passthrough/iommu.c
++++ b/xen/drivers/passthrough/iommu.c
+@@ -682,6 +682,7 @@ struct extra_reserved_range {
+     unsigned long start;
+     unsigned long nr;
+     pci_sbdf_t sbdf;
++    const char *name;
+ };
+ static unsigned int __initdata nr_extra_reserved_ranges;
+ static struct extra_reserved_range __initdata
+@@ -689,7 +690,8 @@ static struct extra_reserved_range __initdata
+ 
+ int __init iommu_add_extra_reserved_device_memory(unsigned long start,
+                                                   unsigned long nr,
+-                                                  pci_sbdf_t sbdf)
++                                                  pci_sbdf_t sbdf,
++                                                  const char *name)
+ {
+     unsigned int idx;
+ 
+@@ -700,6 +702,7 @@ int __init iommu_add_extra_reserved_device_memory(unsigned long start,
+     extra_reserved_ranges[idx].start = start;
+     extra_reserved_ranges[idx].nr = nr;
+     extra_reserved_ranges[idx].sbdf = sbdf;
++    extra_reserved_ranges[idx].name = name;
+ 
+     return 0;
+ }
+diff --git a/xen/include/xen/iommu.h b/xen/include/xen/iommu.h
+index ef57f31417d0..a9c9457c07b2 100644
+--- a/xen/include/xen/iommu.h
++++ b/xen/include/xen/iommu.h
+@@ -326,7 +326,8 @@ struct iommu_ops {
+  */
+ extern int iommu_add_extra_reserved_device_memory(unsigned long start,
+                                                   unsigned long nr,
+-                                                  pci_sbdf_t sbdf);
++                                                  pci_sbdf_t sbdf,
++                                                  const char *name);
+ /*
+  * To be called by specific IOMMU driver during initialization,
+  * to fetch ranges registered with iommu_add_extra_reserved_device_memory().
+-- 
+2.44.0
+
