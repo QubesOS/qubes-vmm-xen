@@ -826,11 +826,11 @@ fi
 
 # BEGIN QUBES SPECIFIC PART
 # Guest autostart links
-#%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
+#%dir %attr(0700,root,root) %%{_sysconfdir}/%%{name}/auto
 # Autostart of guests
-#%config(noreplace) %{_sysconfdir}/sysconfig/xendomains
+#%config(noreplace) %%{_sysconfdir}/sysconfig/xendomains
 
-#%{_unitdir}/xendomains.service
+#%%{_unitdir}/xendomains.service
 # END QUBES SPECIFIC PART
 
 %files libs
@@ -876,8 +876,8 @@ fi
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
 # BEGIN QUBES SPECIFIC PART
-#%{_unitdir}/xen-qemu-dom0-disk-backend.service
-#%{_unitdir}/xendriverdomain.service
+# %%{_unitdir}/xen-qemu-dom0-disk-backend.service
+# %%{_unitdir}/xendriverdomain.service
 %{_unitdir}/xen-init-dom0.service
 %exclude %{_unitdir}/xendriverdomain.service
 # END QUBES SPECIFIC PART
@@ -930,7 +930,7 @@ fi
 %{python3_sitearch}/xenfsimage*.so
 %{python3_sitearch}/grub
 # BEGIN QUBES SPECIFIC PART
-# %{python3_sitearch}/pygrub-*.egg-info
+# %%{python3_sitearch}/pygrub-*.egg-info
 # END QUBES SPECIFIC PART
 
 # The firmware
@@ -965,18 +965,18 @@ fi
 
 # All xenstore CLI tools
 # BEGIN QUBES SPECIFIC PART
-# %{_bindir}/qemu-*-xen
+# %%{_bindir}/qemu-*-xen
 # END QUBES SPECIFIC PART
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
 # BEGIN QUBES SPECIFIC PART
-#%{_bindir}/pygrub
+# %%{_bindir}/pygrub
 # END QUBES SPECIFIC PART
 %{_bindir}/xentrace*
-#%#{_bindir}/remus
+# %%#{_bindir}/remus
 # XSM
 # BEGIN QUBES SPECIFIC PART
-#%{_sbindir}/flask-*
+# %%{_sbindir}/flask-*
 # END QUBES SPECIFIC PART
 # Misc stuff
 %ifnarch armv7hl aarch64
