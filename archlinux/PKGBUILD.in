@@ -10,7 +10,7 @@ arch=("x86_64")
 url="http://qubes-os.org/"
 license=('GPL')
 depends=(bridge-utils python-lxml libutil-linux lzo libsystemd yajl)
-makedepends=(wget make gcc patch git bin86 dev86 iasl yajl pkg-config openssl pixman)
+makedepends=(wget make gcc patch git iasl pkg-config openssl pixman python-setuptools)
 provides=('xen-qubes-vm-essentials')
 
 _patches=(
