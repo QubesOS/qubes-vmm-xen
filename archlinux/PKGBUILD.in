@@ -110,7 +110,6 @@ package() {
     rm -rf "$pkgdir"/var/lock
 
     rm -rf "$pkgdir"/var/lib/xen
-    rm -rf "$pkgdir"/var/log
 
 
     #
