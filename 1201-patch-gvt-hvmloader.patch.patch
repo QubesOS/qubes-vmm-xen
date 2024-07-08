@@ -1,8 +1,8 @@
-From 0cb9bf001f4f35ee8c7cd720b9668c7515cd9d6b Mon Sep 17 00:00:00 2001
+From 8cb3e7fdb79dd869edbe7f294e91e781808241d0 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 02:38:06 +0100
-Subject: [PATCH 1201/1202] patch-gvt-hvmloader.patch
+Subject: [PATCH] patch-gvt-hvmloader.patch
 
 This patches based on Intel XenGT preview, XCP-NG Project.
 ---
@@ -14,7 +14,7 @@ This patches based on Intel XenGT preview, XCP-NG Project.
  create mode 100644 tools/firmware/hvmloader/vgt.h
 
 diff --git a/tools/firmware/hvmloader/config.h b/tools/firmware/hvmloader/config.h
-index c82adf6dc508..d6166b202a67 100644
+index cd716bf39245..c9184366641b 100644
 --- a/tools/firmware/hvmloader/config.h
 +++ b/tools/firmware/hvmloader/config.h
 @@ -4,7 +4,7 @@
@@ -27,7 +27,7 @@ index c82adf6dc508..d6166b202a67 100644
  
  extern unsigned long igd_opregion_pgbase;
 diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
-index 257a6feb6148..89b8ed3413a1 100644
+index c3c61ca060a6..fe5ad75e9eb4 100644
 --- a/tools/firmware/hvmloader/pci.c
 +++ b/tools/firmware/hvmloader/pci.c
 @@ -23,6 +23,7 @@
@@ -38,7 +38,7 @@ index 257a6feb6148..89b8ed3413a1 100644
  
  #include <xen/memory.h>
  #include <xen/hvm/ioreq.h>
-@@ -84,6 +85,7 @@ void pci_setup(void)
+@@ -91,6 +92,7 @@ void pci_setup(void)
      uint16_t class, vendor_id, device_id;
      unsigned int bar, pin, link, isa_irq;
      uint8_t pci_devfn_decode_type[256] = {};
@@ -46,7 +46,7 @@ index 257a6feb6148..89b8ed3413a1 100644
  
      /* Resources assignable to PCI devices via BARs. */
      struct resource {
-@@ -163,6 +165,9 @@ void pci_setup(void)
+@@ -170,6 +172,9 @@ void pci_setup(void)
          ASSERT((devfn != PCI_ISA_DEVFN) ||
                 ((vendor_id == 0x8086) && (device_id == 0x7000)));
  
@@ -56,7 +56,7 @@ index 257a6feb6148..89b8ed3413a1 100644
          switch ( class )
          {
          case 0x0300:
-@@ -536,6 +541,36 @@ void pci_setup(void)
+@@ -548,6 +553,36 @@ void pci_setup(void)
  
      if ( vga_devfn != 256 )
      {
@@ -136,5 +136,5 @@ index 000000000000..f5b3f3475392
 +
 +#endif  /* _VGT_DEVTABLE_H */
 -- 
-2.37.3
+2.44.0
 

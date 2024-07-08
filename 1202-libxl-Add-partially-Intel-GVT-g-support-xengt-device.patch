@@ -1,8 +1,7 @@
-From 17cb4762597c08be62feb9dbcb5dcfbcba072ad2 Mon Sep 17 00:00:00 2001
+From 1b0acc68addd4fe6c2e9928e65904b1110d9ea47 Mon Sep 17 00:00:00 2001
 From: Ivan Kardykov <kardykov@tabit.pro>
 Date: Wed, 16 Nov 2022 02:40:06 +0100
-Subject: [PATCH 1202/1202] libxl: Add partially Intel GVT-g support (xengt
- device)
+Subject: [PATCH] libxl: Add partially Intel GVT-g support (xengt device)
 
 This requires to add minimal support Intel GVT-g mediated passtrough
 to Qubes OS. This patches based on Intel XenGT preview, XCP-NG
@@ -15,7 +14,7 @@ Project.
  4 files changed, 68 insertions(+)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index 72c45cd67f07..57398cefd5a6 100644
+index d89515b8693e..a3a1e99ace44 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
 @@ -26,6 +26,36 @@
@@ -63,7 +62,7 @@ index 72c45cd67f07..57398cefd5a6 100644
              case LIBXL_VGA_INTERFACE_TYPE_CIRRUS:
              default:
                  if (b_info->video_memkb == LIBXL_MEMKB_DEFAULT)
-@@ -1831,6 +1862,9 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
+@@ -1877,6 +1908,9 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
          if ( ret )
              goto error_out;
  
@@ -74,7 +73,7 @@ index 72c45cd67f07..57398cefd5a6 100644
      }
      case LIBXL_DOMAIN_TYPE_PV:
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index af0944a55762..e085e33c17d1 100644
+index 4710ded5deec..af96dcae5ffd 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
 @@ -1446,6 +1446,9 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
@@ -88,10 +87,10 @@ index af0944a55762..e085e33c17d1 100644
              LOGD(ERROR, guest_domid, "Invalid emulated video card specified");
              return ERROR_INVAL;
 diff --git a/tools/libs/light/libxl_domain.c b/tools/libs/light/libxl_domain.c
-index 0d5d1ef6663c..36f653a5deae 100644
+index f4bcb0b198cb..db257d45ebb7 100644
 --- a/tools/libs/light/libxl_domain.c
 +++ b/tools/libs/light/libxl_domain.c
-@@ -1114,6 +1114,30 @@ static void domain_destroy_callback(libxl__egc *egc,
+@@ -1110,6 +1110,30 @@ static void domain_destroy_callback(libxl__egc *egc,
  static void destroy_finish_check(libxl__egc *egc,
                                   libxl__domain_destroy_state *dds);
  
@@ -132,7 +131,7 @@ index 0d5d1ef6663c..36f653a5deae 100644
  
      /* Clean up qemu-save and qemu-resume files. They are
 diff --git a/tools/libs/light/libxl_types.idl b/tools/libs/light/libxl_types.idl
-index d79a6e29121b..e4ab86bb2cf0 100644
+index 1ad4d8dd1d3f..ba362dc43e61 100644
 --- a/tools/libs/light/libxl_types.idl
 +++ b/tools/libs/light/libxl_types.idl
 @@ -38,6 +38,7 @@ libxl_ms_vm_genid = Builtin("ms_vm_genid", passby=PASS_BY_REFERENCE, check_defau
@@ -143,7 +142,7 @@ index d79a6e29121b..e4ab86bb2cf0 100644
  
  #
  # Constants / Enumerations
-@@ -232,6 +233,7 @@ libxl_vga_interface_type = Enumeration("vga_interface_type", [
+@@ -238,6 +239,7 @@ libxl_vga_interface_type = Enumeration("vga_interface_type", [
      (2, "STD"),
      (3, "NONE"),
      (4, "QXL"),
@@ -151,7 +150,7 @@ index d79a6e29121b..e4ab86bb2cf0 100644
      ], init_val = "LIBXL_VGA_INTERFACE_TYPE_UNKNOWN")
  
  libxl_vendor_device = Enumeration("vendor_device", [
-@@ -615,6 +617,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
+@@ -677,6 +679,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
                                         ("hdtype",           libxl_hdtype),
                                         ("nographic",        libxl_defbool),
                                         ("vga",              libxl_vga_interface_info),
@@ -162,5 +161,5 @@ index d79a6e29121b..e4ab86bb2cf0 100644
                                         # keyboard layout, default is en-us keyboard
                                         ("keymap",           string),
 -- 
-2.37.3
+2.44.0
 

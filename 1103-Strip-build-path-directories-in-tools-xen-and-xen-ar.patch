@@ -1,9 +1,8 @@
-From 4c7ed3308ce0270d47c196c910e7aad0f6032d3a Mon Sep 17 00:00:00 2001
+From 2a8b51484175163641d115b9a9ecf6c3db31e438 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sun, 8 Nov 2020 16:17:29 +0100
-Subject: [PATCH 1103/1103] Strip build path directories in tools, xen and
- xen/arch/x86
+Subject: [PATCH] Strip build path directories in tools, xen and xen/arch/x86
 
 Ensure to have a realpath for XEN_ROOT else it fails to substitute
 properly pathes in strings sections
@@ -14,7 +13,7 @@ properly pathes in strings sections
  3 files changed, 5 insertions(+)
 
 diff --git a/tools/Rules.mk b/tools/Rules.mk
-index a5229bb5acb4..e4ec18fc7782 100644
+index 18cf83f5be83..5bb089e6b238 100644
 --- a/tools/Rules.mk
 +++ b/tools/Rules.mk
 @@ -176,6 +176,8 @@ endif
@@ -27,10 +26,10 @@ index a5229bb5acb4..e4ec18fc7782 100644
  
  INSTALL_PYTHON_PROG = \
 diff --git a/xen/Makefile b/xen/Makefile
-index 9ac87ea9b27c..bc9656b8ab41 100644
+index 02e947da95a0..c7340bedbe40 100644
 --- a/xen/Makefile
 +++ b/xen/Makefile
-@@ -404,6 +404,8 @@ ifneq ($(CONFIG_CC_IS_CLANG),y)
+@@ -408,6 +408,8 @@ ifneq ($(CONFIG_CC_IS_CLANG),y)
  CFLAGS += -Wa,--strip-local-absolute
  endif
  
@@ -40,10 +39,10 @@ index 9ac87ea9b27c..bc9656b8ab41 100644
  
  $(call cc-option-add,AFLAGS,CC,-Wa$$(comma)--noexecstack)
 diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
-index f213a6b56a4d..4eec76510612 100644
+index d902fb7accd9..898065e78950 100644
 --- a/xen/arch/x86/Makefile
 +++ b/xen/arch/x86/Makefile
-@@ -133,6 +133,7 @@ $(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
+@@ -135,6 +135,7 @@ $(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
  	mv $(TMP) $(TARGET)
  
  CFLAGS-$(XEN_BUILD_EFI) += -DXEN_BUILD_EFI
@@ -52,5 +51,5 @@ index f213a6b56a4d..4eec76510612 100644
  $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
  	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
 -- 
-2.41.0
+2.44.0
 

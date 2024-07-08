@@ -1,0 +1,122 @@
+From 22491e622845c3afc7006fa2dc621dde9f68ffb1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 16 Jan 2021 05:06:18 +0100
+Subject: [PATCH] libxl: conditionally allow PCI passthrough on PV without
+ IOMMU
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Without IOMMU, PCI passthrough cannot be used securely. But there are
+still various Qubes OS features that would be useful and improve overall
+system trustworthiness compared to monolithic system.
+This is also handy for development, to allow running Qubes OS nested
+withing KVM (on AMD, vIOMMU is unstable).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_create.c   |  8 +++++-
+ tools/libs/light/libxl_internal.h |  2 ++
+ tools/libs/light/libxl_pci.c      | 41 +++++++++++++++++++++++++++++--
+ 3 files changed, 48 insertions(+), 3 deletions(-)
+
+diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
+index 0ed0d026de2e..d89515b8693e 100644
+--- a/tools/libs/light/libxl_create.c
++++ b/tools/libs/light/libxl_create.c
+@@ -1209,12 +1209,18 @@ int libxl__domain_config_setdefault(libxl__gc *gc,
+      * This will be insufficient if and when ARM does PCI hotplug.
+      */
+     bool need_pt = d_config->num_pcidevs || d_config->num_dtdevs;
++    bool iommu_enabled = physinfo.cap_hvm_directio;
++    if (need_pt && !iommu_enabled &&
++            c_info->type == LIBXL_DOMAIN_TYPE_PV &&
++            libxl__is_insecure_pv_passthrough_enabled(gc)) {
++        /* allow insecure PV with IOMMU usage */
++        need_pt = false;
++    }
+     if (c_info->passthrough == LIBXL_PASSTHROUGH_DEFAULT) {
+         c_info->passthrough = need_pt
+             ? LIBXL_PASSTHROUGH_ENABLED : LIBXL_PASSTHROUGH_DISABLED;
+     }
+ 
+-    bool iommu_enabled = physinfo.cap_hvm_directio;
+     if (c_info->passthrough != LIBXL_PASSTHROUGH_DISABLED && !iommu_enabled) {
+         LOGD(ERROR, domid,
+              "passthrough not supported on this platform\n");
+diff --git a/tools/libs/light/libxl_internal.h b/tools/libs/light/libxl_internal.h
+index d19174cbd727..622bb92f490e 100644
+--- a/tools/libs/light/libxl_internal.h
++++ b/tools/libs/light/libxl_internal.h
+@@ -4851,6 +4851,8 @@ static inline const char *libxl__qemu_qmp_path(libxl__gc *gc, int domid)
+     return GCSPRINTF("%s/qmp-libxl-%d", libxl__run_dir_path(), domid);
+ }
+ 
++_hidden bool libxl__is_insecure_pv_passthrough_enabled(libxl__gc *gc);
++
+ /* Send control commands over xenstore and wait for an Ack. */
+ _hidden int libxl__domain_pvcontrol(libxl__egc *egc,
+                                     libxl__xswait_state *pvcontrol,
+diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
+index a6b0e3adcb68..0302b5990f06 100644
+--- a/tools/libs/light/libxl_pci.c
++++ b/tools/libs/light/libxl_pci.c
+@@ -1539,8 +1539,10 @@ out_no_irq:
+         r = xc_assign_device(ctx->xch, domid, pci_encode_bdf(pci), flag);
+         if (r < 0 && (hvm || errno != ENOSYS)) {
+             LOGED(ERROR, domainid, "xc_assign_device failed");
+-            rc = ERROR_FAIL;
+-            goto out;
++            if (hvm || errno != EOPNOTSUPP || !libxl__is_insecure_pv_passthrough_enabled(gc)) {
++                rc = ERROR_FAIL;
++                goto out;
++            }
+         }
+     }
+ 
+@@ -1591,6 +1593,41 @@ static int libxl__device_pci_reset(libxl__gc *gc, unsigned int domain, unsigned
+     return -1;
+ }
+ 
++bool libxl__is_insecure_pv_passthrough_enabled(libxl__gc *gc)
++{
++    FILE *f = fopen("/proc/cmdline", "r");
++    char cmdline[4096], *tok;
++    size_t read_s;
++    static int is_enabled = -1;
++
++    if (is_enabled != -1)
++        return is_enabled;
++
++    if (!f) {
++        LOG(WARN, "Failed to open /proc/cmdline: %d", errno);
++        return false;
++    }
++    read_s = fread(cmdline, 1, sizeof(cmdline) - 1, f);
++    if (!feof(f) || ferror(f)) {
++        LOG(WARN, "Failed to read /proc/cmdline: %d", errno);
++        fclose(f);
++        return false;
++    }
++    cmdline[read_s] = 0;
++    fclose(f);
++
++    tok = strtok(cmdline, " \n");
++    while (tok) {
++        if (strcmp(tok, "qubes.enable_insecure_pv_passthrough") == 0) {
++            is_enabled = 1;
++            return true;
++        }
++        tok = strtok(NULL, " \n");
++    }
++    is_enabled = 0;
++    return false;
++}
++
+ int libxl__device_pci_setdefault(libxl__gc *gc, uint32_t domid,
+                                  libxl_device_pci *pci, bool hotplug)
+ {
+-- 
+2.44.0
+

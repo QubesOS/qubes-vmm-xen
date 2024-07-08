@@ -56,8 +56,11 @@
 # hardlinked sources)
 %define _unpackaged_files_terminate_build 0
 
+# xen.efi.elf doesn't have proper build-id
+%define _missing_build_ids_terminate_build 0
+
 # Hypervisor ABI
-%define hv_abi 4.17
+%define hv_abi 4.19
 
 %define upstream_version @VERSION@
 %define rctag %(echo @VERSION@ | sed -n -e 's/.*-\\(rc[0-9]*\\).*/0.\\1./;/rc/p')
@@ -88,86 +91,50 @@ Provides: xen-gvt
 # 1100+: Others
 
 # EFI workarounds
-Patch0201: 0201-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServ.patch
-Patch0202: 0202-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
-Patch0203: 0203-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
-Patch0204: 0204-xen.efi.build.patch
+Patch0200: 0200-EFI-early-Add-noexit-to-inhibit-calling-ExitBootServ.patch
+Patch0201: 0201-efi-Ensure-incorrectly-typed-runtime-services-get-ma.patch
+Patch0202: 0202-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
+Patch0203: 0203-xen.efi.build.patch
 
-# Backports
-Patch0301: 0301-x86-mm-shadow-avoid-assuming-a-specific-Xen-PAT.patch
-Patch0302: 0302-x86-mm-shadow-do-not-open-code-PAGE_CACHE_ATTRS.patch
-Patch0303: 0303-p2m-pt-Avoid-hard-coding-Xen-s-PAT.patch
-Patch0304: 0304-efi-Avoid-hard-coding-the-various-PAT-constants.patch
-Patch0305: 0305-x86-Add-memory-type-constants.patch
-Patch0306: 0306-x86-Replace-PAT_-with-X86_MT_.patch
-Patch0307: 0307-x86-Replace-MTRR_-constants-with-X86_MT_-constants.patch
-Patch0308: 0308-x86-Replace-EPT_EMT_-constants-with-X86_MT_.patch
-Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
-Patch0314: 0314-drivers-char-support-up-to-1M-BAR0-of-xhci.patch
-Patch0315: 0315-IOMMU-store-name-for-extra-reserved-device-memory.patch
-Patch0316: 0316-drivers-char-mark-extra-reserved-device-memory-in-me.patch
-Patch0317: 0317-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
-Patch0318: 0318-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
-Patch0319: 0319-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
+# Backports (300+)
 
-# Security fixes
-Patch0500: 0500-xsa458.patch
+# Security fixes (500+)
 
-# Upstreamable patches
-Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
-Patch0605: 0605-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
-Patch0606: 0606-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
-Patch0607: 0607-libvchan-use-xengntshr_unshare-instead-of-munmap-dir.patch
-Patch0608: 0608-x86-time-Don-t-use-EFI-s-GetTime-call-by-default.patch
-Patch0609: 0609-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
-Patch0610: 0610-autoconf-fix-handling-absolute-PYTHON-path.patch
-Patch0611: 0611-libxl-do-not-require-filling-backend_domid-to-remove.patch
-Patch0612: 0612-libxl-add-pcidevs-to-stubdomain-earlier.patch
-Patch0613: 0613-Fix-buildid-alignment.patch
-Patch0614: 0614-vchan-socket-proxy-add-reconnect-marker-support.patch
-Patch0615: 0615-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
-Patch0616: 0616-libxl-Add-a-utility-function-for-domain-resume.patch
-Patch0617: 0617-libxl-Add-utility-function-to-check-guest-status.patch
-Patch0618: 0618-libxl-Properly-suspend-stubdomains.patch
-Patch0619: 0619-libxl-Fix-race-condition-in-domain-suspension.patch
-Patch0620: 0620-libxl-Add-additional-domain-suspend-resume-logs.patch
-Patch0621: 0621-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
-Patch0622: 0622-libxl-check-control-feature-before-issuing-pvcontrol.patch
-Patch0623: 0623-tools-kdd-mute-spurious-gcc-warning.patch
-Patch0624: 0624-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
-Patch0625: 0625-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
-Patch0626: 0626-Validate-EFI-memory-descriptors.patch
-Patch0627: 0627-x86-mm-Avoid-hard-coding-PAT-in-get_page_from_l1e.patch
-Patch0628: 0628-x86-mm-make-code-robust-to-future-PAT-changes.patch
-Patch0630: 0630-Drop-ELF-notes-from-non-EFI-binary-too.patch
-
-# Intel HWP support
-Patch0631: 0631-cpufreq-Allow-restricting-to-internal-governors-only.patch
-Patch0632: 0632-cpufreq-Add-perf_freq-to-cpuinfo.patch
-Patch0633: 0633-cpufreq-Export-intel_feature_detect.patch
-Patch0634: 0634-cpufreq-Add-Hardware-P-State-HWP-driver.patch
-Patch0635: 0635-xenpm-Change-get-cpufreq-para-output-for-internal.patch
-Patch0636: 0636-cpufreq-Export-HWP-parameters-to-userspace.patch
-Patch0637: 0637-libxc-Include-hwp_para-in-definitions.patch
-Patch0638: 0638-xenpm-Print-HWP-parameters.patch
-Patch0639: 0639-xen-Add-SET_CPUFREQ_HWP-xen_sysctl_pm_op.patch
-Patch0640: 0640-libxc-Add-xc_set_cpufreq_hwp.patch
-Patch0641: 0641-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
-Patch0642: 0642-xenpm-Add-set-cpufreq-hwp-subcommand.patch
-Patch0643: 0643-cpufreq-enable-HWP-by-default.patch
-
-PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
-PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
+# Upstreamable patches (600+)
+Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
+Patch0601: 0601-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
+Patch0602: 0602-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
+Patch0603: 0603-libvchan-use-xengntshr_unshare-instead-of-munmap-dir.patch
+Patch0604: 0604-x86-time-Don-t-use-EFI-s-GetTime-call-by-default.patch
+Patch0605: 0605-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
+Patch0606: 0606-autoconf-fix-handling-absolute-PYTHON-path.patch
+Patch0607: 0607-libxl-do-not-require-filling-backend_domid-to-remove.patch
+Patch0608: 0608-libxl-add-pcidevs-to-stubdomain-earlier.patch
+Patch0609: 0609-Fix-buildid-alignment.patch
+Patch0610: 0610-vchan-socket-proxy-add-reconnect-marker-support.patch
+Patch0611: 0611-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
+Patch0612: 0612-libxl-Add-a-utility-function-for-domain-resume.patch
+Patch0613: 0613-libxl-Properly-suspend-stubdomains.patch
+Patch0614: 0614-libxl-Fix-race-condition-in-domain-suspension.patch
+Patch0615: 0615-libxl-Add-additional-domain-suspend-resume-logs.patch
+Patch0616: 0616-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
+Patch0617: 0617-libxl-check-control-feature-before-issuing-pvcontrol.patch
+Patch0618: 0618-tools-kdd-mute-spurious-gcc-warning.patch
+Patch0619: 0619-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
+Patch0620: 0620-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
+Patch0621: 0621-Validate-EFI-memory-descriptors.patch
+Patch0622: 0622-x86-mm-make-code-robust-to-future-PAT-changes.patch
+Patch0623: 0623-Drop-ELF-notes-from-non-EFI-binary-too.patch
+Patch0624: 0624-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
 
 Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
 
 # S0ix support
-Patch0670: 0670-x86-hpet-Disable-legacy-replacement-mode-after-test-.patch
-Patch0671: 0671-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
-Patch0672: 0672-x86-ACPI-Ignore-entries-marked-as-unusable-when-pars.patch
-Patch0673: 0673-x86-msr-Allow-hardware-domain-to-read-C-state-reside.patch
-Patch0674: 0674-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
-Patch0675: 0675-libxl_pci-Pass-power_mgmt-via-QMP.patch
+Patch0625: 0625-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
+Patch0626: 0626-x86-ACPI-Ignore-entries-marked-as-unusable-when-pars.patch
+Patch0627: 0627-x86-msr-Allow-hardware-domain-to-read-package-C-stat.patch
+Patch0628: 0628-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
+Patch0629: 0629-libxl_pci-Pass-power_mgmt-via-QMP.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
@@ -183,12 +150,12 @@ Patch1009: 1009-tools-xenconsole-replace-ESC-char-on-xenconsole-outp.patch
 Patch1010: 1010-libxl-disable-vkb-by-default.patch
 Patch1011: 1011-Always-allocate-domid-sequentially-and-do-not-reuse-.patch
 Patch1012: 1012-libxl-add-qubes-gui-graphics.patch
-Patch1013: 1013-libxl-do-not-force-qdisk-backend-for-cdrom.patch
-Patch1014: 1014-Additional-support-in-ACPI-builder-to-support-SLIC-a.patch
-Patch1015: 1015-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
-Patch1016: 1016-gnttab-disable-grant-tables-v2-by-default.patch
-Patch1018: 1018-Fix-IGD-passthrough-with-linux-stubdomain.patch
-Patch1019: 1019-Use-Linux-s-PAT.patch
+Patch1013: 1013-Additional-support-in-ACPI-builder-to-support-SLIC-a.patch
+Patch1014: 1014-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
+Patch1015: 1015-gnttab-disable-grant-tables-v2-by-default.patch
+Patch1016: 1016-cpufreq-enable-HWP-by-default.patch
+Patch1017: 1017-Fix-IGD-passthrough-with-linux-stubdomain.patch
+Patch1018: 1018-x86-Use-Linux-s-PAT.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
@@ -225,9 +192,9 @@ BuildRequires: libuuid-devel
 BuildRequires: acpica-tools
 # modern compressed kernels
 BuildRequires: bzip2-devel xz-devel libzstd-devel
-# libfsimage
-BuildRequires: e2fsprogs-devel
 # BEGIN QUBES SPECIFIC PART
+## libfsimage
+#BuildRequires: e2fsprogs-devel
 # tools now require yajl and wget
 BuildRequires: yajl-devel
 # END QUBES SPECIFIC PART
@@ -452,7 +419,7 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-seabios=/usr/share/seabios/bios-256k.b
 %else
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-seabios"
 %endif
-./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-qemu=/usr/bin/qemu-system-i386 --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" $CONFIG_EXTRA
+./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-qemu=/usr/bin/qemu-system-i386 --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" --enable-systemd --disable-pygrub $CONFIG_EXTRA
 unset CFLAGS CXXFLAGS FFLAGS LDFLAGS
 export LDFLAGS="$LDFLAGS_SAVE"
 export CFLAGS="$CFLAGS_SAVE -Wno-error=address"
@@ -620,15 +587,12 @@ rm %{buildroot}%{_sysconfdir}/%{initdloc}/xendriverdomain
 
 # BEGIN QUBES SPECIFIC PART
 rm %{buildroot}%{_sysconfdir}/sysconfig/xendomains
+mkdir -p %{buildroot}/usr/lib/modules-load.d
 cp %{SOURCE32} %{buildroot}/usr/lib/modules-load.d/xen.conf
 
 # get rid of standard domain starting scripts
 rm %{buildroot}%{_unitdir}/xen-qemu-dom0-disk-backend.service
 rm %{buildroot}%{_unitdir}/xendomains.service
-
-# unused and dangerous
-rm -f %{buildroot}/%{_bindir}/pygrub
-rm -rf %{buildroot}/%{python3_sitearch}/pygrub*
 # END QUBES SPECIFIC PART
 
 ############ create dirs in /var ############
@@ -816,7 +780,6 @@ fi
 #files -f xen-xm.lang
 %files
 %doc COPYING README
-%{_bindir}/xencons
 
 # BEGIN QUBES SPECIFIC PART
 %files -n python%{python3_pkgversion}-%{name}
@@ -843,7 +806,6 @@ fi
 %{_libdir}/libxenevtchn.so.1.2
 %{_libdir}/libxenforeignmemory.so.1
 %{_libdir}/libxenforeignmemory.so.1.4
-%{_libdir}/libxenfsimage.so.4.*
 %{_libdir}/libxengnttab.so.1
 %{_libdir}/libxengnttab.so.1.2
 %{_libdir}/libxenguest.so.4.*
@@ -857,7 +819,6 @@ fi
 %{_libdir}/libxentoollog.so.1.0
 %{_libdir}/libxenvchan.so.4.*
 %{_libdir}/libxlutil.so.4.*
-%{_libdir}/xenfsimage
 %{_libdir}/libxenhypfs.so.1
 %{_libdir}/libxenhypfs.so.1.0
 
@@ -907,7 +868,6 @@ fi
 # man pages
 %if %build_docs
 %{_mandir}/man1/xentop.1*
-%{_mandir}/man1/xentrace_format.1*
 %{_mandir}/man8/xentrace.8*
 %{_mandir}/man1/xl.1*
 %{_mandir}/man5/xl.cfg.5*
@@ -926,12 +886,6 @@ fi
 %{_mandir}/man7/xen-vbd-interface.7.gz
 %{_mandir}/man5/xl-pci-configuration.5.gz
 %endif
-
-%{python3_sitearch}/xenfsimage*.so
-%{python3_sitearch}/grub
-# BEGIN QUBES SPECIFIC PART
-# %{python3_sitearch}/pygrub-*.egg-info
-# END QUBES SPECIFIC PART
 
 # The firmware
 %ifarch %{ix86} x86_64
@@ -969,10 +923,6 @@ fi
 # END QUBES SPECIFIC PART
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
-# BEGIN QUBES SPECIFIC PART
-#%{_bindir}/pygrub
-# END QUBES SPECIFIC PART
-%{_bindir}/xentrace*
 #%#{_bindir}/remus
 # XSM
 # BEGIN QUBES SPECIFIC PART

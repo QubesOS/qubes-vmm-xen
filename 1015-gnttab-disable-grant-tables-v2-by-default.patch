@@ -1,0 +1,32 @@
+From f2ce35f0da8dace989b1fd1ea37833eacbca4640 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 25 Aug 2021 02:41:51 +0200
+Subject: [PATCH] gnttab: disable grant tables v2 by default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+They are not used anywhere, and are significant attack surface.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/common/grant_table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/common/grant_table.c b/xen/common/grant_table.c
+index ebe2d2a3ceec..632c4c307c33 100644
+--- a/xen/common/grant_table.c
++++ b/xen/common/grant_table.c
+@@ -179,7 +179,7 @@ static int cf_check parse_gnttab_max_maptrack_frames(const char *arg)
+ }
+ 
+ #ifndef GNTTAB_MAX_VERSION
+-#define GNTTAB_MAX_VERSION 2
++#define GNTTAB_MAX_VERSION 1
+ #endif
+ 
+ unsigned int __read_mostly opt_gnttab_max_version = GNTTAB_MAX_VERSION;
+-- 
+2.44.0
+
