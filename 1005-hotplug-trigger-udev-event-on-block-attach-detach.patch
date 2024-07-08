@@ -1,8 +1,8 @@
-From 9d9eb5b76af0eca2ff73f674a40c80f30bcad3c7 Mon Sep 17 00:00:00 2001
+From 060a68175d9650285a55471f6a2f0e82480962fd Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:43:37 +0100
-Subject: [PATCH 1005/1018] hotplug: trigger udev event on block attach/detach
+Subject: [PATCH] hotplug: trigger udev event on block attach/detach
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -55,5 +55,5 @@ index dc4466906e70..c0d509ef8ccd 100644
  	;;
  
 -- 
-2.37.3
+2.44.0
 

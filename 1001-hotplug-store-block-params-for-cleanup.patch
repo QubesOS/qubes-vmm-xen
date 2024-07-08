@@ -1,8 +1,8 @@
-From 796c78e913d0243dfa24f680f2d02796444d00d1 Mon Sep 17 00:00:00 2001
+From eaae036362dadc00a51441706239d47a170f8f97 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:38:52 +0100
-Subject: [PATCH 1001/1018] hotplug: store block params for cleanup
+Subject: [PATCH] hotplug: store block params for cleanup
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -66,5 +66,5 @@ index 2691b56951c9..dc4466906e70 100644
  	exit 0
  	;;
 -- 
-2.37.3
+2.44.0
 

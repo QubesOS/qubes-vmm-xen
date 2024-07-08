@@ -1,0 +1,70 @@
+From f6be7ac78ebb5646a0f63200676a311ab5e224e2 Mon Sep 17 00:00:00 2001
+:
+: NAKed by upstream: https://lore.kernel.org/xen-devel/15a30769-4a61-ca22-7b5a-6249186cd8a2@suse.com/
+: Keep it in Qubes for now since it's very helpful for debugging with
+: existing software.
+:
+From: Simon Gaiser <simon@invisiblethingslab.com>
+Date: Mon, 8 Jul 2024 13:39:12 +0200
+Subject: [PATCH] x86/msr: Allow hardware domain to read package C-state
+ residency counters
+
+Since it's limited to the hardware domain it should be safe and it's
+very useful to have access to this directly in dom0 when debugging power
+related things for example S0ix.
+---
+ xen/arch/x86/include/asm/msr-index.h |  9 +++++++++
+ xen/arch/x86/pv/emul-priv-op.c       | 19 +++++++++++++++++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/xen/arch/x86/include/asm/msr-index.h b/xen/arch/x86/include/asm/msr-index.h
+index 9cdb5b262566..17dd857af802 100644
+--- a/xen/arch/x86/include/asm/msr-index.h
++++ b/xen/arch/x86/include/asm/msr-index.h
+@@ -698,4 +698,13 @@
+ #define MSR_PKGC9_IRTL			0x00000634
+ #define MSR_PKGC10_IRTL			0x00000635
+ 
++/* Package C-state residency counters */
++#define MSR_PKG_C2_RESIDENCY            0x0000060d
++#define MSR_PKG_C3_RESIDENCY            0x000003f8
++#define MSR_PKG_C6_RESIDENCY            0x000003f9
++#define MSR_PKG_C7_RESIDENCY            0x000003fa
++#define MSR_PKG_C8_RESIDENCY            0x00000630
++#define MSR_PKG_C9_RESIDENCY            0x00000631
++#define MSR_PKG_C10_RESIDENCY           0x00000632
++
+ #endif /* __ASM_MSR_INDEX_H */
+diff --git a/xen/arch/x86/pv/emul-priv-op.c b/xen/arch/x86/pv/emul-priv-op.c
+index f101510a1bab..29f3f00e8ed2 100644
+--- a/xen/arch/x86/pv/emul-priv-op.c
++++ b/xen/arch/x86/pv/emul-priv-op.c
+@@ -965,6 +965,25 @@ static int cf_check read_msr(
+         *val = 0;
+         return X86EMUL_OKAY;
+ 
++    case MSR_PKG_C2_RESIDENCY:
++    case MSR_PKG_C3_RESIDENCY:
++    case MSR_PKG_C6_RESIDENCY:
++    case MSR_PKG_C7_RESIDENCY:
++    case MSR_PKG_C8_RESIDENCY:
++    case MSR_PKG_C9_RESIDENCY:
++    case MSR_PKG_C10_RESIDENCY:
++        if ( boot_cpu_data.x86_vendor != X86_VENDOR_INTEL )
++            break;
++        if ( !is_hardware_domain(currd) )
++            break;
++        if ( nr_sockets > 1 ) {
++            // When being rescheduled the VM might see inconsistent data when
++            // running on a system with multiple sockets, since those MSRs are
++            // per package.
++            break;
++        }
++        goto normal;
++
+     case MSR_P6_PERFCTR(0) ... MSR_P6_PERFCTR(7):
+     case MSR_P6_EVNTSEL(0) ... MSR_P6_EVNTSEL(3):
+     case MSR_CORE_PERF_FIXED_CTR0 ... MSR_CORE_PERF_FIXED_CTR2:
+-- 
+2.44.0
+

@@ -1,8 +1,8 @@
-From ff55b35b061b87748304b3776042394b9af01364 Mon Sep 17 00:00:00 2001
+From a2855b81da57771863829568d535de53ba572d7b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sat, 31 Oct 2020 14:57:49 +0100
-Subject: [PATCH 1100/1103] Define build dates/time based on SOURCE_DATE_EPOCH
+Subject: [PATCH] Define build dates/time based on SOURCE_DATE_EPOCH
 
 Varibles impacting reproducibility are now defined with respect
 to SOURCE_DATE_EPOCH.
@@ -17,10 +17,10 @@ Improvements from Jan Beuluch <jbeulich@suse.com>.
  5 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/Config.mk b/Config.mk
-index 8d91e4c4d5b5..b4985f044913 100644
+index e7aa8ceaaf3b..729ed9e8434e 100644
 --- a/Config.mk
 +++ b/Config.mk
-@@ -253,3 +253,5 @@ QEMU_UPSTREAM_LOC ?= $(call or,$(wildcard $(QEMU_UPSTREAM_INTREE)),\
+@@ -249,3 +249,5 @@ QEMU_UPSTREAM_LOC ?= $(call or,$(wildcard $(QEMU_UPSTREAM_INTREE)),\
                                 $(QEMU_UPSTREAM_URL))
  
  CONFIG_TESTS       ?= y
@@ -28,10 +28,10 @@ index 8d91e4c4d5b5..b4985f044913 100644
 +DATE_EPOCH_OPTS := $(if $(SOURCE_DATE_EPOCH),-u -d "@$(SOURCE_DATE_EPOCH)")
 \ No newline at end of file
 diff --git a/INSTALL b/INSTALL
-index 0d3eb89f0298..2ce1f78b4d6a 100644
+index 88c1464816bd..22fce650f9a0 100644
 --- a/INSTALL
 +++ b/INSTALL
-@@ -241,6 +241,12 @@ XEN_BUILD_TIME=hh:mm:ss
+@@ -235,6 +235,12 @@ XEN_BUILD_TIME=hh:mm:ss
  SMBIOS_REL_DATE=mm/dd/yyyy
  VGABIOS_REL_DATE="dd Mon yyyy"
  
@@ -45,17 +45,17 @@ index 0d3eb89f0298..2ce1f78b4d6a 100644
  GIT=
  
 diff --git a/tools/firmware/hvmloader/Makefile b/tools/firmware/hvmloader/Makefile
-index 4f31c881613c..4f8e8c808443 100644
+index 84cba171cd6b..d94df1cd88b6 100644
 --- a/tools/firmware/hvmloader/Makefile
 +++ b/tools/firmware/hvmloader/Makefile
-@@ -21,7 +21,7 @@ XEN_ROOT = $(CURDIR)/../../..
- include $(XEN_ROOT)/tools/firmware/Rules.mk
+@@ -23,7 +23,7 @@ include $(XEN_ROOT)/tools/firmware/Rules.mk
+ ld-option = $(shell if $(LD) -v $(1) >/dev/null 2>&1; then echo y; else echo n; fi)
  
  # SMBIOS spec requires format mm/dd/yyyy
 -SMBIOS_REL_DATE ?= $(shell date +%m/%d/%Y)
 +SMBIOS_REL_DATE ?= $(shell date $(DATE_EPOCH_OPTS) +%m/%d/%Y)
  
- CFLAGS += $(CFLAGS_xeninclude)
+ CFLAGS += $(CFLAGS_xeninclude) -fno-pic
  
 diff --git a/tools/firmware/vgabios/Makefile b/tools/firmware/vgabios/Makefile
 index 3284812fdec8..4350ef402127 100644
@@ -72,7 +72,7 @@ index 3284812fdec8..4350ef402127 100644
  
  VGABIOS_DATE = "-DVGABIOS_DATE=\"$(VGABIOS_REL_DATE)\""
 diff --git a/xen/Makefile b/xen/Makefile
-index a46e6330dbca..9ac87ea9b27c 100644
+index e9fd19536f2c..02e947da95a0 100644
 --- a/xen/Makefile
 +++ b/xen/Makefile
 @@ -15,10 +15,10 @@ ifeq ($(origin XEN_DOMAIN), undefined)
@@ -89,5 +89,5 @@ index a46e6330dbca..9ac87ea9b27c 100644
  ifeq ($(origin XEN_BUILD_HOST), undefined)
  export XEN_BUILD_HOST	:= $(shell hostname)
 -- 
-2.41.0
+2.44.0
 

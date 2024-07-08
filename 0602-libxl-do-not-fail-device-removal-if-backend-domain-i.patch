@@ -1,0 +1,46 @@
+From bb52a87ac232cc9e13398b96b49ec866dc3a98fc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sun, 28 Jan 2018 03:46:47 +0100
+Subject: [PATCH] libxl: do not fail device removal if backend domain is gone
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Backend domain may be independently destroyed - there is no
+synchronization of libxl structures (including /libxl tree) elsewhere.
+Backend might also remove the device info from its backend xenstore
+subtree on its own.
+If such situation is detected, do not fail the removal, but finish the
+cleanup on frontend side.
+This is just workaround, the real fix should watch when the device
+backend is removed (including backend domain destruction) and remove
+frontend at that time. And report such event to higher layer code, so
+for example libvirt could synchronize its state.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_device.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/tools/libs/light/libxl_device.c b/tools/libs/light/libxl_device.c
+index 4faa5fa3bd11..5095dc406355 100644
+--- a/tools/libs/light/libxl_device.c
++++ b/tools/libs/light/libxl_device.c
+@@ -1081,6 +1081,13 @@ void libxl__initiate_device_generic_remove(libxl__egc *egc,
+             goto out;
+         }
+ 
++        /* if state_path is empty, assume backend is gone (backend domain
++         * shutdown?), cleanup frontend only; rc=0 */
++        if (!state) {
++            LOG(WARN, "backend %s already removed, cleanup frontend only", be_path);
++            goto out;
++        }
++
+         rc = libxl__xs_write_checked(gc, t, online_path, "0");
+         if (rc)
+             goto out;
+-- 
+2.44.0
+

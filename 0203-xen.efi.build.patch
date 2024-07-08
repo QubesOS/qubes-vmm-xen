@@ -1,0 +1,27 @@
+From 22a0881b94f0b17d369ce090cbf3cced6366fae5 Mon Sep 17 00:00:00 2001
+From: Fedora developers <devel@fedoraproject.org>
+Date: Mon, 8 Jul 2024 13:35:51 +0200
+Subject: [PATCH] xen.efi.build
+
+---
+ xen/arch/x86/arch.mk | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/arch.mk b/xen/arch/x86/arch.mk
+index 4f6c086988dd..0efc664bc919 100644
+--- a/xen/arch/x86/arch.mk
++++ b/xen/arch/x86/arch.mk
+@@ -91,7 +91,9 @@ XEN_BUILD_EFI := $(call if-success,$(CC) $(filter-out -include %/include/xen/con
+                                          -c $(srctree)/$(efi-check).c -o $(efi-check).o,y)
+ 
+ # Check if the linker supports PE.
+-EFI_LDFLAGS := $(patsubst -m%,-mi386pep,$(LDFLAGS)) --subsystem=10
++#EFI_LDFLAGS := $(patsubst -m%,-mi386pep,$(LDFLAGS)) --subsystem=10
++# use a reduced set of options from LDFLAGS
++EFI_LDFLAGS = --as-needed --build-id=sha1 -mi386pep --subsystem=10
+ LD_PE_check_cmd = $(call ld-option,$(EFI_LDFLAGS) --image-base=0x100000000 -o $(efi-check).efi $(efi-check).o)
+ XEN_BUILD_PE := $(LD_PE_check_cmd)
+ 
+-- 
+2.44.0
+

@@ -1,7 +1,7 @@
-From 6e4ca304008ef32ba4560cfbbffa15963af8151f Mon Sep 17 00:00:00 2001
+From 6dea874a453d50cf064dd198679c26d22f84b527 Mon Sep 17 00:00:00 2001
 From: Wei Ye <wei.ye@intel.com>
 Date: Thu, 21 Aug 2014 03:45:38 +0800
-Subject: [PATCH 1200/1202] hypercall: XENMEM_get_mfn_from_pfn
+Subject: [PATCH] hypercall: XENMEM_get_mfn_from_pfn
 
 Suppose that we should find an existing method to achieve the same
 goal.
@@ -14,10 +14,10 @@ Signed-off-by: Yu Zhang <yu.c.zhang@intel.com>
  2 files changed, 87 insertions(+)
 
 diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
-index db1817b691f8..78b1972e4170 100644
+index b30453b9de11..54734371681e 100644
 --- a/xen/arch/x86/mm.c
 +++ b/xen/arch/x86/mm.c
-@@ -4676,6 +4676,61 @@ static int cf_check handle_iomem_range(
+@@ -4693,6 +4693,61 @@ static int cf_check handle_iomem_range(
      return err || s > e ? err : _handle_iomem_range(s, e, p);
  }
  
@@ -79,7 +79,7 @@ index db1817b691f8..78b1972e4170 100644
  long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
  {
      int rc;
-@@ -4886,6 +4941,15 @@ long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+@@ -4903,6 +4958,15 @@ long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
      }
  #endif
  
@@ -96,10 +96,10 @@ index db1817b691f8..78b1972e4170 100644
          return subarch_memory_op(cmd, arg);
      }
 diff --git a/xen/include/public/memory.h b/xen/include/public/memory.h
-index f8d26fb77d32..157a19fd0e7a 100644
+index 5e545ae9a418..c522241e141f 100644
 --- a/xen/include/public/memory.h
 +++ b/xen/include/public/memory.h
-@@ -699,6 +699,29 @@ struct xen_mem_acquire_resource {
+@@ -682,6 +682,29 @@ struct xen_mem_acquire_resource {
  typedef struct xen_mem_acquire_resource xen_mem_acquire_resource_t;
  DEFINE_XEN_GUEST_HANDLE(xen_mem_acquire_resource_t);
  
@@ -130,5 +130,5 @@ index f8d26fb77d32..157a19fd0e7a 100644
   * XENMEM_get_vnumainfo used by guest to get
   * vNUMA topology from hypervisor.
 -- 
-2.37.3
+2.44.0
 

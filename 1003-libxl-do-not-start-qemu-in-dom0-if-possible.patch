@@ -1,8 +1,8 @@
-From bfc0302ab5367b98a077532f4e8b7e30ba02b8ce Mon Sep 17 00:00:00 2001
+From 09c71e4a620e87185e2d860e7db0e0a146f09401 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Tue, 21 Apr 2015 03:56:36 +0200
-Subject: [PATCH 1003/1018] libxl: do not start qemu in dom0 if possible
+Subject: [PATCH] libxl: do not start qemu in dom0 if possible
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -17,10 +17,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 3 insertions(+)
 
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index 09f0c2a83ead..02da900a6f39 100644
+index e1593e255be7..2a09c8953423 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
-@@ -2530,6 +2530,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
+@@ -2539,6 +2539,9 @@ static void spawn_stub_launch_dm(libxl__egc *egc,
          while (*(serial++))
              num_console++;
      }
@@ -31,5 +31,5 @@ index 09f0c2a83ead..02da900a6f39 100644
      console = libxl__calloc(gc, num_console, sizeof(libxl__device_console));
  
 -- 
-2.37.3
+2.44.0
 

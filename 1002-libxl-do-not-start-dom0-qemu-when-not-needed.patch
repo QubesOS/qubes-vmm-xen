@@ -1,8 +1,8 @@
-From cb24bc96d6ed8a57ff8ef4a1b2b8fce12194e5c8 Mon Sep 17 00:00:00 2001
+From 7a7682f5a50005fdd99809148481dcd2b39e7408 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Tue, 21 Apr 2015 03:50:04 +0200
-Subject: [PATCH 1002/1018] libxl: do not start dom0 qemu when not needed
+Subject: [PATCH] libxl: do not start dom0 qemu when not needed
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -13,19 +13,19 @@ needed.
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- tools/libs/light/libxl_disk.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ tools/libs/light/libxl_disk.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/tools/libs/light/libxl_disk.c b/tools/libs/light/libxl_disk.c
-index ea3623dd6fe5..36b89b63b61a 100644
+index 1f1e5c6567da..2ec7f5f37eda 100644
 --- a/tools/libs/light/libxl_disk.c
 +++ b/tools/libs/light/libxl_disk.c
-@@ -56,10 +56,12 @@ static void disk_eject_xswatch_callback(libxl__egc *egc, libxl__ev_xswatch *w,
-             "/local/domain/%d/backend/%" TOSTRING(BACKEND_STRING_SIZE)
+@@ -57,11 +57,12 @@ static void disk_eject_xswatch_callback(libxl__egc *egc, libxl__ev_xswatch *w,
             "[a-z]/%*d/%*d",
             &disk->backend_domid, backend_type);
--    if (!strcmp(backend_type, "tap") || !strcmp(backend_type, "vbd")) {
-+    if (!strcmp(backend_type, "tap")) {
+     if (!strcmp(backend_type, "tap") ||
+-        !strcmp(backend_type, "vbd") ||
+         !strcmp(backend_type, "vbd3")) {
          disk->backend = LIBXL_DISK_BACKEND_TAP;
      } else if (!strcmp(backend_type, "qdisk")) {
          disk->backend = LIBXL_DISK_BACKEND_QDISK;
@@ -35,5 +35,5 @@ index ea3623dd6fe5..36b89b63b61a 100644
          disk->backend = LIBXL_DISK_BACKEND_UNKNOWN;
      }
 -- 
-2.37.3
+2.44.0
 

@@ -1,8 +1,8 @@
-From c6e02913d26e1db97abbd8d9674efee1ee55f6d6 Mon Sep 17 00:00:00 2001
+From 22eb30cf82065492dfc76a46ffde2cd50ab6a2e1 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:35:00 +0100
-Subject: [PATCH 1000/1018] Do not access network during the build
+Subject: [PATCH] Do not access network during the build
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -53,5 +53,5 @@ index c1a72c189c8f..e800e29366b9 100644
  AC_SUBST(FETCHER)
  ])
 -- 
-2.37.3
+2.44.0
 

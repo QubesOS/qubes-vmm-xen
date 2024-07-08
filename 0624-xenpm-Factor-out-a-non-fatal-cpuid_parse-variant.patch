@@ -1,0 +1,54 @@
+From 8ffa3626d98bda43aa4065fb0a8d02493b59dbab Mon Sep 17 00:00:00 2001
+From: Jason Andryuk <jandryuk@gmail.com>
+Date: Wed, 10 Aug 2022 15:29:42 -0400
+Subject: [PATCH] xenpm: Factor out a non-fatal cpuid_parse variant
+
+Allow cpuid_parse to be re-used without terminating xenpm.  HWP will
+re-use it to optionally parse a cpuid.  Unlike other uses of
+cpuid_parse, parse_hwp_opts will take a variable number of arguments and
+cannot just check argc.
+
+Signed-off-by: Jason Andryuk <jandryuk@gmail.com>
+---
+ tools/misc/xenpm.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/tools/misc/xenpm.c b/tools/misc/xenpm.c
+index 336d246346bb..1db91e386228 100644
+--- a/tools/misc/xenpm.c
++++ b/tools/misc/xenpm.c
+@@ -105,17 +105,26 @@ void help_func(int argc, char *argv[])
+     show_help();
+ }
+ 
+-static void parse_cpuid(const char *arg, int *cpuid)
++static int parse_cpuid_non_fatal(const char *arg, int *cpuid)
+ {
+     if ( sscanf(arg, "%d", cpuid) != 1 || *cpuid < 0 )
+     {
+         if ( strcasecmp(arg, "all") )
+-        {
+-            fprintf(stderr, "Invalid CPU identifier: '%s'\n", arg);
+-            exit(EINVAL);
+-        }
++            return -1;
++
+         *cpuid = -1;
+     }
++
++    return 0;
++}
++
++static void parse_cpuid(const char *arg, int *cpuid)
++{
++    if ( parse_cpuid_non_fatal(arg, cpuid) )
++    {
++        fprintf(stderr, "Invalid CPU identifier: '%s'\n", arg);
++        exit(EINVAL);
++    }
+ }
+ 
+ static void parse_cpuid_and_int(int argc, char *argv[],
+-- 
+2.44.0
+

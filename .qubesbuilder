@@ -12,7 +12,7 @@ source:
 #    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
 #  - git-url: https://gitlab.com/xen-project/xen.git
   - git-url: https://xenbits.xenproject.org/git-http/xen.git
-    tag: RELEASE-4.17.4
-    git-basename: xen-4.17.4
+    tag: RELEASE-4.19.0
+    git-basename: xen-@VERSION@
     pubkeys:
     - xen.org-key.asc

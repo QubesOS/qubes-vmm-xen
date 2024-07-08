@@ -1,0 +1,46 @@
+From fee444ebc6f2a46041f9a76a2a14d042eac98c04 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 1 Feb 2023 21:51:27 +0100
+Subject: [PATCH] cpufreq: enable HWP by default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ docs/misc/xen-command-line.pandoc | 2 +-
+ xen/drivers/cpufreq/cpufreq.c     | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/docs/misc/xen-command-line.pandoc b/docs/misc/xen-command-line.pandoc
+index 98a45211556b..2096ae5841de 100644
+--- a/docs/misc/xen-command-line.pandoc
++++ b/docs/misc/xen-command-line.pandoc
+@@ -513,7 +513,7 @@ choice of `dom0-kernel` is deprecated and not supported by all Dom0 kernels.
+   for `xen`.  It is a boolean for `hwp`.
+ * `hwp` selects Hardware-Controlled Performance States (HWP) on supported Intel
+   hardware.  HWP is a Skylake+ feature which provides better CPU power
+-  management.  The default is disabled.  If `hwp` is selected, but hardware
++  management.  The default is enabled.  If `hwp` is selected, but hardware
+   support is not available, Xen will fallback to cpufreq=xen.
+ * `<hdc>` is a boolean to enable Hardware Duty Cycling (HDC).  HDC enables the
+   processor to autonomously force physical package components into idle state.
+diff --git a/xen/drivers/cpufreq/cpufreq.c b/xen/drivers/cpufreq/cpufreq.c
+index 8659ad3aee51..cfea722b3683 100644
+--- a/xen/drivers/cpufreq/cpufreq.c
++++ b/xen/drivers/cpufreq/cpufreq.c
+@@ -64,8 +64,8 @@ LIST_HEAD_READ_MOSTLY(cpufreq_governor_list);
+ /* set xen as default cpufreq */
+ enum cpufreq_controller cpufreq_controller = FREQCTL_xen;
+ 
+-enum cpufreq_xen_opt __initdata cpufreq_xen_opts[2] = { CPUFREQ_xen,
+-                                                        CPUFREQ_none };
++enum cpufreq_xen_opt __initdata cpufreq_xen_opts[2] = { CPUFREQ_hwp,
++                                                        CPUFREQ_xen };
+ unsigned int __initdata cpufreq_xen_cnt = 1;
+ 
+ static int __init cpufreq_cmdline_parse(const char *s, const char *e);
+-- 
+2.44.0
+

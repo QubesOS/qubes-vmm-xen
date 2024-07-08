@@ -35,7 +35,6 @@ prepare() {
 
     # Fix Install Paths.
     sed 's,/var/run,/run,g' -i tools/hotplug/Linux/locking.sh
-    sed 's,/var/run,/run,g' -i tools/misc/xenpvnetboot
     sed 's,/var/run,/run,g' -i tools/xenmon/xenbaked.c
     sed 's,/var/run,/run,g' -i tools/xenmon/xenmon.py
     sed 's,/var/run,/run,g' -i tools/pygrub/src/pygrub
@@ -47,6 +46,7 @@ build() {
     ./configure --prefix=/usr \
                 --sbindir=/usr/bin \
                 --libdir=/usr/lib \
+                --enable-systemd \
                 --disable-ocaml \
                 --disable-pvshim \
                 --disable-blktap2
@@ -98,8 +98,6 @@ package() {
     rm -f "$pkgdir"/usr/share/xen/create.dtd
     rm -rf "$pkgdir"/etc/sysconfig
     rm -rf "$pkgdir"/etc/rc.d/init.d
-
-    rm -r ""$pkgdir"/var/run"
 
     # udev
     rm -f "$pkgdir"/etc/udev/rules.d/xend.rules

@@ -12,13 +12,14 @@ diff --git a/tools/Makefile b/tools/Makefile
 index 9e28027835..bf06a778bb 100644
 --- a/tools/Makefile
 +++ b/tools/Makefile
-@@ -6,38 +6,15 @@ include $(XEN_ROOT)/tools/Rules.mk
+@@ -6,40 +6,17 @@ include $(XEN_ROOT)/tools/Rules.mk
  
  SUBDIRS-y :=
  SUBDIRS-y += libs
 -SUBDIRS-y += flask
 -SUBDIRS-y += fuzz
- SUBDIRS-y += xenstore
+ SUBDIRS-y += xs-clients
+ SUBDIRS-$(XENSTORE_XENSTORED) += xenstored
 -SUBDIRS-y += misc
 -SUBDIRS-y += examples
  SUBDIRS-y += hotplug
@@ -28,7 +29,7 @@ index 9e28027835..bf06a778bb 100644
 -SUBDIRS-y += console
 -SUBDIRS-y += xenmon
 -SUBDIRS-$(XENSTAT_XENTOP) += xentop
--SUBDIRS-y += libfsimage
+-SUBDIRS-$(CONFIG_LIBFSIMAGE) += libfsimage
  SUBDIRS-$(CONFIG_Linux) += vchan
  
 -# do not recurse in to a dir we are about to delete
@@ -41,12 +42,13 @@ index 9e28027835..bf06a778bb 100644
  SUBDIRS-$(CONFIG_GOLANG) += golang
  SUBDIRS-y += xl
  SUBDIRS-y += helpers
+ SUBDIRS-y += 9pfsd
 -SUBDIRS-$(CONFIG_X86) += xenpaging
 -SUBDIRS-$(CONFIG_X86) += debugger
 -SUBDIRS-$(CONFIG_TESTS) += tests
  
  SUBDIRS-y += python
--SUBDIRS-y += pygrub
+-SUBDIRS-$(CONFIG_PYGRUB) += pygrub
 -SUBDIRS-$(OCAML_TOOLS) += ocaml
  
  ifeq ($(CONFIG_RUMP),y)
