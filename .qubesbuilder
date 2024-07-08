@@ -8,7 +8,11 @@ vm:
     - archlinux
 source:
   files:
-  - url: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz
-    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
+#  - url: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz
+#    signature: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz.sig
+#  - git-url: https://gitlab.com/xen-project/xen.git
+  - git-url: https://xenbits.xenproject.org/git-http/xen.git
+    tag: RELEASE-4.17.4
+    git-basename: xen-4.17.4
     pubkeys:
     - xen.org-key.asc
