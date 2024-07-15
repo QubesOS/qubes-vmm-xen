@@ -108,6 +108,7 @@ Patch0315: 0315-IOMMU-store-name-for-extra-reserved-device-memory.patch
 Patch0316: 0316-drivers-char-mark-extra-reserved-device-memory-in-me.patch
 
 # Security fixes
+Patch0500: 0500-xsa458.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
