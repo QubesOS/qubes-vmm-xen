@@ -207,19 +207,12 @@ BuildRequires: dev86
 %endif
 BuildRequires: python%{python3_pkgversion}-devel ncurses-devel python%{python3_pkgversion}-setuptools
 BuildRequires: perl-interpreter perl-generators
-%ifarch %{ix86} x86_64
-# so that x86_64 builds pick up glibc32 correctly
-BuildRequires: /usr/include/gnu/stubs-32.h
-%endif
 # BEGIN QUBES SPECIFIC PART
 BuildRequires: autoconf
 BuildRequires: automake
 # END QUBES SPECIFIC PART
 BuildRequires: gettext
-BuildRequires: gnutls-devel
-BuildRequires: openssl-devel
-# For ioemu PCI passthrough
-BuildRequires: pciutils-devel
+BuildRequires: zlib-devel
 # Several tools now use uuid
 BuildRequires: libuuid-devel
 # iasl needed to build hvmloader
