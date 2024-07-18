@@ -155,6 +155,8 @@ Patch0643: 0643-cpufreq-enable-HWP-by-default.patch
 PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
 PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
 
+Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
+
 # S0ix support
 Patch0670: 0670-x86-hpet-Disable-legacy-replacement-mode-after-test-.patch
 Patch0671: 0671-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch

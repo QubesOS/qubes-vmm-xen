@@ -14,6 +14,7 @@ makedepends=(wget make gcc patch git iasl pkg-config openssl pixman python-setup
 provides=('xen-qubes-vm-essentials')
 
 _patches=(
+  0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
   1000-Do-not-access-network-during-the-build.patch
   1001-hotplug-store-block-params-for-cleanup.patch
   1020-xen-tools-qubes-vm.patch

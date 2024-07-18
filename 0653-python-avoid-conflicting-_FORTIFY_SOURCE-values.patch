@@ -1,0 +1,40 @@
+From 5e9e49c4f0ed9c54b63bf99d7b6a013005f94865 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 19 Jul 2024 01:15:13 +0200
+Subject: [PATCH] python: avoid conflicting _FORTIFY_SOURCE values
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The compile flags are combined from python's build config (sysconfig
+module) and CFLAGS environment. If both define the _FORTIFY_SOURCE but
+to different values, the build will fail. This is the case on Arch,
+where Python's sysconfig has -D_FORTIFY_SOURCE=2, while Arch's
+makepkg.conf has -D_FORTIFY_SOURCE=3. Resolve the config by undefining
+_FORTIFY_SOURCE first, and use the value from the CFLAGS environment.
+Details:
+https://setuptools.pypa.io/en/latest/userguide/ext_modules.html
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/python/setup.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tools/python/setup.py b/tools/python/setup.py
+index 02354f698653..a73c95a9e766 100644
+--- a/tools/python/setup.py
++++ b/tools/python/setup.py
+@@ -20,6 +20,9 @@ PATH_LIBXENCTRL = XEN_ROOT + "/tools/libs/ctrl"
+ PATH_LIBXENGUEST = XEN_ROOT + "/tools/libs/guest"
+ PATH_XENSTORE = XEN_ROOT + "/tools/libs/store"
+ 
++if "-D_FORTIFY_SOURCE=" in os.environ.get("CFLAGS", ""):
++    os.environ["CFLAGS"] = "-Wp,-U_FORTIFY_SOURCE " + os.environ["CFLAGS"]
++
+ xc = Extension("xc",
+                extra_compile_args = extra_compile_args,
+                include_dirs       = [ PATH_XEN,
+-- 
+2.45.2
+
