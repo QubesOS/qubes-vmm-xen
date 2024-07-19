@@ -156,6 +156,8 @@ Patch0643: 0643-cpufreq-enable-HWP-by-default.patch
 PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
 PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
 
+Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
+
 # S0ix support
 Patch0670: 0670-x86-hpet-Disable-legacy-replacement-mode-after-test-.patch
 Patch0671: 0671-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
@@ -208,19 +210,12 @@ BuildRequires: dev86
 %endif
 BuildRequires: python%{python3_pkgversion}-devel ncurses-devel python%{python3_pkgversion}-setuptools
 BuildRequires: perl-interpreter perl-generators
-%ifarch %{ix86} x86_64
-# so that x86_64 builds pick up glibc32 correctly
-BuildRequires: /usr/include/gnu/stubs-32.h
-%endif
 # BEGIN QUBES SPECIFIC PART
 BuildRequires: autoconf
 BuildRequires: automake
 # END QUBES SPECIFIC PART
 BuildRequires: gettext
-BuildRequires: gnutls-devel
-BuildRequires: openssl-devel
-# For ioemu PCI passthrough
-BuildRequires: pciutils-devel
+BuildRequires: zlib-devel
 # Several tools now use uuid
 BuildRequires: libuuid-devel
 # iasl needed to build hvmloader
