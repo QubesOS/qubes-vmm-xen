@@ -1,0 +1,89 @@
+From 5015db14c2076ea7617d3bcdc5f7ac81953f6df8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Fri, 24 Mar 2023 18:24:41 +0100
+Subject: [PATCH] drivers/char: Use sub-page ro API to make just xhci dbc cap
+ RO
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Not the whole page, which may contain other registers too. The XHCI
+specification describes DbC as designed to be controlled by a different
+driver, but does not mandate placing registers on a separate page. In fact
+on Tiger Lake and newer (at least), this page do contain other registers
+that Linux tries to use. And with share=yes, a domU would use them too.
+Without this patch, PV dom0 would fail to initialize the controller,
+while HVM would be killed on EPT violation.
+
+With `share=yes`, this patch gives domU more access to the emulator
+(although a HVM with any emulated device already has plenty of it). This
+configuration is already documented as unsafe with untrusted guests and
+not security supported.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+Changes in v4:
+- restore mmio_ro_ranges in the fallback case
+- set XHCI_SHARE_NONE in the fallback case
+Changes in v3:
+- indentation fix
+- remove stale comment
+- fallback to pci_ro_device() if subpage_mmio_ro_add() fails
+- extend commit message
+Changes in v2:
+ - adjust for simplified subpage_mmio_ro_add() API
+---
+ xen/drivers/char/xhci-dbc.c | 36 ++++++++++++++++++++++--------------
+ 1 file changed, 22 insertions(+), 14 deletions(-)
+
+diff --git a/xen/drivers/char/xhci-dbc.c b/xen/drivers/char/xhci-dbc.c
+index c2a2129acf47..43ce96985c5d 100644
+--- a/xen/drivers/char/xhci-dbc.c
++++ b/xen/drivers/char/xhci-dbc.c
+@@ -1215,20 +1215,28 @@ static void __init cf_check dbc_uart_init_postirq(struct serial_port *port)
+         break;
+     }
+ #ifdef CONFIG_X86
+-    /*
+-     * This marks the whole page as R/O, which may include other registers
+-     * unrelated to DbC. Xen needs only DbC area protected, but it seems
+-     * Linux's XHCI driver (as of 5.18) works without writting to the whole
+-     * page, so keep it simple.
+-     */
+-    if ( rangeset_add_range(mmio_ro_ranges,
+-                PFN_DOWN((uart->dbc.bar_val & PCI_BASE_ADDRESS_MEM_MASK) +
+-                         uart->dbc.xhc_dbc_offset),
+-                PFN_UP((uart->dbc.bar_val & PCI_BASE_ADDRESS_MEM_MASK) +
+-                       uart->dbc.xhc_dbc_offset +
+-                sizeof(*uart->dbc.dbc_reg)) - 1) )
+-        printk(XENLOG_INFO
+-               "Error while adding MMIO range of device to mmio_ro_ranges\n");
++    if ( subpage_mmio_ro_add(
++             (uart->dbc.bar_val & PCI_BASE_ADDRESS_MEM_MASK) +
++              uart->dbc.xhc_dbc_offset,
++             sizeof(*uart->dbc.dbc_reg)) )
++    {
++        printk(XENLOG_WARNING
++               "Error while marking MMIO range of XHCI console as R/O, "
++               "making the whole device R/O (share=no)\n");
++        uart->dbc.share = XHCI_SHARE_NONE;
++        if ( pci_ro_device(0, uart->dbc.sbdf.bus, uart->dbc.sbdf.devfn) )
++            printk(XENLOG_WARNING
++                   "Failed to mark read-only %pp used for XHCI console\n",
++                   &uart->dbc.sbdf);
++        if ( rangeset_add_range(mmio_ro_ranges,
++                 PFN_DOWN((uart->dbc.bar_val & PCI_BASE_ADDRESS_MEM_MASK) +
++                          uart->dbc.xhc_dbc_offset),
++                 PFN_UP((uart->dbc.bar_val & PCI_BASE_ADDRESS_MEM_MASK) +
++                        uart->dbc.xhc_dbc_offset +
++                        sizeof(*uart->dbc.dbc_reg)) - 1) )
++            printk(XENLOG_INFO
++                   "Error while adding MMIO range of device to mmio_ro_ranges\n");
++    }
+ #endif
+ }
+ 
+-- 
+2.45.2
+

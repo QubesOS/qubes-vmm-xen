@@ -106,6 +106,9 @@ Patch0309: 0309-x86-Derive-XEN_MSR_PAT-from-its-individual-entries.patch
 Patch0314: 0314-drivers-char-support-up-to-1M-BAR0-of-xhci.patch
 Patch0315: 0315-IOMMU-store-name-for-extra-reserved-device-memory.patch
 Patch0316: 0316-drivers-char-mark-extra-reserved-device-memory-in-me.patch
+Patch0317: 0317-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
+Patch0318: 0318-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
+Patch0319: 0319-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 
 # Security fixes
 Patch0500: 0500-xsa458.patch
