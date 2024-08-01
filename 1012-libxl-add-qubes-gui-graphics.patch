@@ -1,8 +1,8 @@
-From b590fe086102fdce92ae5b553c93a341d0ef948b Mon Sep 17 00:00:00 2001
+From 24afae20152a98298fa196eb54ddbff5b62d525a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:52:34 +0100
-Subject: [PATCH 1012/1018] libxl: add qubes-gui graphics
+Subject: [PATCH] libxl: add qubes-gui graphics
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -11,11 +11,11 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
  tools/libs/light/libxl_create.c  | 12 ++++++++++++
  tools/libs/light/libxl_dm.c      |  7 +++++++
- tools/libs/light/libxl_types.idl |  9 +++++++++
- 3 files changed, 28 insertions(+)
+ tools/libs/light/libxl_types.idl |  8 ++++++++
+ 3 files changed, 27 insertions(+)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index 8047cf0ee100..c7b57a677ea4 100644
+index 1d43725d5eed..0ed0d026de2e 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
 @@ -429,6 +429,18 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
@@ -38,7 +38,7 @@ index 8047cf0ee100..c7b57a677ea4 100644
              libxl_defbool_setdefault(&b_info->u.hvm.spice.disable_ticketing,
                                       false);
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index 07839e374bca..af0944a55762 100644
+index ed2772ab0456..4710ded5deec 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
 @@ -1720,6 +1720,13 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
@@ -56,10 +56,10 @@ index 07839e374bca..af0944a55762 100644
          if (!sdl && !vnc) {
              flexarray_append(dm_args, "-nographic");
 diff --git a/tools/libs/light/libxl_types.idl b/tools/libs/light/libxl_types.idl
-index d634f304cda2..d79a6e29121b 100644
+index 4e65e6fda5f1..1ad4d8dd1d3f 100644
 --- a/tools/libs/light/libxl_types.idl
 +++ b/tools/libs/light/libxl_types.idl
-@@ -343,6 +343,13 @@ libxl_sdl_info = Struct("sdl_info", [
+@@ -354,6 +354,13 @@ libxl_sdl_info = Struct("sdl_info", [
      ("xauthority",    string),
      ])
  
@@ -73,15 +73,14 @@ index d634f304cda2..d79a6e29121b 100644
  libxl_dominfo = Struct("dominfo",[
      ("uuid",        libxl_uuid),
      ("domid",       libxl_domid),
-@@ -636,6 +643,8 @@ libxl_domain_build_info = Struct("domain_build_info",[
-                                        ("rdm", libxl_rdm_reserve),
+@@ -699,6 +706,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
                                         ("rdm_mem_boundary_memkb", MemKB),
                                         ("mca_caps",         uint64),
-+
-+                                       ("qubes_gui", libxl_qubes_gui_info),
+                                        ("pirq",             libxl_defbool),
++                                       ("qubes_gui",        libxl_qubes_gui_info),
                                         ])),
                   ("pv", Struct(None, [("kernel", string, {'deprecated_by': 'kernel'}),
                                        ("slack_memkb", MemKB),
 -- 
-2.37.3
+2.44.0
 

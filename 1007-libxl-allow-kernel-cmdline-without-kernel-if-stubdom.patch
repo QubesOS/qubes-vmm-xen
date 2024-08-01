@@ -1,9 +1,9 @@
-From 0e1ec70e77d62a5f4149f6eca68f8c2239aa289b Mon Sep 17 00:00:00 2001
+From f8215431b84b465716ac814a6bfe66c952d9f862 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:45:25 +0100
-Subject: [PATCH 1007/1018] libxl: allow kernel cmdline without kernel if
- stubdomain is used
+Subject: [PATCH] libxl: allow kernel cmdline without kernel if stubdomain is
+ used
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -18,7 +18,7 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index e23d3c866feb..d9937f5edc25 100644
+index ac8d3c395163..7629f6157832 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
 @@ -182,7 +182,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
@@ -32,5 +32,5 @@ index e23d3c866feb..d9937f5edc25 100644
              return ERROR_INVAL;
          }
 -- 
-2.37.3
+2.44.0
 

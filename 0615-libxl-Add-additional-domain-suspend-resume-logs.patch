@@ -1,0 +1,118 @@
+From 0b9478cf367e6a0838fcb3cd8e6c542a4e9f2237 Mon Sep 17 00:00:00 2001
+From: Demi Marie Obenour <demi@invisiblethingslab.com>
+Date: Mon, 26 Sep 2022 11:05:32 -0400
+Subject: [PATCH] libxl: Add additional domain suspend/resume logs
+
+This was useful when debugging, but is not required.
+
+Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_dom_suspend.c | 20 ++++++++++++++++++--
+ tools/libs/light/libxl_domain.c      |  1 +
+ 2 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/tools/libs/light/libxl_dom_suspend.c b/tools/libs/light/libxl_dom_suspend.c
+index 1ee3e5d88af8..3d53a8f7b460 100644
+--- a/tools/libs/light/libxl_dom_suspend.c
++++ b/tools/libs/light/libxl_dom_suspend.c
+@@ -321,9 +321,11 @@ static void domain_suspend_common_pvcontrol_suspending(libxl__egc *egc,
+     STATE_AO_GC(dsps->ao);
+     xs_transaction_t t = 0;
+ 
+-    if (!rc && !domain_suspend_pvcontrol_acked(state))
++    if (!rc && !domain_suspend_pvcontrol_acked(state)) {
+         /* keep waiting */
++        LOGD(DEBUG, dsps->domid, "PV control callback without ack");
+         return;
++    }
+ 
+     libxl__xswait_stop(gc, &dsps->pvcontrol);
+ 
+@@ -405,7 +407,10 @@ static void domain_suspend_common_wait_guest(libxl__egc *egc,
+ static void suspend_common_wait_guest_watch(libxl__egc *egc,
+       libxl__ev_xswatch *xsw, const char *watch_path, const char *event_path)
+ {
++    EGC_GC;
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(xsw, *dsps, guest_watch);
++
++    LOGD(DEBUG, dsps->domid, "@releaseDomain watch fired, checking guest status");
+     suspend_common_wait_guest_check(egc, dsps);
+ }
+ 
+@@ -426,9 +431,11 @@ static bool suspend_common_wait_guest_check(libxl__egc *egc,
+         goto err;
+     }
+ 
+-    if (!(info.flags & XEN_DOMINF_shutdown))
++    if (!(info.flags & XEN_DOMINF_shutdown)) {
++        LOGD(DEBUG, domid, "guest we were suspending has not shut down yet");
+         /* keep waiting */
+         return false;
++    }
+ 
+     shutdown_reason = (info.flags >> XEN_DOMINF_shutdownshift)
+         & XEN_DOMINF_shutdownmask;
+@@ -455,11 +462,14 @@ static void suspend_common_wait_guest_timeout(libxl__egc *egc,
+ {
+     libxl__domain_suspend_state *dsps = CONTAINER_OF(ev, *dsps, guest_timeout);
+     STATE_AO_GC(dsps->ao);
++    LOGD(DEBUG, dsps->domid, "Timeout callback triggered");
+     if (suspend_common_wait_guest_check(egc, dsps))
+         return;
+     if (rc == ERROR_TIMEDOUT) {
+         LOGD(ERROR, dsps->domid, "guest did not suspend, timed out");
+         rc = ERROR_GUEST_TIMEDOUT;
++    } else {
++        LOGD(ERROR, dsps->domid, "error in timeout handler (code %d)", rc);
+     }
+     domain_suspend_common_done(egc, dsps, rc);
+ }
+@@ -614,6 +624,8 @@ void libxl__dm_resume(libxl__egc *egc,
+     libxl_domid domid = dmrs->domid;
+     libxl__ev_qmp *qmp = &dmrs->qmp;
+ 
++    LOGD(DEBUG, domid, "Resuming device model");
++
+     dm_resume_init(dmrs);
+ 
+     rc = libxl__ev_time_register_rel(dmrs->ao,
+@@ -626,6 +638,7 @@ void libxl__dm_resume(libxl__egc *egc,
+     case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL: {
+         const char *path, *state;
+ 
++        LOGD(DEBUG, domid, "Resuming legacy device model: stubdomain ID %" PRIu32, dm_domid);
+         path = DEVICE_MODEL_XS_PATH(gc, dm_domid, domid, "/state");
+         rc = libxl__xs_read_checked(gc, XBT_NULL, path, &state);
+         if (rc) goto out;
+@@ -695,6 +708,7 @@ void libxl__dm_resume(libxl__egc *egc,
+         goto out;
+     }
+     default:
++        LOGD(ERROR, domid, "Invalid device model type, cannot resume");
+         rc = ERROR_INVAL;
+         goto out;
+     }
+@@ -771,6 +785,8 @@ void libxl__domain_resume(libxl__egc *egc,
+     int rc = 0;
+     libxl_domain_type type = libxl__domain_type(gc, dmrs->domid);
+ 
++    LOGD(DEBUG, dmrs->domid, "Resuming domain");
++
+     if (type == LIBXL_DOMAIN_TYPE_INVALID) {
+         rc = ERROR_FAIL;
+         goto out;
+diff --git a/tools/libs/light/libxl_domain.c b/tools/libs/light/libxl_domain.c
+index 6751fc785f72..324a4c6607e7 100644
+--- a/tools/libs/light/libxl_domain.c
++++ b/tools/libs/light/libxl_domain.c
+@@ -563,6 +563,7 @@ int libxl_domain_suspend_only(libxl_ctx *ctx, uint32_t domid,
+     dsps->ao = ao;
+     dsps->domid = domid;
+     dsps->type = type;
++    LOGD(DEBUG, domid, "Received request to suspend domain");
+     rc = libxl__domain_suspend_init(egc, dsps, type);
+     if (rc < 0) goto out_err;
+     dsps->callback_common_done = domain_suspend_empty_cb;
+-- 
+2.44.0
+

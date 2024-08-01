@@ -1,0 +1,55 @@
+From 6707e983682615765b5ac1df7c9e811852cc683d Mon Sep 17 00:00:00 2001
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Date: Fri, 20 Mar 2015 14:32:04 +0000
+Subject: [PATCH] efi: Ensure incorrectly typed runtime services get mapped
+
+Some firmware implementations do not correctly mark memory needed for runtime
+services, not setting the EFI_MEMORY_RUNTIME bit and giving it a type
+EfiReservedMemoryType.  Even though EfiReservedMemoryType is not supposed to be
+used by the firmware, map these regions so that runtime services work.
+
+The failing firmware implementations were:
+    Product Name: PowerEdge R720
+    Vendor: Dell Inc.
+    Version: 2.1.2
+    Release Date: 09/19/2013
+    BIOS Revision: 2.1
+
+    Product Name: PowerEdge R320
+    Vendor: Dell Inc.
+    Version: 1.5.2
+    Release Date: 03/11/2013
+    BIOS Revision: 1.5
+
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+---
+ xen/common/efi/boot.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xen/common/efi/boot.c b/xen/common/efi/boot.c
+index 8004cf4d1303..b34521c5e74a 100644
+--- a/xen/common/efi/boot.c
++++ b/xen/common/efi/boot.c
+@@ -157,6 +157,7 @@ static SIMPLE_TEXT_OUTPUT_INTERFACE *__initdata StdErr;
+ 
+ static UINT32 __initdata mdesc_ver;
+ static bool __initdata map_bs;
++static bool __initdata map_res = true;
+ 
+ static struct file __initdata cfg;
+ static struct file __initdata kernel;
+@@ -1723,6 +1724,11 @@ void __init efi_init_memory(void)
+                 if ( !map_bs )
+                     continue;
+                 break;
++
++            case EfiReservedMemoryType:
++                if ( !map_res )
++                    continue;
++                break;
+             }
+         }
+ 
+-- 
+2.44.0
+

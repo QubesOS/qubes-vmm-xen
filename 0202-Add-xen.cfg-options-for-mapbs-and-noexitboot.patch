@@ -1,0 +1,42 @@
+From d837a8e0ea14164a237d15b6355c915b8d4e5ff0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 4 Jun 2016 19:13:31 +0200
+Subject: [PATCH] Add xen.cfg options for /mapbs and /noexitboot
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On some platforms setting EFI command line parameters is unreliable.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/common/efi/boot.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/xen/common/efi/boot.c b/xen/common/efi/boot.c
+index b34521c5e74a..ad8488f7f9d7 100644
+--- a/xen/common/efi/boot.c
++++ b/xen/common/efi/boot.c
+@@ -1472,6 +1472,18 @@ void EFIAPI __init noreturn efi_start(EFI_HANDLE ImageHandle,
+         name.s = get_value(&cfg, section.s, "options");
+         efi_arch_handle_cmdline(options, name.s);
+ 
++        name.s = get_value(&cfg, section.s, "mapbs");
++        if ( name.s )
++        {
++            map_bs = name.s[0] == '1';
++        }
++
++        name.s = get_value(&cfg, section.s, "noexitboot");
++        if ( name.s )
++        {
++            exit_boot_services = name.s[0] == '0';
++        }
++
+         if ( !base_video )
+         {
+             name.cs = get_value(&cfg, section.s, "video");
+-- 
+2.44.0
+

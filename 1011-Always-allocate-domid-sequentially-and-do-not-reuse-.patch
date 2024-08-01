@@ -1,21 +1,20 @@
-From c8d6fd40bc3af9928061910b3cdb463f1c8dcd9f Mon Sep 17 00:00:00 2001
+From 5f8607649d9601eb421a4ee137bce5a4449076d3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Fri, 3 Dec 2021 21:13:23 +0100
-Subject: [PATCH 1011/1018] Always allocate domid sequentially, and do not
- reuse them
+Subject: [PATCH] Always allocate domid sequentially, and do not reuse them
 
 While domid wrapping around is unlikely on Qubes, make sure it wont
 happen, to avoid various corner cases.
 ---
- xen/common/domctl.c | 34 ++++++++++++----------------------
- 1 file changed, 12 insertions(+), 22 deletions(-)
+ xen/common/domctl.c | 36 +++++++++++++-----------------------
+ 1 file changed, 13 insertions(+), 23 deletions(-)
 
 diff --git a/xen/common/domctl.c b/xen/common/domctl.c
-index 69fb9abd346f..67858eb9c6aa 100644
+index 2c0331bb05ed..459a3a502154 100644
 --- a/xen/common/domctl.c
 +++ b/xen/common/domctl.c
-@@ -408,32 +408,22 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
+@@ -412,32 +412,22 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
      case XEN_DOMCTL_createdomain:
      {
          domid_t        dom;
@@ -42,11 +41,12 @@ index 69fb9abd346f..67858eb9c6aa 100644
 -            ret = -ENOMEM;
 -            if ( dom == rover )
 -                break;
+-
+-            rover = dom;
 +        /* Refuse explicit domid via op->domain */
 +        if ( (op->domain > 0) && (op->domain < DOMID_FIRST_RESERVED) )
 +            return -EINVAL;
- 
--            rover = dom;
++
 +        if ( rover >= DOMID_FIRST_RESERVED ) {
 +            printk(XENLOG_ERR
 +                   "domctl: out of available domid values, reboot the system\n");
@@ -61,5 +61,5 @@ index 69fb9abd346f..67858eb9c6aa 100644
          if ( IS_ERR(d) )
          {
 -- 
-2.37.3
+2.44.0
 

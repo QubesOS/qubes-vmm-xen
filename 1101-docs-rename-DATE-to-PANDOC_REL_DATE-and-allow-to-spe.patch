@@ -1,9 +1,8 @@
-From d33dcefccfb3c6b362a936b45f04dfdd7e401bd6 Mon Sep 17 00:00:00 2001
+From c8256e48f9f0c98d34a12aa4880e8153ac84c4c8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sat, 7 Nov 2020 16:35:55 +0100
-Subject: [PATCH 1101/1103] docs: rename DATE to PANDOC_REL_DATE and allow to
- specify it
+Subject: [PATCH] docs: rename DATE to PANDOC_REL_DATE and allow to specify it
 
 PANDOC_REL_DATE is now defined with respect to
 SOURCE_DATE_EPOCH (if set). It improves reproducibility.
@@ -13,10 +12,10 @@ SOURCE_DATE_EPOCH (if set). It improves reproducibility.
  2 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/INSTALL b/INSTALL
-index 2ce1f78b4d6a..84c93ab9d518 100644
+index 22fce650f9a0..14edf0b8ccce 100644
 --- a/INSTALL
 +++ b/INSTALL
-@@ -240,6 +240,7 @@ XEN_BUILD_DATE=<output of date(1)>
+@@ -234,6 +234,7 @@ XEN_BUILD_DATE=<output of date(1)>
  XEN_BUILD_TIME=hh:mm:ss
  SMBIOS_REL_DATE=mm/dd/yyyy
  VGABIOS_REL_DATE="dd Mon yyyy"
@@ -25,7 +24,7 @@ index 2ce1f78b4d6a..84c93ab9d518 100644
  It is sufficient to define only SOURCE_DATE_EPOCH instead of the above
  variables for having reproducible builds. By default, they use
 diff --git a/docs/Makefile b/docs/Makefile
-index 8de1efb6f5bc..92ef1b5238f8 100644
+index 966a104490ac..a9da3ce3e9b1 100644
 --- a/docs/Makefile
 +++ b/docs/Makefile
 @@ -3,7 +3,7 @@ include $(XEN_ROOT)/Config.mk
@@ -47,5 +46,5 @@ index 8de1efb6f5bc..92ef1b5238f8 100644
  else
  	@echo "pandoc not installed; skipping $$@"
 -- 
-2.37.3
+2.44.0
 

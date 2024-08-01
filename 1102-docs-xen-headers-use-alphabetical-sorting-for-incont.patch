@@ -1,9 +1,8 @@
-From 84042f512c73fd43d980c7bd2b10443115a51658 Mon Sep 17 00:00:00 2001
+From 712ff31d4f89098be98ca0fd420d77633bdac543 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sat, 7 Nov 2020 18:21:07 +0100
-Subject: [PATCH 1102/1103] docs/xen-headers: use alphabetical sorting for
- @incontents
+Subject: [PATCH] docs/xen-headers: use alphabetical sorting for @incontents
 
 It makes the build reproducible with fileordering flags
 ---
@@ -24,5 +23,5 @@ index 8c434d77e20e..98ffe814500b 100755
      }
      $o .= "</ul>\n";
 -- 
-2.37.3
+2.44.0
 
