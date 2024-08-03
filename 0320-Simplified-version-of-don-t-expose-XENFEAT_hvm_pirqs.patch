@@ -1,0 +1,41 @@
+From 7c7a82be7ce4755959d83d9405c79abe4039cb73 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 3 Aug 2024 03:01:02 +0200
+Subject: [PATCH] Simplified version of "don't expose XENFEAT_hvm_pirqs by
+ default"
+
+Do the bare minimum to fix the issue without needing to update
+hypervisor and toolstack in sync.
+---
+ xen/arch/x86/domain.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 5dbd1d8a12d7..f68de85eec93 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -709,6 +709,7 @@ static bool emulation_flags_ok(const struct domain *d, uint32_t emflags)
+             return false;
+         if ( !is_hardware_domain(d) &&
+              emflags != (X86_EMU_ALL & ~X86_EMU_VPCI) &&
++             emflags != (X86_EMU_ALL & ~(X86_EMU_VPCI | X86_EMU_USE_PIRQ)) &&
+              emflags != X86_EMU_LAPIC )
+             return false;
+     }
+@@ -781,6 +782,12 @@ int arch_domain_create(struct domain *d,
+         return -EINVAL;
+     }
+ 
++    /*
++     * Force-disable XENFEAT_hvm_pirqs behind toolstack back, as a temporary
++     * solution without ABI change
++     */
++    emflags &= ~X86_EMU_USE_PIRQ;
++
+     if ( !emulation_flags_ok(d, emflags) )
+     {
+         printk(XENLOG_G_ERR "d%d: Xen does not allow %s domain creation "
+-- 
+2.45.2
+
