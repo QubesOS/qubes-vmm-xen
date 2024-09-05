@@ -97,6 +97,9 @@ Patch0202: 0202-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 Patch0203: 0203-xen.efi.build.patch
 
 # Backports (300+)
+Patch0300: 0300-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
+Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
+Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 
 # Security fixes (500+)
 
