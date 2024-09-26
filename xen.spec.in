@@ -113,7 +113,6 @@ Patch0319: 0319-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 Patch0320: 0320-Simplified-version-of-don-t-expose-XENFEAT_hvm_pirqs.patch
 
 # Security fixes
-Patch0500: 0500-xsa458.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
@@ -454,7 +453,7 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-seabios=/usr/share/seabios/bios-256k.b
 %else
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-seabios"
 %endif
-./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-qemu=/usr/bin/qemu-system-i386 --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" $CONFIG_EXTRA
+./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-qemu=/usr/bin/qemu-system-i386 --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" --enable-systemd $CONFIG_EXTRA
 unset CFLAGS CXXFLAGS FFLAGS LDFLAGS
 export LDFLAGS="$LDFLAGS_SAVE"
 export CFLAGS="$CFLAGS_SAVE -Wno-error=address"
