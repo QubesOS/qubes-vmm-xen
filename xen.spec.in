@@ -131,6 +131,7 @@ Patch0623: 0623-Drop-ELF-notes-from-non-EFI-binary-too.patch
 Patch0624: 0624-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
 
 Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
+Patch0654: 0654-iommu-amd-vi-do-not-error-if-IOMMU-or-PCI-Host-bridg.patch
 
 # S0ix support
 Patch0625: 0625-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
