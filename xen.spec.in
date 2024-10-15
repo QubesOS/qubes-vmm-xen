@@ -141,6 +141,8 @@ Patch0627: 0627-x86-msr-Allow-hardware-domain-to-read-package-C-stat.patch
 Patch0628: 0628-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
 Patch0629: 0629-libxl_pci-Pass-power_mgmt-via-QMP.patch
 
+Patch0630: 0630-tools-xg-increase-LZMA_BLOCK_SIZE-for-uncompressing-.patch
+
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
 Patch1001: 1001-hotplug-store-block-params-for-cleanup.patch
