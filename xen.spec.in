@@ -111,6 +111,8 @@ Patch0318: 0318-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
 Patch0319: 0319-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 # not directly a backport but a proper patch is included upstream already
 Patch0320: 0320-Simplified-version-of-don-t-expose-XENFEAT_hvm_pirqs.patch
+Patch0321: 0321-x86-x2APIC-correct-cluster-tracking-upon-CPUs-going-.patch
+Patch0322: 0322-xen-spinlock-Fix-UBSAN-load-of-address-with-insuffic.patch
 
 # Security fixes
 Patch0500: 0500-xsa464.patch
