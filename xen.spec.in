@@ -10,7 +10,7 @@
 %define build_qemutrad %{?_with_qemutrad: 1} %{?!_with_qemutrad: 0}
 # build with ovmf from edk2-ovmf unless rpmbuild was run with --without ovmf
 %define build_ovmf %{?_without_ovmf: 0} %{?!_without_ovmf: 1}
-# set to 0 for archs that don't use qemu or ovmf (reduces build dependencies)
+# set to 0 for archs that don't use qemu or ovmf (reduces dependencies)
 %ifnarch x86_64 %{ix86}
 %define build_qemutrad 0
 %define build_ovmf 0
@@ -234,7 +234,7 @@ BuildRequires: systemd-devel
 BuildRequires: libfdt-devel
 %endif
 %if %build_ovmf
-BuildRequires: edk2-ovmf
+Requires: edk2-ovmf-xen
 %endif
 %if %build_hyp
 BuildRequires: bison flex
@@ -411,7 +411,7 @@ CONFIG_EXTRA="--enable-qemu-traditional"
 CONFIG_EXTRA=""
 %endif
 %if %build_ovmf
-CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_libexecdir}/%{name}/boot/ovmf.bin"
+CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ovmf=%{_datadir}/edk2/xen/OVMF.fd"
 %endif
 %ifnarch armv7hl aarch64
 CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe/10ec8139.rom"
@@ -567,10 +567,6 @@ rm -f %{buildroot}/%{_libdir}/efi/xen.efi
 
 %if ! %build_ocaml
 rm -rf %{buildroot}/%{_unitdir}/oxenstored.service
-%endif
-
-%if %build_ovmf
-cat /usr/share/OVMF/OVMF_{VARS,CODE}.fd >%{buildroot}%{_libexecdir}/%{name}/boot/ovmf.bin
 %endif
 
 ############ fixup files in /etc ############
@@ -896,9 +892,6 @@ fi
 %ifnarch %{ix86}
 %{_libexecdir}/%{name}/boot/xen-shim
 /usr/lib/debug%{_libexecdir}/xen/boot/xen-shim-syms
-%endif
-%if %build_ovmf
-%{_libexecdir}/xen/boot/ovmf.bin
 %endif
 %if %build_stubdom
 %if %build_qemutrad
