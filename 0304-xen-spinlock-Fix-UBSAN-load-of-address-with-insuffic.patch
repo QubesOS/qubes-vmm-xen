@@ -1,0 +1,65 @@
+From 542ac112fc68c66cfafc577e252404c21da4f75b Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Mon, 14 Oct 2024 15:30:28 +0100
+Subject: [PATCH] xen/spinlock: Fix UBSAN "load of address with insufficient
+ space" in lock_prof_init()
+
+UBSAN complains:
+
+  (XEN) ================================================================================
+  (XEN) UBSAN: Undefined behaviour in common/spinlock.c:794:10
+  (XEN) load of address ffff82d040ae24c8 with insufficient space
+  (XEN) for an object of type 'struct lock_profile *'
+  (XEN) ----[ Xen-4.20-unstable  x86_64  debug=y ubsan=y  Tainted:   C    ]----
+
+This shows up with GCC-14, but not with GCC-12.  I have not bisected further.
+
+Either way, the types for __lock_profile_{start,end} are incorrect.
+
+They are an array of struct lock_profile pointers.  Correct the extern's
+types, and adjust the loop to match.
+
+No practical change.
+
+Reported-by: Andreas Glashauser <ag@andreasglashauser.com>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+---
+ xen/common/spinlock.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/xen/common/spinlock.c b/xen/common/spinlock.c
+index 0b877384451d..38caa10a2ea2 100644
+--- a/xen/common/spinlock.c
++++ b/xen/common/spinlock.c
+@@ -608,9 +608,6 @@ struct lock_profile_anc {
+ typedef void lock_profile_subfunc(struct lock_profile *data, int32_t type,
+     int32_t idx, void *par);
+ 
+-extern struct lock_profile *__lock_profile_start;
+-extern struct lock_profile *__lock_profile_end;
+-
+ static s_time_t lock_profile_start;
+ static struct lock_profile_anc lock_profile_ancs[] = {
+     [LOCKPROF_TYPE_GLOBAL] = { .name = "Global" },
+@@ -780,13 +777,16 @@ void _lock_profile_deregister_struct(
+     spin_unlock(&lock_profile_lock);
+ }
+ 
++extern struct lock_profile *__lock_profile_start[];
++extern struct lock_profile *__lock_profile_end[];
++
+ static int __init cf_check lock_prof_init(void)
+ {
+     struct lock_profile **q;
+ 
+     BUILD_BUG_ON(ARRAY_SIZE(lock_profile_ancs) != LOCKPROF_TYPE_N);
+ 
+-    for ( q = &__lock_profile_start; q < &__lock_profile_end; q++ )
++    for ( q = __lock_profile_start; q < __lock_profile_end; q++ )
+     {
+         (*q)->next = lock_profile_glb_q.elem_q;
+         lock_profile_glb_q.elem_q = *q;
+-- 
+2.46.0
+

@@ -1,0 +1,50 @@
+From ad3ff7b4279d16c91c23cda6e8be5bc670b25c9a Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Mon, 26 Aug 2024 10:30:40 +0200
+Subject: [PATCH] x86/x2APIC: correct cluster tracking upon CPUs going down for
+ S3
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Downing CPUs for S3 is somewhat special: Since we can expect the system
+to come back up in exactly the same hardware configuration, per-CPU data
+for the secondary CPUs isn't de-allocated (and then cleared upon re-
+allocation when the CPUs are being brought back up). Therefore the
+cluster_cpus per-CPU pointer will retain its value for all CPUs other
+than the final one in a cluster (i.e. in particular for all CPUs in the
+same cluster as CPU0). That, however, is in conflict with the assertion
+early in init_apic_ldr_x2apic_cluster().
+
+Note that the issue is avoided on Intel hardware, where we park CPUs
+instead of bringing them down.
+
+Extend the bypassing of the freeing to the suspend case, thus making
+suspend/resume also a tiny bit faster.
+
+Fixes: 2e6c8f182c9c ("x86: distinguish CPU offlining from CPU removal")
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Tested-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+---
+ xen/arch/x86/genapic/x2apic.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/genapic/x2apic.c b/xen/arch/x86/genapic/x2apic.c
+index 371dd100c742..d531035fa42c 100644
+--- a/xen/arch/x86/genapic/x2apic.c
++++ b/xen/arch/x86/genapic/x2apic.c
+@@ -228,7 +228,8 @@ static int cf_check update_clusterinfo(
+     case CPU_UP_CANCELED:
+     case CPU_DEAD:
+     case CPU_REMOVE:
+-        if ( park_offline_cpus == (action != CPU_REMOVE) )
++        if ( park_offline_cpus == (action != CPU_REMOVE) ||
++             system_state == SYS_STATE_suspend )
+             break;
+         if ( per_cpu(cluster_cpus, cpu) )
+         {
+-- 
+2.46.0
+
