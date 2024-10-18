@@ -16,10 +16,8 @@ Cc: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>,
     George Dunlap <george.dunlap@citrix.com>,
     Tim Deegan <tim@xen.org>
 
-This is purely for testing, to see if it works around a bug in i915.  It
-is not intended to be merged.
-
-NOT-signed-off-by: DO NOT MERGE
+Use the same PAT setting as Linux to workaround buggy drivers that have
+hardcoded assumptions about it.
 ---
  xen/arch/x86/include/asm/page.h      |  4 ++--
  xen/arch/x86/include/asm/processor.h | 10 +++++-----
@@ -48,12 +46,13 @@ diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/pro
 index 60b902060914584957db8afa5c7c1e6abdad4d13..3993d5638626f0948bb7ac8192d2eda187eb1bdb 100644
 --- a/xen/arch/x86/include/asm/processor.h
 +++ b/xen/arch/x86/include/asm/processor.h
-@@ -94,16 +94,16 @@
+@@ -94,16 +94,17 @@
  
  /*
   * Host IA32_CR_PAT value to cover all memory types.  This is not the default
 - * MSR_PAT value, and is an ABI with PV guests.
-+ * MSR_PAT value, and is needed by the Linux i915 driver.
++ * MSR_PAT value, and is and is the same one used by Linux.  The proprietary
++ * Nvidia driver (and possibly other kernel code) requires this value.
   */
  #define XEN_MSR_PAT ((_AC(X86_MT_WB,  ULL) << 0x00) | \
 -                     (_AC(X86_MT_WT,  ULL) << 0x08) | \
@@ -93,4 +92,3 @@ index 4f63af1057b467dfd56724311063ef5f58309618..c56dce300c276b83e6270a2883351849
 Sincerely,
 Demi Marie Obenour (she/her/hers)
 Invisible Things Lab
-
