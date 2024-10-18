@@ -162,6 +162,7 @@ Patch1014: 1014-libxl-conditionally-allow-PCI-passthrough-on-PV-with.patch
 Patch1015: 1015-gnttab-disable-grant-tables-v2-by-default.patch
 Patch1016: 1016-cpufreq-enable-HWP-by-default.patch
 Patch1017: 1017-Fix-IGD-passthrough-with-linux-stubdomain.patch
+Patch1018: 1018-x86-Use-Linux-s-PAT.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
