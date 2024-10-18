@@ -3,10 +3,8 @@ From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Sun, 4 Dec 2022 07:57:44 -0500
 Subject: [PATCH] x86: Use Linux's PAT
 
-This is purely for testing, to see if it works around a bug in i915.  It
-is not intended to be merged.
-
-NOT-signed-off-by: DO NOT MERGE
+Use the same PAT setting as Linux to workaround buggy drivers that have
+hardcoded assumptions about it.
 ---
  xen/arch/x86/include/asm/page.h      |  4 ++--
  xen/arch/x86/include/asm/processor.h | 10 +++++-----
@@ -35,12 +33,13 @@ diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/pro
 index c26ef9090c3a..ec881b880d4d 100644
 --- a/xen/arch/x86/include/asm/processor.h
 +++ b/xen/arch/x86/include/asm/processor.h
-@@ -65,16 +65,16 @@
+@@ -65,16 +65,17 @@
  
  /*
   * Host IA32_CR_PAT value to cover all memory types.  This is not the default
 - * MSR_PAT value, and is an ABI with PV guests.
-+ * MSR_PAT value, and is needed by the Linux i915 driver.
++ * MSR_PAT value, and is and is the same one used by Linux.  The proprietary
++ * Nvidia driver (and possibly other kernel code) requires this value.
   */
  #define XEN_MSR_PAT ((_AC(X86_MT_WB,  ULL) << 0x00) | \
 -                     (_AC(X86_MT_WT,  ULL) << 0x08) | \
