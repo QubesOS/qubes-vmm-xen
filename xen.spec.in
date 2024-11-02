@@ -170,7 +170,7 @@ Patch1200: 1200-hypercall-XENMEM_get_mfn_from_pfn.patch
 Patch1201: 1201-patch-gvt-hvmloader.patch.patch
 Patch1202: 1202-libxl-Add-partially-Intel-GVT-g-support-xengt-device.patch
 
-Patch9998: 9998-amd-ioapic-test.patch
+Patch9998: 9998-fix-directed-eoi.patch
 Patch9999: 9999-amd-iommu-test.patch
 
 %if %build_qemutrad
