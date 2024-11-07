@@ -534,8 +534,8 @@ rm -f %{buildroot}%{_sbindir}/xen-python-path
 rm -rf %{buildroot}/usr/share/xen/man
 rm -rf %{buildroot}/usr/bin/qemu-*-xen
 # BEGIN QUBES SPECIFIC PART
-# ln -s qemu-img %{buildroot}/%{_bindir}/qemu-img-xen
-# ln -s qemu-img %{buildroot}/%{_bindir}/qemu-nbd-xen
+%dnl ln -s qemu-img %{buildroot}/%{_bindir}/qemu-img-xen
+%dnl ln -s qemu-img %{buildroot}/%{_bindir}/qemu-nbd-xen
 # END QUBES SPECIFIC PART
 for file in bios.bin openbios-sparc32 openbios-sparc64 ppc_rom.bin \
          pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
@@ -559,14 +559,14 @@ rm -rf %{buildroot}/%{_libdir}/*.a
 rm -f %{buildroot}/usr/lib64/efi/xen-%{hv_abi}.efi
 rm -f %{buildroot}/usr/lib64/efi/xen-4.efi
 rm -f %{buildroot}/usr/lib64/efi/xen.efi
-# cp -p %{buildroot}/usr/lib64/efi/xen-%{version}{,.notstripped}.efi
-# strip -s %{buildroot}/usr/lib64/efi/xen-%{version}.efi
+%dnl cp -p %{buildroot}/usr/lib64/efi/xen-%{version}{,.notstripped}.efi
+%dnl strip -s %{buildroot}/usr/lib64/efi/xen-%{version}.efi
 %else
 rm -f %{buildroot}/%{_libdir}/efi/xen-%{hv_abi}.efi
 rm -f %{buildroot}/%{_libdir}/efi/xen-4.efi
 rm -f %{buildroot}/%{_libdir}/efi/xen.efi
-# cp -p %{buildroot}/%{_libdir}/efi/xen-%{version}{,.notstripped}.efi
-# strip -s %{buildroot}/%{_libdir}/efi/xen-%{version}.efi
+%dnl cp -p %{buildroot}/%{_libdir}/efi/xen-%{version}{,.notstripped}.efi
+%dnl strip -s %{buildroot}/%{_libdir}/efi/xen-%{version}.efi
 %endif
 %endif
 
@@ -633,23 +633,23 @@ done
 ############ all done now ############
 
 # BEGIN QUBES SPECIFIC PART
-# %post
-# %if %with_systemd_presets
-# %systemd_post xendomains.service
-# %else
-# if [ $1 == 1 ]; then
-#   /bin/systemctl enable xendomains.service
-# fi
-# %endif
-
-# %preun
-# %if %with_systemd_presets
-# %systemd_preun xendomains.service
-# %else
-# if [ $1 == 0 ]; then
-# /bin/systemctl disable xendomains.service
-# fi
-# %endif
+%dnl %post
+%dnl %if %with_systemd_presets
+%dnl %systemd_post xendomains.service
+%dnl %else
+%dnl if [ $1 == 1 ]; then
+%dnl   /bin/systemctl enable xendomains.service
+%dnl fi
+%dnl %endif
+%dnl
+%dnl %preun
+%dnl %if %with_systemd_presets
+%dnl %systemd_preun xendomains.service
+%dnl %else
+%dnl if [ $1 == 0 ]; then
+%dnl /bin/systemctl disable xendomains.service
+%dnl fi
+%dnl %endif
 # END QUBES SPECIFIC PART
 
 %post runtime
@@ -792,11 +792,11 @@ fi
 
 # BEGIN QUBES SPECIFIC PART
 # Guest autostart links
-#%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
+%dnl %dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
 # Autostart of guests
-#%config(noreplace) %{_sysconfdir}/sysconfig/xendomains
+%dnl %config(noreplace) %{_sysconfdir}/sysconfig/xendomains
 
-#%{_unitdir}/xendomains.service
+%dnl %{_unitdir}/xendomains.service
 # END QUBES SPECIFIC PART
 
 %files libs
@@ -840,8 +840,8 @@ fi
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
 # BEGIN QUBES SPECIFIC PART
-#%{_unitdir}/xen-qemu-dom0-disk-backend.service
-#%{_unitdir}/xendriverdomain.service
+%dnl %{_unitdir}/xen-qemu-dom0-disk-backend.service
+%dnl %{_unitdir}/xendriverdomain.service
 %{_unitdir}/xen-init-dom0.service
 %exclude %{_unitdir}/xendriverdomain.service
 # END QUBES SPECIFIC PART
@@ -919,14 +919,14 @@ fi
 
 # All xenstore CLI tools
 # BEGIN QUBES SPECIFIC PART
-# %{_bindir}/qemu-*-xen
+%dnl %{_bindir}/qemu-*-xen
 # END QUBES SPECIFIC PART
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
-#%#{_bindir}/remus
+%dnl %{_bindir}/remus
 # XSM
 # BEGIN QUBES SPECIFIC PART
-#%{_sbindir}/flask-*
+%dnl %{_sbindir}/flask-*
 # END QUBES SPECIFIC PART
 # Misc stuff
 %ifnarch armv7hl aarch64
