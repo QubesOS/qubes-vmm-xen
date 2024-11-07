@@ -244,6 +244,7 @@ Requires: edk2-ovmf-xen
 %if %build_hyp
 BuildRequires: bison flex
 %endif
+BuildRequires: rsync
 
 %description
 This package contains the XenD daemon and xm command line
@@ -481,7 +482,8 @@ XEN_TARGET_ARCH=x86_32 make -C stubdom pv-grub-if-enabled
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}
-cp -prlP dist/install/* %{buildroot}
+# copy all while preserving hardlinks between files
+rsync -aH dist/install/ %{buildroot}/
 %if %build_stubdom
 %ifnarch armv7hl aarch64
 make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-stubdom
