@@ -62,7 +62,7 @@ index e40d2f7dbd75..4e5ee2b890a0 100644
  #include <xen/acpi.h>
  #include <xen/keyhandler.h>
  #include <xen/softirq.h>
-+#include <xen/xvmalloc.h>
++#include <xen/xmalloc.h>
  
  #include <asm/hpet.h>
  #include <asm/mc146818rtc.h>
@@ -156,7 +156,7 @@ index e40d2f7dbd75..4e5ee2b890a0 100644
  
 +    if ( iommu_intremap != iommu_intremap_off )
 +    {
-+        io_apic_pin_eoi = xvmalloc_array(typeof(*io_apic_pin_eoi), nr_ioapics);
++        io_apic_pin_eoi = xmalloc_array(typeof(*io_apic_pin_eoi), nr_ioapics);
 +        BUG_ON(!io_apic_pin_eoi);
 +    }
 +
@@ -166,7 +166,7 @@ index e40d2f7dbd75..4e5ee2b890a0 100644
 +
 +        if ( io_apic_pin_eoi )
 +        {
-+            io_apic_pin_eoi[apic] = xvmalloc_array(typeof(**io_apic_pin_eoi),
++            io_apic_pin_eoi[apic] = xmalloc_array(typeof(**io_apic_pin_eoi),
 +                                                   nr_ioapic_entries[apic]);
 +            BUG_ON(!io_apic_pin_eoi[apic]);
 +        }
