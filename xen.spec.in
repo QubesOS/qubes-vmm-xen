@@ -113,6 +113,7 @@ Patch0319: 0319-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 Patch0320: 0320-Simplified-version-of-don-t-expose-XENFEAT_hvm_pirqs.patch
 
 # Security fixes
+Patch0500: 0500-xsa464.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
