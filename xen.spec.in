@@ -142,6 +142,7 @@ Patch0629: 0629-libxl_pci-Pass-power_mgmt-via-QMP.patch
 Patch0630: 0630-tools-xg-increase-LZMA_BLOCK_SIZE-for-uncompressing-.patch
 
 Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
+Patch0654: 0654-libxl-extend-IGD-check.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
