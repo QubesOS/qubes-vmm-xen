@@ -132,8 +132,6 @@ Patch0622: 0622-x86-mm-make-code-robust-to-future-PAT-changes.patch
 Patch0623: 0623-Drop-ELF-notes-from-non-EFI-binary-too.patch
 Patch0624: 0624-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
 
-Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
-
 # S0ix support
 Patch0625: 0625-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
 Patch0626: 0626-x86-ACPI-Ignore-entries-marked-as-unusable-when-pars.patch
@@ -142,6 +140,8 @@ Patch0628: 0628-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
 Patch0629: 0629-libxl_pci-Pass-power_mgmt-via-QMP.patch
 
 Patch0630: 0630-tools-xg-increase-LZMA_BLOCK_SIZE-for-uncompressing-.patch
+
+Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
