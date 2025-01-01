@@ -102,6 +102,8 @@ Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
 Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 Patch0303: 0303-x86-x2APIC-correct-cluster-tracking-upon-CPUs-going-.patch
 Patch0304: 0304-xen-spinlock-Fix-UBSAN-load-of-address-with-insuffic.patch
+Patch0305: 0305-x86-spec-ctrl-Support-for-SRSO_U-S_NO-and-SRSO_MSR_F.patch
+Patch0306: 0306-x86-io-apic-prevent-early-exit-from-i8259-loop-detec.patch
 
 # Security fixes (500+)
 
