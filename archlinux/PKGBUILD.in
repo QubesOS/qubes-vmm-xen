@@ -2,7 +2,7 @@
 
 _upstream_pkgver=@VERSION@
 pkgname=qubes-vm-xen
-pkgbase="xen-$_upstream_pkgver"
+pkgbase="xen-$_upstream_pkgver.0"
 pkgver=${_upstream_pkgver/-/\~}
 pkgrel=@REL@
 pkgdesc="Xen is a virtual machine monitor"
@@ -23,7 +23,7 @@ _patches=(
   1102-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
   1103-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 )
-source=(xen-$_upstream_pkgver.tar.gz "${_patches[@]}")
+source=(xen-$_upstream_pkgver.0.tar.gz "${_patches[@]}")
 md5sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 prepare() {
