@@ -1,0 +1,44 @@
+From 77d5991de867a1b2d694147958d77c51a2b989ae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Wed, 8 Jan 2025 15:37:13 +0100
+Subject: [PATCH] x86/boot: adjust text gap/diff to work with 64-bytes
+ alignment too
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Xen compiled with -mtune=generic has .text alignment set to 64-bytes.
+Setting text_diff to non-64-bytes-aligned number breaks stuff:
+
+    Traceback (most recent call last):
+      File "/builddir/build/BUILD/xen-4.20.0-build/xen-4.20.0-rc0/xen/./tools/combine_two_binaries.py", line 96, in <module>
+        raise Exception('File sizes do not match')
+    Exception: File sizes do not match: 70160 != 4080 + 66048
+
+Adjust the numbers as suggested by Frediano to work with 64-bytes and
+even 128-bytes alignment.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/arch/x86/boot/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/boot/Makefile b/xen/arch/x86/boot/Makefile
+index d45787665907..80c32163fbbd 100644
+--- a/xen/arch/x86/boot/Makefile
++++ b/xen/arch/x86/boot/Makefile
+@@ -40,8 +40,8 @@ LD32 := $(LD) $(subst x86_64,i386,$(LDFLAGS_DIRECT))
+ # are affected by both text_diff and text_gap.  Ensure the sum of gap and diff
+ # is greater than 2^16 so that any 16bit relocations if present in the object
+ # file turns into a build-time error.
+-text_gap := 0x010200
+-text_diff := 0x408020
++text_gap := 0x010240
++text_diff := 0x608040
+ 
+ $(obj)/build32.base.lds: AFLAGS-y += -DGAP=$(text_gap) -DTEXT_DIFF=$(text_diff)
+ $(obj)/build32.offset.lds: AFLAGS-y += -DGAP=$(text_gap) -DTEXT_DIFF=$(text_diff) -DAPPLY_OFFSET
+-- 
+2.46.0
+
