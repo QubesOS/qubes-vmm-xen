@@ -98,6 +98,12 @@ Patch0203: 0203-xen.efi.build.patch
 
 # Backports (300+)
 
+Patch0400: 0400-docs-designs-Add-a-design-document-for-PV-IOMMU.patch
+Patch0401: 0401-docs-designs-Add-a-design-document-for-IOMMU-subsyst.patch
+Patch0402: 0402-IOMMU-Introduce-redesigned-IOMMU-subsystem.patch
+Patch0403: 0403-VT-d-Port-IOMMU-driver-to-new-subsystem.patch
+Patch0404: 0404-xen-public-Introduce-PV-IOMMU-hypercall-interface.patch
+
 # Security fixes (500+)
 
 # Upstreamable patches (600+)
