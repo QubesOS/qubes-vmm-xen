@@ -108,7 +108,6 @@ Patch0306: 0306-x86-io-apic-prevent-early-exit-from-i8259-loop-detec.patch
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
 Patch0601: 0601-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
-Patch0602: 0602-libxl-do-not-fail-device-removal-if-backend-domain-i.patch
 Patch0603: 0603-libvchan-use-xengntshr_unshare-instead-of-munmap-dir.patch
 Patch0604: 0604-x86-time-Don-t-use-EFI-s-GetTime-call-by-default.patch
 Patch0605: 0605-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
