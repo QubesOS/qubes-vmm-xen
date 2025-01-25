@@ -55,7 +55,7 @@ index 84cba171cd6b..d94df1cd88b6 100644
 -SMBIOS_REL_DATE ?= $(shell date +%m/%d/%Y)
 +SMBIOS_REL_DATE ?= $(shell date $(DATE_EPOCH_OPTS) +%m/%d/%Y)
  
- CFLAGS += $(CFLAGS_xeninclude) -fno-pic
+ CFLAGS += $(CFLAGS_xeninclude) -fno-pic -mregparm=3
  
 diff --git a/tools/firmware/vgabios/Makefile b/tools/firmware/vgabios/Makefile
 index 3284812fdec8..4350ef402127 100644

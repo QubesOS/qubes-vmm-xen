@@ -19,34 +19,30 @@ diff --git a/xen/arch/x86/time.c b/xen/arch/x86/time.c
 index a97d78484105..45f6baf6270b 100644
 --- a/xen/arch/x86/time.c
 +++ b/xen/arch/x86/time.c
-@@ -1245,20 +1245,25 @@ static void __get_cmos_time(struct rtc_time *rtc)
-         rtc->year += 100;
+@@ -1552,6 +1552,9 @@ static const char *__init wallclock_type
+     return "";
  }
- 
+
 +/* EFI's GetTime() is frequently broken so don't use it by default. */
 +#undef USE_EFI_GET_TIME
 +
- static unsigned long get_cmos_time(void)
+ static void __init probe_wallclock(void)
  {
--    unsigned long res, flags;
-+    unsigned long flags;
-     struct rtc_time rtc;
-     unsigned int seconds = 60;
-     static bool __read_mostly cmos_rtc_probe;
-     boolean_param("cmos-rtc-probe", cmos_rtc_probe);
- 
+     ASSERT(wallclock_source == WALLCLOCK_UNSET);
+@@ -1561,11 +1564,13 @@ static void __init probe_wallclock(void)
+         wallclock_source = WALLCLOCK_XEN;
+         return;
+     }
 +#ifdef USE_EFI_GET_TIME
-     if ( efi_enabled(EFI_RS) )
+     if ( efi_enabled(EFI_RS) && efi_get_time() )
      {
--        res = efi_get_time();
-+        unsigned long res = efi_get_time();
-         if ( res )
-             return res;
+         wallclock_source = WALLCLOCK_EFI;
+         return;
      }
 +#endif
- 
-     if ( likely(!(acpi_gbl_FADT.boot_flags & ACPI_FADT_NO_CMOS_RTC)) )
-         cmos_rtc_probe = false;
+     if ( cmos_rtc_probe() )
+     {
+         wallclock_source = WALLCLOCK_CMOS;
 -- 
 2.44.0
 
