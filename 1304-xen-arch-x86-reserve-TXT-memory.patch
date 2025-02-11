@@ -1,0 +1,240 @@
+From e600644d247fc44d392bf27b1e51a0e7d3ba4de5 Mon Sep 17 00:00:00 2001
+From: Kacper Stojek <kacper.stojek@3mdeb.com>
+Date: Fri, 2 Sep 2022 08:11:43 +0200
+Subject: [PATCH 1304/1328] xen/arch/x86: reserve TXT memory
+
+TXT heap is marked as reserved in e820 to protect against being allocated
+and overwritten.
+
+Signed-off-by: Kacper Stojek <kacper.stojek@3mdeb.com>
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ xen/arch/x86/include/asm/intel_txt.h | 42 +++++++++++++
+ xen/arch/x86/include/asm/mm.h        |  3 +
+ xen/arch/x86/intel_txt.c             | 94 ++++++++++++++++++++++++++++
+ xen/arch/x86/setup.c                 | 12 +++-
+ 4 files changed, 148 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/include/asm/intel_txt.h b/xen/arch/x86/include/asm/intel_txt.h
+index 696ed92bac..cc0ab5ac53 100644
+--- a/xen/arch/x86/include/asm/intel_txt.h
++++ b/xen/arch/x86/include/asm/intel_txt.h
+@@ -88,6 +88,8 @@ extern bool slaunch_active;
+ #define _txt(x) __va(x)
+ #endif
+ 
++#include <xen/slr_table.h>
++
+ /*
+  * Always use private space as some of registers are either read-only or not
+  * present in public space.
+@@ -292,4 +294,44 @@ static inline int is_in_pmr(struct txt_os_sinit_data *os_sinit, uint64_t base,
+     return 0;
+ }
+ 
++/*
++ * This helper function is used to map memory using L2 page tables by aligning
++ * mapped regions to 2MB. This way page allocator (which at this point isn't
++ * yet initialized) isn't needed for creating new L1 mappings. The function
++ * also checks and skips memory already mapped by the prebuilt tables.
++ *
++ * There is no unmap_l2() because the function is meant to be used for code that
++ * accesses TXT registers and TXT heap soon after which Xen rebuilds memory
++ * maps, effectively dropping all existing mappings.
++ */
++extern int map_l2(unsigned long paddr, unsigned long size);
++
++/* evt_log is a physical address and the caller must map it to virtual, if
++ * needed. */
++static inline void find_evt_log(void **evt_log, uint32_t *evt_log_size)
++{
++    struct txt_os_mle_data *os_mle;
++    struct slr_table *slrt;
++    struct slr_entry_log_info *log_info;
++
++    os_mle = txt_os_mle_data_start(_txt(read_txt_reg(TXTCR_HEAP_BASE)));
++    slrt = _txt(os_mle->slrt);
++
++    log_info = (struct slr_entry_log_info *)
++        slr_next_entry_by_tag(slrt, NULL, SLR_ENTRY_LOG_INFO);
++    if ( log_info != NULL )
++    {
++        *evt_log = _p(log_info->addr);
++        *evt_log_size = log_info->size;
++    }
++    else
++    {
++        *evt_log = NULL;
++        *evt_log_size = 0;
++    }
++}
++
++extern void map_txt_mem_regions(void);
++extern void protect_txt_mem_regions(void);
++
+ #endif /* __ASSEMBLY__ */
+diff --git a/xen/arch/x86/include/asm/mm.h b/xen/arch/x86/include/asm/mm.h
+index 5845b729c3..99ed61f54e 100644
+--- a/xen/arch/x86/include/asm/mm.h
++++ b/xen/arch/x86/include/asm/mm.h
+@@ -98,6 +98,9 @@
+ #define _PGC_need_scrub   _PGC_allocated
+ #define PGC_need_scrub    PGC_allocated
+ 
++/* How much of the directmap is prebuilt at compile time. */
++#define PREBUILT_MAP_LIMIT (1 << L2_PAGETABLE_SHIFT)
++
+ #ifndef CONFIG_BIGMEM
+ /*
+  * This definition is solely for the use in struct page_info (and
+diff --git a/xen/arch/x86/intel_txt.c b/xen/arch/x86/intel_txt.c
+index d23727cc82..368fde1dac 100644
+--- a/xen/arch/x86/intel_txt.c
++++ b/xen/arch/x86/intel_txt.c
+@@ -1,7 +1,15 @@
+ #include <xen/compiler.h>
+ #include <xen/types.h>
+ #include <xen/lib.h>
++#include <asm/e820.h>
++#include <xen/string.h>
++#include <asm/page.h>
++#include <asm/intel_txt.h>
+ #include <xen/init.h>
++#include <xen/mm.h>
++#include <xen/slr_table.h>
++
++static uint64_t __initdata txt_heap_base, txt_heap_size;
+ 
+ bool __initdata slaunch_active;
+ 
+@@ -9,3 +17,89 @@ static void __maybe_unused compile_time_checks(void)
+ {
+     BUILD_BUG_ON(sizeof(slaunch_active) != 1);
+ }
++
++int __init map_l2(unsigned long paddr, unsigned long size)
++{
++    unsigned long aligned_paddr = paddr & ~((1ULL << L2_PAGETABLE_SHIFT) - 1);
++    unsigned long pages = ((paddr + size) - aligned_paddr);
++    pages = ROUNDUP(pages, 1ULL << L2_PAGETABLE_SHIFT) >> PAGE_SHIFT;
++
++    if ( (aligned_paddr + pages * PAGE_SIZE) <= PREBUILT_MAP_LIMIT )
++        return 0;
++
++    if ( aligned_paddr < PREBUILT_MAP_LIMIT ) {
++        pages -= (PREBUILT_MAP_LIMIT - aligned_paddr) >> PAGE_SHIFT;
++        aligned_paddr = PREBUILT_MAP_LIMIT;
++    }
++
++    return map_pages_to_xen((unsigned long)__va(aligned_paddr),
++                            maddr_to_mfn(aligned_paddr),
++                            pages, PAGE_HYPERVISOR);
++}
++
++void __init map_txt_mem_regions(void)
++{
++    void *evt_log_addr;
++    uint32_t evt_log_size;
++
++    map_l2(TXT_PRIV_CONFIG_REGS_BASE, NR_TXT_CONFIG_SIZE);
++
++    txt_heap_base = read_txt_reg(TXTCR_HEAP_BASE);
++    BUG_ON(txt_heap_base == 0);
++
++    txt_heap_size = read_txt_reg(TXTCR_HEAP_SIZE);
++    BUG_ON(txt_heap_size == 0);
++
++    map_l2(txt_heap_base, txt_heap_size);
++
++    find_evt_log(&evt_log_addr, &evt_log_size);
++    if ( evt_log_addr != NULL )
++        map_l2((unsigned long)evt_log_addr, evt_log_size);
++}
++
++void __init protect_txt_mem_regions(void)
++{
++    int rc;
++
++    void *evt_log_addr;
++    uint32_t evt_log_size;
++
++    uint64_t sinit_base, sinit_size;
++
++    /* TXT Heap */
++    BUG_ON(txt_heap_base == 0);
++    printk("SLAUNCH: reserving TXT heap (%#lx - %#lx)\n", txt_heap_base,
++           txt_heap_base + txt_heap_size);
++    rc = reserve_e820_ram(&e820_raw, txt_heap_base,
++                          txt_heap_base + txt_heap_size);
++    BUG_ON(rc == 0);
++
++    /* TXT TPM Event Log */
++    find_evt_log(&evt_log_addr, &evt_log_size);
++    if ( evt_log_addr != NULL ) {
++        printk("SLAUNCH: reserving event log (%#lx - %#lx)\n",
++               (uint64_t)evt_log_addr,
++               (uint64_t)evt_log_addr + evt_log_size);
++        rc = reserve_e820_ram(&e820_raw, (uint64_t)evt_log_addr,
++                              (uint64_t)evt_log_addr + evt_log_size);
++        BUG_ON(rc == 0);
++    }
++
++    sinit_base = read_txt_reg(TXTCR_SINIT_BASE);
++    BUG_ON(sinit_base == 0);
++
++    sinit_size = read_txt_reg(TXTCR_SINIT_SIZE);
++    BUG_ON(sinit_size == 0);
++
++    /* SINIT */
++    printk("SLAUNCH: reserving SINIT memory (%#lx - %#lx)\n", sinit_base,
++           sinit_base + sinit_size);
++    rc = reserve_e820_ram(&e820_raw, sinit_base, sinit_base + sinit_size);
++    BUG_ON(rc == 0);
++
++    /* TXT Private Space */
++    rc = e820_change_range_type(&e820_raw, TXT_PRIV_CONFIG_REGS_BASE,
++                                TXT_PRIV_CONFIG_REGS_BASE + NR_TXT_CONFIG_SIZE,
++                                E820_RAM, E820_UNUSABLE);
++    BUG_ON(rc == 0);
++}
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index d47f156711..06e5dec254 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -55,6 +55,7 @@
+ #include <asm/guest.h>
+ #include <asm/microcode.h>
+ #include <asm/pv/domain.h>
++#include <asm/intel_txt.h>
+ 
+ /* opt_nosmp: If true, secondary processors are ignored. */
+ static bool __initdata opt_nosmp;
+@@ -849,9 +850,6 @@ static struct domain *__init create_dom0(const module_t *image,
+     return d;
+ }
+ 
+-/* How much of the directmap is prebuilt at compile time. */
+-#define PREBUILT_MAP_LIMIT (1 << L2_PAGETABLE_SHIFT)
+-
+ void __init noreturn __start_xen(unsigned long mbi_p)
+ {
+     char *memmap_type = NULL;
+@@ -1170,6 +1168,14 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+ #endif
+     }
+ 
++    if ( slaunch_active )
++    {
++        /* Prepare for TXT-related code. */
++        map_txt_mem_regions();
++        /* Reserve TXT heap and SINIT. */
++        protect_txt_mem_regions();
++    }
++
+     /* Sanitise the raw E820 map to produce a final clean version. */
+     max_page = raw_max_page = init_e820(memmap_type, &e820_raw);
+ 
+-- 
+2.46.0
+

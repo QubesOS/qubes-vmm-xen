@@ -1,0 +1,305 @@
+From 37d1ca20da76cfa0fc6ef1954731c41e60da674e Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Mon, 17 Apr 2023 20:09:54 +0200
+Subject: [PATCH 1302/1328] x86/boot/txt_early: add early TXT tests and restore
+ MBI pointer
+
+These tests validate that important parts of memory are protected
+against DMA attacks, including Xen and MBI. Modules can be tested later,
+when it is possible to report issues to user before invoking TXT reset.
+
+TPM event log validation is temporarily disabled due to issue with its
+allocation by bootloader (GRUB) which will need to be modified to
+address this. Ultimately event log will also have to be validated early
+as it is used immediately after these tests to hold MBI measurements.
+See larger comment in verify_pmr_ranges().
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ xen/arch/x86/Makefile                |   1 +
+ xen/arch/x86/boot/Makefile           |   2 +-
+ xen/arch/x86/boot/head.S             |  25 +++++
+ xen/arch/x86/boot/txt_early.c        | 132 +++++++++++++++++++++++++++
+ xen/arch/x86/include/asm/intel_txt.h |  28 ++++++
+ xen/arch/x86/intel_txt.c             |  11 +++
+ 6 files changed, 198 insertions(+), 1 deletion(-)
+ create mode 100644 xen/arch/x86/boot/txt_early.c
+ create mode 100644 xen/arch/x86/intel_txt.c
+
+diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
+index 3e43fcaea9..e62b9ff9bc 100644
+--- a/xen/arch/x86/Makefile
++++ b/xen/arch/x86/Makefile
+@@ -57,6 +57,7 @@ obj-y += percpu.o
+ obj-y += physdev.o
+ obj-$(CONFIG_COMPAT) += x86_64/physdev.o
+ obj-y += psr.o
++obj-y += intel_txt.o
+ obj-y += setup.o
+ obj-y += shutdown.o
+ obj-y += smp.o
+diff --git a/xen/arch/x86/boot/Makefile b/xen/arch/x86/boot/Makefile
+index d6bc8fc084..34df17664a 100644
+--- a/xen/arch/x86/boot/Makefile
++++ b/xen/arch/x86/boot/Makefile
+@@ -1,6 +1,6 @@
+ obj-bin-y += head.o
+ 
+-head-bin-objs := cmdline.o reloc.o
++head-bin-objs := cmdline.o reloc.o txt_early.o
+ 
+ nocov-y   += $(head-bin-objs)
+ noubsan-y += $(head-bin-objs)
+diff --git a/xen/arch/x86/boot/head.S b/xen/arch/x86/boot/head.S
+index 1f7ce5f6ae..6d8988f53c 100644
+--- a/xen/arch/x86/boot/head.S
++++ b/xen/arch/x86/boot/head.S
+@@ -506,6 +506,10 @@ __start:
+         /* Bootloaders may set multiboot{1,2}.mem_lower to a nonzero value. */
+         xor     %edx,%edx
+ 
++        /* Check for TrenchBoot slaunch bootloader. */
++        cmp     $SLAUNCH_BOOTLOADER_MAGIC,%eax
++        je      .Lslaunch_proto
++
+         /* Check for Multiboot2 bootloader. */
+         cmp     $MULTIBOOT2_BOOTLOADER_MAGIC,%eax
+         je      .Lmultiboot2_proto
+@@ -521,6 +525,23 @@ __start:
+         cmovnz  MB_mem_lower(%ebx),%edx
+         jmp     trampoline_bios_setup
+ 
++.Lslaunch_proto:
++        /* Save information that TrenchBoot slaunch was used. */
++        movb    $1, sym_esi(slaunch_active)
++
++        /* Push arguments to stack and call txt_early_tests(). */
++        push    $sym_offs(__2M_rwdata_end)  /* end of target image */
++        push    $sym_offs(_start)           /* target base address */
++        push    %esi                        /* load base address */
++        call    txt_early_tests
++
++        /*
++         * txt_early_tests() returns MBI address, move it to EBX, move magic
++         * number expected by Multiboot 2 to EAX and fall through.
++         */
++        movl    %eax,%ebx
++        movl    $MULTIBOOT2_BOOTLOADER_MAGIC,%eax
++
+ .Lmultiboot2_proto:
+         /* Skip Multiboot2 information fixed part. */
+         lea     (MB2_fixed_sizeof+MULTIBOOT2_TAG_ALIGN-1)(%ebx),%ecx
+@@ -851,6 +872,10 @@ cmdline_parse_early:
+ reloc:
+         .incbin "reloc.bin"
+ 
++        ALIGN
++txt_early_tests:
++        .incbin "txt_early.bin"
++
+ ENTRY(trampoline_start)
+ #include "trampoline.S"
+ ENTRY(trampoline_end)
+diff --git a/xen/arch/x86/boot/txt_early.c b/xen/arch/x86/boot/txt_early.c
+new file mode 100644
+index 0000000000..23ee734c47
+--- /dev/null
++++ b/xen/arch/x86/boot/txt_early.c
+@@ -0,0 +1,132 @@
++/*
++ * Copyright (c) 2022-2023 3mdeb Sp. z o.o. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++/*
++ * This entry point is entered from xen/arch/x86/boot/head.S with Xen base at
++ * 0x4(%esp). A pointer to MBI is returned in %eax.
++ */
++asm (
++    "    .text                         \n"
++    "    .globl _start                 \n"
++    "_start:                           \n"
++    "    jmp  txt_early_tests          \n"
++    );
++
++#include "defs.h"
++#include "../include/asm/intel_txt.h"
++
++static void verify_pmr_ranges(struct txt_os_mle_data *os_mle,
++                              struct txt_os_sinit_data *os_sinit,
++                              uint32_t load_base_addr, uint32_t tgt_base_addr,
++                              uint32_t xen_size)
++{
++    int check_high_pmr = 0;
++
++    /* Verify the value of the low PMR base. It should always be 0. */
++    if ( os_sinit->vtd_pmr_lo_base != 0 )
++        txt_reset(SLAUNCH_ERROR_LO_PMR_BASE);
++
++    /*
++     * Low PMR size should not be 0 on current platforms. There is an ongoing
++     * transition to TPR-based DMA protection instead of PMR-based; this is not
++     * yet supported by the code.
++     */
++    if ( os_sinit->vtd_pmr_lo_size == 0 )
++        txt_reset(SLAUNCH_ERROR_LO_PMR_SIZE);
++
++    /* Check if regions overlap. Treat regions with no hole between as error. */
++    if ( os_sinit->vtd_pmr_hi_size != 0 &&
++         os_sinit->vtd_pmr_hi_base <= os_sinit->vtd_pmr_lo_size )
++        txt_reset(SLAUNCH_ERROR_HI_PMR_BASE);
++
++    /* All regions accessed by 32b code must be below 4G. */
++    if ( os_sinit->vtd_pmr_hi_base + os_sinit->vtd_pmr_hi_size <=
++         0x100000000ull )
++        check_high_pmr = 1;
++
++    /*
++     * ACM checks that TXT heap and MLE memory is protected against DMA. We have
++     * to check if MBI and whole Xen memory is protected. The latter is done in
++     * case bootloader failed to set whole image as MLE and to make sure that
++     * both pre- and post-relocation code is protected.
++     */
++
++    /* Check if all of Xen before relocation is covered by PMR. */
++    if ( !is_in_pmr(os_sinit, load_base_addr, xen_size, check_high_pmr) )
++        txt_reset(SLAUNCH_ERROR_LO_PMR_MLE);
++
++    /* Check if all of Xen after relocation is covered by PMR. */
++    if ( load_base_addr != tgt_base_addr &&
++         !is_in_pmr(os_sinit, tgt_base_addr, xen_size, check_high_pmr) )
++        txt_reset(SLAUNCH_ERROR_LO_PMR_MLE);
++
++    /* Check if MBI is covered by PMR. MBI starts with 'uint32_t total_size'. */
++    if ( !is_in_pmr(os_sinit, os_mle->boot_params_addr,
++                    *(uint32_t *)os_mle->boot_params_addr, check_high_pmr) )
++        txt_reset(SLAUNCH_ERROR_BUFFER_BEYOND_PMR);
++
++    /* Check if TPM event log (if present) is covered by PMR. */
++    /*
++     * FIXME: currently commented out as GRUB allocates it in a hole between
++     * PMR and reserved RAM, due to 2MB resolution of PMR. There are no other
++     * easy-to-use DMA protection mechanisms that would allow to protect that
++     * part of memory. TPR (TXT DMA Protection Range) gives 1MB resolution, but
++     * it still wouldn't be enough.
++     *
++     * One possible solution would be for GRUB to allocate log at lower address,
++     * but this would further increase memory space fragmentation. Another
++     * option is to align PMR up instead of down, making PMR cover part of
++     * reserved region, but it is unclear what the consequences may be.
++     *
++     * In tboot this issue was resolved by reserving leftover chunks of memory
++     * in e820 and/or UEFI memory map. This is also a valid solution, but would
++     * require more changes to GRUB than the ones listed above, as event log is
++     * allocated much earlier than PMRs.
++     */
++    /*
++    if ( os_mle->evtlog_addr != 0 && os_mle->evtlog_size != 0 &&
++         !is_in_pmr(os_sinit, os_mle->evtlog_addr, os_mle->evtlog_size,
++                    check_high_pmr) )
++        txt_reset(SLAUNCH_ERROR_BUFFER_BEYOND_PMR);
++    */
++}
++
++uint32_t __stdcall txt_early_tests(uint32_t load_base_addr,
++                                   uint32_t tgt_base_addr,
++                                   uint32_t tgt_end_addr)
++{
++    void *txt_heap;
++    struct txt_os_mle_data *os_mle;
++    struct txt_os_sinit_data *os_sinit;
++    uint32_t size = tgt_end_addr - tgt_base_addr;
++
++    /* Clear the TXT error registers for a clean start of day */
++    write_txt_reg(TXTCR_ERRORCODE, 0);
++
++    txt_heap = _p(read_txt_reg(TXTCR_HEAP_BASE));
++
++    if ( txt_os_mle_data_size(txt_heap) < sizeof(*os_mle) ||
++         txt_os_sinit_data_size(txt_heap) < sizeof(*os_sinit) )
++        txt_reset(SLAUNCH_ERROR_GENERIC);
++
++    os_mle = txt_os_mle_data_start(txt_heap);
++    os_sinit = txt_os_sinit_data_start(txt_heap);
++
++    verify_pmr_ranges(os_mle, os_sinit, load_base_addr, tgt_base_addr, size);
++
++    return os_mle->boot_params_addr;
++}
+diff --git a/xen/arch/x86/include/asm/intel_txt.h b/xen/arch/x86/include/asm/intel_txt.h
+index 865161cf93..696ed92bac 100644
+--- a/xen/arch/x86/include/asm/intel_txt.h
++++ b/xen/arch/x86/include/asm/intel_txt.h
+@@ -77,6 +77,8 @@
+ 
+ #ifndef __ASSEMBLY__
+ 
++extern bool slaunch_active;
++
+ /* We need to differentiate between pre- and post paging enabled. */
+ #ifdef __BOOT_DEFS_H__
+ #define _txt(x) _p(x)
+@@ -264,4 +266,30 @@ static inline void *txt_sinit_mle_data_start(void *heap)
+         sizeof(uint64_t);
+ }
+ 
++static inline int is_in_pmr(struct txt_os_sinit_data *os_sinit, uint64_t base,
++                            uint32_t size, int check_high)
++{
++    /* Check for size overflow. */
++    if ( base + size < base )
++        txt_reset(SLAUNCH_ERROR_INTEGER_OVERFLOW);
++
++    /* Low range always starts at 0, so its size is also end address. */
++    if ( base >= os_sinit->vtd_pmr_lo_base &&
++         base + size <= os_sinit->vtd_pmr_lo_size )
++        return 1;
++
++    if ( check_high && os_sinit->vtd_pmr_hi_size != 0 )
++    {
++        if ( os_sinit->vtd_pmr_hi_base + os_sinit->vtd_pmr_hi_size <
++             os_sinit->vtd_pmr_hi_size )
++            txt_reset(SLAUNCH_ERROR_INTEGER_OVERFLOW);
++        if ( base >= os_sinit->vtd_pmr_hi_base &&
++             base + size <= os_sinit->vtd_pmr_hi_base +
++                            os_sinit->vtd_pmr_hi_size )
++            return 1;
++    }
++
++    return 0;
++}
++
+ #endif /* __ASSEMBLY__ */
+diff --git a/xen/arch/x86/intel_txt.c b/xen/arch/x86/intel_txt.c
+new file mode 100644
+index 0000000000..d23727cc82
+--- /dev/null
++++ b/xen/arch/x86/intel_txt.c
+@@ -0,0 +1,11 @@
++#include <xen/compiler.h>
++#include <xen/types.h>
++#include <xen/lib.h>
++#include <xen/init.h>
++
++bool __initdata slaunch_active;
++
++static void __maybe_unused compile_time_checks(void)
++{
++    BUILD_BUG_ON(sizeof(slaunch_active) != 1);
++}
+-- 
+2.46.0
+
