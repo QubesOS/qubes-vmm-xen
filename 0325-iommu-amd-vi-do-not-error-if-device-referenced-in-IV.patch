@@ -1,0 +1,50 @@
+From 2defb544900a11f93104ac68d2f8beba89d4bd02 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 15 Oct 2024 14:23:59 +0200
+Subject: [PATCH] iommu/amd-vi: do not error if device referenced in IVMD is
+ not behind any IOMMU
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+IVMD table contains restrictions about memory which must be mandatory assigned
+to devices (and which permissions it should use), or memory that should be
+never accessible to devices.
+
+Some hardware however contains ranges in IVMD that reference devices outside of
+the IVHD tables (in other words, devices not behind any IOMMU).  Such mismatch
+will cause Xen to fail in register_range_for_device(), ultimately leading to
+the IOMMU being disabled, and Xen crashing as x2APIC support might be already
+enabled and relying on the IOMMU functionality.
+
+Relax IVMD parsing: allow IVMD blocks to reference devices not assigned to any
+IOMMU.  It's impossible for Xen to fulfill the requirement in the IVMD block if
+the device is not behind any IOMMU, but it's no worse than booting without
+IOMMU support, and thus not parsing ACPI IVRS in the first place.
+
+Reported-by: Willi Junga <xenproject@ymy.be>
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/drivers/passthrough/amd/iommu_acpi.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/xen/drivers/passthrough/amd/iommu_acpi.c b/xen/drivers/passthrough/amd/iommu_acpi.c
+index 3f5508eba049..c416120326c9 100644
+--- a/xen/drivers/passthrough/amd/iommu_acpi.c
++++ b/xen/drivers/passthrough/amd/iommu_acpi.c
+@@ -248,8 +248,9 @@ static int __init register_range_for_device(
+     iommu = find_iommu_for_device(seg, bdf);
+     if ( !iommu )
+     {
+-        AMD_IOMMU_ERROR("IVMD: no IOMMU for Dev_Id %#x\n", bdf);
+-        return -ENODEV;
++        AMD_IOMMU_WARN("IVMD: no IOMMU for device %pp - ignoring constrain\n",
++                       &PCI_SBDF(seg, bdf));
++        return 0;
+     }
+     req = ivrs_mappings[bdf].dte_requestor_id;
+ 
+-- 
+2.48.0
+
