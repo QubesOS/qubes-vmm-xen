@@ -148,7 +148,7 @@ index 0302b5990f06..35e3e1360423 100644
          unsigned long pci_device_class;
  
 @@ -2613,30 +2724,19 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
-         if (pci_device_class != 0x030000) /* VGA class */
+                 pci_device_class != 0x038000) /* Display class */
              continue;
  
 -        stubdom_domid = libxl_get_stubdom_id(CTX, domid);

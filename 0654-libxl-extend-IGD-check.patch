@@ -29,6 +29,28 @@ index 35e3e1360423..5be9b8239567 100644
              return true;
      }
  
+@@ -2721,7 +2721,8 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
+ 
+         if (sysfs_dev_get_class(gc, pci, &pci_device_class))
+             continue;
+-        if (pci_device_class != 0x030000) /* VGA class */
++        if (pci_device_class != 0x030000 && /* VGA class */
++                pci_device_class != 0x038000) /* Display class */
+             continue;
+ 
+         stubdom_domid = libxl_get_stubdom_id(CTX, domid);
+diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
+index fe5ad75e9eb4..f87b33b28257 100644
+--- a/tools/firmware/hvmloader/pci.c
++++ b/tools/firmware/hvmloader/pci.c
+@@ -178,6 +178,7 @@ void pci_setup(void)
+         switch ( class )
+         {
+         case 0x0300:
++        case 0x0380:
+             /* If emulated VGA is found, preserve it as primary VGA. */
+             if ( (vendor_id == 0x1234) && (device_id == 0x1111) )
+             {
 -- 
 2.46.0
 
