@@ -72,7 +72,7 @@ Release: %{?rctag}@REL@%{?dist}
 Epoch:   2001
 License: GPLv2+ and LGPLv2+ and BSD
 URL:     http://xen.org/
-Source0: https://downloads.xenproject.org/release/xen/%{upstream_version}/xen-%{upstream_version}.0.tar.gz
+Source0: https://downloads.xenproject.org/release/xen/%{upstream_version}/xen-%{upstream_version}.tar.gz
 Source2: %{name}.logrotate
 # .config file for xen hypervisor
 Source3: config
@@ -97,11 +97,12 @@ Patch0202: 0202-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 Patch0203: 0203-xen.efi.build.patch
 
 # Backports (300+)
-Patch0300: 0300-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
-Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
-Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
-Patch0305: 0305-x86-spec-ctrl-Support-for-SRSO_U-S_NO-and-SRSO_MSR_F.patch
-Patch0306: 0306-x86-io-apic-prevent-early-exit-from-i8259-loop-detec.patch
+
+Patch0400: 0400-docs-designs-Add-a-design-document-for-PV-IOMMU.patch
+Patch0401: 0401-docs-designs-Add-a-design-document-for-IOMMU-subsyst.patch
+Patch0402: 0402-IOMMU-Introduce-redesigned-IOMMU-subsystem.patch
+Patch0403: 0403-VT-d-Port-IOMMU-driver-to-new-subsystem.patch
+Patch0404: 0404-xen-public-Introduce-PV-IOMMU-hypercall-interface.patch
 
 # Security fixes (500+)
 
@@ -138,7 +139,7 @@ Patch0627: 0627-x86-msr-Allow-hardware-domain-to-read-package-C-stat.patch
 Patch0628: 0628-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
 Patch0629: 0629-libxl_pci-Pass-power_mgmt-via-QMP.patch
 
-Patch0630: 0630-tools-xg-increase-LZMA_BLOCK_SIZE-for-uncompressing-.patch
+Patch0630: 0630-x86-boot-adjust-text-gap-diff-to-work-with-64-bytes-.patch
 
 Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
 Patch0654: 0654-libxl-extend-IGD-check.patch
@@ -377,7 +378,7 @@ manage Xen virtual machines.
 %endif
 
 %prep
-%autosetup -p1 -n %{name}-%{upstream_version}.0
+%autosetup -p1 -n %{name}-%{upstream_version}
 
 # copy xen hypervisor .config file to change settings
 cp -v %{SOURCE3} xen/.config
@@ -427,6 +428,18 @@ CONFIG_EXTRA="$CONFIG_EXTRA --with-system-seabios=/usr/share/seabios/bios-256k.b
 %else
 CONFIG_EXTRA="$CONFIG_EXTRA --disable-seabios"
 %endif
+
+# BEGIN QUBES SPECIFIC PART
+%ifnarch armv7hl aarch64
+#CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe"
+CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
+CONFIG_EXTRA="$CONFIG_EXTRA --disable-pvshim"
+%endif
+CONFIG_EXTRA="$CONFIG_EXTRA --with-system-qemu=/usr/bin/qemu-system-x86_64"
+export PATH="/usr/bin:$PATH"
+autoreconf -i
+# END QUBES SPECIFIC PART
+
 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --libexecdir=%{_libexecdir} --with-system-qemu=/usr/bin/qemu-system-i386 --with-linux-backend-modules="xen-evtchn xen-gntdev xen-gntalloc xen-blkback xen-netback xen-pciback xen-scsiback xen-acpi-processor" --enable-systemd --disable-pygrub $CONFIG_EXTRA
 unset CFLAGS CXXFLAGS FFLAGS LDFLAGS
 export LDFLAGS="$LDFLAGS_SAVE"
@@ -447,17 +460,6 @@ export CFLAGS=`echo $CFLAGS | sed -e 's/-mfloat-abi=hard//g' -e 's/-march=armv7-
 %endif
 %endif
 unset CFLAGS CXXFLAGS FFLAGS LDFLAGS
-
-# BEGIN QUBES SPECIFIC PART
-%ifnarch armv7hl aarch64
-#CONFIG_EXTRA="$CONFIG_EXTRA --with-system-ipxe=/usr/share/ipxe"
-CONFIG_EXTRA="$CONFIG_EXTRA --disable-ipxe --disable-rombios"
-CONFIG_EXTRA="$CONFIG_EXTRA --disable-pvshim"
-%endif
-CONFIG_EXTRA="$CONFIG_EXTRA --with-system-qemu=/usr/bin/qemu-system-x86_64"
-export PATH="/usr/bin:$PATH"
-autoreconf -i
-# END QUBES SPECIFIC PART
 
 %make_build %{?ocaml_flags} prefix=/usr tools
 %if %build_docs
@@ -896,10 +898,10 @@ fi
 %ifarch %{ix86} x86_64
 %dir %{_libexecdir}/%{name}/boot
 %{_libexecdir}/xen/boot/hvmloader
-%ifnarch %{ix86}
-%{_libexecdir}/%{name}/boot/xen-shim
-/usr/lib/debug%{_libexecdir}/xen/boot/xen-shim-syms
-%endif
+%dnl %ifnarch %{ix86}
+%dnl %{_libexecdir}/%{name}/boot/xen-shim
+%dnl /usr/lib/debug%{_libexecdir}/xen/boot/xen-shim-syms
+%dnl %endif
 %if %build_stubdom
 %if %build_qemutrad
 %{_libexecdir}/xen/boot/ioemu-stubdom.gz
