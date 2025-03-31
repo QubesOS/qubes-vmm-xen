@@ -1,0 +1,33 @@
+From 3eb2c24f633d41c4a4ec7b94feab23d235c235dc Mon Sep 17 00:00:00 2001
+From: Jason Andryuk <jason.andryuk@amd.com>
+Date: Mon, 31 Mar 2025 19:08:07 +0200
+Subject: [PATCH] libxl: Skip missing legacy IRQ
+
+A PCI device's irq field is an 8-bit number.  A value of 0xff indicates
+that the device is not connected.  Additionally, the Linux ACPI code can
+convert these 0xff values to IRQ_NOTCONNECTED(0x80000000) because
+"0x80000000 is guaranteed to be outside the available range of
+interrupts and easy to distinguish from other possible incorrect
+values."  When the hypercall to assign that IRQ fails, device
+passthrough as a whole fails.
+
+---
+ tools/libs/light/libxl_pci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
+index 68d4d50cad9e..a3bb946c2de8 100644
+--- a/tools/libs/light/libxl_pci.c
++++ b/tools/libs/light/libxl_pci.c
+@@ -1486,7 +1486,7 @@ static void pci_add_dm_done(libxl__egc *egc,
+         LOGED(ERROR, domainid, "Couldn't open %s", sysfs_path);
+         goto out_no_irq;
+     }
+-    if ((fscanf(f, "%u", &irq) == 1) && irq) {
++    if ((fscanf(f, "%u", &irq) == 1) && irq > 0 && irq < 0xff) {
+         r = xc_physdev_map_pirq(ctx->xch, domid, irq, &irq);
+         if (r < 0) {
+             LOGED(ERROR, domainid, "xc_physdev_map_pirq irq=%d (error=%d)",
+-- 
+2.48.1
+
