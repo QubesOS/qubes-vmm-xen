@@ -139,6 +139,7 @@ Patch0628: 0628-libxl_pci-Pass-power_mgmt-via-QMP.patch
 Patch0629: 0629-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
 Patch0630: 0630-libxl-extend-IGD-check.patch
 Patch0631: 0631-libxl-Skip-missing-legacy-IRQ.patch
+Patch0632: 0632-libxl-do-not-consider-IGD-VF-a-VGA-passthru.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch

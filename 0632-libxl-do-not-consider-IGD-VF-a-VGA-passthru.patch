@@ -1,0 +1,35 @@
+From 6eac9adf45857e6c9787ad843061136f41883ecb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sun, 6 Apr 2025 12:30:51 +0200
+Subject: [PATCH] libxl: do not consider IGD VF a VGA passthru
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The special QEMU treatment is needed only for non-SR-IOV passthrough. Do
+not set the passthru option automatically for VF. If one really wants,
+the option can still be set manually.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ tools/libs/light/libxl_pci.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
+index 35e3e1360423..cd9acb21efa6 100644
+--- a/tools/libs/light/libxl_pci.c
++++ b/tools/libs/light/libxl_pci.c
+@@ -633,6 +633,9 @@ bool libxl__is_igd_vga_passthru(libxl__gc *gc,
+             pt_vendor != 0x8086)
+             continue;
+ 
++        /* Skip VF, those don't need QEMU hack */
++        if (pci->func)
++            continue;
+         if (sysfs_dev_get_class(gc, pci, &class))
+             continue;
+         if (class == 0x030000 || class == 0x038000)
+-- 
+2.48.1
+
