@@ -143,6 +143,7 @@ Patch0630: 0630-tools-xg-increase-LZMA_BLOCK_SIZE-for-uncompressing-.patch
 Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
 Patch0654: 0654-libxl-extend-IGD-check.patch
 Patch0655: 0655-libxl-Skip-missing-legacy-IRQ.patch
+Patch0656: 0656-libxl-do-not-consider-IGD-VF-a-VGA-passthru.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
