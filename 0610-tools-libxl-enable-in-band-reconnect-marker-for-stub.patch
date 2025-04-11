@@ -1,4 +1,4 @@
-From 3af534eeacc8c2369c0a1c92137cb854ec1bd3a2 Mon Sep 17 00:00:00 2001
+From fe261219dda078109b9d1281d3333a4e658f8475 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 3 Sep 2022 04:31:34 +0200
@@ -42,5 +42,5 @@ index 160d4e065d08..d3df66786c45 100644
      args[nr++] = GCSPRINTF("%s/device-model/%u/qmp-vchan", dom_path, guest_domid);
      args[nr++] = (char*)libxl__qemu_qmp_path(gc, guest_domid);
 -- 
-2.44.0
+2.48.1
 

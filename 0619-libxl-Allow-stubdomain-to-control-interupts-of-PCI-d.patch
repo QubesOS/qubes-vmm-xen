@@ -1,4 +1,4 @@
-From b264671e40262b0e81cf7b1badef2a4da3837946 Mon Sep 17 00:00:00 2001
+From e39dd41d81c2e73736b0c4c83c3c2f57c3ac09b0 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:31:42 +0100
@@ -39,5 +39,5 @@ index bf4acb46d6e8..e87c58100127 100644
  
  out_no_irq:
 -- 
-2.44.0
+2.48.1
 

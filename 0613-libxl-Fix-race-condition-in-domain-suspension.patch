@@ -1,4 +1,4 @@
-From 8d68f1f26f4dcea3957d66470adc5cf1cd3f2d79 Mon Sep 17 00:00:00 2001
+From debe19ab592b03d95e00e9e37a1d1fb4a5cdd2bd Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Thu, 22 Sep 2022 12:27:32 -0400
 Subject: [PATCH] libxl: Fix race condition in domain suspension
@@ -71,5 +71,5 @@ index 1c7ceee60dbf..1ee3e5d88af8 100644
          LOGD(ERROR, dsps->domid, "guest did not suspend, timed out");
          rc = ERROR_GUEST_TIMEDOUT;
 -- 
-2.44.0
+2.48.1
 

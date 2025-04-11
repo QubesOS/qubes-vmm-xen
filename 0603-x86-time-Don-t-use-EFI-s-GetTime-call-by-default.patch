@@ -1,4 +1,4 @@
-From d84e22ff2a88663e5dcb3cdced45faf2aac2fac1 Mon Sep 17 00:00:00 2001
+From d9ec2c6b58264d12bcfee689d632eff226ec08f7 Mon Sep 17 00:00:00 2001
 From: Ross Lagerwall <ross.lagerwall@xxxxxxxxxx>
 Date: Tue, 1 Dec 2015 16:57:46 +0000
 Subject: [PATCH] x86/time: Don't use EFI's GetTime call by default
@@ -48,5 +48,5 @@ index a97d78484105..45f6baf6270b 100644
      if ( likely(!(acpi_gbl_FADT.boot_flags & ACPI_FADT_NO_CMOS_RTC)) )
          cmos_rtc_probe = false;
 -- 
-2.44.0
+2.48.1
 

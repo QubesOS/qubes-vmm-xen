@@ -1,4 +1,4 @@
-From 573919b6c6903ddb920963a10cf5becd398d5d35 Mon Sep 17 00:00:00 2001
+From 94631ec386212c92bb8a732e88e2d45cabfbfcb7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 6 Jun 2020 05:02:33 +0200
@@ -135,5 +135,5 @@ index ff8ddeec9a37..bcbaac8d8f1d 100644
                  machinearg = GCSPRINTF("%s,igd-passthru=on", machinearg);
                  break;
 -- 
-2.44.0
+2.48.1
 

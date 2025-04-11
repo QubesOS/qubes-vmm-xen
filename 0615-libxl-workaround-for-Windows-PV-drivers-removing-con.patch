@@ -1,4 +1,4 @@
-From 13173fb5e3e683b97f6f8a7fdb1be7da1c4913ee Mon Sep 17 00:00:00 2001
+From 78b0146b0f594388520e5826dda489438562137b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Thu, 27 Oct 2022 21:16:18 +0200
@@ -70,5 +70,5 @@ index 324a4c6607e7..25cde778352d 100644
      pvcontrol->path = shutdown_path;
      pvcontrol->what = GCSPRINTF("guest acknowledgement of %s request", cmd);
 -- 
-2.44.0
+2.48.1
 

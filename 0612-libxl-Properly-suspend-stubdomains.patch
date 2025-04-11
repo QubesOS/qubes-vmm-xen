@@ -1,4 +1,4 @@
-From 32cdc76ed616df3de6ee1fb6ff4e01beb8c7696e Mon Sep 17 00:00:00 2001
+From e14611f6d3962b94a3eae264f0ed96af4d7195b9 Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Fri, 16 Sep 2022 07:31:57 -0400
 Subject: [PATCH] libxl: Properly suspend stubdomains
@@ -295,10 +295,10 @@ index ce501a932643..1c7ceee60dbf 100644
          rc = ERROR_INVAL;
          goto out;
 diff --git a/tools/libs/light/libxl_internal.h b/tools/libs/light/libxl_internal.h
-index 6e2363d03196..d19174cbd727 100644
+index e784ef39f2dd..3a1841b2ed90 100644
 --- a/tools/libs/light/libxl_internal.h
 +++ b/tools/libs/light/libxl_internal.h
-@@ -3630,6 +3630,7 @@ struct libxl__domain_suspend_state {
+@@ -3629,6 +3629,7 @@ struct libxl__domain_suspend_state {
                                struct libxl__domain_suspend_state*, int rc);
      void (*callback_common_done)(libxl__egc*,
                                   struct libxl__domain_suspend_state*, int ok);
@@ -307,5 +307,5 @@ index 6e2363d03196..d19174cbd727 100644
  int libxl__domain_suspend_init(libxl__egc *egc,
                                 libxl__domain_suspend_state *dsps,
 -- 
-2.44.0
+2.48.1
 

@@ -1,4 +1,4 @@
-From c106af4d692da9b569d69e7ce25afb41c7bb054d Mon Sep 17 00:00:00 2001
+From a4d8d811c316b24a2add8d2b19a0f5248a678270 Mon Sep 17 00:00:00 2001
 :
 : Upstreaming needs more verbose log message and since Intel's SDM doesn't
 : properly document those MSRs we need to argue about that.
@@ -17,7 +17,7 @@ Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
-index 57ac98479029..ca0b1217913b 100644
+index 52808f980993..183db9f62c88 100644
 --- a/xen/arch/x86/acpi/cpu_idle.c
 +++ b/xen/arch/x86/acpi/cpu_idle.c
 @@ -155,6 +155,12 @@ static void cf_check do_get_hw_residencies(void *arg)
@@ -44,5 +44,5 @@ index 57ac98479029..ca0b1217913b 100644
      case 0x8E:
      case 0x9E:
 -- 
-2.44.0
+2.48.1
 

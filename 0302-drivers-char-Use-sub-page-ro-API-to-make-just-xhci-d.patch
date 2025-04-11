@@ -1,9 +1,9 @@
-From 278c3f5336a02f6c3235772271e364f9d50c6034 Mon Sep 17 00:00:00 2001
+From 007b98b464c07649e9c35feb2c9d61ea6a847732 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Fri, 24 Mar 2023 18:24:41 +0100
-Subject: [PATCH] drivers/char: Use sub-page ro API to make just xhci
- dbc cap RO
+Subject: [PATCH] drivers/char: Use sub-page ro API to make just xhci dbc cap
+ RO
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -23,17 +23,6 @@ not security supported.
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 Reviewed-by: Jan Beulich <jbeulich@suse.com>
----
-Changes in v4:
-- restore mmio_ro_ranges in the fallback case
-- set XHCI_SHARE_NONE in the fallback case
-Changes in v3:
-- indentation fix
-- remove stale comment
-- fallback to pci_ro_device() if subpage_mmio_ro_add() fails
-- extend commit message
-Changes in v2:
- - adjust for simplified subpage_mmio_ro_add() API
 ---
  xen/drivers/char/xhci-dbc.c | 36 ++++++++++++++++++++++--------------
  1 file changed, 22 insertions(+), 14 deletions(-)
@@ -86,5 +75,5 @@ index 8e2037f1a5f7..c45e4b6825cc 100644
  }
  
 -- 
-2.46.0
+2.48.1
 

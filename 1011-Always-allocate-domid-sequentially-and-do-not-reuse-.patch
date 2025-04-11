@@ -11,10 +11,10 @@ happen, to avoid various corner cases.
  1 file changed, 13 insertions(+), 23 deletions(-)
 
 diff --git a/xen/common/domctl.c b/xen/common/domctl.c
-index 2c0331bb05ed..459a3a502154 100644
+index ea16b759109e..3ed121725089 100644
 --- a/xen/common/domctl.c
 +++ b/xen/common/domctl.c
-@@ -412,32 +412,22 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
+@@ -414,32 +414,22 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
      case XEN_DOMCTL_createdomain:
      {
          domid_t        dom;

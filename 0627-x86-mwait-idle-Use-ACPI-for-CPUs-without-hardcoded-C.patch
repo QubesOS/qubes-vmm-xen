@@ -1,4 +1,4 @@
-From 2b4cd4c5ce29c48f49ddb63d09a4c720b6cfe11e Mon Sep 17 00:00:00 2001
+From 50b005956ec6481e9eba8677508df371bbfc3ab7 Mon Sep 17 00:00:00 2001
 :
 : It's currently unclear if it's really needed or not. Keep it disabled
 : by default but compile it in such that testing with it is easy,
@@ -6,7 +6,8 @@ From 2b4cd4c5ce29c48f49ddb63d09a4c720b6cfe11e Mon Sep 17 00:00:00 2001
 : to be needed, we need to check what exactly is needed and then discuss
 : this again [1] with upstream.
 : 
-: [1]: https://lore.kernel.org/xen-devel/10f37ea5-7fa5-976f-3e7b-fc675db20ec0@suse.com/
+: [1]: https://lore.kernel.org/xen-devel/10f37ea5-7fa5-976f-3e7b-fc675db20ec0@s
+se.com/
 :
 From: Simon Gaiser <simon@invisiblethingslab.com>
 Date: Mon, 14 Aug 2023 10:09:59 +0200
@@ -29,7 +30,7 @@ Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
  3 files changed, 142 insertions(+), 34 deletions(-)
 
 diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
-index ca0b1217913b..4f7530d25be1 100644
+index 183db9f62c88..c4d787b5fce9 100644
 --- a/xen/arch/x86/acpi/cpu_idle.c
 +++ b/xen/arch/x86/acpi/cpu_idle.c
 @@ -78,6 +78,7 @@
@@ -111,7 +112,7 @@ index ca0b1217913b..4f7530d25be1 100644
      else if ( cpuidle_current_governor->enable )
      {
          ret = cpuidle_current_governor->enable(acpi_power);
-@@ -1680,7 +1704,7 @@ static int __init cf_check cpuidle_presmp_init(void)
+@@ -1681,7 +1705,7 @@ static int __init cf_check cpuidle_presmp_init(void)
      if ( !xen_cpuidle )
          return 0;
  
@@ -322,5 +323,5 @@ index 707b3e948d45..3f5cd40fd596 100644
  void cf_check default_dead_idle(void);
  void cf_check acpi_dead_idle(void);
 -- 
-2.44.0
+2.48.1
 

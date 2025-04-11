@@ -1,9 +1,4 @@
-From 9168d4279b6dc17b72fe4d6bada91db610071870 Mon Sep 17 00:00:00 2001
-:
-: Upstreaming in progress
-: https://lore.kernel.org/xen-devel/ac77ecba-6804-1d16-60dc-f184e5d31dcb@invisiblethingslab.com/
-: (And also see Link [5] for previous upstream discussion)
-:
+From e8045bc8a3db0a2270949c9fc9874a78fffe0f21 Mon Sep 17 00:00:00 2001
 From: Simon Gaiser <simon@invisiblethingslab.com>
 Date: Mon, 14 Aug 2023 10:21:38 +0200
 Subject: [PATCH] x86/ACPI: Ignore entries marked as unusable when parsing MADT
@@ -100,5 +95,5 @@ index 170f9783c55e..15ce62be0480 100644
  
  	if ((processor->lapic_flags & ACPI_MADT_ENABLED) ||
 -- 
-2.44.0
+2.48.1
 

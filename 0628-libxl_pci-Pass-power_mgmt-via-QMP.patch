@@ -1,7 +1,4 @@
-From 139292ed87c6730454afc74e10a48643f3ec60ea Mon Sep 17 00:00:00 2001
-:
-: Upstreaming only makes sense once QEMU has proper support for this.
-:
+From 7e7e603ffe76d4c296da8f23f3f86c910ea091c1 Mon Sep 17 00:00:00 2001
 From: Simon Gaiser <simon@invisiblethingslab.com>
 Date: Mon, 12 Feb 2024 11:18:40 +0100
 Subject: [PATCH] libxl_pci: Pass power_mgmt via QMP
@@ -25,5 +22,5 @@ index e87c58100127..a6b0e3adcb68 100644
      qmp->ao = pas->aodev->ao;
      qmp->domid = domid;
 -- 
-2.44.0
+2.48.1
 

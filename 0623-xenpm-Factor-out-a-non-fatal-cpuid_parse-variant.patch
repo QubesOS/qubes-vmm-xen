@@ -1,4 +1,4 @@
-From 8ffa3626d98bda43aa4065fb0a8d02493b59dbab Mon Sep 17 00:00:00 2001
+From 43f521fbe0abed8efb8e946e917b0b57176e40f8 Mon Sep 17 00:00:00 2001
 From: Jason Andryuk <jandryuk@gmail.com>
 Date: Wed, 10 Aug 2022 15:29:42 -0400
 Subject: [PATCH] xenpm: Factor out a non-fatal cpuid_parse variant
@@ -14,7 +14,7 @@ Signed-off-by: Jason Andryuk <jandryuk@gmail.com>
  1 file changed, 14 insertions(+), 5 deletions(-)
 
 diff --git a/tools/misc/xenpm.c b/tools/misc/xenpm.c
-index 336d246346bb..1db91e386228 100644
+index db658ebaddd5..1f3d2743da11 100644
 --- a/tools/misc/xenpm.c
 +++ b/tools/misc/xenpm.c
 @@ -105,17 +105,26 @@ void help_func(int argc, char *argv[])
@@ -50,5 +50,5 @@ index 336d246346bb..1db91e386228 100644
  
  static void parse_cpuid_and_int(int argc, char *argv[],
 -- 
-2.44.0
+2.48.1
 

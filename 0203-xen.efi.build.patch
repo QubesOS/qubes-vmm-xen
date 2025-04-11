@@ -1,4 +1,4 @@
-From 22a0881b94f0b17d369ce090cbf3cced6366fae5 Mon Sep 17 00:00:00 2001
+From 05c486eaabe738ac6c92253d2b8e0cf0bf18b289 Mon Sep 17 00:00:00 2001
 From: Fedora developers <devel@fedoraproject.org>
 Date: Mon, 8 Jul 2024 13:35:51 +0200
 Subject: [PATCH] xen.efi.build
@@ -8,10 +8,10 @@ Subject: [PATCH] xen.efi.build
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/xen/arch/x86/arch.mk b/xen/arch/x86/arch.mk
-index 4f6c086988dd..0efc664bc919 100644
+index b88d097a844b..96980ebf4622 100644
 --- a/xen/arch/x86/arch.mk
 +++ b/xen/arch/x86/arch.mk
-@@ -91,7 +91,9 @@ XEN_BUILD_EFI := $(call if-success,$(CC) $(filter-out -include %/include/xen/con
+@@ -97,7 +97,9 @@ XEN_BUILD_EFI := $(call if-success,$(CC) $(filter-out -include %/include/xen/con
                                           -c $(srctree)/$(efi-check).c -o $(efi-check).o,y)
  
  # Check if the linker supports PE.
@@ -23,5 +23,5 @@ index 4f6c086988dd..0efc664bc919 100644
  XEN_BUILD_PE := $(LD_PE_check_cmd)
  
 -- 
-2.44.0
+2.48.1
 

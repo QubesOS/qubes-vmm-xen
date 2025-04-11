@@ -1,4 +1,4 @@
-From 87acd6cc196c9633fe102e329c4c41c8a3a94818 Mon Sep 17 00:00:00 2001
+From ffd8f7b5637b16c1cace7939f108328d583f17b3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Thu, 30 Dec 2021 21:12:00 +0100
@@ -103,7 +103,7 @@ index bcbaac8d8f1d..160d4e065d08 100644
       }
  
 diff --git a/tools/libs/light/libxl_internal.h b/tools/libs/light/libxl_internal.h
-index e455d46dc5ef..6e2363d03196 100644
+index b8646ddad364..e784ef39f2dd 100644
 --- a/tools/libs/light/libxl_internal.h
 +++ b/tools/libs/light/libxl_internal.h
 @@ -1731,6 +1731,9 @@ _hidden int libxl__device_pci_setdefault(libxl__gc *gc, uint32_t domid,
@@ -169,5 +169,5 @@ index 38bffed56238..bf4acb46d6e8 100644
      AO_GC;
      add_pcis_state *apds;
 -- 
-2.44.0
+2.48.1
 

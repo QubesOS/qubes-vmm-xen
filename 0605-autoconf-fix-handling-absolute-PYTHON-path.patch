@@ -1,4 +1,4 @@
-From a2c4f630467fdcfa76d3a1b8ac3ef32727eb15c1 Mon Sep 17 00:00:00 2001
+From 149b6658a56be5087c6e189b4389f7e8e78e720e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 2 Jun 2021 05:24:09 +0200
@@ -39,7 +39,7 @@ index bb60857b030a..c3b38052ae69 100644
      dnl For those that don't have python-config
      CPPFLAGS="$CFLAGS `$PYTHON -c 'import sysconfig; \
 diff --git a/tools/configure.ac b/tools/configure.ac
-index be58f06be450..d4f03d4ba15b 100644
+index 0dd6d747abb5..de0620e00d67 100644
 --- a/tools/configure.ac
 +++ b/tools/configure.ac
 @@ -382,7 +382,6 @@ AS_IF([test -z "$PYTHON"], [AC_CHECK_PROGS([PYTHON], [python3 python python2], e
@@ -51,5 +51,5 @@ index be58f06be450..d4f03d4ba15b 100644
  AX_PATH_PROG_OR_FAIL([PYTHONPATH], [$PYTHON])
  AX_CHECK_PYTHON_VERSION([2], [7])
 -- 
-2.44.0
+2.48.1
 

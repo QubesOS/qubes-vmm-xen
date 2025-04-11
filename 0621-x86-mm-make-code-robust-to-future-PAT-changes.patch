@@ -1,4 +1,4 @@
-From deecde46e68bffdcfe51e8ccd0cadd91e178db50 Mon Sep 17 00:00:00 2001
+From 06656116e9fd93fffce5b988332634440ae24972 Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Mon, 5 Dec 2022 18:19:05 -0500
 Subject: [PATCH] x86/mm: make code robust to future PAT changes
@@ -14,10 +14,10 @@ Signed-off-by: Demi Marie Obenour <demi@invisiblethingslab.com>
  1 file changed, 71 insertions(+)
 
 diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
-index 648d6dd475ba..702c76a879e5 100644
+index 2f107cccb1e6..d52ccdc7cdde 100644
 --- a/xen/arch/x86/mm.c
 +++ b/xen/arch/x86/mm.c
-@@ -6358,6 +6358,11 @@ unsigned long get_upper_mfn_bound(void)
+@@ -6633,6 +6633,11 @@ unsigned long get_upper_mfn_bound(void)
      return min(max_mfn, 1UL << (paddr_bits - PAGE_SHIFT)) - 1;
  }
  
@@ -29,7 +29,7 @@ index 648d6dd475ba..702c76a879e5 100644
  static void __init __maybe_unused build_assertions(void)
  {
      /*
-@@ -6367,6 +6372,72 @@ static void __init __maybe_unused build_assertions(void)
+@@ -6642,6 +6647,72 @@ static void __init __maybe_unused build_assertions(void)
       * using different PATs will not work.
       */
      BUILD_BUG_ON(XEN_MSR_PAT != 0x050100070406ULL);
@@ -103,5 +103,5 @@ index 648d6dd475ba..702c76a879e5 100644
  
  /*
 -- 
-2.44.0
+2.48.1
 

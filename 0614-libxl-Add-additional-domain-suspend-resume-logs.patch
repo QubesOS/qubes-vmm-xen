@@ -1,4 +1,4 @@
-From 0b9478cf367e6a0838fcb3cd8e6c542a4e9f2237 Mon Sep 17 00:00:00 2001
+From d04a833f17bdb466b658ebea3ac94f876a2ca444 Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Mon, 26 Sep 2022 11:05:32 -0400
 Subject: [PATCH] libxl: Add additional domain suspend/resume logs
@@ -114,5 +114,5 @@ index 6751fc785f72..324a4c6607e7 100644
      if (rc < 0) goto out_err;
      dsps->callback_common_done = domain_suspend_empty_cb;
 -- 
-2.44.0
+2.48.1
 

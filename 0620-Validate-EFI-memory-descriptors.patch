@@ -1,4 +1,4 @@
-From b05040c39c83f3872064948303be67edcdc9357d Mon Sep 17 00:00:00 2001
+From 631a20ba94fb494c107e0124aef2b927846f4c5d Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Fri, 18 Nov 2022 22:51:04 -0500
 Subject: [PATCH] Validate EFI memory descriptors
@@ -128,5 +128,5 @@ index d952c3ba785e..84cc5f73f8b0 100644
              if ( info->mem.addr >= desc->PhysicalStart &&
                   info->mem.addr < desc->PhysicalStart + len )
 -- 
-2.44.0
+2.48.1
 

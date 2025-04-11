@@ -1,4 +1,4 @@
-From 6dea874a453d50cf064dd198679c26d22f84b527 Mon Sep 17 00:00:00 2001
+From d91a058e5f37eb3ffc6ce678e14758087cd1305e Mon Sep 17 00:00:00 2001
 From: Wei Ye <wei.ye@intel.com>
 Date: Thu, 21 Aug 2014 03:45:38 +0800
 Subject: [PATCH] hypercall: XENMEM_get_mfn_from_pfn
@@ -79,7 +79,7 @@ index b30453b9de11..54734371681e 100644
  long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
  {
      int rc;
-@@ -4903,6 +4958,15 @@ long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+@@ -4915,6 +4970,15 @@ long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
      }
  #endif
  
@@ -130,5 +130,5 @@ index 5e545ae9a418..c522241e141f 100644
   * XENMEM_get_vnumainfo used by guest to get
   * vNUMA topology from hypervisor.
 -- 
-2.44.0
+2.48.1
 

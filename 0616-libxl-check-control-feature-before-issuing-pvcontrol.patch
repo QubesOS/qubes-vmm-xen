@@ -1,4 +1,4 @@
-From 64e3c902dace81021e306de3acdad757a8e24db3 Mon Sep 17 00:00:00 2001
+From e0b9f2087bf9bd9d578b96015851c820c0fbf457 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Thu, 27 Oct 2022 21:27:05 +0200
@@ -45,5 +45,5 @@ index 25cde778352d..f4bcb0b198cb 100644
      if (rc) {
          xs_transaction_end(ctx->xsh, t, 1);
 -- 
-2.44.0
+2.48.1
 

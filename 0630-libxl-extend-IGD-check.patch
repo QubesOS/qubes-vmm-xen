@@ -1,4 +1,4 @@
-From 7e76d6cc408d11fe7ed9ba4792d063c01646ed3b Mon Sep 17 00:00:00 2001
+From 4a500f4083a6e02ecaf759cdba4ba759fa763130 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Thu, 28 Nov 2024 04:51:44 +0100
@@ -13,11 +13,24 @@ controller". Specifically, IGD on Raptor Lake has 0x038000 class, not
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
- tools/libs/light/libxl_pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ tools/firmware/hvmloader/pci.c | 1 +
+ tools/libs/light/libxl_pci.c   | 5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
+diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
+index c3c61ca060a6..1ee97a5b4b20 100644
+--- a/tools/firmware/hvmloader/pci.c
++++ b/tools/firmware/hvmloader/pci.c
+@@ -173,6 +173,7 @@ void pci_setup(void)
+         switch ( class )
+         {
+         case 0x0300:
++        case 0x0380:
+             /* If emulated VGA is found, preserve it as primary VGA. */
+             if ( (vendor_id == 0x1234) && (device_id == 0x1111) )
+             {
 diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
-index 35e3e1360423..5be9b8239567 100644
+index a6b0e3adcb68..6b8d8945b390 100644
 --- a/tools/libs/light/libxl_pci.c
 +++ b/tools/libs/light/libxl_pci.c
 @@ -635,7 +635,7 @@ bool libxl__is_igd_vga_passthru(libxl__gc *gc,
@@ -29,7 +42,7 @@ index 35e3e1360423..5be9b8239567 100644
              return true;
      }
  
-@@ -2721,7 +2721,8 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
+@@ -2573,7 +2573,8 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
  
          if (sysfs_dev_get_class(gc, pci, &pci_device_class))
              continue;
@@ -39,18 +52,6 @@ index 35e3e1360423..5be9b8239567 100644
              continue;
  
          stubdom_domid = libxl_get_stubdom_id(CTX, domid);
-diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
-index fe5ad75e9eb4..f87b33b28257 100644
---- a/tools/firmware/hvmloader/pci.c
-+++ b/tools/firmware/hvmloader/pci.c
-@@ -178,6 +178,7 @@ void pci_setup(void)
-         switch ( class )
-         {
-         case 0x0300:
-+        case 0x0380:
-             /* If emulated VGA is found, preserve it as primary VGA. */
-             if ( (vendor_id == 0x1234) && (device_id == 0x1111) )
-             {
 -- 
-2.46.0
+2.48.1
 

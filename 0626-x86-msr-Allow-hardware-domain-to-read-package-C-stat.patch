@@ -1,9 +1,4 @@
-From f6be7ac78ebb5646a0f63200676a311ab5e224e2 Mon Sep 17 00:00:00 2001
-:
-: NAKed by upstream: https://lore.kernel.org/xen-devel/15a30769-4a61-ca22-7b5a-6249186cd8a2@suse.com/
-: Keep it in Qubes for now since it's very helpful for debugging with
-: existing software.
-:
+From e41d934545880e754c9d5c8a77864c242da1ac7a Mon Sep 17 00:00:00 2001
 From: Simon Gaiser <simon@invisiblethingslab.com>
 Date: Mon, 8 Jul 2024 13:39:12 +0200
 Subject: [PATCH] x86/msr: Allow hardware domain to read package C-state
@@ -12,16 +7,22 @@ Subject: [PATCH] x86/msr: Allow hardware domain to read package C-state
 Since it's limited to the hardware domain it should be safe and it's
 very useful to have access to this directly in dom0 when debugging power
 related things for example S0ix.
+
+===
+NAKed by upstream: https://lore.kernel.org/xen-devel/15a30769-4a61-ca22-7b5a-6249186cd8a2@suse.com/
+Keep it in Qubes for now since it's very helpful for debugging with
+existing software.
+
 ---
  xen/arch/x86/include/asm/msr-index.h |  9 +++++++++
  xen/arch/x86/pv/emul-priv-op.c       | 19 +++++++++++++++++++
  2 files changed, 28 insertions(+)
 
 diff --git a/xen/arch/x86/include/asm/msr-index.h b/xen/arch/x86/include/asm/msr-index.h
-index 9cdb5b262566..17dd857af802 100644
+index 22d9e76e5521..b324356fd550 100644
 --- a/xen/arch/x86/include/asm/msr-index.h
 +++ b/xen/arch/x86/include/asm/msr-index.h
-@@ -698,4 +698,13 @@
+@@ -699,4 +699,13 @@
  #define MSR_PKGC9_IRTL			0x00000634
  #define MSR_PKGC10_IRTL			0x00000635
  
@@ -36,10 +37,10 @@ index 9cdb5b262566..17dd857af802 100644
 +
  #endif /* __ASM_MSR_INDEX_H */
 diff --git a/xen/arch/x86/pv/emul-priv-op.c b/xen/arch/x86/pv/emul-priv-op.c
-index f101510a1bab..29f3f00e8ed2 100644
+index 70150c272276..848b115e3272 100644
 --- a/xen/arch/x86/pv/emul-priv-op.c
 +++ b/xen/arch/x86/pv/emul-priv-op.c
-@@ -965,6 +965,25 @@ static int cf_check read_msr(
+@@ -969,6 +969,25 @@ static int cf_check read_msr(
          *val = 0;
          return X86EMUL_OKAY;
  
@@ -66,5 +67,5 @@ index f101510a1bab..29f3f00e8ed2 100644
      case MSR_P6_EVNTSEL(0) ... MSR_P6_EVNTSEL(3):
      case MSR_CORE_PERF_FIXED_CTR0 ... MSR_CORE_PERF_FIXED_CTR2:
 -- 
-2.44.0
+2.48.1
 

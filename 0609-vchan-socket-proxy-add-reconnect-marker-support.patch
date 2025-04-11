@@ -1,4 +1,4 @@
-From 0098ec225dc2080b1c14fea603fb602416798d7f Mon Sep 17 00:00:00 2001
+From d70b2a49c66d3fc0ace4bdbd5d98dce33cf48d6c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 3 Sep 2022 03:48:42 +0200
@@ -142,5 +142,5 @@ index 9c4c336b03bb..250ee137d0a5 100644
                  break;
              /* don't reconnect if output was stdout */
 -- 
-2.44.0
+2.48.1
 

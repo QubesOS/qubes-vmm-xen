@@ -1,4 +1,4 @@
-From 10cdd589b0fa637bfd4eb41cc5157ea579e2f1a8 Mon Sep 17 00:00:00 2001
+From 7d4953f72f80129fe556ddfd1feef9a8afc9b285 Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Mon, 26 Sep 2022 10:48:26 -0400
 Subject: [PATCH] libxl: Add a utility function for domain resume
@@ -86,5 +86,5 @@ index 6091a5f3f695..ce501a932643 100644
  }
  
 -- 
-2.44.0
+2.48.1
 

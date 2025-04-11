@@ -1,9 +1,9 @@
-From 7439bbc83314e4d24a82afca4f6dbf1a1d002141 Mon Sep 17 00:00:00 2001
+From e49fd1cd462eb4b38958b40b3517c142e5076616 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Mon, 20 Mar 2023 21:19:25 +0100
-Subject: [PATCH] x86/mm: add API for marking only part of a MMIO page
- read only
+Subject: [PATCH] x86/mm: add API for marking only part of a MMIO page read
+ only
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -76,77 +76,18 @@ early). Debug build has asserts for relevant cases.
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 ---
-Shadow mode is not tested, but I don't expect it to work differently than
-HAP in areas related to this patch.
-
-Changes in v7:
-- refuse misaligned start in release build too, to have release build
-  running what was tested in debug build
-- simplify return from subpage_mmio_ro_add_page
-Changes in v6:
-- fix return type of subpage_mmio_find_page()
-- change 'iter' pointer to 'new_entry' bool and move list_add()
-- comment why different error handling for unaligned start / size
-- code style
-Changes in v5:
-- use subpage_mmio_find_page helper, simplifying several functions
-- use LIST_HEAD_RO_AFTER_INIT
-- don't use subpage_ro_lock in __init
-- drop #ifdef in mm.h
-- return error on unaligned size in subpage_mmio_ro_add() instead of
-  extending the size (in release build)
-Changes in v4:
-- rename SUBPAGE_MMIO_RO_ALIGN to MMIO_RO_SUBPAGE_GRAN
-- guard subpage_mmio_write_accept with CONFIG_HVM, as it's used only
-  there
-- rename ro_qwords to ro_elems
-- use unsigned arguments for subpage_mmio_ro_remove_page()
-- use volatile for __iomem
-- do not set mmio_ro_ctxt.mfn for mmcfg case
-- comment where fields of mmio_ro_ctxt are used
-- use bool for result of __test_and_set_bit
-- do not open-code mfn_to_maddr()
-- remove leftover RCU
-- mention hvm_hap_nested_page_fault() explicitly in the commit message
-Changes in v3:
-- use unsigned int for loop iterators
-- use __set_bit/__clear_bit when under spinlock
-- avoid ioremap() under spinlock
-- do not cast away const
-- handle unaligned parameters in release build
-- comment fixes
-- remove RCU - the add functions are __init and actual usage is only
-  much later after domains are running
-- add checks overlapping ranges in debug build and document the
-  limitations
-- change subpage_mmio_ro_add() so the error path doesn't potentially
-  remove pages from mmio_ro_ranges
-- move printing message to avoid one goto in
-  subpage_mmio_write_emulate()
-Changes in v2:
-- Simplify subpage_mmio_ro_add() parameters
-- add to mmio_ro_ranges from within subpage_mmio_ro_add()
-- use ioremap() instead of caller-provided fixmap
-- use 8-bytes granularity (largest supported single write) and a bitmap
-  instead of a rangeset
-- clarify commit message
-- change how it's plugged in for HVM domain, to not change the behavior for
-  read-only parts (keep it hitting domain_crash(), instead of ignoring
-  write)
-- remove unused subpage_mmio_ro_remove()
----
  xen/arch/x86/hvm/emulate.c      |   2 +-
  xen/arch/x86/hvm/hvm.c          |   4 +-
  xen/arch/x86/include/asm/mm.h   |  23 +++
- xen/arch/x86/mm.c               | 261 ++++++++++++++++++++++++++++++++
+ xen/arch/x86/mm.c               | 262 ++++++++++++++++++++++++++++++++
  xen/arch/x86/pv/ro-page-fault.c |   6 +-
- 5 files changed, 291 insertions(+), 5 deletions(-)
+ 5 files changed, 292 insertions(+), 5 deletions(-)
 
 diff --git a/xen/arch/x86/hvm/emulate.c b/xen/arch/x86/hvm/emulate.c
-index 02e378365b40..7253a87032dd 100644
+index f4b9352c3915..7943a85c9cfa 100644
 --- a/xen/arch/x86/hvm/emulate.c
 +++ b/xen/arch/x86/hvm/emulate.c
-@@ -2734,7 +2734,7 @@ int hvm_emulate_one_mmio(unsigned long mfn, unsigned long gla)
+@@ -2881,7 +2881,7 @@ int hvm_emulate_one_mmio(unsigned long mfn, unsigned long gla)
          .write      = mmio_ro_emulated_write,
          .validate   = hvmemul_validate,
      };
@@ -156,10 +97,10 @@ index 02e378365b40..7253a87032dd 100644
      const struct x86_emulate_ops *ops;
      unsigned int seg, bdf;
 diff --git a/xen/arch/x86/hvm/hvm.c b/xen/arch/x86/hvm/hvm.c
-index 7f4b627b1f5f..a108870558bf 100644
+index fbca7e49495a..74ec4cd954e1 100644
 --- a/xen/arch/x86/hvm/hvm.c
 +++ b/xen/arch/x86/hvm/hvm.c
-@@ -2016,8 +2016,8 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
+@@ -2014,8 +2014,8 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
          goto out_put_gfn;
      }
  
@@ -208,10 +149,10 @@ index 98b66edaca5e..a457f0d2b1b3 100644
  
  int cf_check mmio_ro_emulated_write(
 diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
-index 95795567f2a5..cfd487d06474 100644
+index c3e15a029b48..2f107cccb1e6 100644
 --- a/xen/arch/x86/mm.c
 +++ b/xen/arch/x86/mm.c
-@@ -152,6 +152,18 @@ struct rangeset *__read_mostly mmio_ro_ranges;
+@@ -151,6 +151,18 @@ bool __read_mostly machine_to_phys_mapping_valid;
  struct rangeset *__read_mostly mmio_ro_ranges;
  
  static uint32_t base_disallow_mask;
@@ -230,7 +171,7 @@ index 95795567f2a5..cfd487d06474 100644
  /* Global bit is allowed to be set on L1 PTEs. Intended for user mappings. */
  #define L1_DISALLOW_MASK ((base_disallow_mask | _PAGE_GNTTAB) & ~_PAGE_GLOBAL)
  
-@@ -4912,6 +4923,253 @@ long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+@@ -4910,6 +4922,253 @@ long arch_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
      return rc;
  }
  
@@ -484,7 +425,7 @@ index 95795567f2a5..cfd487d06474 100644
  int cf_check mmio_ro_emulated_write(
      enum x86_segment seg,
      unsigned long offset,
-@@ -4930,6 +5188,9 @@ int cf_check mmio_ro_emulated_write(
+@@ -4928,6 +5187,9 @@ int cf_check mmio_ro_emulated_write(
          return X86EMUL_UNHANDLEABLE;
      }
  
@@ -495,7 +436,7 @@ index 95795567f2a5..cfd487d06474 100644
  }
  
 diff --git a/xen/arch/x86/pv/ro-page-fault.c b/xen/arch/x86/pv/ro-page-fault.c
-index cad28ef928ad..2ea1a6ad489c 100644
+index d0fe07e3a109..17770b6c7e03 100644
 --- a/xen/arch/x86/pv/ro-page-fault.c
 +++ b/xen/arch/x86/pv/ro-page-fault.c
 @@ -333,8 +333,10 @@ static int mmio_ro_do_page_fault(struct x86_emulate_ctxt *ctxt,
@@ -512,5 +453,5 @@ index cad28ef928ad..2ea1a6ad489c 100644
  
  int pv_ro_page_fault(unsigned long addr, struct cpu_user_regs *regs)
 -- 
-2.46.0
+2.48.1
 

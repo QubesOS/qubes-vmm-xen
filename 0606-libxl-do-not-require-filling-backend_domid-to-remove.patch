@@ -1,4 +1,4 @@
-From 8b8674f70b90757ebb10ba58d374175b79a8a19b Mon Sep 17 00:00:00 2001
+From 4ae0fcee1665f7f65fd256c8091bea6b1174919a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Mon, 8 Nov 2021 03:50:35 +0100
@@ -25,7 +25,7 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  2 files changed, 32 insertions(+), 1 deletion(-)
 
 diff --git a/tools/libs/light/libxl_device.c b/tools/libs/light/libxl_device.c
-index 5095dc406355..5a0da92eeece 100644
+index 4faa5fa3bd11..36938b16b658 100644
 --- a/tools/libs/light/libxl_device.c
 +++ b/tools/libs/light/libxl_device.c
 @@ -75,6 +75,25 @@ char *libxl__device_libxl_path(libxl__gc *gc, libxl__device *device)
@@ -82,7 +82,7 @@ index 5095dc406355..5a0da92eeece 100644
  
      rc = libxl__get_domid(gc, &my_domid);
 diff --git a/tools/libs/light/libxl_internal.h b/tools/libs/light/libxl_internal.h
-index 3b58bb2d7f43..e455d46dc5ef 100644
+index 96d14f5746e1..b8646ddad364 100644
 --- a/tools/libs/light/libxl_internal.h
 +++ b/tools/libs/light/libxl_internal.h
 @@ -1525,6 +1525,7 @@ _hidden char *libxl__domain_device_backend_path(libxl__gc *gc, uint32_t backend_
@@ -94,5 +94,5 @@ index 3b58bb2d7f43..e455d46dc5ef 100644
                                        libxl__device *dev);
  _hidden int libxl__console_tty_path(libxl__gc *gc, uint32_t domid, int cons_num,
 -- 
-2.44.0
+2.48.1
 

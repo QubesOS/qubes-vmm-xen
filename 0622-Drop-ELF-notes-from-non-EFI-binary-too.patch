@@ -1,4 +1,4 @@
-From 8e2ec0998c012ba00588e166ea7a935b4d55836d Mon Sep 17 00:00:00 2001
+From 3cc78c50e672d81b7764d6ccafea736e7df729cb Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Mon, 13 Feb 2023 15:12:55 +0100
@@ -36,5 +36,5 @@ index 26a23a7b0651..09c068db41cd 100644
  
    . = ALIGN(SECTION_ALIGN);
 -- 
-2.44.0
+2.48.1
 

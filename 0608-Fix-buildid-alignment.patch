@@ -1,4 +1,4 @@
-From f3e1be07dd30aa29011f0b51accf9b48e5a7cc15 Mon Sep 17 00:00:00 2001
+From bbdd1d8cce4d8b89f458353cb0cdf91065730aa3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:24:37 +0100
@@ -28,5 +28,5 @@ index 9a1dfe1b340a..26a23a7b0651 100644
         __note_gnu_build_id_start = .;
         *(.buildid)
 -- 
-2.44.0
+2.48.1
 

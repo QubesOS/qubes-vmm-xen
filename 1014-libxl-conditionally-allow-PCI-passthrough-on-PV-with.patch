@@ -1,4 +1,4 @@
-From 22491e622845c3afc7006fa2dc621dde9f68ffb1 Mon Sep 17 00:00:00 2001
+From 25b52d40a4c88465242c89bf452a3b79e6a9563d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 16 Jan 2021 05:06:18 +0100
@@ -46,10 +46,10 @@ index 0ed0d026de2e..d89515b8693e 100644
          LOGD(ERROR, domid,
               "passthrough not supported on this platform\n");
 diff --git a/tools/libs/light/libxl_internal.h b/tools/libs/light/libxl_internal.h
-index d19174cbd727..622bb92f490e 100644
+index 3a1841b2ed90..532c42cda89c 100644
 --- a/tools/libs/light/libxl_internal.h
 +++ b/tools/libs/light/libxl_internal.h
-@@ -4851,6 +4851,8 @@ static inline const char *libxl__qemu_qmp_path(libxl__gc *gc, int domid)
+@@ -4850,6 +4850,8 @@ static inline const char *libxl__qemu_qmp_path(libxl__gc *gc, int domid)
      return GCSPRINTF("%s/qmp-libxl-%d", libxl__run_dir_path(), domid);
  }
  
@@ -59,7 +59,7 @@ index d19174cbd727..622bb92f490e 100644
  _hidden int libxl__domain_pvcontrol(libxl__egc *egc,
                                      libxl__xswait_state *pvcontrol,
 diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
-index a6b0e3adcb68..0302b5990f06 100644
+index 6b8d8945b390..3a449d1cc0b7 100644
 --- a/tools/libs/light/libxl_pci.c
 +++ b/tools/libs/light/libxl_pci.c
 @@ -1539,8 +1539,10 @@ out_no_irq:
@@ -118,5 +118,5 @@ index a6b0e3adcb68..0302b5990f06 100644
                                   libxl_device_pci *pci, bool hotplug)
  {
 -- 
-2.44.0
+2.48.1
 
