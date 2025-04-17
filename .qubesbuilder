@@ -13,6 +13,6 @@ source:
 #  - git-url: https://gitlab.com/xen-project/xen.git
   - git-url: https://xenbits.xenproject.org/git-http/xen.git
     tag: RELEASE-@VERSION@
-    git-basename: xen-@VERSION@.0
+    git-basename: xen-@VERSION@
     pubkeys:
     - xen.org-key.asc
