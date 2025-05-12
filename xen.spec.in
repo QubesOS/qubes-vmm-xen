@@ -119,6 +119,13 @@ Patch0325: 0325-iommu-amd-vi-do-not-error-if-device-referenced-in-IV.patch
 
 # Security fixes
 Patch0500: 0500-xsa464.patch
+Patch0501: 0501-x86-alternative-Support-replacements-when-a-feature-.patch
+Patch0502: 0502-x86-guest-Remove-use-of-the-Xen-hypercall_page.patch
+Patch0503: 0503-x86-thunk-Mis-align-__x86_indirect_thunk_-to-mitigat.patch
+Patch0504: 0504-x86-thunk-Mis-align-the-RETs-in-clear_bhb_loops-to-m.patch
+Patch0505: 0505-x86-stubs-Introduce-place_ret-to-abstract-away-raw-0.patch
+Patch0506: 0506-x86-thunk-Build-Xen-with-Return-Thunks.patch
+Patch0507: 0507-x86-spec-ctrl-Synthesise-ITS_NO-to-guests-on-unaffec.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
