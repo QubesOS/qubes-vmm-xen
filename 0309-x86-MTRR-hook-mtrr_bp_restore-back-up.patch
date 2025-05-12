@@ -1,0 +1,71 @@
+From ae562bee695b84240f35739374a013a1520b93e5 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 29 Apr 2025 11:52:22 +0200
+Subject: [PATCH] x86/MTRR: hook mtrr_bp_restore() back up
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unlike stated in the offending commit's description,
+load_system_tables() wasn't the only thing left to retain from the
+earlier restore_rest_processor_state(). Note that MTRR state was still
+reloaded via mtrr_aps_sync_end(), but that happens quite a bit later in
+the resume process.
+
+While there also do Misra-related tidying for the function itself: The
+function being used from assembly only means it doesn't need to have a
+declaration, but wants to be asmlinkage.
+
+Fixes: 4304ff420e51 ("x86/S3: Drop {save,restore}_rest_processor_state() completely")
+Reported-by: Roger Pau Monné <roger.pau@citrix.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Roger Pau Monné <roger.pau@citrix.com>
+master commit: 0414dedd6fde1a1c5c5e38dcbef4dad506e1398c
+master date: 2025-04-03 09:39:13 +0200
+---
+ xen/arch/x86/acpi/wakeup_prot.S | 2 ++
+ xen/arch/x86/cpu/mtrr/main.c    | 2 +-
+ xen/arch/x86/include/asm/mtrr.h | 1 -
+ 3 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/wakeup_prot.S b/xen/arch/x86/acpi/wakeup_prot.S
+index 3855ff1ddb94..66f799339913 100644
+--- a/xen/arch/x86/acpi/wakeup_prot.S
++++ b/xen/arch/x86/acpi/wakeup_prot.S
+@@ -124,6 +124,8 @@ ENTRY(s3_resume)
+         mov     STACK_CPUINFO_FIELD(cr4)(%rbx), %rax
+         mov     %rax, %cr4
+ 
++        call    mtrr_bp_restore
++
+ .Lsuspend_err:
+         pop     %r15
+         pop     %r14
+diff --git a/xen/arch/x86/cpu/mtrr/main.c b/xen/arch/x86/cpu/mtrr/main.c
+index 0a44ebbcb04f..516c8478c6e3 100644
+--- a/xen/arch/x86/cpu/mtrr/main.c
++++ b/xen/arch/x86/cpu/mtrr/main.c
+@@ -609,7 +609,7 @@ void mtrr_aps_sync_end(void)
+ 	hold_mtrr_updates_on_aps = 0;
+ }
+ 
+-void mtrr_bp_restore(void)
++void asmlinkage mtrr_bp_restore(void)
+ {
+ 	mtrr_set_all();
+ }
+diff --git a/xen/arch/x86/include/asm/mtrr.h b/xen/arch/x86/include/asm/mtrr.h
+index 36dac0a775a3..48b59d2620c8 100644
+--- a/xen/arch/x86/include/asm/mtrr.h
++++ b/xen/arch/x86/include/asm/mtrr.h
+@@ -66,7 +66,6 @@ extern uint8_t pat_type_2_pte_flags(uint8_t pat_type);
+ extern int hold_mtrr_updates_on_aps;
+ extern void mtrr_aps_sync_begin(void);
+ extern void mtrr_aps_sync_end(void);
+-extern void mtrr_bp_restore(void);
+ 
+ extern bool mtrr_var_range_msr_set(struct domain *d, struct mtrr_state *m,
+                                    uint32_t msr, uint64_t msr_content);
+-- 
+2.49.0
+

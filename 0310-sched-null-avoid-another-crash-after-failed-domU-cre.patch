@@ -1,0 +1,81 @@
+From f6b37861bcc4e6ce51d366268861c4590e6951e3 Mon Sep 17 00:00:00 2001
+From: Stewart Hildebrand <stewart.hildebrand@amd.com>
+Date: Tue, 29 Apr 2025 11:53:16 +0200
+Subject: [PATCH] sched/null: avoid another crash after failed domU creation
+
+The following sequence of events may lead a debug build of Xen to crash
+when using the null scheduler:
+
+1. domain creation (e.g. d1) failed due to bad configuration
+2. complete_domain_destroy() was deferred
+3. domain creation (e.g. d2) succeeds
+
+At this point, d2 is running, while the zombie d1 is not fully cleaned
+up:
+
+(XEN) Online Cpus: 0-3
+(XEN) Cpupool 0:
+(XEN) Cpus: 0-3
+(XEN) Scheduling granularity: cpu, 1 CPU per sched-resource
+(XEN) Scheduler: null Scheduler (null)
+(XEN)   cpus_free = 3
+(XEN) Domain info:
+(XEN)   Domain: 0
+(XEN)     1: [0.0] pcpu=0
+(XEN)     2: [0.1] pcpu=1
+(XEN)   Domain: 1
+(XEN)     3: [1.0] pcpu=2
+(XEN)   Domain: 2
+(XEN)     4: [2.0] pcpu=2
+
+4. complete_domain_destroy() gets called for d1 and triggers the
+following:
+
+(XEN) Xen call trace:
+(XEN)    [<00000a0000322ed4>] null.c#unit_deassign+0x2d8/0xb70 (PC)
+(XEN)    [<00000a000032457c>] null.c#null_unit_remove+0x670/0xba8 (LR)
+(XEN)    [<00000a000032457c>] null.c#null_unit_remove+0x670/0xba8
+(XEN)    [<00000a0000336404>] sched_destroy_vcpu+0x354/0x8fc
+(XEN)    [<00000a0000227324>] domain.c#complete_domain_destroy+0x11c/0x49c
+(XEN)    [<00000a000029fbd0>] rcupdate.c#rcu_do_batch+0x94/0x3d0
+(XEN)    [<00000a00002a10c0>] rcupdate.c#__rcu_process_callbacks+0x160/0x5f4
+(XEN)    [<00000a00002a1e60>] rcupdate.c#rcu_process_callbacks+0xcc/0x1b0
+(XEN)    [<00000a00002a3460>] softirq.c#__do_softirq+0x1f4/0x3d8
+(XEN)    [<00000a00002a37c4>] do_softirq+0x14/0x1c
+(XEN)    [<00000a0000465260>] traps.c#check_for_pcpu_work+0x30/0xb8
+(XEN)    [<00000a000046bb08>] leave_hypervisor_to_guest+0x28/0x198
+(XEN)    [<00000a0000409c84>] entry.o#guest_sync_slowpath+0xac/0xd8
+(XEN)
+(XEN) ****************************************
+(XEN) Panic on CPU 0:
+(XEN) Assertion 'npc->unit == unit' failed at common/sched/null.c:383
+(XEN) ****************************************
+
+Fix by skipping unit_deassign() when the unit to be removed does not
+match the pcpu's currently assigned unit.
+
+Fixes: c2eae2614c8f ("sched/null: avoid crash after failed domU creation")
+Signed-off-by: Stewart Hildebrand <stewart.hildebrand@amd.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+master commit: 54fe207f29f86c4226a62a4dd289f10d9d2abc40
+master date: 2025-04-07 12:17:31 +0200
+---
+ xen/common/sched/null.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/common/sched/null.c b/xen/common/sched/null.c
+index 7e31440e5b84..c8e327e3cdd0 100644
+--- a/xen/common/sched/null.c
++++ b/xen/common/sched/null.c
+@@ -557,7 +557,7 @@ static void cf_check null_unit_remove(
+ 
+     cpu = sched_unit_master(unit);
+     npc = get_sched_res(cpu)->sched_priv;
+-    if ( npc->unit )
++    if ( npc->unit == unit )
+         unit_deassign(prv, unit);
+ 
+  out:
+-- 
+2.49.0
+

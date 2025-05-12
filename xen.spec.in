@@ -100,6 +100,23 @@ Patch0203: 0203-xen.efi.build.patch
 Patch0300: 0300-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
 Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
 Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
+Patch0303: 0303-automation-eclair-Remove-bespoke-service-B.UNEVALEFF.patch
+Patch0304: 0304-tools-libxl-do-not-use-c-E-compiler-options-together.patch
+Patch0305: 0305-xen-lib-Introduce-SHA2-256.patch
+Patch0306: 0306-x86-ucode-Perform-extra-SHA2-checks-on-AMD-Fam17h-19.patch
+Patch0307: 0307-x86-ucode-Extend-AMD-digest-checks-to-cover-Zen5-CPU.patch
+Patch0309: 0309-x86-MTRR-hook-mtrr_bp_restore-back-up.patch
+Patch0310: 0310-sched-null-avoid-another-crash-after-failed-domU-cre.patch
+Patch0311: 0311-xen-vm_event-do-not-do-vm_event_op-for-an-invalid-do.patch
+Patch0312: 0312-x86-cpu-Validate-CPUID-leaf-0x2-EDX-output.patch
+Patch0313: 0313-xen-x86-irq-initialize-irq-desc-in-create_irq.patch
+Patch0314: 0314-include-sort-wildcard-.-results.patch
+Patch0315: 0315-xen-rangeset-fix-incorrect-subtraction.patch
+Patch0316: 0316-x86-HVM-update-repeat-count-upon-nested-lin-phys-fai.patch
+Patch0317: 0317-x86emul-also-clip-repetition-count-for-STOS.patch
+Patch0318: 0318-compat-memory-avoid-UB-shifts-in-XENMEM_exchange-han.patch
+Patch0319: 0319-x86-intel-workaround-several-MONITOR-MWAIT-errata.patch
+Patch0320: 0320-xen-remove-N-from-the-linker-command-line.patch
 
 # Security fixes (500+)
 

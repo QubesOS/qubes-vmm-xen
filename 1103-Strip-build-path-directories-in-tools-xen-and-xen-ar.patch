@@ -49,7 +49,7 @@ index d902fb7accd9..898065e78950 100644
 +CFLAGS-$(XEN_BUILD_EFI) += -ffile-prefix-map=$(XEN_ROOT)=.
  
  $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
- 	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
+ 	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) \
 -- 
 2.44.0
 

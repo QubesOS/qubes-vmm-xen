@@ -1,0 +1,159 @@
+From cd0fa8381d3389f21305df7b726e7da3b56e1b3c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Tue, 29 Apr 2025 11:58:03 +0200
+Subject: [PATCH] xen: remove -N from the linker command line
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It's unclear why -N is being used in the first place.  It was added by
+commit 4676bbf96dc8 back in 2002 without any justification.
+
+When building a PE image it's actually detrimental to forcefully set the
+.text section as writable.  The GNU LD man page contains the following
+warning regarding the -N option:
+
+> Note: Although a writable text section is allowed for PE-COFF targets, it
+> does not conform to the format specification published by Microsoft.
+
+Remove the usage of -N uniformly on all architectures, assuming that the
+addition was simply done as a copy and paste of the original x86 linking
+rune.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Oleksii Kurochko <oleksii.kurochko@gmail.com>
+Acked-by: Julien Grall <jgrall@amazon.com>
+master commit: d444763f8ca556d0a67a4b933be303d346baef02
+master date: 2025-04-23 16:12:25 +0200
+---
+ xen/arch/arm/Makefile   |  6 +++---
+ xen/arch/ppc/Makefile   |  6 +++---
+ xen/arch/riscv/Makefile |  2 +-
+ xen/arch/x86/Makefile   | 12 ++++++------
+ 4 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/xen/arch/arm/Makefile b/xen/arch/arm/Makefile
+index 45dc29ea53c3..940de246b587 100644
+--- a/xen/arch/arm/Makefile
++++ b/xen/arch/arm/Makefile
+@@ -97,19 +97,19 @@ ifeq ($(CONFIG_ARM_64),y)
+ endif
+ 
+ $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< \
+ 	    $(objtree)/common/symbols-dummy.o -o $(dot-target).0
+ 	$(NM) -pa --format=sysv $(dot-target).0 \
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+ 		> $(dot-target).0.S
+ 	$(MAKE) $(build)=$(@D) $(dot-target).0.o
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< \
+ 	    $(dot-target).0.o -o $(dot-target).1
+ 	$(NM) -pa --format=sysv $(dot-target).1 \
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+ 		> $(dot-target).1.S
+ 	$(MAKE) $(build)=$(@D) $(dot-target).1.o
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) \
+ 	    $(dot-target).1.o -o $@
+ 	$(NM) -pa --format=sysv $@ \
+ 		| $(objtree)/tools/symbols --all-symbols --xensyms --sysv --sort \
+diff --git a/xen/arch/ppc/Makefile b/xen/arch/ppc/Makefile
+index 71feb5e2c41f..b9d61a785615 100644
+--- a/xen/arch/ppc/Makefile
++++ b/xen/arch/ppc/Makefile
+@@ -11,19 +11,19 @@ $(TARGET): $(TARGET)-syms
+ 	cp -f $< $@
+ 
+ $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< \
+ 	    $(objtree)/common/symbols-dummy.o -o $(dot-target).0
+ 	$(NM) -pa --format=sysv $(dot-target).0 \
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+ 		> $(dot-target).0.S
+ 	$(MAKE) $(build)=$(@D) $(dot-target).0.o
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< \
+ 	    $(dot-target).0.o -o $(dot-target).1
+ 	$(NM) -pa --format=sysv $(dot-target).1 \
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+ 		> $(dot-target).1.S
+ 	$(MAKE) $(build)=$(@D) $(dot-target).1.o
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) \
+ 	    $(dot-target).1.o -o $@
+ 	$(NM) -pa --format=sysv $@ \
+ 		| $(objtree)/tools/symbols --all-symbols --xensyms --sysv --sort \
+diff --git a/xen/arch/riscv/Makefile b/xen/arch/riscv/Makefile
+index 1ed1a8369b5d..28b5809dac7f 100644
+--- a/xen/arch/riscv/Makefile
++++ b/xen/arch/riscv/Makefile
+@@ -11,7 +11,7 @@ $(TARGET): $(TARGET)-syms
+ 	$(OBJCOPY) -O binary -S $< $@
+ 
+ $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) -o $@
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) -o $@
+ 	$(NM) -pa --format=sysv $@ \
+ 		| $(objtree)/tools/symbols --all-symbols --xensyms --sysv --sort \
+ 		> $@.map
+diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
+index d902fb7accd9..c1e64278ce85 100644
+--- a/xen/arch/x86/Makefile
++++ b/xen/arch/x86/Makefile
+@@ -137,19 +137,19 @@ $(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
+ CFLAGS-$(XEN_BUILD_EFI) += -DXEN_BUILD_EFI
+ 
+ $(TARGET)-syms: $(objtree)/prelink.o $(obj)/xen.lds
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) \
+ 	    $(objtree)/common/symbols-dummy.o -o $(dot-target).0
+ 	$(NM) -pa --format=sysv $(dot-target).0 \
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+ 		> $(dot-target).0.S
+ 	$(MAKE) $(build)=$(@D) $(dot-target).0.o
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) \
+ 	    $(dot-target).0.o -o $(dot-target).1
+ 	$(NM) -pa --format=sysv $(dot-target).1 \
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort $(syms-warn-dup-y) \
+ 		> $(dot-target).1.S
+ 	$(MAKE) $(build)=$(@D) $(dot-target).1.o
+-	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds -N $< $(build_id_linker) \
++	$(LD) $(XEN_LDFLAGS) -T $(obj)/xen.lds $< $(build_id_linker) \
+ 	    $(orphan-handling-y) $(dot-target).1.o -o $@
+ 	$(NM) -pa --format=sysv $@ \
+ 		| $(objtree)/tools/symbols --all-symbols --xensyms --sysv --sort \
+@@ -210,7 +210,7 @@ ifeq ($(CONFIG_DEBUG_INFO),y)
+ 	$(if $(filter --strip-debug,$(EFI_LDFLAGS)),echo,:) "Will strip debug info from $(@F)"
+ endif
+ 	$(foreach base, $(VIRT_BASE) $(ALT_BASE), \
+-	          $(LD) $(call EFI_LDFLAGS,$(base)) -T $(obj)/efi.lds -N $< $(relocs-dummy) \
++	          $(LD) $(call EFI_LDFLAGS,$(base)) -T $(obj)/efi.lds $< $(relocs-dummy) \
+ 	                $(objtree)/common/symbols-dummy.o $(note_file_option) \
+ 	                -o $(dot-target).$(base).0 &&) :
+ 	$(MKRELOC) $(foreach base,$(VIRT_BASE) $(ALT_BASE),$(dot-target).$(base).0) \
+@@ -220,7 +220,7 @@ endif
+ 		> $(dot-target).0s.S
+ 	$(MAKE) $(build)=$(@D) .$(@F).0r.o .$(@F).0s.o
+ 	$(foreach base, $(VIRT_BASE) $(ALT_BASE), \
+-	          $(LD) $(call EFI_LDFLAGS,$(base)) -T $(obj)/efi.lds -N $< \
++	          $(LD) $(call EFI_LDFLAGS,$(base)) -T $(obj)/efi.lds $< \
+ 	                $(dot-target).0r.o $(dot-target).0s.o $(note_file_option) \
+ 	                -o $(dot-target).$(base).1 &&) :
+ 	$(MKRELOC) $(foreach base,$(VIRT_BASE) $(ALT_BASE),$(dot-target).$(base).1) \
+@@ -229,7 +229,7 @@ endif
+ 		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+ 		> $(dot-target).1s.S
+ 	$(MAKE) $(build)=$(@D) .$(@F).1r.o .$(@F).1s.o
+-	$(LD) $(call EFI_LDFLAGS,$(VIRT_BASE)) -T $(obj)/efi.lds -N $< \
++	$(LD) $(call EFI_LDFLAGS,$(VIRT_BASE)) -T $(obj)/efi.lds $< \
+ 	      $(dot-target).1r.o $(dot-target).1s.o $(orphan-handling-y) \
+ 	      $(note_file_option) -o $@
+ 	$(NM) -pa --format=sysv $@ \
+-- 
+2.49.0
+

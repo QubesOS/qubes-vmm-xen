@@ -1,0 +1,50 @@
+From 7ffef37f55317ffcd01840a2302dfe1c02e0c064 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 29 Apr 2025 11:56:25 +0200
+Subject: [PATCH] x86/HVM: update repeat count upon nested lin->phys failure
+
+For the X86EMUL_EXCEPTION case the repeat count must be correctly
+propagated back. Since for the recursive invocation we use a local
+helper variable, its value needs copying to the caller's one.
+
+While there also correct the off-by-1 range in the comment ahead of the
+function (strictly speaking for the "DF set" case we'd need to put
+another, different range there as well).
+
+Fixes: 53f87c03b4ea ("x86emul: generalize exception handling for rep_* hooks")
+Reported-by: Manuel Andreas <manuel.andreas@tum.de>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: c07b16fd6e47782ebf1ee767cd07c1e2b4140f47
+master date: 2025-04-17 10:01:19 +0200
+---
+ xen/arch/x86/hvm/emulate.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/emulate.c b/xen/arch/x86/hvm/emulate.c
+index f4b9352c3915..03e40ab9ff71 100644
+--- a/xen/arch/x86/hvm/emulate.c
++++ b/xen/arch/x86/hvm/emulate.c
+@@ -826,7 +826,7 @@ static void hvmemul_unmap_linear_addr(
+ 
+ /*
+  * Convert addr from linear to physical form, valid over the range
+- * [addr, addr + *reps * bytes_per_rep]. *reps is adjusted according to
++ * [addr, addr + *reps * bytes_per_rep). *reps is adjusted according to
+  * the valid computed range. It is always >0 when X86EMUL_OKAY is returned.
+  * @pfec indicates the access checks to be performed during page-table walks.
+  */
+@@ -866,7 +866,10 @@ static int hvmemul_linear_to_phys(
+         int rc = hvmemul_linear_to_phys(
+             addr, &_paddr, bytes_per_rep, &one_rep, pfec, hvmemul_ctxt);
+         if ( rc != X86EMUL_OKAY )
++        {
++            *reps = one_rep;
+             return rc;
++        }
+         pfn = _paddr >> PAGE_SHIFT;
+     }
+     else if ( (pfn = paging_gva_to_gfn(curr, addr, &pfec)) == gfn_x(INVALID_GFN) )
+-- 
+2.49.0
+

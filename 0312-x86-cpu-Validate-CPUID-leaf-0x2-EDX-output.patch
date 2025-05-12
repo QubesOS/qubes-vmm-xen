@@ -1,0 +1,46 @@
+From 7abb2300fd43294fe827eec4c680bf6dce0bd1f4 Mon Sep 17 00:00:00 2001
+From: "Ahmed S. Darwish" <darwi@linutronix.de>
+Date: Tue, 29 Apr 2025 11:54:35 +0200
+Subject: [PATCH] x86/cpu: Validate CPUID leaf 0x2 EDX output
+
+CPUID leaf 0x2 emits one-byte descriptors in its four output registers
+EAX, EBX, ECX, and EDX.  For these descriptors to be valid, the most
+significant bit (MSB) of each register must be clear.
+
+Leaf 0x2 parsing at intel.c only validated the MSBs of EAX, EBX, and
+ECX, but left EDX unchecked.
+
+Validate EDX's most-significant bit as well.
+
+Fixes: 1aa6feb63bfd ("Port CPU setup code from Linux 2.6")
+Signed-off-by: Ahmed S. Darwish <darwi@linutronix.de>
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Link: https://lore.kernel.org/r/20250304085152.51092-3-darwi@linutronix.de
+
+Use ARRAY_SIZE() though.
+
+Origin: git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git 1881148215c6
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: a47b44a8f0a58a6015faf6465921cd203f0b51d1
+master date: 2025-04-08 09:37:38 +0200
+---
+ xen/arch/x86/cpu/intel_cacheinfo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/cpu/intel_cacheinfo.c b/xen/arch/x86/cpu/intel_cacheinfo.c
+index 9cfb759be030..e88faa7545bc 100644
+--- a/xen/arch/x86/cpu/intel_cacheinfo.c
++++ b/xen/arch/x86/cpu/intel_cacheinfo.c
+@@ -186,7 +186,7 @@ void init_intel_cacheinfo(struct cpuinfo_x86 *c)
+ 			cpuid(2, &regs[0], &regs[1], &regs[2], &regs[3]);
+ 
+ 			/* If bit 31 is set, this is an unknown format */
+-			for ( j = 0 ; j < 3 ; j++ ) {
++			for ( j = 0; j < ARRAY_SIZE(regs); j++ ) {
+ 				if ( regs[j] >> 31 )
+ 					regs[j] = 0;
+ 			}
+-- 
+2.49.0
+

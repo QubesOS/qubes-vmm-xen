@@ -1,0 +1,38 @@
+From e2adda16e010d23b9b790f0be4de9c6e6c2793f1 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 29 Apr 2025 11:57:07 +0200
+Subject: [PATCH] compat/memory: avoid UB shifts in XENMEM_exchange handling
+
+Add an early basic check, yielding the same error code as the more
+thorough one the main handler would produce.
+
+Fixes: b8a7efe8528a ("Enable compatibility mode operation for HYPERVISOR_memory_op")
+Reported-by: Manuel Andreas <manuel.andreas@tum.de>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Jason Andryuk <jason.andryuk@amd.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: 560c51be8f6a88cde43c0a7c8be60158b5725982
+master date: 2025-04-22 11:25:23 +0200
+---
+ xen/common/compat/memory.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/xen/common/compat/memory.c b/xen/common/compat/memory.c
+index 45e5fb0e5d75..e3eb3c01a118 100644
+--- a/xen/common/compat/memory.c
++++ b/xen/common/compat/memory.c
+@@ -161,6 +161,11 @@ int compat_memory_op(unsigned int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+             if ( copy_from_guest(&cmp.xchg, arg, 1) )
+                 return -EFAULT;
+ 
++            /* Early coarse check, as max_order() isn't available here. */
++            if ( cmp.xchg.in.extent_order >= 32 ||
++                 cmp.xchg.out.extent_order >= 32 )
++                return -EPERM;
++
+             order_delta = cmp.xchg.out.extent_order - cmp.xchg.in.extent_order;
+             /* Various sanity checks. */
+             if ( (cmp.xchg.nr_exchanged > cmp.xchg.in.nr_extents) ||
+-- 
+2.49.0
+
