@@ -1,0 +1,166 @@
+From d71e552eb4eea07c92d028dda0084bdb63dfed51 Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Wed, 16 Nov 2022 15:03:07 +0100
+Subject: [PATCH 1308/1328] x86/boot: choose AP stack based on APIC ID
+
+This is made as the first step of making parallel AP bring-up possible.
+It should be enough for pre-C code.
+
+Parallel AP bring-up is necessary because TXT by design releases all APs
+at once. In addition to that it reduces number of IPIs (and more
+importantly, delays between them) required to start all logical
+processors. This results in significant reduction of boot time, even
+when DRTM is not used, with performance gain growing with the number of
+logical CPUs.
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ xen/arch/x86/boot/head.S             |  1 +
+ xen/arch/x86/boot/trampoline.S       | 21 +++++++++++++++++++++
+ xen/arch/x86/boot/x86_64.S           | 28 +++++++++++++++++++++++++++-
+ xen/arch/x86/include/asm/apicdef.h   |  4 ++++
+ xen/arch/x86/include/asm/msr-index.h |  3 +++
+ xen/arch/x86/setup.c                 |  7 +++++++
+ 6 files changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/boot/head.S b/xen/arch/x86/boot/head.S
+index 33c0779368..7ea50f0098 100644
+--- a/xen/arch/x86/boot/head.S
++++ b/xen/arch/x86/boot/head.S
+@@ -8,6 +8,7 @@
+ #include <asm/page.h>
+ #include <asm/processor.h>
+ #include <asm/msr-index.h>
++#include <asm/apicdef.h>
+ #include <asm/cpufeature.h>
+ #include <public/elfnote.h>
+ 
+diff --git a/xen/arch/x86/boot/trampoline.S b/xen/arch/x86/boot/trampoline.S
+index cdecf949b4..6440f31568 100644
+--- a/xen/arch/x86/boot/trampoline.S
++++ b/xen/arch/x86/boot/trampoline.S
+@@ -72,6 +72,27 @@ trampoline_protmode_entry:
+         mov     $X86_CR4_PAE,%ecx
+         mov     %ecx,%cr4
+ 
++        /*
++         * Get APIC ID while we're in non-paged mode. Start by checking if
++         * x2APIC is enabled.
++         */
++        mov     $MSR_APIC_BASE, %ecx
++        rdmsr
++        test    $APIC_BASE_EXTD, %eax
++        jnz     .Lx2apic
++
++        /* Not x2APIC, read from MMIO */
++        and     $APIC_BASE_ADDR_MASK, %eax
++        mov     APIC_ID(%eax), %esp
++        shr     $24, %esp
++        jmp     1f
++
++.Lx2apic:
++        mov     $(MSR_X2APIC_FIRST + (APIC_ID >> MSR_X2APIC_SHIFT)), %ecx
++        rdmsr
++        mov     %eax, %esp
++1:
++
+         /* Load pagetable base register. */
+         mov     $sym_offs(idle_pg_table),%eax
+         add     bootsym_rel(trampoline_xen_phys_start,4,%eax)
+diff --git a/xen/arch/x86/boot/x86_64.S b/xen/arch/x86/boot/x86_64.S
+index 5d12937a0e..ad2f5058f0 100644
+--- a/xen/arch/x86/boot/x86_64.S
++++ b/xen/arch/x86/boot/x86_64.S
+@@ -15,7 +15,33 @@ ENTRY(__high_start)
+         mov     $XEN_MINIMAL_CR4,%rcx
+         mov     %rcx,%cr4
+ 
+-        mov     stack_start(%rip),%rsp
++        test    %ebx,%ebx
++        cmovz   stack_start(%rip), %rsp
++        jz      .L_stack_set
++
++        /* APs only: get stack base from APIC ID saved in %esp. */
++        mov     $-1, %rax
++        lea     x86_cpu_to_apicid(%rip), %rcx
++1:
++        add     $1, %rax
++        cmp     $NR_CPUS, %eax
++        jb      2f
++        hlt
++2:
++        cmp     %esp, (%rcx, %rax, 4)
++        jne     1b
++
++        /* %eax is now Xen CPU index. */
++        lea     stack_base(%rip), %rcx
++        mov     (%rcx, %rax, 8), %rsp
++
++        test    %rsp,%rsp
++        jnz     1f
++        hlt
++1:
++        add     $(STACK_SIZE - CPUINFO_sizeof), %rsp
++
++.L_stack_set:
+ 
+         /* Reset EFLAGS (subsumes CLI and CLD). */
+         pushq   $0
+diff --git a/xen/arch/x86/include/asm/apicdef.h b/xen/arch/x86/include/asm/apicdef.h
+index 2440d83c8d..251d7f5465 100644
+--- a/xen/arch/x86/include/asm/apicdef.h
++++ b/xen/arch/x86/include/asm/apicdef.h
+@@ -129,6 +129,10 @@
+ 
+ #define MAX_IO_APICS 128
+ 
++#ifndef __ASSEMBLY__
++
+ extern bool x2apic_enabled;
+ 
++#endif /* !__ASSEMBLY__ */
++
+ #endif
+diff --git a/xen/arch/x86/include/asm/msr-index.h b/xen/arch/x86/include/asm/msr-index.h
+index b9e878f8c7..57025b9bf7 100644
+--- a/xen/arch/x86/include/asm/msr-index.h
++++ b/xen/arch/x86/include/asm/msr-index.h
+@@ -165,6 +165,9 @@
+ #define MSR_X2APIC_FIRST                    0x00000800
+ #define MSR_X2APIC_LAST                     0x000008ff
+ 
++/* MSR offset can be obtained by shifting MMIO offset this number of bits to the right. */
++#define MSR_X2APIC_SHIFT                    4
++
+ #define MSR_X2APIC_TPR                      0x00000808
+ #define MSR_X2APIC_PPR                      0x0000080a
+ #define MSR_X2APIC_EOI                      0x0000080b
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 06e5dec254..49694e10a2 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -1907,6 +1907,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+      */
+     if ( !pv_shim )
+     {
++        /* Separate loop to make parallel AP bringup possible. */
+         for_each_present_cpu ( i )
+         {
+             /* Set up cpu_to_node[]. */
+@@ -1914,6 +1915,12 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+             /* Set up node_to_cpumask based on cpu_to_node[]. */
+             numa_add_cpu(i);
+ 
++            if ( stack_base[i] == NULL )
++                stack_base[i] = cpu_alloc_stack(i);
++        }
++
++        for_each_present_cpu ( i )
++        {
+             if ( (park_offline_cpus || num_online_cpus() < max_cpus) &&
+                  !cpu_online(i) )
+             {
+-- 
+2.46.0
+

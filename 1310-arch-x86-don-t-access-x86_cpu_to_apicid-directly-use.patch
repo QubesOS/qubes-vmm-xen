@@ -1,0 +1,265 @@
+From b9097f06f2ba539af16a58969f689b4ade373555 Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Thu, 1 Jun 2023 16:05:18 +0200
+Subject: [PATCH 1310/1328] arch/x86: don't access x86_cpu_to_apicid[]
+ directly, use cpu_physical_id(cpu)
+
+This is done in preparation to move data from x86_cpu_to_apicid[]
+elsewhere.
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/acpi/cpu_idle.c      |  4 ++--
+ xen/arch/x86/acpi/lib.c           |  2 +-
+ xen/arch/x86/apic.c               |  2 +-
+ xen/arch/x86/cpu/mwait-idle.c     |  4 ++--
+ xen/arch/x86/domain.c             |  2 +-
+ xen/arch/x86/mpparse.c            |  6 +++---
+ xen/arch/x86/numa.c               |  2 +-
+ xen/arch/x86/platform_hypercall.c |  2 +-
+ xen/arch/x86/setup.c              | 14 +++++++-------
+ xen/arch/x86/smpboot.c            |  6 +++---
+ xen/arch/x86/spec_ctrl.c          |  2 +-
+ xen/arch/x86/sysctl.c             |  2 +-
+ 12 files changed, 24 insertions(+), 24 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
+index 44347e3390..2ae666ec94 100644
+--- a/xen/arch/x86/acpi/cpu_idle.c
++++ b/xen/arch/x86/acpi/cpu_idle.c
+@@ -1260,7 +1260,7 @@ int get_cpu_id(u32 acpi_id)
+ 
+     for ( i = 0; i < nr_cpu_ids; i++ )
+     {
+-        if ( apic_id == x86_cpu_to_apicid[i] )
++        if ( apic_id == cpu_physical_id(i) )
+             return i;
+     }
+ 
+@@ -1320,7 +1320,7 @@ static void print_cx_pminfo(uint32_t cpu, struct xen_processor_power *power)
+ 
+ static void repark_cpu(int cpu_id)
+ {
+-    uint32_t apic_id = x86_cpu_to_apicid[cpu_id];
++    uint32_t apic_id = cpu_physical_id(cpu_id);
+ 
+     /*
+      * If we've just learned of more available C states, wake the CPU if
+diff --git a/xen/arch/x86/acpi/lib.c b/xen/arch/x86/acpi/lib.c
+index 43831b92d1..55d0ef919c 100644
+--- a/xen/arch/x86/acpi/lib.c
++++ b/xen/arch/x86/acpi/lib.c
+@@ -89,7 +89,7 @@ unsigned int acpi_get_processor_id(unsigned int cpu)
+ {
+ 	unsigned int acpiid, apicid;
+ 
+-	if ((apicid = x86_cpu_to_apicid[cpu]) == BAD_APICID)
++	if ((apicid = cpu_physical_id(cpu)) == BAD_APICID)
+ 		return INVALID_ACPIID;
+ 
+ 	for (acpiid = 0; acpiid < ARRAY_SIZE(x86_acpiid_to_apicid); acpiid++)
+diff --git a/xen/arch/x86/apic.c b/xen/arch/x86/apic.c
+index e43b779036..0feffbf305 100644
+--- a/xen/arch/x86/apic.c
++++ b/xen/arch/x86/apic.c
+@@ -985,7 +985,7 @@ __next:
+      */
+     if (boot_cpu_physical_apicid == -1U)
+         boot_cpu_physical_apicid = get_apic_id();
+-    x86_cpu_to_apicid[0] = get_apic_id();
++    cpu_physical_id(0) = get_apic_id();
+ 
+     ioapic_init();
+ }
+diff --git a/xen/arch/x86/cpu/mwait-idle.c b/xen/arch/x86/cpu/mwait-idle.c
+index e3d3b8ba73..3b35fef774 100644
+--- a/xen/arch/x86/cpu/mwait-idle.c
++++ b/xen/arch/x86/cpu/mwait-idle.c
+@@ -1221,8 +1221,8 @@ static void __init ivt_idle_state_table_update(void)
+ 	unsigned int cpu, max_apicid = boot_cpu_physical_apicid;
+ 
+ 	for_each_present_cpu(cpu)
+-		if (max_apicid < x86_cpu_to_apicid[cpu])
+-			max_apicid = x86_cpu_to_apicid[cpu];
++		if (max_apicid < cpu_physical_id(cpu))
++			max_apicid = cpu_physical_id(cpu);
+ 	switch (apicid_to_socket(max_apicid)) {
+ 	case 0: case 1:
+ 		/* 1 and 2 socket systems use default ivt_cstates */
+diff --git a/xen/arch/x86/domain.c b/xen/arch/x86/domain.c
+index 5dbd1d8a12..6738449761 100644
+--- a/xen/arch/x86/domain.c
++++ b/xen/arch/x86/domain.c
+@@ -1538,7 +1538,7 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
+             break;
+ 
+         cpu_id.phys_id =
+-            (uint64_t)x86_cpu_to_apicid[v->vcpu_id] |
++            (uint64_t)cpu_physical_id(v->vcpu_id) |
+             ((uint64_t)acpi_get_processor_id(v->vcpu_id) << 32);
+ 
+         rc = -EFAULT;
+diff --git a/xen/arch/x86/mpparse.c b/xen/arch/x86/mpparse.c
+index d8ccab2449..b8cabebe7b 100644
+--- a/xen/arch/x86/mpparse.c
++++ b/xen/arch/x86/mpparse.c
+@@ -187,7 +187,7 @@ static int MP_processor_info_x(struct mpc_config_processor *m,
+ 			       " Processor with apicid %i ignored\n", apicid);
+ 			return cpu;
+ 		}
+-		x86_cpu_to_apicid[cpu] = apicid;
++		cpu_physical_id(cpu) = apicid;
+ 		cpumask_set_cpu(cpu, &cpu_present_map);
+ 	}
+ 
+@@ -822,12 +822,12 @@ void mp_unregister_lapic(uint32_t apic_id, uint32_t cpu)
+ 	if (!cpu || (apic_id == boot_cpu_physical_apicid))
+ 		return;
+ 
+-	if (x86_cpu_to_apicid[cpu] != apic_id)
++	if (cpu_physical_id(cpu) != apic_id)
+ 		return;
+ 
+ 	physid_clear(apic_id, phys_cpu_present_map);
+ 
+-	x86_cpu_to_apicid[cpu] = BAD_APICID;
++	cpu_physical_id(cpu) = BAD_APICID;
+ 	cpumask_clear_cpu(cpu, &cpu_present_map);
+ }
+ 
+diff --git a/xen/arch/x86/numa.c b/xen/arch/x86/numa.c
+index 322157fab7..22ff0923d4 100644
+--- a/xen/arch/x86/numa.c
++++ b/xen/arch/x86/numa.c
+@@ -340,7 +340,7 @@ void __init init_cpu_to_node(void)
+ 
+     for ( i = 0; i < nr_cpu_ids; i++ )
+     {
+-        u32 apicid = x86_cpu_to_apicid[i];
++        u32 apicid = cpu_physical_id(i);
+         if ( apicid == BAD_APICID )
+             continue;
+         node = apicid < MAX_LOCAL_APIC ? apicid_to_node[apicid] : NUMA_NO_NODE;
+diff --git a/xen/arch/x86/platform_hypercall.c b/xen/arch/x86/platform_hypercall.c
+index 27a799161a..890595340e 100644
+--- a/xen/arch/x86/platform_hypercall.c
++++ b/xen/arch/x86/platform_hypercall.c
+@@ -588,7 +588,7 @@ ret_t do_platform_op(
+         }
+         else
+         {
+-            g_info->apic_id = x86_cpu_to_apicid[g_info->xen_cpuid];
++            g_info->apic_id = cpu_physical_id(g_info->xen_cpuid);
+             g_info->acpi_id = acpi_get_processor_id(g_info->xen_cpuid);
+             ASSERT(g_info->apic_id != BAD_APICID);
+             g_info->flags = 0;
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 49694e10a2..1a4bab89a4 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -317,7 +317,7 @@ static void __init init_idle_domain(void)
+ void srat_detect_node(int cpu)
+ {
+     nodeid_t node;
+-    u32 apicid = x86_cpu_to_apicid[cpu];
++    u32 apicid = cpu_physical_id(cpu);
+ 
+     node = apicid < MAX_LOCAL_APIC ? apicid_to_node[apicid] : NUMA_NO_NODE;
+     if ( node == NUMA_NO_NODE )
+@@ -344,7 +344,7 @@ static void __init normalise_cpu_order(void)
+ 
+     for_each_present_cpu ( i )
+     {
+-        apicid = x86_cpu_to_apicid[i];
++        apicid = cpu_physical_id(i);
+         min_diff = min_cpu = ~0u;
+ 
+         /*
+@@ -355,12 +355,12 @@ static void __init normalise_cpu_order(void)
+               j < nr_cpu_ids;
+               j = cpumask_next(j, &cpu_present_map) )
+         {
+-            diff = x86_cpu_to_apicid[j] ^ apicid;
++            diff = cpu_physical_id(j) ^ apicid;
+             while ( diff & (diff-1) )
+                 diff &= diff-1;
+             if ( (diff < min_diff) ||
+                  ((diff == min_diff) &&
+-                  (x86_cpu_to_apicid[j] < x86_cpu_to_apicid[min_cpu])) )
++                  (cpu_physical_id(j) < cpu_physical_id(min_cpu))) )
+             {
+                 min_diff = diff;
+                 min_cpu = j;
+@@ -376,9 +376,9 @@ static void __init normalise_cpu_order(void)
+ 
+         /* Switch the best-matching CPU with the next CPU in logical order. */
+         j = cpumask_next(i, &cpu_present_map);
+-        apicid = x86_cpu_to_apicid[min_cpu];
+-        x86_cpu_to_apicid[min_cpu] = x86_cpu_to_apicid[j];
+-        x86_cpu_to_apicid[j] = apicid;
++        apicid = cpu_physical_id(min_cpu);
++        cpu_physical_id(min_cpu) = cpu_physical_id(j);
++        cpu_physical_id(j) = apicid;
+     }
+ }
+ 
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 8cd2bc4573..cf45ba21c6 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -347,7 +347,7 @@ void start_secondary(void *unused)
+         x2apic_ap_setup();
+         my_apicid = get_apic_id();
+ 
+-        while ( my_apicid != x86_cpu_to_apicid[cpu] ) {
++        while ( my_apicid != cpu_physical_id(cpu) ) {
+             asm volatile ("monitor; xor %0,%0; mwait"
+                           :: "a"(__va(sinit_mle->rlp_wakeup_addr)), "c"(0),
+                           "d"(0) : "memory");
+@@ -1223,7 +1223,7 @@ void __init smp_prepare_cpus(void)
+     print_cpu_info(0);
+ 
+     boot_cpu_physical_apicid = get_apic_id();
+-    x86_cpu_to_apicid[0] = boot_cpu_physical_apicid;
++    cpu_physical_id(0) = boot_cpu_physical_apicid;
+ 
+     stack_base[0] = (void *)((unsigned long)stack_start & ~(STACK_SIZE - 1));
+ 
+@@ -1443,7 +1443,7 @@ int __cpu_up(unsigned int cpu)
+ {
+     int apicid, ret;
+ 
+-    if ( (apicid = x86_cpu_to_apicid[cpu]) == BAD_APICID )
++    if ( (apicid = cpu_physical_id(cpu)) == BAD_APICID )
+         return -ENODEV;
+ 
+     if ( (!x2apic_enabled && apicid >= APIC_ALL_CPUS) ||
+diff --git a/xen/arch/x86/spec_ctrl.c b/xen/arch/x86/spec_ctrl.c
+index 7697f9ad3f..d3fc2ed637 100644
+--- a/xen/arch/x86/spec_ctrl.c
++++ b/xen/arch/x86/spec_ctrl.c
+@@ -717,7 +717,7 @@ static bool __init check_smt_enabled(void)
+      * has a non-zero thread id component indicates that SMT is active.
+      */
+     for_each_present_cpu ( cpu )
+-        if ( x86_cpu_to_apicid[cpu] & (boot_cpu_data.x86_num_siblings - 1) )
++        if ( cpu_physical_id(cpu) & (boot_cpu_data.x86_num_siblings - 1) )
+             return true;
+ 
+     return false;
+diff --git a/xen/arch/x86/sysctl.c b/xen/arch/x86/sysctl.c
+index 42dc360ad6..de9b75c1ec 100644
+--- a/xen/arch/x86/sysctl.c
++++ b/xen/arch/x86/sysctl.c
+@@ -59,7 +59,7 @@ static long cf_check smt_up_down_helper(void *data)
+     for_each_present_cpu ( cpu )
+     {
+         /* Skip primary siblings (those whose thread id is 0). */
+-        if ( !(x86_cpu_to_apicid[cpu] & sibling_mask) )
++        if ( !(cpu_physical_id(cpu) & sibling_mask) )
+             continue;
+ 
+         if ( !up && core_parking_remove(cpu) )
+-- 
+2.46.0
+
