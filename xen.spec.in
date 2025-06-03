@@ -116,6 +116,10 @@ Patch0322: 0322-xen-spinlock-Fix-UBSAN-load-of-address-with-insuffic.patch
 Patch0323: 0323-x86-io-apic-fix-directed-EOI-when-using-AMD-Vi-inter.patch
 Patch0324: 0324-x86-io-apic-prevent-early-exit-from-i8259-loop-detec.patch
 Patch0325: 0325-iommu-amd-vi-do-not-error-if-device-referenced-in-IV.patch
+Patch0326: 0326-x86-cpuid-More-AMD-features.patch
+Patch0327: 0327-x86-spec-ctrl-Support-for-SRSO_U-S_NO-and-SRSO_MSR_F.patch
+Patch0328: 0328-x86-traps-Rework-LER-initialisation-and-support-Zen5.patch
+Patch0329: 0329-x86-amd-Misc-setup-for-Fam1Ah-processors.patch
 
 # Security fixes
 Patch0500: 0500-xsa464.patch

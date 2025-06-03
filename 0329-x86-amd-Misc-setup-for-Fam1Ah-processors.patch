@@ -1,0 +1,64 @@
+From f29cc14de1d195bcd8312dcab2b5f8e634b57288 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 31 Dec 2024 14:15:22 +0000
+Subject: [PATCH] x86/amd: Misc setup for Fam1Ah processors
+
+Fam1Ah is similar to Fam19h in these regards.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/acpi/cpu_idle.c     | 1 +
+ xen/arch/x86/cpu/microcode/amd.c | 4 ++++
+ xen/arch/x86/cpu/vpmu_amd.c      | 1 +
+ 3 files changed, 6 insertions(+)
+
+diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
+index 876317fad059..420198406def 100644
+--- a/xen/arch/x86/acpi/cpu_idle.c
++++ b/xen/arch/x86/acpi/cpu_idle.c
+@@ -1417,6 +1417,7 @@ static void amd_cpuidle_init(struct acpi_processor_power *power)
+ 
+     switch ( c->x86 )
+     {
++    case 0x1a:
+     case 0x19:
+     case 0x18:
+         if ( boot_cpu_data.x86_vendor != X86_VENDOR_HYGON )
+diff --git a/xen/arch/x86/cpu/microcode/amd.c b/xen/arch/x86/cpu/microcode/amd.c
+index ba7668a94670..210736f5804a 100644
+--- a/xen/arch/x86/cpu/microcode/amd.c
++++ b/xen/arch/x86/cpu/microcode/amd.c
+@@ -114,6 +114,7 @@ static bool verify_patch_size(uint32_t patch_size)
+ #define F16H_MPB_MAX_SIZE 3458
+ #define F17H_MPB_MAX_SIZE 3200
+ #define F19H_MPB_MAX_SIZE 5568
++#define F1AH_MPB_MAX_SIZE 15296
+ 
+     switch ( boot_cpu_data.x86 )
+     {
+@@ -132,6 +133,9 @@ static bool verify_patch_size(uint32_t patch_size)
+     case 0x19:
+         max_size = F19H_MPB_MAX_SIZE;
+         break;
++    case 0x1a:
++        max_size = F1AH_MPB_MAX_SIZE;
++        break;
+     default:
+         max_size = F1XH_MPB_MAX_SIZE;
+         break;
+diff --git a/xen/arch/x86/cpu/vpmu_amd.c b/xen/arch/x86/cpu/vpmu_amd.c
+index a082450e923a..a6117dfebf2a 100644
+--- a/xen/arch/x86/cpu/vpmu_amd.c
++++ b/xen/arch/x86/cpu/vpmu_amd.c
+@@ -568,6 +568,7 @@ const struct arch_vpmu_ops *__init amd_vpmu_init(void)
+     case 0x15:
+     case 0x17:
+     case 0x19:
++    case 0x1a:
+         num_counters = F15H_NUM_COUNTERS;
+         counters = AMD_F15H_COUNTERS;
+         ctrls = AMD_F15H_CTRLS;
+-- 
+2.49.0
+
