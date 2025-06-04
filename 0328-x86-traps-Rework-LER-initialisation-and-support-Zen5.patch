@@ -1,0 +1,154 @@
+From 555866cb56002849014a1409ecdfa3f436c0c2c4 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 31 Dec 2024 14:06:19 +0000
+Subject: [PATCH] x86/traps: Rework LER initialisation and support Zen5/Diamond
+ Rapids
+
+AMD have always used the architectural MSRs for LER.  As the first processor
+to support LER was the K7 (which was 32bit), we can assume it's presence
+unconditionally in 64bit mode.
+
+Intel are about to run out of space in Family 6 and start using 19.  It is
+only the Pentium 4 which uses non-architectural LER MSRs.
+
+percpu_traps_init(), which runs on every CPU, contains a lot of code which
+should be init-only, and is the only reason why opt_ler can't be in initdata.
+
+Write a brand new init_ler() which expects all future Intel and AMD CPUs to
+continue using the architectural MSRs, and does all setup together.  Call it
+from trap_init(), and remove the setup logic percpu_traps_init() except for
+the single path configuring MSR_IA32_DEBUGCTLMSR.
+
+Leave behind a warning if the user asked for LER and Xen couldn't enable it.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/arch/x86/traps.c | 86 ++++++++++++++++++++------------------------
+ 1 file changed, 39 insertions(+), 47 deletions(-)
+
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index fd8a4448e3f7..87b30ce4df2a 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -114,7 +114,7 @@ DEFINE_PER_CPU_PAGE_ALIGNED(struct tss_page, tss_page);
+ static int debug_stack_lines = 20;
+ integer_param("debug_stack_lines", debug_stack_lines);
+ 
+-static bool __ro_after_init opt_ler;
++static bool __initdata opt_ler;
+ boolean_param("ler", opt_ler);
+ 
+ /* LastExceptionFromIP on this hardware.  Zero if LER is not in use. */
+@@ -2092,56 +2092,10 @@ static void __init set_intr_gate(unsigned int n, void *addr)
+     __set_intr_gate(n, 0, addr);
+ }
+ 
+-static unsigned int noinline __init calc_ler_msr(void)
+-{
+-    switch ( boot_cpu_data.x86_vendor )
+-    {
+-    case X86_VENDOR_INTEL:
+-        switch ( boot_cpu_data.x86 )
+-        {
+-        case 6:
+-            return MSR_IA32_LASTINTFROMIP;
+-
+-        case 15:
+-            return MSR_P4_LER_FROM_LIP;
+-        }
+-        break;
+-
+-    case X86_VENDOR_AMD:
+-        switch ( boot_cpu_data.x86 )
+-        {
+-        case 6:
+-        case 0xf ... 0x19:
+-            return MSR_IA32_LASTINTFROMIP;
+-        }
+-        break;
+-
+-    case X86_VENDOR_HYGON:
+-        return MSR_IA32_LASTINTFROMIP;
+-    }
+-
+-    return 0;
+-}
+-
+ void percpu_traps_init(void)
+ {
+     subarch_percpu_traps_init();
+ 
+-    if ( !opt_ler )
+-        return;
+-
+-    if ( !ler_msr )
+-    {
+-        ler_msr = calc_ler_msr();
+-        if ( !ler_msr )
+-        {
+-            opt_ler = false;
+-            return;
+-        }
+-
+-        setup_force_cpu_cap(X86_FEATURE_XEN_LBR);
+-    }
+-
+     if ( cpu_has_xen_lbr )
+         wrmsrl(MSR_IA32_DEBUGCTLMSR, IA32_DEBUGCTLMSR_LBR);
+ }
+@@ -2201,6 +2155,42 @@ void __init init_idt_traps(void)
+         this_cpu(compat_gdt) = boot_compat_gdt;
+ }
+ 
++static void __init init_ler(void)
++{
++    unsigned int msr = 0;
++
++    if ( !opt_ler )
++        return;
++
++    /*
++     * Intel Pentium 4 is the only known CPU to not use the architectural MSR
++     * indicies.
++     */
++    switch ( boot_cpu_data.x86_vendor )
++    {
++    case X86_VENDOR_INTEL:
++        if ( boot_cpu_data.x86 == 0xf )
++        {
++            msr = MSR_P4_LER_FROM_LIP;
++            break;
++        }
++        fallthrough;
++    case X86_VENDOR_AMD:
++    case X86_VENDOR_HYGON:
++        msr = MSR_IA32_LASTINTFROMIP;
++        break;
++    }
++
++    if ( msr == 0 )
++    {
++        printk(XENLOG_WARNING "LER disabled: failed to identify MSRs\n");
++        return;
++    }
++
++    ler_msr = msr;
++    setup_force_cpu_cap(X86_FEATURE_XEN_LBR);
++}
++
+ extern void (*const autogen_entrypoints[X86_NR_VECTORS])(void);
+ void __init trap_init(void)
+ {
+@@ -2226,6 +2216,8 @@ void __init trap_init(void)
+         }
+     }
+ 
++    init_ler();
++
+     /* Cache {,compat_}gdt_l1e now that physically relocation is done. */
+     this_cpu(gdt_l1e) =
+         l1e_from_pfn(virt_to_mfn(boot_gdt), __PAGE_HYPERVISOR_RW);
+-- 
+2.49.0
+
