@@ -178,6 +178,7 @@ PAtch0651: 0651-x86-msi-passthrough-all-MSI-X-vector-ctrl-writes-to-.patch
 PAtch0652: 0652-x86-hvm-Allow-writes-to-registers-on-the-same-page-a.patch
 
 Patch0653: 0653-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
+Patch0654: 0654-libxl-Skip-missing-legacy-IRQ.patch
 
 # S0ix support
 Patch0670: 0670-x86-hpet-Disable-legacy-replacement-mode-after-test-.patch
