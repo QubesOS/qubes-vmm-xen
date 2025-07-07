@@ -152,6 +152,7 @@ Patch0620: 0620-Validate-EFI-memory-descriptors.patch
 Patch0621: 0621-x86-mm-make-code-robust-to-future-PAT-changes.patch
 Patch0622: 0622-Drop-ELF-notes-from-non-EFI-binary-too.patch
 Patch0623: 0623-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
+Patch0633: 0633-x86-idle-Implement-support-for-Meteor-Lake.patch
 
 # S0ix support
 Patch0624: 0624-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch

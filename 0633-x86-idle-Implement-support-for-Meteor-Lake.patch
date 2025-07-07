@@ -1,0 +1,36 @@
+From ba9831dbf8eb15f30b29a752c4c379977587a2cf Mon Sep 17 00:00:00 2001
+From: Alex XZ Cypher Zero <me@alex0.net>
+Date: Mon, 7 Jul 2025 19:56:32 +0100
+Subject: [PATCH 1/1] x86/idle: Implement support for Meteor Lake
+
+Adds support for Meteor Lake C-states. As the spec is identical to Alder Lake as per the Intel specs, I've reused the Alder Lake codepath.
+
+Signed-off-by: Alex XZ Cypher Zero <me@alex0.net>
+---
+ xen/arch/x86/cpu/mwait-idle.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/xen/arch/x86/cpu/mwait-idle.c b/xen/arch/x86/cpu/mwait-idle.c
+index ae69871171..2c5356991b 100644
+--- a/xen/arch/x86/cpu/mwait-idle.c
++++ b/xen/arch/x86/cpu/mwait-idle.c
+@@ -1180,6 +1180,8 @@ static const struct x86_cpu_id intel_idle_ids[] __initconstrel = {
+ 	ICPU(ICELAKE_D,			icx),
+ 	ICPU(ALDERLAKE,			adl),
+ 	ICPU(ALDERLAKE_L,		adl_l),
++	ICPU(METEORLAKE,		adl),
++	ICPU(METEORLAKE_L,		adl_l),
+ 	ICPU(SAPPHIRERAPIDS_X,		spr),
+ 	ICPU(XEON_PHI_KNL,		knl),
+ 	ICPU(XEON_PHI_KNM,		knl),
+@@ -1420,6 +1422,8 @@ static void __init mwait_idle_state_table_update(void)
+ 		break;
+ 	case INTEL_FAM6_ALDERLAKE:
+ 	case INTEL_FAM6_ALDERLAKE_L:
++	case INTEL_FAM6_METEORLAKE:
++	case INTEL_FAM6_METEORLAKE_L:
+ 		adl_idle_state_table_update();
+ 		break;
+ 	}
+-- 
+2.50.0
