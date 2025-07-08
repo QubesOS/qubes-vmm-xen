@@ -120,6 +120,8 @@ Patch0326: 0326-x86-cpuid-More-AMD-features.patch
 Patch0327: 0327-x86-spec-ctrl-Support-for-SRSO_U-S_NO-and-SRSO_MSR_F.patch
 Patch0328: 0328-x86-traps-Rework-LER-initialisation-and-support-Zen5.patch
 Patch0329: 0329-x86-amd-Misc-setup-for-Fam1Ah-processors.patch
+Patch0330: 0330-xen-lib-Introduce-SHA2-256.patch
+Patch0331: 0331-x86-ucode-Perform-extra-SHA2-checks-on-AMD-Fam17h-19.patch
 
 # Security fixes
 Patch0500: 0500-xsa464.patch
@@ -130,6 +132,25 @@ Patch0504: 0504-x86-thunk-Mis-align-the-RETs-in-clear_bhb_loops-to-m.patch
 Patch0505: 0505-x86-stubs-Introduce-place_ret-to-abstract-away-raw-0.patch
 Patch0506: 0506-x86-thunk-Build-Xen-with-Return-Thunks.patch
 Patch0507: 0507-x86-spec-ctrl-Synthesise-ITS_NO-to-guests-on-unaffec.patch
+Patch0508: 0508-xsa471-4.17-01.patch
+Patch0509: 0509-xsa471-4.17-02.patch
+Patch0510: 0510-xsa471-4.17-03.patch
+Patch0511: 0511-xsa471-4.17-04.patch
+Patch0512: 0512-xsa471-4.17-05.patch
+Patch0513: 0513-xsa471-4.17-06.patch
+Patch0514: 0514-xsa471-4.17-07.patch
+Patch0515: 0515-xsa471-4.17-08.patch
+Patch0516: 0516-xsa471-4.17-09.patch
+Patch0517: 0517-xsa471-4.17-10.patch
+Patch0518: 0518-xsa471-4.17-11.patch
+Patch0519: 0519-xsa471-4.17-12.patch
+Patch0520: 0520-xsa471-4.17-13.patch
+Patch0521: 0521-xsa471-4.17-14.patch
+Patch0522: 0522-xsa471-4.17-15.patch
+Patch0523: 0523-xsa471-4.17-16.patch
+Patch0524: 0524-xsa471-4.17-17.patch
+Patch0525: 0525-xsa471-4.17-18.patch
+Patch0526: 0526-xsa471-4.17-19.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch

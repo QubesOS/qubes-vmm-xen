@@ -1,0 +1,125 @@
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Thu, 17 Apr 2025 12:35:28 +0200
+Subject: x86/intel: workaround several MONITOR/MWAIT errata
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There are several errata on Intel regarding the usage of the MONITOR/MWAIT
+instructions, all having in common that stores to the monitored region
+might not wake up the CPU.
+
+Fix them by forcing the sending of an IPI for the affected models.
+
+The Ice Lake issue has been reproduced internally on XenServer hardware,
+and the fix does seem to prevent it.  The symptom was APs getting stuck in
+the idle loop immediately after bring up, which in turn prevented the BSP
+from making progress.  This would happen before the watchdog was
+initialized, and hence the whole system would get stuck.
+
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+(cherry picked from commit 4aae4452efeee3d3bba092b875e37d1e7c8f6db9)
+
+diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
+index 557bc6ef8642..2d8b66c9100a 100644
+--- a/xen/arch/x86/acpi/cpu_idle.c
++++ b/xen/arch/x86/acpi/cpu_idle.c
+@@ -453,8 +453,14 @@ void cpuidle_wakeup_mwait(cpumask_t *mask)
+     cpumask_andnot(mask, mask, &target);
+ }
+ 
++/* Force sending of a wakeup IPI regardless of mwait usage. */
++bool __ro_after_init force_mwait_ipi_wakeup;
++
+ bool arch_skip_send_event_check(unsigned int cpu)
+ {
++    if ( force_mwait_ipi_wakeup )
++        return false;
++
+     /*
+      * This relies on softirq_pending() and mwait_wakeup() to access data
+      * on the same cache line.
+diff --git a/xen/arch/x86/cpu/intel.c b/xen/arch/x86/cpu/intel.c
+index 490f7ff6f1fe..c6ca42d07ad8 100644
+--- a/xen/arch/x86/cpu/intel.c
++++ b/xen/arch/x86/cpu/intel.c
+@@ -7,6 +7,7 @@
+ #include <asm/intel-family.h>
+ #include <asm/processor.h>
+ #include <asm/msr.h>
++#include <asm/mwait.h>
+ #include <asm/uaccess.h>
+ #include <asm/mpspec.h>
+ #include <asm/apic.h>
+@@ -363,7 +364,6 @@ static void probe_c3_errata(const struct cpuinfo_x86 *c)
+         INTEL_FAM6_MODEL(0x25),
+         { }
+     };
+-#undef INTEL_FAM6_MODEL
+ 
+     /* Serialized by the AP bringup code. */
+     if ( max_cstate > 1 && (c->apicid & (c->x86_num_siblings - 1)) &&
+@@ -375,6 +375,38 @@ static void probe_c3_errata(const struct cpuinfo_x86 *c)
+     }
+ }
+ 
++/*
++ * APL30: One use of the MONITOR/MWAIT instruction pair is to allow a logical
++ * processor to wait in a sleep state until a store to the armed address range
++ * occurs. Due to this erratum, stores to the armed address range may not
++ * trigger MWAIT to resume execution.
++ *
++ * ICX143: Under complex microarchitectural conditions, a monitor that is armed
++ * with the MWAIT instruction may not be triggered, leading to a processor
++ * hang.
++ *
++ * LNL030: Problem P-cores may not exit power state Core C6 on monitor hit.
++ *
++ * Force the sending of an IPI in those cases.
++ */
++static void __init probe_mwait_errata(void)
++{
++    static const struct x86_cpu_id __initconst models[] = {
++        INTEL_FAM6_MODEL(INTEL_FAM6_ATOM_GOLDMONT), /* APL30  */
++        INTEL_FAM6_MODEL(INTEL_FAM6_ICELAKE_X),     /* ICX143 */
++        INTEL_FAM6_MODEL(INTEL_FAM6_LUNARLAKE_M),   /* LNL030 */
++        { }
++    };
++#undef INTEL_FAM6_MODEL
++
++    if ( boot_cpu_has(X86_FEATURE_MONITOR) && x86_match_cpu(models) )
++    {
++        printk(XENLOG_WARNING
++               "Forcing IPI MWAIT wakeup due to CPU erratum\n");
++        force_mwait_ipi_wakeup = true;
++    }
++}
++
+ /*
+  * P4 Xeon errata 037 workaround.
+  * Hardware prefetcher may cause stale data to be loaded into the cache.
+@@ -401,6 +433,8 @@ static void Intel_errata_workarounds(struct cpuinfo_x86 *c)
+ 		__set_bit(X86_FEATURE_CLFLUSH_MONITOR, c->x86_capability);
+ 
+ 	probe_c3_errata(c);
++	if (system_state < SYS_STATE_smp_boot)
++		probe_mwait_errata();
+ }
+ 
+ 
+diff --git a/xen/arch/x86/include/asm/mwait.h b/xen/arch/x86/include/asm/mwait.h
+index f377d9fdcad4..97bf361505f0 100644
+--- a/xen/arch/x86/include/asm/mwait.h
++++ b/xen/arch/x86/include/asm/mwait.h
+@@ -13,6 +13,9 @@
+ 
+ #define MWAIT_ECX_INTERRUPT_BREAK	0x1
+ 
++/* Force sending of a wakeup IPI regardless of mwait usage. */
++extern bool force_mwait_ipi_wakeup;
++
+ void mwait_idle_with_hints(unsigned int eax, unsigned int ecx);
+ bool mwait_pc10_supported(void);
+ 

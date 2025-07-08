@@ -1,0 +1,56 @@
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Fri, 4 Jul 2025 17:53:15 +0100
+Subject: x86/xen-cpuid: Fix backports of new features
+
+Xen 4.18 doesn't automatically generate feature names like Xen 4.19 does, and
+these hunks were missed on prior security fixes.
+
+Fixes: 8bced9a15c8c ("x86/spec-ctrl: Support for SRSO_U/S_NO and SRSO_MSR_FIX")
+Fixes: f132c82fa65d ("x86/spec-ctrl: Synthesise ITS_NO to guests on unaffected hardware")
+Fixes: dba055661292 ("x86/spec-ctrl: Support Intel's new PB-OPT")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+[For 4.17, PB-OPT wasn't backported]
+
+diff --git a/tools/misc/xen-cpuid.c b/tools/misc/xen-cpuid.c
+index 5ceea8be073b..b277b78b654f 100644
+--- a/tools/misc/xen-cpuid.c
++++ b/tools/misc/xen-cpuid.c
+@@ -199,6 +199,7 @@ static const char *const str_e21a[32] =
+ 
+     /* 26 */                [27] = "sbpb",
+     [28] = "ibpb-brtype",   [29] = "srso-no",
++    [30] = "srso-us-no",    [31] = "srso-msr-fix",
+ };
+ 
+ static const char *const str_7b1[32] =
+@@ -222,7 +223,7 @@ static const char *const str_7d2[32] =
+     [ 4] = "bhi-ctrl",      [ 5] = "mcdt-no",
+ };
+ 
+-static const char *const str_m10Al[32] =
++static const char *const str_m10Al[64] =
+ {
+     [ 0] = "rdcl-no",             [ 1] = "eibrs",
+     [ 2] = "rsba",                [ 3] = "skip-l1dfl",
+@@ -239,10 +240,8 @@ static const char *const str_m10Al[32] =
+     [24] = "pbrsb-no",            [25] = "gds-ctrl",
+     [26] = "gds-no",              [27] = "rfds-no",
+     [28] = "rfds-clear",
+-};
+ 
+-static const char *const str_m10Ah[32] =
+-{
++    [62] = "its-no",
+ };
+ 
+ static const struct {
+@@ -268,7 +267,7 @@ static const struct {
+     { "CPUID 0x00000007:1.ecx",     "7c1", str_7c1 },
+     { "CPUID 0x00000007:1.edx",     "7d1", str_7d1 },
+     { "MSR_ARCH_CAPS.lo",         "m10Al", str_m10Al },
+-    { "MSR_ARCH_CAPS.hi",         "m10Ah", str_m10Ah },
++    { "MSR_ARCH_CAPS.hi",         "m10Ah", str_m10Al + 32 },
+ };
+ 
+ #define COL_ALIGN "24"
