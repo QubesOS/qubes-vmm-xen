@@ -146,6 +146,22 @@ Patch0346: 0346-xen-build-pass-fzero-init-padding-bits-all-to-gcc15.patch
 Patch0347: 0347-x86-cpu-policy-Fix-handling-of-leaf-0x80000021.patch
 
 # Security fixes (500+)
+Patch0500: 0500-x86-cpufeature-Reposition-cpu_has_-lfence_dispatch-n.patch
+Patch0501: 0501-x86-idle-Move-monitor-mwait-wrappers-into-cpu-idle.c.patch
+Patch0502: 0502-x86-idle-Remove-MFENCEs-for-CLFLUSH_MONITOR.patch
+Patch0503: 0503-Revert-part-of-x86-mwait-idle-disable-IBRS-during-lo.patch
+Patch0504: 0504-x86-cpu-policy-Simplify-logic-in-guest_common_defaul.patch
+Patch0505: 0505-x86-idle-Remove-broken-MWAIT-implementation.patch
+Patch0506: 0506-x86-idle-Drop-incorrect-smp_mb-in-mwait_idle_with_hi.patch
+Patch0507: 0507-x86-idle-Convert-force_mwait_ipi_wakeup-to-X86_BUG_M.patch
+Patch0508: 0508-xen-softirq-Rework-arch_skip_send_event_check-into-a.patch
+Patch0509: 0509-x86-idle-Implement-a-new-MWAIT-IPI-elision-algorithm.patch
+Patch0510: 0510-x86-idle-Fix-buggy-x86-mwait-idle-enable-interrupts-.patch
+Patch0511: 0511-x86-cpu-policy-Rearrange-guest_common_-_feature_adju.patch
+Patch0512: 0512-x86-cpu-policy-Infrastructure-for-CPUID-leaf-0x80000.patch
+Patch0513: 0513-x86-ucode-Digests-for-TSA-microcode.patch
+Patch0514: 0514-x86-idle-Rearrange-VERW-and-MONITOR-in-mwait_idle_wi.patch
+Patch0515: 0515-x86-spec-ctrl-Mitigate-Transitive-Scheduler-Attacks.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
