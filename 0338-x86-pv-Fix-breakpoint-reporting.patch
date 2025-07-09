@@ -1,0 +1,45 @@
+From ee8ae3a2802a1a5d69ccc1ffe223c98dc09a9361 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 26 Jun 2025 08:47:41 +0200
+Subject: [PATCH] x86/pv: Fix breakpoint reporting
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+x86_merge_dr6() is not a no-op when 0 is passed in; it will discard the
+previously latched breakpoint bits.
+
+The combination of do_debug()'s manual call to x86_merge_dr6() for external
+debuggers, and pv_inject_DB() calling pv_inject_event(), results in two
+x86_merge_dr6() calls.
+
+Feed the same pending_dbg in the second time.  This makes pv_inject_event()'s
+update of dr6 effectively a no-op, retaining the correct breakpoint bits.
+
+Fixes: db39fa4b27ea ("x86/pv: Fix merging of new status bits into %dr6")
+Reported-by: Manuel Bouyer <bouyer@antioche.eu.org>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Tested-by: Manuel Bouyer <bouyer@antioche.eu.org>
+Acked-by: Roger Pau Monné <roger.pau@citrix.com>
+master commit: d965e2ee07c56c341d8896852550914d87ea5374
+master date: 2025-05-27 12:21:38 +0100
+---
+ xen/arch/x86/traps.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index ae573ee4c044..af90d8b27d9f 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -2040,7 +2040,7 @@ void asmlinkage do_debug(struct cpu_user_regs *regs)
+         return;
+     }
+ 
+-    pv_inject_DB(0 /* N/A, already merged */);
++    pv_inject_DB(dr6 ^ X86_DR6_DEFAULT);
+ }
+ 
+ void asmlinkage do_entry_CP(struct cpu_user_regs *regs)
+-- 
+2.49.0
+

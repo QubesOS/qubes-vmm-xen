@@ -1,0 +1,43 @@
+From a24e1cda35deb36be8efae49058d50d2840384b8 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 26 Jun 2025 08:47:29 +0200
+Subject: [PATCH] x86/vmx: Fix VMEntry failure on ADL/SPR with shadow guests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Paging Writeable depends on EPT so must be disabled in non-EPT guests like the
+other EPT dependent features.  Otherwise, VMEntry fails with bad control
+state.
+
+Drop a piece of trailing whitepsace in context.
+
+Fixes: ff10aa9d8f90 ("x86: Add Support for Paging-Write Feature")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+master commit: d779e3f98c2a765aae57f6ab4b0257413c12ac97
+master date: 2025-05-27 12:21:38 +0100
+---
+ xen/arch/x86/hvm/vmx/vmcs.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/hvm/vmx/vmcs.c b/xen/arch/x86/hvm/vmx/vmcs.c
+index 9b6dc51f36ab..aa7911089acc 100644
+--- a/xen/arch/x86/hvm/vmx/vmcs.c
++++ b/xen/arch/x86/hvm/vmx/vmcs.c
+@@ -1148,9 +1148,11 @@ static int construct_vmcs(struct vcpu *v)
+     else
+     {
+         v->arch.hvm.vmx.secondary_exec_control &=
+-            ~(SECONDARY_EXEC_ENABLE_EPT | 
++            ~(SECONDARY_EXEC_ENABLE_EPT |
+               SECONDARY_EXEC_UNRESTRICTED_GUEST |
+               SECONDARY_EXEC_ENABLE_INVPCID);
++        v->arch.hvm.vmx.tertiary_exec_control &=
++            ~(TERTIARY_EXEC_EPT_PAGING_WRITE);
+         vmexit_ctl &= ~(VM_EXIT_SAVE_GUEST_PAT |
+                         VM_EXIT_LOAD_HOST_PAT);
+         vmentry_ctl &= ~VM_ENTRY_LOAD_GUEST_PAT;
+-- 
+2.49.0
+

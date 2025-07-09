@@ -1,0 +1,43 @@
+From 2b92925c6d8bc6dae1bd09255413ef9de5d79af6 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 13 May 2025 13:58:33 +0200
+Subject: [PATCH] cpufreq: don't leave stale statistics pointer
+
+Error paths of cpufreq_statistic_init() correctly free the base
+structure pointer, but the per-CPU variable would still hold it, mis-
+guiding e.g. cpufreq_statistic_update(). Defer installing of the pointer
+there until the structure was fully populated.
+
+Fixes: 755af07edba1 ("x86/cpufreq: don't use static array for large per-CPU data structures")
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Acked-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: a1ce987411f61dbf5fe64bba0cd3d36d7cc0311f
+master date: 2025-04-30 08:47:49 +0200
+---
+ xen/drivers/cpufreq/utility.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xen/drivers/cpufreq/utility.c b/xen/drivers/cpufreq/utility.c
+index e690a484f18f..d9caf31aa2db 100644
+--- a/xen/drivers/cpufreq/utility.c
++++ b/xen/drivers/cpufreq/utility.c
+@@ -113,7 +113,6 @@ int cpufreq_statistic_init(unsigned int cpu)
+         spin_unlock(cpufreq_statistic_lock);
+         return -ENOMEM;
+     }
+-    per_cpu(cpufreq_statistic_data, cpu) = pxpt;
+ 
+     pxpt->u.trans_pt = xzalloc_array(uint64_t, count * count);
+     if (!pxpt->u.trans_pt) {
+@@ -139,6 +138,8 @@ int cpufreq_statistic_init(unsigned int cpu)
+     pxpt->prev_state_wall = NOW();
+     pxpt->prev_idle_wall = get_cpu_idle_time(cpu);
+ 
++    per_cpu(cpufreq_statistic_data, cpu) = pxpt;
++
+     spin_unlock(cpufreq_statistic_lock);
+ 
+     return 0;
+-- 
+2.49.0
+

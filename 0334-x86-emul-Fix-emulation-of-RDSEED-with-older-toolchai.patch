@@ -1,0 +1,57 @@
+From bcdb61a2462e9546df194269ae4b0854b9af8885 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Thu, 26 Jun 2025 08:46:14 +0200
+Subject: [PATCH] x86/emul: Fix emulation of RDSEED with older toolchains
+
+This is reported as a MISRA R16.3 (missing break) violation, but turns out to
+be substantially more complicated than expected.
+
+In commit a8fe4ec5320a ("x86emul: support RDRAND/RDSEED"), the switch()
+statement had a default case going to cannot_emulate, with both the case 6 and
+case 7 labels being fully within #ifdef HAVE_GAS_RD{RAND,SEED}.
+
+Therefore, when the toolchain didn't understand the RDRAND/RDSEED
+instructions, attempts to emulate them suffered #UD.  (In principle, this is a
+problem as there's no interlock to prevent RDRAND/RDSEED being advertised to
+the guest, but as instructions with only register encodings, they can only
+legitimately be emulated when VM Introspection is in use.)
+
+In commit 58f1bba44033 ("x86emul: support RDPID"), case 7 was taken outside of
+HAVE_GAS_RDSEED, meaning that emulating an RDSEED instruction no longer hit
+the default case when the toolchain was too old.
+
+Instead, it would fall out of the switch statement and be completed normally,
+behaving as a NOP to the guest.
+
+Retrofit a "return X86EMUL_UNIMPLEMENTED" in the case that the toolchain
+doesn't know the RDRAND instruction, matching how RDRAND work.
+
+Note that this has been fixed differently in Xen 4.21.  Commit
+05bf9f1f0f52 ("x86/emulate: Remove HAVE_AS_RDRAND and HAVE_AS_RDSEED") has
+removed the problematic condition due to the toolchain baseline upgrade.
+
+Fixes: 58f1bba44033 ("x86emul: support RDPID")
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: ddec00769cd80a44b412281d8b52482e4e20c2e5
+master date: 2025-05-16 21:34:19 +0100
+---
+ xen/arch/x86/x86_emulate/0fc7.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xen/arch/x86/x86_emulate/0fc7.c b/xen/arch/x86/x86_emulate/0fc7.c
+index 5268d5cafd7b..2b6b444bab94 100644
+--- a/xen/arch/x86/x86_emulate/0fc7.c
++++ b/xen/arch/x86/x86_emulate/0fc7.c
+@@ -102,6 +102,8 @@ int x86emul_0fc7(struct x86_emulate_state *s,
+             if ( carry )
+                 regs->eflags |= X86_EFLAGS_CF;
+             break;
++#else
++            return X86EMUL_UNIMPLEMENTED;
+ #endif
+         }
+     }
+-- 
+2.49.0
+

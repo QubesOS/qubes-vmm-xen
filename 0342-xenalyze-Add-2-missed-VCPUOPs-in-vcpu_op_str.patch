@@ -1,0 +1,35 @@
+From 4d6ddd30eed61a8c27f9f7d91d3a3b341640e498 Mon Sep 17 00:00:00 2001
+From: Gang Ji <gang.ji@cloud.com>
+Date: Thu, 26 Jun 2025 08:49:19 +0200
+Subject: [PATCH] xenalyze: Add 2 missed VCPUOPs in vcpu_op_str
+
+The 2 missed ones are: register_runstate_phys_area and
+register_vcpu_time_phys_area.
+
+Fixes: d5df44275e7a ("domain: introduce GADDR based runstate area registration alternative")
+Fixes: 60e544a8c58f ("x86: introduce GADDR based secondary time area registration alternative")
+Signed-off-by: Gang Ji <gang.ji@cloud.com>
+Reviewed-by: Andrew Cooper <andrew.cooper3@citrix.com>
+master commit: ed939591e4c6ccf794395fc78cd358aa24a94ed8
+master date: 2025-06-11 11:08:11 +0200
+---
+ tools/xentrace/xenalyze.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/tools/xentrace/xenalyze.c b/tools/xentrace/xenalyze.c
+index adc96dd7e419..1c13682aaa45 100644
+--- a/tools/xentrace/xenalyze.c
++++ b/tools/xentrace/xenalyze.c
+@@ -6513,7 +6513,8 @@ static const char *vcpu_op_str[] = {
+     "register_runstate_memory_area", "set_periodic_timer",
+     "stop_periodic_timer", "set_singleshot_timer", "stop_singleshot_timer",
+     "register_vcpu_info", "send_nmi", "get_physid",
+-    "register_vcpu_time_memory_area",
++    "register_vcpu_time_memory_area", "register_runstate_phys_area",
++    "register_vcpu_time_phys_area",
+ };
+ 
+ static const char *sched_op_str[] = {
+-- 
+2.49.0
+

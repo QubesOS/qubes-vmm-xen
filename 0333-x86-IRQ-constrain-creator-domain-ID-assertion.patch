@@ -1,0 +1,41 @@
+From 43aeacff8695850ee26ee038159b1f88f5e69fdf Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Thu, 15 May 2025 09:07:06 +0200
+Subject: [PATCH] x86/IRQ: constrain creator-domain-ID assertion
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If init_one_irq_desc() fails, ->arch.creator_domid won't be set to the
+expected value, and hence the assertion may trigger. Limit it to just
+the success case of that function call.
+
+Fixes: 92d9101eab ("x86: allow stubdom access to irq created for msi")
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Roger Pau Monné <roger.pau@citrix.com>
+master commit: d7127e06f617ed89eefe17a9ac954032863032d5
+master date: 2025-05-14 11:00:00 +0200
+---
+ xen/arch/x86/irq.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xen/arch/x86/irq.c b/xen/arch/x86/irq.c
+index ce390b04226f..296a3cd08b17 100644
+--- a/xen/arch/x86/irq.c
++++ b/xen/arch/x86/irq.c
+@@ -285,9 +285,9 @@ int create_irq(nodeid_t node, bool grant_access)
+                 mask = NULL;
+         }
+         ret = assign_irq_vector(irq, mask);
+-    }
+ 
+-    ASSERT(desc->arch.creator_domid == DOMID_INVALID);
++        ASSERT(desc->arch.creator_domid == DOMID_INVALID);
++    }
+ 
+     if (ret < 0)
+     {
+-- 
+2.49.0
+

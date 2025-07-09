@@ -1,0 +1,39 @@
+From 294bea99c9e21f89c288f96647695455058a0055 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 13 May 2025 13:57:37 +0200
+Subject: [PATCH] xen/link: Include .debug_str_offsets in DWARF2_DEBUG_SECTIONS
+
+Building Xen with Clang-17 yields the following warning:
+
+  ld: warning: orphan section `.debug_str_offsets' from `prelink.o' being placed in section `.debug_str_offsets'
+  ld: ./.xen.efi.0xffff82d040000000.0:/4: section below image base
+  ld: ./.xen.efi.0xffff82d040000000.1:/4: section below image base
+  ld: warning: orphan section `.debug_str_offsets' from `prelink.o' being placed in section `.debug_str_offsets'
+  ld: xen.efi:/4: section below image base
+
+Set the alignment to 4 as it holds 4-byte values, despite the fact that Clang
+appears to only use 1.
+
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+master commit: a88b99300aedea103884b4ef8c66a5a94206feb5
+master date: 2025-04-28 19:46:46 +0100
+---
+ xen/include/xen/xen.lds.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xen/include/xen/xen.lds.h b/xen/include/xen/xen.lds.h
+index a17810bb286f..acc1e332fbca 100644
+--- a/xen/include/xen/xen.lds.h
++++ b/xen/include/xen/xen.lds.h
+@@ -50,6 +50,7 @@
+   DECL_DEBUG2(.debug_info, .gnu.linkonce.wi.*, 1) \
+   DECL_DEBUG(.debug_types, 1)                     \
+   DECL_DEBUG(.debug_str, 1)                       \
++  DECL_DEBUG(.debug_str_offsets, 4)               \
+   DECL_DEBUG2(.debug_line, .debug_line.*, 1)      \
+   DECL_DEBUG(.debug_line_str, 1)                  \
+   DECL_DEBUG(.debug_names, 4)                     \
+-- 
+2.49.0
+

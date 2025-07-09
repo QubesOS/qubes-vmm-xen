@@ -117,15 +117,35 @@ Patch0317: 0317-x86emul-also-clip-repetition-count-for-STOS.patch
 Patch0318: 0318-compat-memory-avoid-UB-shifts-in-XENMEM_exchange-han.patch
 Patch0319: 0319-x86-intel-workaround-several-MONITOR-MWAIT-errata.patch
 Patch0320: 0320-xen-remove-N-from-the-linker-command-line.patch
+Patch0321: 0321-x86-alternative-Support-replacements-when-a-feature-.patch
+Patch0322: 0322-x86-guest-Remove-use-of-the-Xen-hypercall_page.patch
+Patch0323: 0323-x86-thunk-Mis-align-__x86_indirect_thunk_-to-mitigat.patch
+Patch0324: 0324-x86-thunk-Mis-align-the-RETs-in-clear_bhb_loops-to-m.patch
+Patch0325: 0325-x86-stubs-Introduce-place_ret-to-abstract-away-raw-0.patch
+Patch0326: 0326-x86-thunk-Build-Xen-with-Return-Thunks.patch
+Patch0327: 0327-x86-spec-ctrl-Synthesise-ITS_NO-to-guests-on-unaffec.patch
+Patch0328: 0328-xen-link-Include-.debug_str_offsets-in-DWARF2_DEBUG_.patch
+Patch0329: 0329-x86emul-avoid-UB-shifts-in-FLDENV-FRSTOR-handling.patch
+Patch0330: 0330-cpufreq-don-t-leave-stale-statistics-pointer.patch
+Patch0331: 0331-x86-spec-ctrl-Support-Intel-s-new-PB-OPT.patch
+Patch0332: 0332-x86-pv-fix-MMUEXT_FLUSH_CACHE-to-flush-all-pCPU-cach.patch
+Patch0333: 0333-x86-IRQ-constrain-creator-domain-ID-assertion.patch
+Patch0334: 0334-x86-emul-Fix-emulation-of-RDSEED-with-older-toolchai.patch
+Patch0335: 0335-x86-pv-fix-emulation-of-wb-no-invd-to-flush-all-pCPU.patch
+Patch0336: 0336-x86-vpci-fix-handling-of-BAR-overlaps-with-non-hole-.patch
+Patch0337: 0337-x86-vmx-Fix-VMEntry-failure-on-ADL-SPR-with-shadow-g.patch
+Patch0338: 0338-x86-pv-Fix-breakpoint-reporting.patch
+Patch0339: 0339-tools-libxl-Only-access-legacy-altp2m-on-HVM.patch
+Patch0340: 0340-x86-pmstat-Check-size-of-PMSTAT_get_pxstat-buffers.patch
+Patch0341: 0341-cpufreq-Avoid-potential-buffer-overrun-and-leak.patch
+Patch0342: 0342-xenalyze-Add-2-missed-VCPUOPs-in-vcpu_op_str.patch
+Patch0343: 0343-x86-emul-Fix-extable-registration-in-invoke_stub.patch
+Patch0344: 0344-libxc-PM-Ensure-pxstat-buffers-are-correctly-sized.patch
+Patch0345: 0345-libxc-PM-Retry-get_pxstat-if-data-is-incomplete.patch
+Patch0346: 0346-xen-build-pass-fzero-init-padding-bits-all-to-gcc15.patch
+Patch0347: 0347-x86-cpu-policy-Fix-handling-of-leaf-0x80000021.patch
 
 # Security fixes (500+)
-Patch0500: 0500-x86-alternative-Support-replacements-when-a-feature-.patch
-Patch0501: 0501-x86-guest-Remove-use-of-the-Xen-hypercall_page.patch
-Patch0502: 0502-x86-thunk-Mis-align-__x86_indirect_thunk_-to-mitigat.patch
-Patch0503: 0503-x86-thunk-Mis-align-the-RETs-in-clear_bhb_loops-to-m.patch
-Patch0504: 0504-x86-stubs-Introduce-place_ret-to-abstract-away-raw-0.patch
-Patch0505: 0505-x86-thunk-Build-Xen-with-Return-Thunks.patch
-Patch0506: 0506-x86-spec-ctrl-Synthesise-ITS_NO-to-guests-on-unaffec.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch

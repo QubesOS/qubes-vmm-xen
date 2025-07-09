@@ -1,0 +1,85 @@
+From f33ff85f21e301157522c89b1ae74262138b5c40 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 13 May 2025 13:58:17 +0200
+Subject: [PATCH] x86emul: avoid UB shifts in FLDENV/FRSTOR handling
+
+16-bit quantities, no matter whether expressed as uint16_t or as
+bitfield, will be promoted to plain int before doing any arithmetic on
+them. Shifting such values by 16 will therefore shift into the sign bit,
+which is UB if that bit becomes set. To account for all reads and all
+writes accessing opposite members of the same union, introduce yet more
+local variables to reduce the shift counts to 12.
+
+Fixes: be55ed744ed8 ("x86emul: support FLDENV and FRSTOR")
+Reported-by: Fabian Specht <f.specht@tum.de>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Reviewed-by: Jason Andryuk <jason.andryuk@amd.com>
+master commit: d00fc019b6eba68bd7f2186a6427e5a005ce989f
+master date: 2025-04-30 08:46:21 +0200
+---
+ xen/arch/x86/x86_emulate/blk.c | 36 +++++++++++++++++++---------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
+
+diff --git a/xen/arch/x86/x86_emulate/blk.c b/xen/arch/x86/x86_emulate/blk.c
+index e790f4f90056..fe0122ddc611 100644
+--- a/xen/arch/x86/x86_emulate/blk.c
++++ b/xen/arch/x86/x86_emulate/blk.c
+@@ -81,17 +81,19 @@ int x86_emul_blk(
+             if ( !s->rex_prefix )
+             {
+                 /* Convert 32-bit real/vm86 to 32-bit prot format. */
+-                unsigned int fip = fpstate.env.mode.real.fip_lo +
+-                                   (fpstate.env.mode.real.fip_hi << 16);
+-                unsigned int fdp = fpstate.env.mode.real.fdp_lo +
+-                                   (fpstate.env.mode.real.fdp_hi << 16);
++                unsigned int fip = fpstate.env.mode.real.fip_lo & 0xf;
++                unsigned int fcs = (fpstate.env.mode.real.fip_lo >> 4) |
++                                   (fpstate.env.mode.real.fip_hi << 12);
++                unsigned int fdp = fpstate.env.mode.real.fdp_lo & 0xf;
++                unsigned int fds = (fpstate.env.mode.real.fdp_lo >> 4) |
++                                   (fpstate.env.mode.real.fdp_hi << 12);
+                 unsigned int fop = fpstate.env.mode.real.fop;
+ 
+-                fpstate.env.mode.prot.fip = fip & 0xf;
+-                fpstate.env.mode.prot.fcs = fip >> 4;
++                fpstate.env.mode.prot.fip = fip;
++                fpstate.env.mode.prot.fcs = fcs;
+                 fpstate.env.mode.prot.fop = fop;
+-                fpstate.env.mode.prot.fdp = fdp & 0xf;
+-                fpstate.env.mode.prot.fds = fdp >> 4;
++                fpstate.env.mode.prot.fdp = fdp;
++                fpstate.env.mode.prot.fds = fds;
+             }
+ 
+             if ( bytes == sizeof(fpstate.env) )
+@@ -121,17 +123,19 @@ int x86_emul_blk(
+             else
+             {
+                 /* Convert 16-bit real/vm86 to 32-bit prot format. */
+-                unsigned int fip = env->mode.real.fip_lo +
+-                                   (env->mode.real.fip_hi << 16);
+-                unsigned int fdp = env->mode.real.fdp_lo +
+-                                   (env->mode.real.fdp_hi << 16);
++                unsigned int fip = env->mode.real.fip_lo & 0xf;
++                unsigned int fcs = (env->mode.real.fip_lo >> 4) |
++                                   (env->mode.real.fip_hi << 12);
++                unsigned int fdp = env->mode.real.fdp_lo & 0xf;
++                unsigned int fds = (env->mode.real.fdp_lo >> 4) |
++                                   (env->mode.real.fdp_hi << 12);
+                 unsigned int fop = env->mode.real.fop;
+ 
+-                fpstate.env.mode.prot.fip = fip & 0xf;
+-                fpstate.env.mode.prot.fcs = fip >> 4;
++                fpstate.env.mode.prot.fip = fip;
++                fpstate.env.mode.prot.fcs = fcs;
+                 fpstate.env.mode.prot.fop = fop;
+-                fpstate.env.mode.prot.fdp = fdp & 0xf;
+-                fpstate.env.mode.prot.fds = fdp >> 4;
++                fpstate.env.mode.prot.fdp = fdp;
++                fpstate.env.mode.prot.fds = fds;
+             }
+ 
+             if ( bytes == sizeof(*env) )
+-- 
+2.49.0
+

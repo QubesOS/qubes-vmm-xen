@@ -1,0 +1,59 @@
+From e02b039b64738f04ec9283b5840f5b004026c782 Mon Sep 17 00:00:00 2001
+From: Jason Andryuk <jason.andryuk@amd.com>
+Date: Thu, 26 Jun 2025 08:47:53 +0200
+Subject: [PATCH] tools/libxl: Only access legacy altp2m on HVM
+
+Only access the HVM union b_info->u.hvm on HVM guests.  The union
+access is not guarded, so this reads and sets the default even on
+non-HVM guests.  Usually this doesn't matter as PV and PVH unions are
+smaller and zero-initialized, but the zero default will be re-written as
+a -1 boolean.  Generally, it could incorrectly set b_info->altp2m
+through aliased data.
+
+Fixes: 0291089f6ea8 ("xen: enable altp2m at create domain domctl")
+Signed-off-by: Jason Andryuk <jason.andryuk@amd.com>
+Acked-by: Anthony PERARD <anthony.perard@vates.tech>
+master commit: 01dfd25509cc44011e83677e989dc7f55e2657d5
+master date: 2025-06-02 10:31:21 +0200
+---
+ tools/libs/light/libxl_x86.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/tools/libs/light/libxl_x86.c b/tools/libs/light/libxl_x86.c
+index 60643d6f5376..872b39739d8f 100644
+--- a/tools/libs/light/libxl_x86.c
++++ b/tools/libs/light/libxl_x86.c
+@@ -804,17 +804,19 @@ int libxl__arch_domain_build_info_setdefault(libxl__gc *gc,
+     libxl_defbool_setdefault(&b_info->acpi, true);
+     libxl_defbool_setdefault(&b_info->arch_x86.msr_relaxed, false);
+ 
+-    /*
+-     * The config parameter "altp2m" replaces the parameter "altp2mhvm".
+-     * For legacy reasons, both parameters are accepted on x86 HVM guests.
+-     *
+-     * If the legacy field info->u.hvm.altp2m is set, activate altp2m.
+-     * Otherwise set altp2m based on the field info->altp2m.
+-     */
+-    libxl_defbool_setdefault(&b_info->u.hvm.altp2m, false);
+-    if (b_info->altp2m == LIBXL_ALTP2M_MODE_DISABLED &&
+-        libxl_defbool_val(b_info->u.hvm.altp2m))
+-        b_info->altp2m = libxl_defbool_val(b_info->u.hvm.altp2m);
++    if (b_info->type == LIBXL_DOMAIN_TYPE_HVM) {
++        /*
++         * The config parameter "altp2m" replaces the parameter "altp2mhvm".
++         * For legacy reasons, both parameters are accepted on x86 HVM guests.
++         *
++         * If the legacy field info->u.hvm.altp2m is set, activate altp2m.
++         * Otherwise set altp2m based on the field info->altp2m.
++         */
++        libxl_defbool_setdefault(&b_info->u.hvm.altp2m, false);
++        if (b_info->altp2m == LIBXL_ALTP2M_MODE_DISABLED &&
++            libxl_defbool_val(b_info->u.hvm.altp2m))
++            b_info->altp2m = libxl_defbool_val(b_info->u.hvm.altp2m);
++    }
+ 
+     return 0;
+ }
+-- 
+2.49.0
+

@@ -1,0 +1,64 @@
+From e9e2f3277190bd5635d9f4ecee867772868f960a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>
+Date: Thu, 15 May 2025 09:06:52 +0200
+Subject: [PATCH] x86/pv: fix MMUEXT_FLUSH_CACHE to flush all pCPU caches
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The implementation of MMUEXT_FLUSH_CACHE is bogus, as it doesn't account to
+flush the cache of any previous pCPU where the current vCPU might have run,
+and hence is likely to not work as expected.
+
+Fix this by resorting to use the same logic as MMUEXT_FLUSH_CACHE_GLOBAL,
+which will be correct in all cases.
+
+Adjust MMUEXT_FLUSH_CACHE_GLOBAL return code in case cache flush is not
+permitted for the domain to use -EACCES instead of -EINVAL, as that's more
+accurate and also matches the error code used by MMUEXT_FLUSH_CACHE.
+
+Fixes: 8e90e37e6db8 ("Fix WBINVD by adding a new hypercall.")
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Acked-by: Jan Beulich <jbeulich@suse.com>
+master commit: bbaea9878bf6d11f6f336710148dbbd26e927cfd
+master date: 2025-05-13 19:43:48 +0200
+---
+ xen/arch/x86/mm.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
+index c3e15a029b48..9861efbef9d8 100644
+--- a/xen/arch/x86/mm.c
++++ b/xen/arch/x86/mm.c
+@@ -3795,14 +3795,11 @@ long do_mmuext_op(
+             break;
+ 
+         case MMUEXT_FLUSH_CACHE:
+-            if ( unlikely(currd != pg_owner) )
+-                rc = -EPERM;
+-            else if ( unlikely(!cache_flush_permitted(currd)) )
+-                rc = -EACCES;
+-            else
+-                wbinvd();
+-            break;
+-
++            /*
++             * Dirty pCPU caches where the current vCPU has been scheduled are
++             * not tracked, and hence we need to resort to a global cache
++             * flush for correctness.
++             */
+         case MMUEXT_FLUSH_CACHE_GLOBAL:
+             if ( unlikely(currd != pg_owner) )
+                 rc = -EPERM;
+@@ -3819,7 +3816,7 @@ long do_mmuext_op(
+                 flush_mask(mask, FLUSH_CACHE);
+             }
+             else
+-                rc = -EINVAL;
++                rc = -EACCES;
+             break;
+ 
+         case MMUEXT_SET_LDT:
+-- 
+2.49.0
+
