@@ -1,0 +1,217 @@
+From e98ee2d437797e7c2ba67c5e65850dc8d3118884 Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Wed, 16 Nov 2022 15:06:18 +0100
+Subject: [PATCH 1309/1328] x86/smpboot.c: TXT AP bringup
+
+On Intel TXT, APs are started in one of two ways, depending on ACM
+which reports it in its information table. In both cases, all APs are
+started simultaneously after BSP requests them to do so. Two possible
+ways are:
+- GETSEC[WAKEUP] instruction,
+- MONITOR address.
+
+GETSEC[WAKEUP] requires versions >= 7 of SINIT to MLE Data, but there is
+no clear mapping of that version with regard to processor family and
+it's not known which CPUs actually use it. It could have been designed
+for TXT support on CPUs that lack MONITOR/MWAIT, because GETSEC[WAKEUP]
+seems to be more complicated, in software and hardware alike.
+
+This patch implements only MONITOR approach, GETSEC[WAKEUP] support will
+be added later once more details and means of testing are available and
+if there is a practical need for it.
+
+With this patch, every AP goes through assembly part, and only when in
+start_secondary() in C they re-enter MONITOR/MWAIT iff they are not the
+AP that was asked to boot. The same address is reused for simplicity,
+and on next wakeup call APs don't have to go through assembly part
+again (GDT, paging, stack setting).
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ xen/arch/x86/boot/trampoline.S       | 19 ++++++++-
+ xen/arch/x86/include/asm/intel_txt.h |  6 +++
+ xen/arch/x86/include/asm/processor.h |  1 +
+ xen/arch/x86/smpboot.c               | 61 ++++++++++++++++++++++++++++
+ 4 files changed, 86 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/boot/trampoline.S b/xen/arch/x86/boot/trampoline.S
+index 6440f31568..41eb3feaf0 100644
+--- a/xen/arch/x86/boot/trampoline.S
++++ b/xen/arch/x86/boot/trampoline.S
+@@ -59,6 +59,16 @@ GLOBAL(trampoline_realmode_entry)
+         ljmpl   $BOOT_CS32,$bootsym_rel(trampoline_protmode_entry,6)
+ 
+         .code32
++GLOBAL(txt_ap_entry)
++        /*
++         * APs enter here in protected mode without paging. GDT is set in JOIN
++         * structure, it points to trampoline_gdt. Interrupts are disabled by
++         * TXT (including NMI and SMI), so IDT doesn't matter at this point.
++         * The only missing point is telling that we are AP by saving non-zero
++         * value in EBX.
++         */
++        mov     $1, %ebx
++
+ trampoline_protmode_entry:
+         /* Set up a few descriptors: on entry only CS is guaranteed good. */
+         mov     $BOOT_DS,%eax
+@@ -144,7 +154,7 @@ start64:
+         .word   0
+ idt_48: .word   0, 0, 0 # base = limit = 0
+ 
+-trampoline_gdt:
++GLOBAL(trampoline_gdt)
+         .word   0                  /* 0x0000: unused (reused for GDTR) */
+ gdt_48:
+         .word   .Ltrampoline_gdt_end - trampoline_gdt - 1
+@@ -155,6 +165,13 @@ gdt_48:
+         .quad   0x00cf93000000ffff /* 0x0018: ring 0 data */
+         .quad   0x00009b000000ffff /* 0x0020: real-mode code @ BOOT_TRAMPOLINE */
+         .quad   0x000093000000ffff /* 0x0028: real-mode data @ BOOT_TRAMPOLINE */
++        /*
++         * Intel TXT requires these two in exact order. This isn't compatible
++         * with order required by syscall, so we have duplicated entries...
++         * If order ever changes, update selector numbers in asm/intel_txt.h.
++         */
++        .quad   0x00cf9b000000ffff /* 0x0030: ring 0 code, 32-bit mode */
++        .quad   0x00cf93000000ffff /* 0x0038: ring 0 data */
+ .Ltrampoline_gdt_end:
+ 
+         /* Relocations for trampoline Real Mode segments. */
+diff --git a/xen/arch/x86/include/asm/intel_txt.h b/xen/arch/x86/include/asm/intel_txt.h
+index 8505f37210..59cdc3f2e9 100644
+--- a/xen/arch/x86/include/asm/intel_txt.h
++++ b/xen/arch/x86/include/asm/intel_txt.h
+@@ -75,10 +75,16 @@
+ 
+ #define SLAUNCH_BOOTLOADER_MAGIC             0x4c534254
+ 
++#define TXT_AP_BOOT_CS                  0x0030
++#define TXT_AP_BOOT_DS                  0x0038
++
+ #ifndef __ASSEMBLY__
+ 
+ extern bool slaunch_active;
+ 
++extern char txt_ap_entry[];
++extern uint32_t trampoline_gdt[];
++
+ /* We need to differentiate between pre- and post paging enabled. */
+ #ifdef __BOOT_DEFS_H__
+ #define _txt(x) _p(x)
+diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/processor.h
+index f8f757a8a8..9e89f72912 100644
+--- a/xen/arch/x86/include/asm/processor.h
++++ b/xen/arch/x86/include/asm/processor.h
+@@ -641,6 +641,7 @@ void set_in_mcu_opt_ctrl(uint32_t mask, uint32_t val);
+ enum ap_boot_method {
+     AP_BOOT_NORMAL,
+     AP_BOOT_SKINIT,
++    AP_BOOT_TXT,
+ };
+ extern enum ap_boot_method ap_boot_method;
+ 
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 7aa899dac3..8cd2bc4573 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -39,6 +39,7 @@
+ #include <asm/div64.h>
+ #include <asm/flushtlb.h>
+ #include <asm/guest.h>
++#include <asm/intel_txt.h>
+ #include <asm/microcode.h>
+ #include <asm/msr.h>
+ #include <asm/mtrr.h>
+@@ -331,6 +332,29 @@ void start_secondary(void *unused)
+      */
+     unsigned int cpu = booting_cpu;
+ 
++    if ( ap_boot_method == AP_BOOT_TXT ) {
++        uint64_t misc_enable;
++        uint32_t my_apicid;
++        struct txt_sinit_mle_data *sinit_mle =
++              txt_sinit_mle_data_start(__va(read_txt_reg(TXTCR_HEAP_BASE)));
++
++        /* TXT released us with MONITOR disabled in IA32_MISC_ENABLE. */
++        rdmsrl(MSR_IA32_MISC_ENABLE, misc_enable);
++        wrmsrl(MSR_IA32_MISC_ENABLE,
++               misc_enable | MSR_IA32_MISC_ENABLE_MONITOR_ENABLE);
++
++        /* get_apic_id() reads from x2APIC if it thinks it is enabled. */
++        x2apic_ap_setup();
++        my_apicid = get_apic_id();
++
++        while ( my_apicid != x86_cpu_to_apicid[cpu] ) {
++            asm volatile ("monitor; xor %0,%0; mwait"
++                          :: "a"(__va(sinit_mle->rlp_wakeup_addr)), "c"(0),
++                          "d"(0) : "memory");
++            cpu = booting_cpu;
++        }
++    }
++
+     /* Critical region without IDT or TSS.  Any fault is deadly! */
+ 
+     set_current(idle_vcpu[cpu]);
+@@ -424,6 +448,33 @@ void start_secondary(void *unused)
+     startup_cpu_idle_loop();
+ }
+ 
++static int wake_aps_in_txt(unsigned long trampoline_rm)
++{
++    struct txt_sinit_mle_data *sinit_mle =
++              txt_sinit_mle_data_start(__va(read_txt_reg(TXTCR_HEAP_BASE)));
++    uint32_t *wakeup_addr = __va(sinit_mle->rlp_wakeup_addr);
++
++#define trampoline_relative(x) \
++    (trampoline_rm + ((char *)(x) - trampoline_realmode_entry))
++
++    uint32_t join[4] = {
++        trampoline_gdt[1],                      /* GDT limit */
++        trampoline_relative(trampoline_gdt),    /* GDT base */
++        TXT_AP_BOOT_CS,                         /* CS selector, DS = CS+8 */
++        trampoline_relative(txt_ap_entry)       /* EIP */
++    };
++
++#undef trampoline_relative
++
++    write_txt_reg(TXTCR_MLE_JOIN, __pa(join));
++
++    smp_mb();
++
++    *wakeup_addr = 1;
++
++    return 0;
++}
++
+ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+ {
+     unsigned long send_status = 0, accept_status = 0;
+@@ -446,6 +497,9 @@ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+     if ( tboot_in_measured_env() && !tboot_wake_ap(phys_apicid, start_eip) )
+         return 0;
+ 
++    if ( ap_boot_method == AP_BOOT_TXT )
++        return wake_aps_in_txt(start_eip);
++
+     /*
+      * Be paranoid about clearing APIC errors.
+      */
+@@ -1153,6 +1207,13 @@ static struct notifier_block cpu_smpboot_nfb = {
+ 
+ void __init smp_prepare_cpus(void)
+ {
++    /*
++     * If the platform is performing a Secure Launch via TXT, secondary
++     * CPUs (APs) will need to be woken up in a TXT-specific way.
++     */
++    if ( slaunch_active && boot_cpu_data.x86_vendor == X86_VENDOR_INTEL )
++        ap_boot_method = AP_BOOT_TXT;
++
+     register_cpu_notifier(&cpu_smpboot_nfb);
+ 
+     mtrr_aps_sync_begin();
+-- 
+2.46.0
+
