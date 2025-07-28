@@ -1,0 +1,128 @@
+From d308d88523f956a1e34bf3b79c2c2e0bfa3ad3dd Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Fri, 16 Jun 2023 15:45:32 +0200
+Subject: [PATCH 1319/1328] arch/x86/smp: start APs in parallel during boot
+
+Multiple delays are required when sending IPIs and waiting for
+responses. During boot, 4 such IPIs were sent per each AP. With this
+change, only one set of broadcast IPIs is sent. This reduces boot time,
+especially for platforms with large number of cores.
+
+Single CPU initialization is still possible, it is used for hotplug.
+
+During wakeup from S3 APs are started one by one. It should be possible
+to enable parallel execution there as well, but I don't have a way of
+testing it as of now.
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/include/asm/smp.h |  1 +
+ xen/arch/x86/setup.c           |  2 ++
+ xen/arch/x86/smpboot.c         | 31 +++++++++++++++++++++++++++----
+ 3 files changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/xen/arch/x86/include/asm/smp.h b/xen/arch/x86/include/asm/smp.h
+index 4432a8ea1b..68c8a349fc 100644
+--- a/xen/arch/x86/include/asm/smp.h
++++ b/xen/arch/x86/include/asm/smp.h
+@@ -31,6 +31,7 @@ DECLARE_PER_CPU(cpumask_var_t, send_ipi_cpumask);
+ extern bool park_offline_cpus;
+ 
+ void smp_send_nmi_allbutself(void);
++void smp_send_init_sipi_sipi_allbutself(void);
+ 
+ void send_IPI_mask(const cpumask_t *, int vector);
+ void send_IPI_self(int vector);
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index f014b681d9..22cbdbdc88 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -1919,6 +1919,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+                 cpu_data[i].stack_base = cpu_alloc_stack(i);
+         }
+ 
++        smp_send_init_sipi_sipi_allbutself();
++
+         for_each_present_cpu ( i )
+         {
+             if ( (park_offline_cpus || num_online_cpus() < max_cpus) &&
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index ce37266b13..c732e5ace7 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -464,7 +464,7 @@ static int wake_aps_in_txt(unsigned long trampoline_rm)
+ 
+ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+ {
+-    unsigned long send_status = 0, accept_status = 0;
++    unsigned long send_status = 0, accept_status = 0, sh = 0;
+     int maxlvt, timeout, i;
+ 
+     /*
+@@ -487,6 +487,12 @@ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+     if ( ap_boot_method == AP_BOOT_TXT )
+         return wake_aps_in_txt(start_eip);
+ 
++    /*
++     * Use destination shorthand for broadcasting IPIs during boot.
++     */
++    if ( phys_apicid == BAD_APICID )
++        sh = APIC_DEST_ALLBUT;
++
+     /*
+      * Be paranoid about clearing APIC errors.
+      */
+@@ -500,7 +506,7 @@ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+         /*
+          * Turn INIT on target chip via IPI
+          */
+-        apic_icr_write(APIC_INT_LEVELTRIG | APIC_INT_ASSERT | APIC_DM_INIT,
++        apic_icr_write(APIC_INT_LEVELTRIG | APIC_INT_ASSERT | APIC_DM_INIT | sh,
+                        phys_apicid);
+ 
+         if ( !x2apic_enabled )
+@@ -517,7 +523,7 @@ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+ 
+             Dprintk("Deasserting INIT.\n");
+ 
+-            apic_icr_write(APIC_INT_LEVELTRIG | APIC_DM_INIT, phys_apicid);
++            apic_icr_write(APIC_INT_LEVELTRIG | APIC_DM_INIT | sh, phys_apicid);
+ 
+             Dprintk("Waiting for send to finish...\n");
+             timeout = 0;
+@@ -554,7 +560,7 @@ static int wakeup_secondary_cpu(int phys_apicid, unsigned long start_eip)
+          * STARTUP IPI
+          * Boot on the stack
+          */
+-        apic_icr_write(APIC_DM_STARTUP | (start_eip >> 12), phys_apicid);
++        apic_icr_write(APIC_DM_STARTUP | (start_eip >> 12) | sh, phys_apicid);
+ 
+         if ( !x2apic_enabled )
+         {
+@@ -1202,6 +1208,23 @@ static struct notifier_block cpu_smpboot_nfb = {
+     .notifier_call = cpu_smpboot_callback
+ };
+ 
++void smp_send_init_sipi_sipi_allbutself(void)
++{
++    unsigned long start_eip;
++    start_eip = bootsym_phys(trampoline_realmode_entry);
++
++    /* start_eip needs be page aligned, and below the 1M boundary. */
++    if ( start_eip & ~0xff000 )
++        panic("AP trampoline %#lx not suitably positioned\n", start_eip);
++
++    /* So we see what's up   */
++    if ( opt_cpu_info )
++        printk("Booting APs in parallel, eip %lx\n", start_eip);
++
++    /* Starting actual broadcast IPI sequence... */
++    wakeup_secondary_cpu(BAD_APICID, start_eip);
++}
++
+ void __init smp_prepare_cpus(void)
+ {
+     /*
+-- 
+2.46.0
+
