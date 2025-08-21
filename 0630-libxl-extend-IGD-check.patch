@@ -1,4 +1,4 @@
-From 4a500f4083a6e02ecaf759cdba4ba759fa763130 Mon Sep 17 00:00:00 2001
+From a9ce51f330d186ea3afb882f4581b3ffd96eaea1 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Thu, 28 Nov 2024 04:51:44 +0100
@@ -18,19 +18,19 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
-index c3c61ca060a6..1ee97a5b4b20 100644
+index 94e76177ea..b2319b6cc8 100644
 --- a/tools/firmware/hvmloader/pci.c
 +++ b/tools/firmware/hvmloader/pci.c
-@@ -173,6 +173,7 @@ void pci_setup(void)
-         switch ( class )
+@@ -98,6 +98,7 @@ static void class_specific_pci_device_setup(uint16_t vendor_id,
+     switch ( class )
+     {
+     case 0x0300:
++    case 0x0380:
+         /* If emulated VGA is found, preserve it as primary VGA. */
+         if ( (vendor_id == 0x1234) && (device_id == 0x1111) )
          {
-         case 0x0300:
-+        case 0x0380:
-             /* If emulated VGA is found, preserve it as primary VGA. */
-             if ( (vendor_id == 0x1234) && (device_id == 0x1111) )
-             {
 diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
-index a6b0e3adcb68..6b8d8945b390 100644
+index a6b0e3adcb..6b8d8945b3 100644
 --- a/tools/libs/light/libxl_pci.c
 +++ b/tools/libs/light/libxl_pci.c
 @@ -635,7 +635,7 @@ bool libxl__is_igd_vga_passthru(libxl__gc *gc,
@@ -53,5 +53,5 @@ index a6b0e3adcb68..6b8d8945b390 100644
  
          stubdom_domid = libxl_get_stubdom_id(CTX, domid);
 -- 
-2.48.1
+2.49.0
 

@@ -1,0 +1,62 @@
+From 34b093e2ed819cec72c95c3df9c12c7a82a5b623 Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:42 -0400
+Subject: [PATCH 02/12] Makefile: build and use new DSDT table for Q35
+
+Provide building for newly added dsdt_q35.asl file, in a way similar
+to dsdt.asl.
+
+Note that '15cpu' ACPI tables are only applicable to qemu-traditional
+(which have no support for Q35), so we need to use 'anycpu' version only.
+
+Signed-off-by: Alexey Gerasimenko <x1917x@xxxxxxxxx>
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ tools/firmware/hvmloader/Makefile |  2 +-
+ tools/libacpi/Makefile            | 10 +++++++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/tools/firmware/hvmloader/Makefile b/tools/firmware/hvmloader/Makefile
+index 84cba171cd..3a1cb026b1 100644
+--- a/tools/firmware/hvmloader/Makefile
++++ b/tools/firmware/hvmloader/Makefile
+@@ -76,7 +76,7 @@ rombios.o: roms.inc
+ smbios.o: CFLAGS += -D__SMBIOS_DATE__="\"$(SMBIOS_REL_DATE)\""
+ 
+ ACPI_PATH = ../../libacpi
+-DSDT_FILES = dsdt_anycpu.c dsdt_15cpu.c dsdt_anycpu_qemu_xen.c
++DSDT_FILES = dsdt_anycpu.c dsdt_15cpu.c dsdt_anycpu_qemu_xen.c dsdt_q35_anycpu_qemu_xen.c
+ ACPI_OBJS = $(patsubst %.c,%.o,$(DSDT_FILES)) build.o static_tables.o
+ $(ACPI_OBJS): CFLAGS += -iquote . -DLIBACPI_STDUTILS=\"$(CURDIR)/util.h\"
+ CFLAGS += -I$(ACPI_PATH)
+diff --git a/tools/libacpi/Makefile b/tools/libacpi/Makefile
+index b21a64c6b4..d1ad2c6d85 100644
+--- a/tools/libacpi/Makefile
++++ b/tools/libacpi/Makefile
+@@ -11,7 +11,7 @@ endif
+ 
+ MK_DSDT = $(ACPI_BUILD_DIR)/mk_dsdt
+ 
+-C_SRC-$(CONFIG_X86) = dsdt_anycpu.c dsdt_15cpu.c dsdt_anycpu_qemu_xen.c dsdt_pvh.c
++C_SRC-$(CONFIG_X86) = dsdt_anycpu.c dsdt_15cpu.c dsdt_anycpu_qemu_xen.c dsdt_q35_anycpu_qemu_xen.c dsdt_pvh.c
+ C_SRC-$(CONFIG_ARM_64) = dsdt_anycpu_arm.c
+ DSDT_FILES ?= $(C_SRC-y)
+ C_SRC = $(addprefix $(ACPI_BUILD_DIR)/, $(DSDT_FILES))
+@@ -54,6 +54,14 @@ $(ACPI_BUILD_DIR)/dsdt_%cpu.asl: dsdt.asl dsdt_acpi_info.asl  $(MK_DSDT)
+ 	$(MK_DSDT) --debug=$(debug) --maxcpu $*  >> $@.$(TMP_SUFFIX)
+ 	mv -f $@.$(TMP_SUFFIX) $@
+ 
++$(ACPI_BUILD_DIR)/dsdt_q35_anycpu_qemu_xen.asl: dsdt_q35.asl dsdt_acpi_info.asl $(MK_DSDT)
++	# Remove last bracket
++	awk 'NR > 1 {print s} {s=$$0}' $< > $@.$(TMP_SUFFIX)
++	cat dsdt_acpi_info.asl >> $@.$(TMP_SUFFIX)
++	$(MK_DSDT) --debug=$(debug) --dm-version qemu-xen >> $@.$(TMP_SUFFIX)
++	mv -f $@.$(TMP_SUFFIX) $@
++
++
+ $(ACPI_BUILD_DIR)/dsdt_pvh.asl: dsdt_acpi_info.asl $(MK_DSDT)
+ 	printf "DefinitionBlock (\"DSDT.aml\", \"DSDT\", 5, \"Xen\", \"HVM\", 0)\n{" > $@
+ 	cat dsdt_acpi_info.asl >> $@
+-- 
+2.49.0
+

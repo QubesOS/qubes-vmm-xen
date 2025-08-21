@@ -1,0 +1,114 @@
+From 5e407f9b43bb654e690d4a822c85319c0e78fa1b Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:48 -0400
+Subject: [PATCH 08/12] libxl: Q35 support (new option device_model_machine)
+
+Provide a new domain config option to select the emulated machine type,
+device_model_machine. It has following possible values:
+- "i440" - i440 emulation (default)
+- "q35" - emulate a Q35 machine. By default, the storage interface is AHCI.
+
+Note that omitting device_model_machine parameter means i440 system
+by default, so the default behavior doesn't change for existing domain
+config files.
+
+Setting device_model_machine to "q35" sends '-machine q35,accel=xen'
+argument to QEMU. Unlike i440, there no separate machine type
+to enable/disable Xen platform device, it is controlled via a machine
+property only. See 'libxl: Xen Platform device support for Q35' patch for
+a detailed description.
+
+Signed-off-by: Alexey Gerasimenko <x1917x@xxxxxxxxx>
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ tools/libs/light/libxl_dm.c      | 20 ++++++++++++++------
+ tools/libs/light/libxl_types.idl |  8 ++++++++
+ tools/xl/xl_parse.c              | 14 ++++++++++++++
+ 3 files changed, 36 insertions(+), 6 deletions(-)
+
+diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
+index ff8ddeec9a..a6fef61370 100644
+--- a/tools/libs/light/libxl_dm.c
++++ b/tools/libs/light/libxl_dm.c
+@@ -1809,13 +1809,21 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+             flexarray_append(dm_args, b_info->extra_pv[i]);
+         break;
+     case LIBXL_DOMAIN_TYPE_HVM:
+-        if (!libxl_defbool_val(b_info->u.hvm.xen_platform_pci)) {
+-            /* Switching here to the machine "pc" which does not add
+-             * the xen-platform device instead of the default "xenfv" machine.
+-             */
+-            machinearg = libxl__strdup(gc, "pc,accel=xen,suppress-vmdesc=on");
++        if (b_info->device_model_machine == LIBXL_DEVICE_MODEL_MACHINE_Q35) {
++            if (!libxl_defbool_val(b_info->u.hvm.xen_platform_pci)) {
++                machinearg = libxl__sprintf(gc, "q35,accel=xen");
++            } else {
++                machinearg = libxl__sprintf(gc, "q35,accel=xen,xen-platform-dev=on");
++            }
+         } else {
+-            machinearg = libxl__strdup(gc, "xenfv,suppress-vmdesc=on");
++            if (!libxl_defbool_val(b_info->u.hvm.xen_platform_pci)) {
++                /* Switching here to the machine "pc" which does not add
++                 * the xen-platform device instead of the default "xenfv" machine.
++                 */
++                machinearg = libxl__strdup(gc, "pc,accel=xen,suppress-vmdesc=on");
++            } else {
++                machinearg = libxl__strdup(gc, "xenfv,suppress-vmdesc=on");
++            }
+         }
+         if (b_info->u.hvm.mmio_hole_memkb) {
+             uint64_t max_ram_below_4g = (1ULL << 32) -
+diff --git a/tools/libs/light/libxl_types.idl b/tools/libs/light/libxl_types.idl
+index 4e65e6fda5..6f8501e84c 100644
+--- a/tools/libs/light/libxl_types.idl
++++ b/tools/libs/light/libxl_types.idl
+@@ -108,6 +108,13 @@ libxl_device_model_version = Enumeration("device_model_version", [
+     (2, "QEMU_XEN"),             # Upstream based qemu-xen device model
+     ])
+ 
++libxl_device_model_machine = Enumeration("device_model_machine", [
++    (0, "UNKNOWN"),
++    (1, "I440"),
++    (2, "Q35"),
++    ])
++
++
+ libxl_console_type = Enumeration("console_type", [
+     (0, "UNKNOWN"),
+     (1, "SERIAL"),
+@@ -603,6 +610,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
+     ("device_model_ssidref", uint32),
+     ("device_model_ssid_label", string),
+     ("device_model_user", string),
++    ("device_model_machine", libxl_device_model_machine),
+ 
+     # extra parameters pass directly to qemu, NULL terminated
+     ("extra",            libxl_string_list),
+diff --git a/tools/xl/xl_parse.c b/tools/xl/xl_parse.c
+index 9018efa117..940b3d44db 100644
+--- a/tools/xl/xl_parse.c
++++ b/tools/xl/xl_parse.c
+@@ -2730,6 +2730,20 @@ skip_usbdev:
+     if (!xlu_cfg_get_long (config, "stubdomain_memory", &l, 0))
+         b_info->stubdomain_memkb = l * 1024;
+ 
++    if (!xlu_cfg_get_string (config, "device_model_machine", &buf, 0)) {
++        if (!strcmp(buf, "i440")) {
++            b_info->device_model_machine = LIBXL_DEVICE_MODEL_MACHINE_I440;
++        } else if (!strcmp(buf, "q35")) {
++            b_info->device_model_machine = LIBXL_DEVICE_MODEL_MACHINE_Q35;
++        } else {
++            fprintf(stderr,
++                    "Unknown device_model_machine \"%s\" specified\n", buf);
++            exit(1);
++        }
++    } else {
++        b_info->device_model_machine = LIBXL_DEVICE_MODEL_MACHINE_UNKNOWN;
++    }
++
+ #define parse_extra_args(type)                                            \
+     e = xlu_cfg_get_list_as_string_list(config, "device_model_args"#type, \
+                                     &b_info->extra##type, 0);            \
+-- 
+2.49.0
+

@@ -1,0 +1,82 @@
+From 77ea34703320cc9a62537bac6301589a45083055 Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:52 -0400
+Subject: [PATCH 12/12] libxl_dm: handle the new 6 port ahci controller
+
+This patch adds support to allow for 6 emulated devices on a
+controller, and handling cdrom drives properly. This is not from the
+original patch series.
+
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ tools/libs/light/libxl_dm.c | 40 ++++++++++++++++++++++++++++---------
+ 1 file changed, 31 insertions(+), 9 deletions(-)
+
+diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
+index a6fef61370..d5e0367651 100644
+--- a/tools/libs/light/libxl_dm.c
++++ b/tools/libs/light/libxl_dm.c
+@@ -1936,29 +1936,51 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+ 
+             if (disks[i].is_cdrom) {
+                 const char *drive_id;
+-                if (disk > 4) {
++                if (disk > 4 && b_info->device_model_machine == LIBXL_DEVICE_MODEL_MACHINE_I440) {
+                     LOGD(WARN, guest_domid, "Emulated CDROM can be only one of the first 4 disks.\n"
+                          "Disk %s will be available via PV drivers but not as an "
+                          "emulated disk.",
+                          disks[i].vdev);
+                     continue;
++                } else if (disk > 6 && 
++                           b_info->device_model_machine == LIBXL_DEVICE_MODEL_MACHINE_Q35) {
++                    LOGD(WARN, guest_domid, "Emulated CDROM can be only one of the first 6 disks.\n"
++                         "Disk %s will be available via PV drivers but not as an "
++                         "emulated disk.",
++                         disks[i].vdev);
++                    continue;
+                 }
++		if (b_info->device_model_machine == LIBXL_DEVICE_MODEL_MACHINE_I440) {
++                     drive_id = GCSPRINTF("ide-%i", dev_number);
++                     drive = GCSPRINTF("if=none,readonly=on,id=%s", drive_id);
+ 
+-                drive_id = GCSPRINTF("ide-%i", dev_number);
+-                drive = GCSPRINTF("if=none,readonly=on,id=%s", drive_id);
+-
+-                if (target_path)
+-                    drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
+-                                           drive, target_path, format);
++                    if (target_path)
++                        drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
++                                               drive, target_path, format);
+ 
+-                flexarray_vappend(dm_args,
++                    flexarray_vappend(dm_args,
+                     "-drive", drive,
+                     "-device",
+                     GCSPRINTF("ide-cd,id=%s,drive=%s,bus=ide.%u,unit=%u",
+                               drive_id, drive_id,
+                               disk / 2, disk % 2),
+                     NULL);
+-                continue;
++                   continue;
++                } else {
++                    drive_id = GCSPRINTF("sata-0-%i", dev_number);
++                    drive = GCSPRINTF("if=none,readonly=on,id=%s", drive_id);
++                        if (target_path)
++                            drive = libxl__sprintf(gc, "%s,file=%s,format=%s",
++                                                   drive, target_path, format);
++
++                        flexarray_vappend(dm_args,
++                            "-drive", drive,
++                            "-device",
++                            GCSPRINTF("ide-cd,id=%s,drive=%s,bus=ide.0",
++                                      drive_id, drive_id),
++                            NULL);
++                        continue;
++                }
+             } else {
+                 /*
+                  * Explicit sd disks are passed through as is.
+-- 
+2.49.0
+
