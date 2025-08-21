@@ -1,0 +1,159 @@
+From bb72c3ba88010b1526ad7153abd4bee27edb2379 Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:49 -0400
+Subject: [PATCH 09/12] libacpi: build ACPI MCFG table if requested
+
+This adds construct_mcfg() function to libacpi which allows to build MCFG
+table for a given mmconfig_addr/mmconfig_len pair if the ACPI_HAS_MCFG
+flag was specified in acpi_config struct.
+
+The maximum bus number is calculated from mmconfig_len using
+MCFG_SIZE_TO_NUM_BUSES macro (1MByte of MMIO space per bus).
+
+Signed-off-by: Alexey Gerasimenko <x1917x@xxxxxxxxx>
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ tools/libacpi/acpi2_0.h | 21 ++++++++++++++++++++
+ tools/libacpi/build.c   | 43 +++++++++++++++++++++++++++++++++++++++++
+ tools/libacpi/libacpi.h |  4 ++++
+ 3 files changed, 68 insertions(+)
+
+diff --git a/tools/libacpi/acpi2_0.h b/tools/libacpi/acpi2_0.h
+index 6dfa939a8c..02b0cf1098 100644
+--- a/tools/libacpi/acpi2_0.h
++++ b/tools/libacpi/acpi2_0.h
+@@ -442,6 +442,24 @@ struct acpi_20_slit {
+     uint64_t localities;
+     uint8_t entry[0];
+ };
++/*
++ * PCI Express Memory Mapped Configuration Description Table
++ */
++struct mcfg_range_entry {
++    uint64_t base_address;
++    uint16_t pci_segment;
++    uint8_t  start_pci_bus_num;
++    uint8_t  end_pci_bus_num;
++    uint32_t reserved;
++};
++
++struct acpi_mcfg {
++    struct acpi_header header;
++    uint8_t reserved[8];
++    struct mcfg_range_entry entries[1];
++};
++
++#define MCFG_SIZE_TO_NUM_BUSES(size)  ((size) >> 20)
+ 
+ /*
+  * Table Signatures.
+@@ -458,6 +476,8 @@ struct acpi_20_slit {
+ #define ACPI_2_0_WAET_SIGNATURE ASCII32('W','A','E','T')
+ #define ACPI_2_0_SRAT_SIGNATURE ASCII32('S','R','A','T')
+ #define ACPI_2_0_SLIT_SIGNATURE ASCII32('S','L','I','T')
++#define ACPI_MCFG_SIGNATURE     ASCII32('M','C','F','G')
++
+ 
+ /*
+  * Table revision numbers.
+@@ -473,6 +493,7 @@ struct acpi_20_slit {
+ #define ACPI_1_0_FADT_REVISION 0x01
+ #define ACPI_2_0_SRAT_REVISION 0x01
+ #define ACPI_2_0_SLIT_REVISION 0x01
++#define ACPI_1_0_MCFG_REVISION 0x01
+ 
+ #pragma pack ()
+ 
+diff --git a/tools/libacpi/build.c b/tools/libacpi/build.c
+index 2f29863db1..fc029d18bf 100644
+--- a/tools/libacpi/build.c
++++ b/tools/libacpi/build.c
+@@ -295,6 +295,37 @@ static struct acpi_20_slit *construct_slit(struct acpi_ctxt *ctxt,
+     return slit;
+ }
+ 
++static struct acpi_mcfg *construct_mcfg(struct acpi_ctxt *ctxt,
++                                        const struct acpi_config *config)
++{
++    struct acpi_mcfg *mcfg;
++
++    /* Warning: this code expects that we have only one PCI segment */
++    mcfg = ctxt->mem_ops.alloc(ctxt, sizeof(*mcfg), 16);
++    if (!mcfg)
++        return NULL;
++
++    memset(mcfg, 0, sizeof(*mcfg));
++    mcfg->header.signature    = ACPI_MCFG_SIGNATURE;
++    mcfg->header.revision     = ACPI_1_0_MCFG_REVISION;
++    fixed_strcpy(mcfg->header.oem_id, ACPI_OEM_ID);
++    fixed_strcpy(mcfg->header.oem_table_id, ACPI_OEM_TABLE_ID);
++    mcfg->header.oem_revision = ACPI_OEM_REVISION;
++    mcfg->header.creator_id   = ACPI_CREATOR_ID;
++    mcfg->header.creator_revision = ACPI_CREATOR_REVISION;
++    mcfg->header.length = sizeof(*mcfg);
++
++    mcfg->entries[0].base_address = config->mmconfig_addr;
++    mcfg->entries[0].pci_segment = 0;
++    mcfg->entries[0].start_pci_bus_num = 0;
++    mcfg->entries[0].end_pci_bus_num =
++        MCFG_SIZE_TO_NUM_BUSES(config->mmconfig_len) - 1;
++
++    set_checksum(mcfg, offsetof(struct acpi_header, checksum), sizeof(*mcfg));
++
++    return mcfg;;
++}
++
+ static int construct_passthrough_tables(struct acpi_ctxt *ctxt,
+                                         unsigned long *table_ptrs,
+                                         int nr_tables,
+@@ -342,6 +373,7 @@ static int construct_secondary_tables(struct acpi_ctxt *ctxt,
+     struct acpi_20_hpet *hpet;
+     struct acpi_20_waet *waet;
+     struct acpi_20_tcpa *tcpa;
++    struct acpi_mcfg *mcfg;
+     struct acpi_20_tpm2 *tpm2;
+     unsigned char *ssdt;
+     void *lasa;
+@@ -402,6 +434,17 @@ static int construct_secondary_tables(struct acpi_ctxt *ctxt,
+         memcpy(ssdt, ssdt_laptop_slate, sizeof(ssdt_laptop_slate));
+         table_ptrs[nr_tables++] = ctxt->mem_ops.v2p(ctxt, ssdt);
+     }
++
++    /* MCFG */
++    if ( config->table_flags & ACPI_HAS_MCFG )
++    {
++        mcfg = construct_mcfg(ctxt, config);
++        if (!mcfg)
++            return -1;
++
++        table_ptrs[nr_tables++] = ctxt->mem_ops.v2p(ctxt, mcfg);
++    }
++
+     /* TPM and its SSDT. */
+     if ( config->table_flags & ACPI_HAS_TPM )
+     {
+diff --git a/tools/libacpi/libacpi.h b/tools/libacpi/libacpi.h
+index deda39e5db..b4d3116ca5 100644
+--- a/tools/libacpi/libacpi.h
++++ b/tools/libacpi/libacpi.h
+@@ -27,6 +27,7 @@
+ #define ACPI_HAS_8042              (1<<13)
+ #define ACPI_HAS_CMOS_RTC          (1<<14)
+ #define ACPI_HAS_SSDT_LAPTOP_SLATE (1<<15)
++#define ACPI_HAS_MCFG              (1<<16)
+ 
+ struct xen_vmemrange;
+ struct acpi_numa {
+@@ -89,6 +90,9 @@ struct acpi_config {
+     uint32_t ioapic_base_address;
+     uint16_t pci_isa_irq_mask;
+     uint8_t ioapic_id;
++
++    uint64_t mmconfig_addr;
++    uint32_t mmconfig_len;
+ };
+ 
+ int acpi_build_tables(struct acpi_ctxt *ctxt, struct acpi_config *config);
+-- 
+2.49.0
+
