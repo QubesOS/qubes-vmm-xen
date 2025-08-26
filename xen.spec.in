@@ -100,6 +100,7 @@ Patch0203: 0203-xen.efi.build.patch
 Patch0300: 0300-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
 Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
 Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
+Patch0303: 0303-x86-suspend-unconditionally-raise-a-timer-softirq-on.patch
 
 # Security fixes (500+)
 
