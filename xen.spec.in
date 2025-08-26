@@ -305,7 +305,7 @@ form the core Xen userspace environment.
 
 
 %package hypervisor
-Summary: Libraries for Xen tools
+Summary: Xen hypervisor
 Provides: xen-hypervisor-abi = %{hv_abi}
 Requires: xen-licenses
 %if %build_hyp
@@ -322,6 +322,17 @@ Recommends: grub2-pc-modules
 %description hypervisor
 This package contains the Xen hypervisor
 
+%package hypervisor-debug
+Summary: Xen hypervisor - debug build
+Requires: xen-licenses
+%if %build_hyp
+%ifarch %{ix86}
+Recommends: grub2-pc-modules
+%endif
+%endif
+
+%description hypervisor-debug
+This package contains debug build of the Xen hypervisor
 
 %if %build_docs
 %package doc
@@ -476,13 +487,28 @@ XEN_TARGET_ARCH=x86_32 make -C stubdom pv-grub-if-enabled
 %endif
 %endif
 
+mv dist/install dist/install-release
+%if %build_hyp
+# BEGIN QUBES SPECIFIC PART
+# finally, build debug hypervisor
+echo "CONFIG_DEBUG=y" >> xen/.config
+echo "CONFIG_FRAME_POINTER=y" >> xen/.config
+echo "CONFIG_TRACEBUFFER=y" >> xen/.config
+make -C xen olddefconfig
+%if %build_efi
+mkdir -p dist/install/boot/efi/efi/qubes
+%endif
+%make_build %{?efi_flags} prefix=/usr xen
+# END QUBES SPECIFIC PART
+%endif
 
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}
 # copy all while preserving hardlinks between files
-rsync -aH dist/install/ %{buildroot}/
+rsync -aH dist/install-release/ %{buildroot}/
 %if %build_stubdom
+# TODO: this is broken with dist/install-release change
 %ifnarch armv7hl aarch64
 make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-stubdom
 %endif
@@ -503,6 +529,22 @@ rm -f %{buildroot}/boot/xenpolicy*
 rm -f %{buildroot}/usr/sbin/flask-*
 # END QUBES SPECIFIC PART
 %endif
+
+# BEGIN QUBES SPECIFIC PART
+# install debug hypervisor
+cp dist/install/boot/efi/efi/qubes/xen-%{upstream_version}.efi \
+    %{buildroot}/boot/efi/EFI/qubes/xen-%{upstream_version}~debug.efi
+cp dist/install/boot/xen-%{upstream_version}.gz \
+    %{buildroot}/boot/xen-%{upstream_version}~debug.gz
+cp dist/install/boot/xen-%{upstream_version}.config \
+    %{buildroot}/boot/xen-%{upstream_version}~debug.config
+cp dist/install/usr/lib/debug/xen-%{upstream_version}.efi.map \
+    %{buildroot}/usr/lib/debug/xen-%{upstream_version}~debug.efi.map
+cp dist/install/usr/lib/debug/xen-syms-%{upstream_version} \
+    %{buildroot}/usr/lib/debug/xen-syms-%{upstream_version}~debug
+cp dist/install/usr/lib/debug/xen-syms-%{upstream_version}.map \
+    %{buildroot}/usr/lib/debug/xen-syms-%{upstream_version}~debug.map
+# END QUBES SPECIFIC PART
 
 ############ debug packaging: list files ############
 
@@ -759,6 +801,17 @@ if [ -f /sbin/grub2-mkconfig ]; then
 fi
 %endif
 
+%post hypervisor-debug
+if [ -f /sbin/grub2-mkconfig ]; then
+  if [ -f /boot/grub2/grub.cfg ]; then
+    /sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+  fi
+  if [ -f /boot/efi/EFI/qubes/grub.cfg ] && \
+        ! grep -q "configfile" /boot/efi/EFI/qubes/grub.cfg; then
+    /sbin/grub2-mkconfig -o /boot/efi/EFI/qubes/grub.cfg
+  fi
+fi
+
 %if %build_ocaml
 %post ocaml
 %if %with_systemd_presets
@@ -992,11 +1045,11 @@ fi
 %if %build_hyp
 %defattr(-,root,root)
 %ifnarch armv7hl aarch64
-/boot/xen-*.gz
+/boot/xen-[0-9]*[0-9].gz
 # BEGIN QUBES SPECIFIC PART
 # /boot/xen.gz
 # END QUBES SPECIFIC PART
-/boot/xen*.config
+/boot/xen-[0-9]*[0-9].config
 %else
 /boot/xen*
 %endif
@@ -1005,15 +1058,35 @@ fi
 /boot/flask/xenpolicy*
 %endif
 %if %build_efi
-/boot/efi/EFI/qubes/*.efi
+/boot/efi/EFI/qubes/xen-[0-9]*[0-9].efi
+/usr/lib/debug/xen-[0-9]*[0-9].efi.elf
+/usr/lib/debug/xen-[0-9]*[0-9].efi.map
 %endif
-/usr/lib/debug/xen*
+/usr/lib/debug/xen-syms-[0-9]*[0-9]
+/usr/lib/debug/xen-syms-[0-9]*[0-9].map
+%{_libdir}/efi/xen-[0-9]*[0-9].efi
 %endif
+
+%files hypervisor-debug
+%if %build_hyp
+%defattr(-,root,root)
+%ifnarch armv7hl aarch64
+/boot/xen-*~debug.gz
+/boot/xen-*~debug.config
+%else
+/boot/xen-*~debug
+%endif
+%if %build_efi
+/boot/efi/EFI/qubes/xen-*~debug.efi
+%endif
+/usr/lib/debug/xen-*~debug*
+%endif
+
 
 %if %build_docs
 %files doc
 %doc docs/misc/
-%doc dist/install/usr/share/doc/xen/html
+%doc dist/install-release/usr/share/doc/xen/html
 %endif
 
 %files devel
