@@ -1,0 +1,94 @@
+From 33feb3820a51a7f01770bd97a93ea6cbecf88c76 Mon Sep 17 00:00:00 2001
+From: Roger Pau Monne <roger.pau@citrix.com>
+Date: Mon, 25 Aug 2025 17:15:15 +0200
+Subject: [PATCH] x86/suspend: unconditionally raise a timer softirq on resume
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The current code to restore the timer state on resume is incomplete.  While
+the local APIC Initial Count Register is saved and restored across
+suspension (even if possibly no longer accurate since it's not adjusted to
+account for the time spent in suspension), the TSC deadline MSR is not
+saved and restored, hence hosts using the TSC deadline timer will likely
+get stuck when resuming from suspension.
+
+The lack of restoring of the TSC deadline MSR was mitigated by the raising
+of a timer softirq in mwait_idle_with_hints() if the timer had expired,
+previous to commit 3faf0866a33070b926ab78e6298290403f85e76c, which removed
+that logic.
+
+This patch fixes the usage of the TSC deadline timer with suspension, by
+unconditionally raising a timer softirq on resume, that will take care of
+rearming the hardware timer.  Given that a timer softirq will be
+unconditionally risen, there's no need to save and restore the APIC Initial
+Count Register anymore either.
+
+Note that secondary processors don't need this special treatment when
+resuming, since they are offlined before suspension and brought back up
+during resume, the first timer that gets setup will trigger a timer softirq
+unconditionally, for example from sched_migrate_timers() that gets called
+for each secondary processor.
+
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Fixes: fd1291a826e1 ('X86: Prefer TSC-deadline timer in Xen')
+Signed-off-by: Roger Pau Monné <roger.pau@citrix.com>
+Tested-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+Link: https://github.com/QubesOS/qubes-issues/issues/10110
+---
+ xen/arch/x86/acpi/power.c | 2 ++
+ xen/arch/x86/apic.c       | 3 ---
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/power.c b/xen/arch/x86/acpi/power.c
+index 01cdaf9052c8..c94a6337dd27 100644
+--- a/xen/arch/x86/acpi/power.c
++++ b/xen/arch/x86/acpi/power.c
+@@ -17,6 +17,7 @@
+ #include <xen/sched.h>
+ #include <asm/acpi.h>
+ #include <asm/irq.h>
++#include <xen/softirq.h>
+ #include <asm/init.h>
+ #include <xen/spinlock.h>
+ #include <xen/sched.h>
+@@ -330,6 +331,7 @@ static int enter_state(u32 state)
+     thaw_domains();
+     system_state = SYS_STATE_active;
+     spin_unlock(&pm_lock);
++    raise_softirq(TIMER_SOFTIRQ);
+     return error;
+ }
+ 
+diff --git a/xen/arch/x86/apic.c b/xen/arch/x86/apic.c
+index 6567af685a1b..16e03ebd91ff 100644
+--- a/xen/arch/x86/apic.c
++++ b/xen/arch/x86/apic.c
+@@ -63,7 +63,6 @@ static struct {
+     unsigned int apic_lvt0;
+     unsigned int apic_lvt1;
+     unsigned int apic_lvterr;
+-    unsigned int apic_tmict;
+     unsigned int apic_tdcr;
+     unsigned int apic_thmr;
+ } apic_pm_state;
+@@ -658,7 +657,6 @@ int lapic_suspend(void)
+     apic_pm_state.apic_lvt0 = apic_read(APIC_LVT0);
+     apic_pm_state.apic_lvt1 = apic_read(APIC_LVT1);
+     apic_pm_state.apic_lvterr = apic_read(APIC_LVTERR);
+-    apic_pm_state.apic_tmict = apic_read(APIC_TMICT);
+     apic_pm_state.apic_tdcr = apic_read(APIC_TDCR);
+     if (maxlvt >= 5)
+         apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
+@@ -718,7 +716,6 @@ int lapic_resume(void)
+         apic_write(APIC_LVTPC, apic_pm_state.apic_lvtpc);
+     apic_write(APIC_LVTT, apic_pm_state.apic_lvtt);
+     apic_write(APIC_TDCR, apic_pm_state.apic_tdcr);
+-    apic_write(APIC_TMICT, apic_pm_state.apic_tmict);
+     apic_write(APIC_ESR, 0);
+     apic_read(APIC_ESR);
+     apic_write(APIC_LVTERR, apic_pm_state.apic_lvterr);
+-- 
+2.49.0
+

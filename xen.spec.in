@@ -123,6 +123,7 @@ Patch0329: 0329-x86-amd-Misc-setup-for-Fam1Ah-processors.patch
 Patch0330: 0330-xen-lib-Introduce-SHA2-256.patch
 Patch0331: 0331-x86-ucode-Perform-extra-SHA2-checks-on-AMD-Fam17h-19.patch
 Patch0332: 0332-x86-dom0-be-less-restrictive-with-the-Interrupt-Addr.patch
+Patch0333: 0333-x86-suspend-unconditionally-raise-a-timer-softirq-on.patch
 
 # Security fixes
 Patch0500: 0500-xsa464.patch
