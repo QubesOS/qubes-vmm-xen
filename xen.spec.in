@@ -245,6 +245,37 @@ Patch1200: 1200-hypercall-XENMEM_get_mfn_from_pfn.patch
 Patch1201: 1201-patch-gvt-hvmloader.patch.patch
 Patch1202: 1202-libxl-Add-partially-Intel-GVT-g-support-xengt-device.patch
 
+# Secure Launch support patches
+Patch1300: 1300-x86-include-asm-intel_txt.h-constants-and-accessors-.patch
+Patch1301: 1301-x86-boot-add-MLE-header-and-new-entry-point.patch
+Patch1302: 1302-x86-boot-txt_early-add-early-TXT-tests-and-restore-M.patch
+Patch1303: 1303-include-xen-slr_table.h-Secure-Launch-Resource-Table.patch
+Patch1304: 1304-xen-arch-x86-reserve-TXT-memory.patch
+Patch1305: 1305-x86-intel_txt.c-restore-boot-MTRRs.patch
+Patch1306: 1306-lib-sha1.c-add-file.patch
+Patch1307: 1307-x86-tpm.c-code-for-early-hashing-and-extending-PCRs-.patch
+Patch1308: 1308-x86-boot-choose-AP-stack-based-on-APIC-ID.patch
+Patch1309: 1309-x86-smpboot.c-TXT-AP-bringup.patch
+Patch1310: 1310-arch-x86-don-t-access-x86_cpu_to_apicid-directly-use.patch
+Patch1311: 1311-arch-x86-smp-drop-x86_cpu_to_apicid-use-cpu_data-cpu.patch
+Patch1312: 1312-arch-x86-smp-move-stack_base-to-cpu_data.patch
+Patch1313: 1313-arch-x86-smp-call-x2apic_ap_setup-earlier.patch
+Patch1314: 1314-arch-x86-shutdown-protect-against-recurrent-machine_.patch
+Patch1315: 1315-arch-x86-smp-drop-booting_cpu-variable.patch
+Patch1316: 1316-arch-x86-smp-make-cpu_state-per-CPU.patch
+Patch1317: 1317-arch-x86-smp-remove-MONITOR-MWAIT-loop-for-TXT-AP-br.patch
+Patch1318: 1318-arch-x86-smp-don-t-send-INIT-SIPI-SIPI-if-AP-is-alre.patch
+Patch1319: 1319-arch-x86-smp-start-APs-in-parallel-during-boot.patch
+Patch1320: 1320-lib-sha256.c-add-file.patch
+Patch1321: 1321-x86-tpm.c-support-extending-PCRs-of-TPM2.0.patch
+Patch1322: 1322-x86-tpm.c-implement-event-log-for-TPM2.0.patch
+Patch1323: 1323-arch-x86-process-DRTM-policy.patch
+Patch1324: 1324-arch-x86-extract-slaunch-unit.patch
+Patch1325: 1325-x86-boot-introduce-slaunch_slrt-global-variable.patch
+Patch1326: 1326-x86-boot-find-MBI-and-SLRT-on-AMD.patch
+Patch1327: 1327-arch-x86-move-generic-memory-mapping-and-protection-.patch
+Patch1328: 1328-arch-x86-support-slaunch-with-AMD-SKINIT.patch
+
 %if %build_qemutrad
 BuildRequires: libidn-devel zlib-devel SDL-devel curl-devel
 BuildRequires: libX11-devel gtk2-devel libaio-devel
@@ -870,11 +901,11 @@ fi
 
 # BEGIN QUBES SPECIFIC PART
 # Guest autostart links
-#%dir %attr(0700,root,root) %{_sysconfdir}/%{name}/auto
+#%dir %attr(0700,root,root) %%{_sysconfdir}/%%{name}/auto
 # Autostart of guests
-#%config(noreplace) %{_sysconfdir}/sysconfig/xendomains
+#%config(noreplace) %%{_sysconfdir}/sysconfig/xendomains
 
-#%{_unitdir}/xendomains.service
+#%%{_unitdir}/xendomains.service
 # END QUBES SPECIFIC PART
 
 %files libs
@@ -920,8 +951,8 @@ fi
 %{_unitdir}/xenconsoled.service
 %{_unitdir}/xen-watchdog.service
 # BEGIN QUBES SPECIFIC PART
-#%{_unitdir}/xen-qemu-dom0-disk-backend.service
-#%{_unitdir}/xendriverdomain.service
+# %%{_unitdir}/xen-qemu-dom0-disk-backend.service
+# %%{_unitdir}/xendriverdomain.service
 %{_unitdir}/xen-init-dom0.service
 %exclude %{_unitdir}/xendriverdomain.service
 # END QUBES SPECIFIC PART
@@ -974,7 +1005,7 @@ fi
 %{python3_sitearch}/xenfsimage*.so
 %{python3_sitearch}/grub
 # BEGIN QUBES SPECIFIC PART
-# %{python3_sitearch}/pygrub-*.egg-info
+# %%{python3_sitearch}/pygrub-*.egg-info
 # END QUBES SPECIFIC PART
 
 # The firmware
@@ -1009,18 +1040,18 @@ fi
 
 # All xenstore CLI tools
 # BEGIN QUBES SPECIFIC PART
-# %{_bindir}/qemu-*-xen
+# %%{_bindir}/qemu-*-xen
 # END QUBES SPECIFIC PART
 %{_bindir}/xenstore
 %{_bindir}/xenstore-*
 # BEGIN QUBES SPECIFIC PART
-#%{_bindir}/pygrub
+# %%{_bindir}/pygrub
 # END QUBES SPECIFIC PART
 %{_bindir}/xentrace*
-#%#{_bindir}/remus
+# %%#{_bindir}/remus
 # XSM
 # BEGIN QUBES SPECIFIC PART
-#%{_sbindir}/flask-*
+# %%{_sbindir}/flask-*
 # END QUBES SPECIFIC PART
 # Misc stuff
 %ifnarch armv7hl aarch64

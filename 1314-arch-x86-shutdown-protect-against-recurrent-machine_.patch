@@ -1,0 +1,54 @@
+From f43fd9db331a4e76eeaddce06555bb430d62c436 Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Tue, 13 Jun 2023 15:56:12 +0200
+Subject: [PATCH 1314/1328] arch/x86/shutdown: protect against recurrent
+ machine_restart()
+
+If multiple CPUs called machine_restart() before actual restart took
+place, but after boot CPU declared itself not online, ASSERT in
+on_selected_cpus() will fail. Few calls later execution would end up
+in machine_restart() again, with another frame on call stack for new
+exception.
+
+To protect against running out of stack, code checks if boot CPU is
+still online before calling on_selected_cpus().
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/shutdown.c | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/shutdown.c b/xen/arch/x86/shutdown.c
+index 7619544d14..32c70505ed 100644
+--- a/xen/arch/x86/shutdown.c
++++ b/xen/arch/x86/shutdown.c
+@@ -577,9 +577,23 @@ void machine_restart(unsigned int delay_millisecs)
+         /* Ensure we are the boot CPU. */
+         if ( get_apic_id() != boot_cpu_physical_apicid )
+         {
+-            /* Send IPI to the boot CPU (logical cpu 0). */
+-            on_selected_cpus(cpumask_of(0), __machine_restart,
+-                             &delay_millisecs, 0);
++            /*
++             * Send IPI to the boot CPU (logical cpu 0).
++             *
++             * If multiple CPUs called machine_restart() before actual restart
++             * took place, but after boot CPU declared itself not online, ASSERT
++             * in on_selected_cpus() will fail. Few calls later we would end up
++             * here again, with another frame on call stack for new exception.
++             * To protect against running out of stack, check if boot CPU is
++             * online.
++             *
++             * Note this is not an atomic operation, so it is possible for
++             * on_selected_cpus() to be called once after boot CPU is offline
++             * before we hit halt() below.
++             */
++            if ( cpu_online(0) )
++                on_selected_cpus(cpumask_of(0), __machine_restart,
++                                 &delay_millisecs, 0);
+             for ( ; ; )
+                 halt();
+         }
+-- 
+2.46.0
+

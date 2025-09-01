@@ -1,0 +1,156 @@
+From e6a90f0d3de0c5ec68a021fddfc9bfd91174dace Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Thu, 1 Jun 2023 17:01:59 +0200
+Subject: [PATCH 1311/1328] arch/x86/smp: drop x86_cpu_to_apicid, use
+ cpu_data[cpu].apicid instead
+
+Both fields held the same data.
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/boot/x86_64.S           |  8 +++++---
+ xen/arch/x86/include/asm/asm_defns.h |  2 +-
+ xen/arch/x86/include/asm/processor.h |  2 ++
+ xen/arch/x86/include/asm/smp.h       |  4 ----
+ xen/arch/x86/numa.c                  | 15 +++++++--------
+ xen/arch/x86/smpboot.c               |  8 ++++----
+ xen/arch/x86/x86_64/asm-offsets.c    |  4 +++-
+ 7 files changed, 22 insertions(+), 21 deletions(-)
+
+diff --git a/xen/arch/x86/boot/x86_64.S b/xen/arch/x86/boot/x86_64.S
+index ad2f5058f0..ce280c914a 100644
+--- a/xen/arch/x86/boot/x86_64.S
++++ b/xen/arch/x86/boot/x86_64.S
+@@ -20,15 +20,17 @@ ENTRY(__high_start)
+         jz      .L_stack_set
+ 
+         /* APs only: get stack base from APIC ID saved in %esp. */
+-        mov     $-1, %rax
+-        lea     x86_cpu_to_apicid(%rip), %rcx
++        mov     $0, %rax
++        lea     cpu_data(%rip), %rcx
++        /* cpu_data[0] is BSP, skip it. */
+ 1:
+         add     $1, %rax
++        add     $CPUINFO_X86_sizeof, %rcx
+         cmp     $NR_CPUS, %eax
+         jb      2f
+         hlt
+ 2:
+-        cmp     %esp, (%rcx, %rax, 4)
++        cmp     %esp, CPUINFO_X86_apicid(%rcx)
+         jne     1b
+ 
+         /* %eax is now Xen CPU index. */
+diff --git a/xen/arch/x86/include/asm/asm_defns.h b/xen/arch/x86/include/asm/asm_defns.h
+index abc6822b08..b6f9ec10b0 100644
+--- a/xen/arch/x86/include/asm/asm_defns.h
++++ b/xen/arch/x86/include/asm/asm_defns.h
+@@ -166,7 +166,7 @@ register unsigned long current_stack_pointer asm("rsp");
+ #endif
+ 
+ #define CPUINFO_FEATURE_OFFSET(feature)           \
+-    (CPUINFO_features + (cpufeat_word(feature) * 4))
++    (CPUINFO_X86_features + (cpufeat_word(feature) * 4))
+ 
+ #else
+ 
+diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/processor.h
+index 9e89f72912..339d6e146e 100644
+--- a/xen/arch/x86/include/asm/processor.h
++++ b/xen/arch/x86/include/asm/processor.h
+@@ -149,6 +149,8 @@ extern struct cpuinfo_x86 boot_cpu_data;
+ extern struct cpuinfo_x86 cpu_data[];
+ #define current_cpu_data cpu_data[smp_processor_id()]
+ 
++#define cpu_physical_id(cpu)	cpu_data[cpu].apicid
++
+ extern bool probe_cpuid_faulting(void);
+ extern void ctxt_switch_levelling(const struct vcpu *next);
+ extern void (*ctxt_switch_masking)(const struct vcpu *next);
+diff --git a/xen/arch/x86/include/asm/smp.h b/xen/arch/x86/include/asm/smp.h
+index 41a3b6a0da..b0cefdf814 100644
+--- a/xen/arch/x86/include/asm/smp.h
++++ b/xen/arch/x86/include/asm/smp.h
+@@ -39,10 +39,6 @@ extern void (*mtrr_hook) (void);
+ 
+ extern void zap_low_mappings(void);
+ 
+-extern u32 x86_cpu_to_apicid[];
+-
+-#define cpu_physical_id(cpu)	x86_cpu_to_apicid[cpu]
+-
+ #define cpu_is_offline(cpu) unlikely(!cpu_online(cpu))
+ extern void cpu_exit_clear(unsigned int cpu);
+ extern void cpu_uninit(unsigned int cpu);
+diff --git a/xen/arch/x86/numa.c b/xen/arch/x86/numa.c
+index 22ff0923d4..393e4108c7 100644
+--- a/xen/arch/x86/numa.c
++++ b/xen/arch/x86/numa.c
+@@ -324,14 +324,13 @@ custom_param("numa", numa_setup);
+ /*
+  * Setup early cpu_to_node.
+  *
+- * Populate cpu_to_node[] only if x86_cpu_to_apicid[],
+- * and apicid_to_node[] tables have valid entries for a CPU.
+- * This means we skip cpu_to_node[] initialisation for NUMA
+- * emulation and faking node case (when running a kernel compiled
+- * for NUMA on a non NUMA box), which is OK as cpu_to_node[]
+- * is already initialized in a round robin manner at numa_init_array,
+- * prior to this call, and this initialization is good enough
+- * for the fake NUMA cases.
++ * Populate cpu_to_node[] only if cpu_data[], and apicid_to_node[]
++ * tables have valid entries for a CPU. This means we skip
++ * cpu_to_node[] initialisation for NUMA emulation and faking node
++ * case (when running a kernel compiled for NUMA on a non NUMA box),
++ * which is OK as cpu_to_node[] is already initialized in a round
++ * robin manner at numa_init_array, prior to this call, and this
++ * initialization is good enough for the fake NUMA cases.
+  */
+ void __init init_cpu_to_node(void)
+ {
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index cf45ba21c6..df94e57269 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -73,10 +73,8 @@ unsigned int __read_mostly nr_sockets;
+ cpumask_t **__read_mostly socket_cpumask;
+ static cpumask_t *secondary_socket_cpumask;
+ 
+-struct cpuinfo_x86 cpu_data[NR_CPUS];
+-
+-u32 x86_cpu_to_apicid[NR_CPUS] __read_mostly =
+-	{ [0 ... NR_CPUS-1] = BAD_APICID };
++struct cpuinfo_x86 cpu_data[NR_CPUS] =
++        { [0 ... NR_CPUS-1] .apicid = BAD_APICID };
+ 
+ static int cpu_error;
+ static enum cpu_state {
+@@ -93,7 +91,9 @@ void *stack_base[NR_CPUS];
+ 
+ void initialize_cpu_data(unsigned int cpu)
+ {
++    uint32_t apicid = cpu_physical_id(cpu);
+     cpu_data[cpu] = boot_cpu_data;
++    cpu_physical_id(cpu) = apicid;
+ }
+ 
+ static bool smp_store_cpu_info(unsigned int id)
+diff --git a/xen/arch/x86/x86_64/asm-offsets.c b/xen/arch/x86/x86_64/asm-offsets.c
+index fba82d6436..cc5eb5a518 100644
+--- a/xen/arch/x86/x86_64/asm-offsets.c
++++ b/xen/arch/x86/x86_64/asm-offsets.c
+@@ -186,7 +186,9 @@ void __dummy__(void)
+     OFFSET(IRQSTAT_softirq_pending, irq_cpustat_t, __softirq_pending);
+     BLANK();
+ 
+-    OFFSET(CPUINFO_features, struct cpuinfo_x86, x86_capability);
++    OFFSET(CPUINFO_X86_features, struct cpuinfo_x86, x86_capability);
++    OFFSET(CPUINFO_X86_apicid, struct cpuinfo_x86, apicid);
++    DEFINE(CPUINFO_X86_sizeof, sizeof(struct cpuinfo_x86));
+     BLANK();
+ 
+     OFFSET(MB_flags, multiboot_info_t, flags);
+-- 
+2.46.0
+

@@ -1,0 +1,222 @@
+From 9129e7d09307c71a700c63f4e62ee6eb0db01468 Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Thu, 1 Jun 2023 19:27:22 +0200
+Subject: [PATCH 1312/1328] arch/x86/smp: move stack_base to cpu_data
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/boot/x86_64.S           |  5 ++---
+ xen/arch/x86/include/asm/processor.h |  1 +
+ xen/arch/x86/include/asm/smp.h       |  2 +-
+ xen/arch/x86/setup.c                 |  6 +++---
+ xen/arch/x86/smpboot.c               | 25 +++++++++++++------------
+ xen/arch/x86/tboot.c                 |  4 ++--
+ xen/arch/x86/traps.c                 |  4 ++--
+ xen/arch/x86/x86_64/asm-offsets.c    |  1 +
+ xen/include/xen/smp.h                |  2 --
+ 9 files changed, 25 insertions(+), 25 deletions(-)
+
+diff --git a/xen/arch/x86/boot/x86_64.S b/xen/arch/x86/boot/x86_64.S
+index ce280c914a..61040315f9 100644
+--- a/xen/arch/x86/boot/x86_64.S
++++ b/xen/arch/x86/boot/x86_64.S
+@@ -33,9 +33,8 @@ ENTRY(__high_start)
+         cmp     %esp, CPUINFO_X86_apicid(%rcx)
+         jne     1b
+ 
+-        /* %eax is now Xen CPU index. */
+-        lea     stack_base(%rip), %rcx
+-        mov     (%rcx, %rax, 8), %rsp
++        /* %rcx is now cpu_data[cpu], read stack base from it. */
++        mov     CPUINFO_X86_stack_base(%rcx), %rsp
+ 
+         test    %rsp,%rsp
+         jnz     1f
+diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/processor.h
+index 339d6e146e..1f78785689 100644
+--- a/xen/arch/x86/include/asm/processor.h
++++ b/xen/arch/x86/include/asm/processor.h
+@@ -137,6 +137,7 @@ struct cpuinfo_x86 {
+     __u32 phys_proc_id;    /* package ID of each logical CPU */
+     __u32 cpu_core_id;     /* core ID of each logical CPU*/
+     __u32 compute_unit_id; /* AMD compute unit ID of each logical CPU */
++    void *stack_base;
+     unsigned short x86_clflush_size;
+ } __cacheline_aligned;
+ 
+diff --git a/xen/arch/x86/include/asm/smp.h b/xen/arch/x86/include/asm/smp.h
+index b0cefdf814..4432a8ea1b 100644
+--- a/xen/arch/x86/include/asm/smp.h
++++ b/xen/arch/x86/include/asm/smp.h
+@@ -76,7 +76,7 @@ extern cpumask_t **socket_cpumask;
+  * by certain scheduling code only.
+  */
+ #define get_cpu_current(cpu) \
+-    (get_cpu_info_from_stack((unsigned long)stack_base[cpu])->current_vcpu)
++    (get_cpu_info_from_stack((unsigned long)cpu_data[cpu].stack_base)->current_vcpu)
+ 
+ extern unsigned int disabled_cpus;
+ extern bool unaccounted_cpus;
+diff --git a/xen/arch/x86/setup.c b/xen/arch/x86/setup.c
+index 1a4bab89a4..f014b681d9 100644
+--- a/xen/arch/x86/setup.c
++++ b/xen/arch/x86/setup.c
+@@ -683,7 +683,7 @@ static void __init noreturn reinit_bsp_stack(void)
+     /* Update SYSCALL trampolines */
+     percpu_traps_init();
+ 
+-    stack_base[0] = stack;
++    cpu_data[0].stack_base = stack;
+ 
+     rc = setup_cpu_root_pgt(0);
+     if ( rc )
+@@ -1915,8 +1915,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
+             /* Set up node_to_cpumask based on cpu_to_node[]. */
+             numa_add_cpu(i);
+ 
+-            if ( stack_base[i] == NULL )
+-                stack_base[i] = cpu_alloc_stack(i);
++            if ( cpu_data[i].stack_base == NULL )
++                cpu_data[i].stack_base = cpu_alloc_stack(i);
+         }
+ 
+         for_each_present_cpu ( i )
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index df94e57269..2a36812d6d 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -87,13 +87,15 @@ static enum cpu_state {
+ } cpu_state;
+ #define set_cpu_state(state) do { smp_mb(); cpu_state = (state); } while (0)
+ 
+-void *stack_base[NR_CPUS];
+-
+ void initialize_cpu_data(unsigned int cpu)
+ {
+     uint32_t apicid = cpu_physical_id(cpu);
++    void *stack = cpu_data[cpu].stack_base;
++
+     cpu_data[cpu] = boot_cpu_data;
++
+     cpu_physical_id(cpu) = apicid;
++    cpu_data[cpu].stack_base = stack;
+ }
+ 
+ static bool smp_store_cpu_info(unsigned int id)
+@@ -641,8 +643,6 @@ static int do_boot_cpu(int apicid, int cpu)
+         printk("Booting processor %d/%d eip %lx\n",
+                cpu, apicid, start_eip);
+ 
+-    stack_start = stack_base[cpu] + STACK_SIZE - sizeof(struct cpu_info);
+-
+     /* This grunge runs the startup process for the targeted processor. */
+ 
+     set_cpu_state(CPU_STATE_INIT);
+@@ -918,7 +918,7 @@ int setup_cpu_root_pgt(unsigned int cpu)
+ 
+     /* Install direct map page table entries for stack, IDT, and TSS. */
+     for ( off = rc = 0; !rc && off < STACK_SIZE; off += PAGE_SIZE )
+-        rc = clone_mapping(__va(__pa(stack_base[cpu])) + off, rpt);
++        rc = clone_mapping(__va(__pa(cpu_data[cpu].stack_base)) + off, rpt);
+ 
+     if ( !rc )
+         rc = clone_mapping(idt_tables[cpu], rpt);
+@@ -1069,10 +1069,10 @@ static void cpu_smpboot_free(unsigned int cpu, bool remove)
+         FREE_XENHEAP_PAGE(per_cpu(gdt, cpu));
+         FREE_XENHEAP_PAGE(idt_tables[cpu]);
+ 
+-        if ( stack_base[cpu] )
++        if ( cpu_data[cpu].stack_base )
+         {
+-            memguard_unguard_stack(stack_base[cpu]);
+-            FREE_XENHEAP_PAGES(stack_base[cpu], STACK_ORDER);
++            memguard_unguard_stack(cpu_data[cpu].stack_base);
++            FREE_XENHEAP_PAGES(cpu_data[cpu].stack_base, STACK_ORDER);
+         }
+     }
+ }
+@@ -1106,11 +1106,11 @@ static int cpu_smpboot_alloc(unsigned int cpu)
+     if ( node != NUMA_NO_NODE )
+         memflags = MEMF_node(node);
+ 
+-    if ( stack_base[cpu] == NULL &&
+-         (stack_base[cpu] = cpu_alloc_stack(cpu)) == NULL )
++    if ( cpu_data[cpu].stack_base == NULL &&
++         (cpu_data[cpu].stack_base = cpu_alloc_stack(cpu)) == NULL )
+             goto out;
+ 
+-    info = get_cpu_info_from_stack((unsigned long)stack_base[cpu]);
++    info = get_cpu_info_from_stack((unsigned long)cpu_data[cpu].stack_base);
+     info->processor_id = cpu;
+     info->per_cpu_offset = __per_cpu_offset[cpu];
+ 
+@@ -1225,7 +1225,8 @@ void __init smp_prepare_cpus(void)
+     boot_cpu_physical_apicid = get_apic_id();
+     cpu_physical_id(0) = boot_cpu_physical_apicid;
+ 
+-    stack_base[0] = (void *)((unsigned long)stack_start & ~(STACK_SIZE - 1));
++    cpu_data[0].stack_base = (void *)
++             ((unsigned long)stack_start & ~(STACK_SIZE - 1));
+ 
+     set_nr_sockets();
+ 
+diff --git a/xen/arch/x86/tboot.c b/xen/arch/x86/tboot.c
+index ffd1126dfc..a06719061d 100644
+--- a/xen/arch/x86/tboot.c
++++ b/xen/arch/x86/tboot.c
+@@ -238,9 +238,9 @@ static int mfn_in_guarded_stack(unsigned long mfn)
+ 
+     for ( i = 0; i < nr_cpu_ids; i++ )
+     {
+-        if ( !stack_base[i] )
++        if ( !cpu_data[i].stack_base )
+             continue;
+-        p = (void *)((unsigned long)stack_base[i] + STACK_SIZE -
++        p = (void *)((unsigned long)cpu_data[i].stack_base + STACK_SIZE -
+                      PRIMARY_STACK_SIZE - PAGE_SIZE);
+         if ( mfn == virt_to_mfn(p) )
+             return -1;
+diff --git a/xen/arch/x86/traps.c b/xen/arch/x86/traps.c
+index 7599bee361..77e69bf80d 100644
+--- a/xen/arch/x86/traps.c
++++ b/xen/arch/x86/traps.c
+@@ -623,9 +623,9 @@ void show_stack_overflow(unsigned int cpu, const struct cpu_user_regs *regs)
+     unsigned long curr_stack_base = esp & ~(STACK_SIZE - 1);
+     unsigned long esp_top, esp_bottom;
+ 
+-    if ( _p(curr_stack_base) != stack_base[cpu] )
++    if ( _p(curr_stack_base) != cpu_data[cpu].stack_base )
+         printk("Current stack base %p differs from expected %p\n",
+-               _p(curr_stack_base), stack_base[cpu]);
++               _p(curr_stack_base), cpu_data[cpu].stack_base);
+ 
+     esp_bottom = (esp | (STACK_SIZE - 1)) + 1;
+     esp_top    = esp_bottom - PRIMARY_STACK_SIZE;
+diff --git a/xen/arch/x86/x86_64/asm-offsets.c b/xen/arch/x86/x86_64/asm-offsets.c
+index cc5eb5a518..a8d74fbd20 100644
+--- a/xen/arch/x86/x86_64/asm-offsets.c
++++ b/xen/arch/x86/x86_64/asm-offsets.c
+@@ -188,6 +188,7 @@ void __dummy__(void)
+ 
+     OFFSET(CPUINFO_X86_features, struct cpuinfo_x86, x86_capability);
+     OFFSET(CPUINFO_X86_apicid, struct cpuinfo_x86, apicid);
++    OFFSET(CPUINFO_X86_stack_base, struct cpuinfo_x86, stack_base);
+     DEFINE(CPUINFO_X86_sizeof, sizeof(struct cpuinfo_x86));
+     BLANK();
+ 
+diff --git a/xen/include/xen/smp.h b/xen/include/xen/smp.h
+index 0a9219173f..994fdc4742 100644
+--- a/xen/include/xen/smp.h
++++ b/xen/include/xen/smp.h
+@@ -67,8 +67,6 @@ void smp_send_call_function_mask(const cpumask_t *mask);
+ 
+ int alloc_cpu_id(void);
+ 
+-extern void *stack_base[NR_CPUS];
+-
+ void initialize_cpu_data(unsigned int cpu);
+ int setup_cpu_root_pgt(unsigned int cpu);
+ 
+-- 
+2.46.0
+

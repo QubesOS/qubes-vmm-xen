@@ -1,0 +1,108 @@
+From aa2c99c6b62661866cc823b9f4c78bd1bd6cce43 Mon Sep 17 00:00:00 2001
+From: Kacper Stojek <kacper.stojek@3mdeb.com>
+Date: Wed, 31 Aug 2022 15:03:51 +0200
+Subject: [PATCH 1301/1328] x86/boot: add MLE header and new entry point
+
+MLE header is used with Intel TXT, together with MB2 headers.
+Entrypoint is different, but it is used just to differentiate
+from other entries by moving a magic number to EAX. Execution
+environment is similar to that of Multiboot 2 and code falls
+through to MB2's entry point.
+
+Signed-off-by: Kacper Stojek <kacper.stojek@3mdeb.com>
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ docs/hypervisor-guide/x86/how-xen-boots.rst |  5 +++
+ xen/arch/x86/boot/head.S                    | 45 +++++++++++++++++++++
+ 2 files changed, 50 insertions(+)
+
+diff --git a/docs/hypervisor-guide/x86/how-xen-boots.rst b/docs/hypervisor-guide/x86/how-xen-boots.rst
+index ca77d7c8a3..eb60a1cd80 100644
+--- a/docs/hypervisor-guide/x86/how-xen-boots.rst
++++ b/docs/hypervisor-guide/x86/how-xen-boots.rst
+@@ -55,6 +55,11 @@ If ``CONFIG_PVH_GUEST`` was selected at build time, an Elf note is included
+ which indicates the ability to use the PVH boot protocol, and registers
+ ``__pvh_start`` as the entrypoint, entered in 32bit mode.
+ 
++MLE header is used with Intel TXT, together with MB2 headers. Entrypoint is
++different, but it is used just to differentiate from other entries by moving
++a magic number to EAX. Execution environment is similar to that of Multiboot 2
++and code falls through to ``start``.
++
+ 
+ xen.gz
+ ~~~~~~
+diff --git a/xen/arch/x86/boot/head.S b/xen/arch/x86/boot/head.S
+index 6bc64c9e86..1f7ce5f6ae 100644
+--- a/xen/arch/x86/boot/head.S
++++ b/xen/arch/x86/boot/head.S
+@@ -4,6 +4,7 @@
+ #include <public/xen.h>
+ #include <asm/asm_defns.h>
+ #include <asm/fixmap.h>
++#include <asm/intel_txt.h>
+ #include <asm/page.h>
+ #include <asm/processor.h>
+ #include <asm/msr-index.h>
+@@ -114,6 +115,25 @@ multiboot2_header:
+         .size multiboot2_header, . - multiboot2_header
+         .type multiboot2_header, @object
+ 
++        .balign 16
++mle_header:
++        .long   0x9082ac5a  /* UUID0 */
++        .long   0x74a7476f  /* UUID1 */
++        .long   0xa2555c0f  /* UUID2 */
++        .long   0x42b651cb  /* UUID3 */
++        .long   0x00000034  /* MLE header size */
++        .long   0x00020002  /* MLE version 2.2 */
++        .long   (slaunch_stub_entry - start)  /* Linear entry point of MLE (SINIT virt. address) */
++        .long   0x00000000  /* First valid page of MLE */
++        .long   0x00000000  /* Offset within binary of first byte of MLE */
++        .long   (_end - start)  /* Offset within binary of last byte + 1 of MLE */
++        .long   0x00000223  /* Bit vector of MLE-supported capabilities */
++        .long   0x00000000  /* Starting linear address of command line (unused) */
++        .long   0x00000000  /* Ending linear address of command line (unused) */
++
++        .size mle_header, .-mle_header
++        .type mle_header, @object
++
+         .section .init.rodata, "a", @progbits
+ 
+ .Lbad_cpu_msg: .asciz "ERR: Not a 64-bit CPU!"
+@@ -433,6 +453,31 @@ __pvh_start:
+ 
+ #endif /* CONFIG_PVH_GUEST */
+ 
++        /*
++         * Entry point for TrenchBoot Secure Launch on Intel TXT platforms.
++         *
++         * CPU is in 32b protected mode with paging disabled. On entry:
++         * - %ebx = %ebp = SINIT physical base address
++         * - %edx = SENTER control flags
++         * - stack pointer is undefined
++         * - CS is flat 4GB code segment
++         * - DS, ES and SS are flat 4GB data segments
++         *
++         * Additional restrictions:
++         * - some MSRs are partially cleared, among them IA32_MISC_ENABLE, so
++         *   some capabilities might be reported as disabled even if they are
++         *   supported by CPU
++         * - interrupts (including NMIs and SMIs) are disabled and must be
++         *   enabled later
++         * - trying to enter real mode results in reset
++         * - APs must be brought up by MONITOR or GETSEC[WAKEUP], depending on
++         *   which is supported by a given SINIT ACM
++         */
++slaunch_stub_entry:
++        movl    $SLAUNCH_BOOTLOADER_MAGIC,%eax
++
++        /* Fall through to Multiboot entry point. */
++
+ __start:
+         cld
+         cli
+-- 
+2.46.0
+
