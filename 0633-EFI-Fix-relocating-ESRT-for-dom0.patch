@@ -1,0 +1,39 @@
+From f778f2d58cb2e00cdae19b9dcbc2cbac54d2c1dd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 10 Feb 2026 23:15:32 +0100
+Subject: [PATCH] EFI: Fix relocating ESRT for dom0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fix calculating the table size - it consists of a header + entries, not
+just entries.
+This bug caused the last entry to have garbage in its final fields,
+including LowestSupportedFwVersion and CapsuleFlags, which (usually)
+made fwupd to detect firmware update availability, but refuse actually
+installing it.
+
+Fixes: dc7da0874ba4 ("EFI: preserve the System Resource Table for dom0")
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ xen/common/efi/boot.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xen/common/efi/boot.c b/xen/common/efi/boot.c
+index 5b84dbf26e5e..45015a0dd583 100644
+--- a/xen/common/efi/boot.c
++++ b/xen/common/efi/boot.c
+@@ -675,7 +675,8 @@ static size_t __init get_esrt_size(const EFI_MEMORY_DESCRIPTOR *desc)
+     if ( esrt_ptr->FwResourceCount > available_len / sizeof(esrt_ptr->Entries[0]) )
+         return 0;
+ 
+-    return esrt_ptr->FwResourceCount * sizeof(esrt_ptr->Entries[0]);
++    return offsetof(EFI_SYSTEM_RESOURCE_TABLE, Entries) +
++        esrt_ptr->FwResourceCount * sizeof(esrt_ptr->Entries[0]);
+ }
+ 
+ static EFI_GUID __initdata esrt_guid = EFI_SYSTEM_RESOURCE_TABLE_GUID;
+-- 
+2.51.0
+
