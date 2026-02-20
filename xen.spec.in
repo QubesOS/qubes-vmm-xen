@@ -182,6 +182,7 @@ Patch0674: 0674-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
 Patch0675: 0675-libxl_pci-Pass-power_mgmt-via-QMP.patch
 
 Patch0676: 0676-tools-xg-increase-LZMA_BLOCK_SIZE-for-uncompressing-.patch
+Patch0677: 0677-libxl-constify-some-local-variables-to-appease-gcc-1.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch

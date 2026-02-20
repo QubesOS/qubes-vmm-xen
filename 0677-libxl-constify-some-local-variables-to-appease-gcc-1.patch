@@ -1,0 +1,111 @@
+From 69a9913f7633b64afd3d70a9dfc0e78daba3d024 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Thu, 12 Feb 2026 04:13:11 +0100
+Subject: [PATCH] libxl: constify some local variables to appease gcc 15.2.1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Archlinux just updated gcc to 15.2.1+r604+g0b99615a8aef-1 and that
+complains about libxl:
+
+    libxl_cpuid.c: In function ‘libxl_cpuid_parse_config_xend’:
+    libxl_cpuid.c:447:16: error: assignment discards ‘const’ qualifier from pointer target type [-Werror=discarded-qualifiers]
+      447 |         endptr = strchr(str, '=');
+          |                ^
+    libxl_cpuid.c:452:16: error: assignment discards ‘const’ qualifier from pointer target type [-Werror=discarded-qualifiers]
+      452 |         endptr = strchr(str, ',');
+          |                ^
+    libxl_cpuid.c:454:20: error: assignment discards ‘const’ qualifier from pointer target type [-Werror=discarded-qualifiers]
+      454 |             endptr = strchr(str, 0);
+          |                    ^
+    libxl_cpuid.c: In function ‘libxl_cpuid_parse_config_xend’:
+    libxl_cpuid.c:447:16: error: assignment discards ‘const’ qualifier from pointer target type [-Werror=discarded-qualifiers]
+      447 |         endptr = strchr(str, '=');
+          |                ^
+    libxl_cpuid.c:452:16: error: assignment discards ‘const’ qualifier from pointer target type [-Werror=discarded-qualifiers]
+      452 |         endptr = strchr(str, ',');
+          |                ^
+    libxl_cpuid.c:454:20: error: assignment discards ‘const’ qualifier from pointer target type [-Werror=discarded-qualifiers]
+      454 |             endptr = strchr(str, 0);
+          |                    ^
+    cc1: all warnings being treated as errors
+
+Add missing consts. Note in libxl_cpuid_parse_config_xend() non-const
+endptr still is needed, to be compatible with the second argument to
+strtoul(). Add second variable for this reason.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+When I say "just updated" I really mean it. The update hit me between my
+CI saying "ok" and release build few hours later. I guess Xen's CI will
+see that only after next refresh of the Arch container (next week?).
+---
+ tools/libs/light/libxl_cpuid.c    | 19 ++++++++++---------
+ tools/libs/light/libxl_internal.c |  2 +-
+ 2 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/tools/libs/light/libxl_cpuid.c b/tools/libs/light/libxl_cpuid.c
+index 8420b2465f39..5fb580113d80 100644
+--- a/tools/libs/light/libxl_cpuid.c
++++ b/tools/libs/light/libxl_cpuid.c
+@@ -415,6 +415,7 @@ int libxl_cpuid_parse_config_xend(libxl_cpuid_policy_list *policy,
+                                   const char* str)
+ {
+     char *endptr;
++    const char *endptrc;
+     unsigned long value;
+     uint32_t leaf, subleaf = XEN_CPUID_INPUT_UNUSED;
+     struct xc_xend_cpuid *entry;
+@@ -444,25 +445,25 @@ int libxl_cpuid_parse_config_xend(libxl_cpuid_policy_list *policy,
+             return 4;
+         }
+         value = str[1] - 'a';
+-        endptr = strchr(str, '=');
+-        if (value > 3 || endptr == NULL) {
++        endptrc = strchr(str, '=');
++        if (value > 3 || endptrc == NULL) {
+             return 4;
+         }
+-        str = endptr + 1;
+-        endptr = strchr(str, ',');
+-        if (endptr == NULL) {
+-            endptr = strchr(str, 0);
++        str = endptrc + 1;
++        endptrc = strchr(str, ',');
++        if (endptrc == NULL) {
++            endptrc = strchr(str, 0);
+         }
+-        if (endptr - str != 32) {
++        if (endptrc - str != 32) {
+             return 5;
+         }
+         entry->policy[value] = calloc(32 + 1, 1);
+         strncpy(entry->policy[value], str, 32);
+         entry->policy[value][32] = 0;
+-        if (*endptr == 0) {
++        if (*endptrc == 0) {
+             break;
+         }
+-        for (str = endptr + 1; *str == ' ' || *str == '\n'; str++);
++        for (str = endptrc + 1; *str == ' ' || *str == '\n'; str++);
+     }
+     return 0;
+ }
+diff --git a/tools/libs/light/libxl_internal.c b/tools/libs/light/libxl_internal.c
+index 2941ca0bbd0e..d70cfed7d88f 100644
+--- a/tools/libs/light/libxl_internal.c
++++ b/tools/libs/light/libxl_internal.c
+@@ -204,7 +204,7 @@ char *libxl__strndup(libxl__gc *gc, const char *c, size_t n)
+ 
+ char *libxl__dirname(libxl__gc *gc, const char *s)
+ {
+-    char *c = strrchr(s, '/');
++    const char *c = strrchr(s, '/');
+ 
+     if (!c)
+         return NULL;
+-- 
+2.51.0
+
