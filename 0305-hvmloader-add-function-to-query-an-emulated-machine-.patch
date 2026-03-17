@@ -1,0 +1,124 @@
+From 82a92e28980df4aa8a5a889521cecf88580ec44c Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:43 -0400
+Subject: [PATCH 03/12] hvmloader: add function to query an emulated machine
+ type (i440/Q35)
+
+This adds a new function get_pc_machine_type() which allows to determine
+the emulated chipset type. Supported return values:
+
+- MACHINE_TYPE_I440
+- MACHINE_TYPE_Q35
+- MACHINE_TYPE_UNKNOWN, results in the error message being printed
+  followed by calling BUG() in hvmloader.
+
+Signed-off-by: Alexey Gerasimenko <x1917x@xxxxxxxxx>
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ tools/firmware/hvmloader/pci_regs.h |  4 +++
+ tools/firmware/hvmloader/util.c     | 47 +++++++++++++++++++++++++++++
+ tools/firmware/hvmloader/util.h     |  8 +++++
+ 3 files changed, 59 insertions(+)
+
+diff --git a/tools/firmware/hvmloader/pci_regs.h b/tools/firmware/hvmloader/pci_regs.h
+index 7bf2d873ab..4d4dc0cd01 100644
+--- a/tools/firmware/hvmloader/pci_regs.h
++++ b/tools/firmware/hvmloader/pci_regs.h
+@@ -107,6 +107,10 @@
+ 
+ #define PCI_INTEL_OPREGION 0xfc /* 4 bits */
+ 
++#define PCI_VENDOR_ID_INTEL              0x8086
++#define PCI_DEVICE_ID_INTEL_82441        0x1237
++#define PCI_DEVICE_ID_INTEL_Q35_MCH      0x29c0
++
+ #endif /* __HVMLOADER_PCI_REGS_H__ */
+ 
+ /*
+diff --git a/tools/firmware/hvmloader/util.c b/tools/firmware/hvmloader/util.c
+index c34f077b38..9a795a8a0c 100644
+--- a/tools/firmware/hvmloader/util.c
++++ b/tools/firmware/hvmloader/util.c
+@@ -22,6 +22,7 @@
+ #include "hypercall.h"
+ #include "ctype.h"
+ #include "vnuma.h"
++#include "pci_regs.h"
+ #include <acpi2_0.h>
+ #include <libacpi.h>
+ #include <stdint.h>
+@@ -659,6 +660,52 @@ void __bug(const char *file, int line)
+     crash();
+ }
+ 
++
++static int machine_type = MACHINE_TYPE_UNDEFINED;
++
++int get_pc_machine_type(void)
++{
++    uint16_t vendor_id;
++    uint16_t device_id;
++
++    if (machine_type != MACHINE_TYPE_UNDEFINED)
++        return machine_type;
++
++    machine_type = MACHINE_TYPE_UNKNOWN;
++
++    vendor_id = pci_readw(0, PCI_VENDOR_ID);
++    device_id = pci_readw(0, PCI_DEVICE_ID);
++
++    /* only Intel platforms are emulated currently */
++    if (vendor_id == PCI_VENDOR_ID_INTEL)
++    {
++        switch (device_id)
++        {
++        case PCI_DEVICE_ID_INTEL_82441:
++            machine_type = MACHINE_TYPE_I440;
++            printf("Detected i440 chipset\n");
++            break;
++
++        case PCI_DEVICE_ID_INTEL_Q35_MCH:
++            machine_type = MACHINE_TYPE_Q35;
++            printf("Detected Q35 chipset\n");
++            break;
++
++        default:
++            break;
++        }
++    }
++
++    if (machine_type == MACHINE_TYPE_UNKNOWN)
++    {
++        printf("Unknown emulated chipset encountered, VID=%04Xh, DID=%04Xh\n",
++               vendor_id, device_id);
++        BUG();
++    }
++
++    return machine_type;
++}
++
+ static void validate_hvm_info(struct hvm_info_table *t)
+ {
+     uint8_t *ptr = (uint8_t *)t;
+diff --git a/tools/firmware/hvmloader/util.h b/tools/firmware/hvmloader/util.h
+index 7206c793ed..e0c8303bbf 100644
+--- a/tools/firmware/hvmloader/util.h
++++ b/tools/firmware/hvmloader/util.h
+@@ -170,6 +170,14 @@ void pci_write(uint32_t devfn, uint32_t reg, uint32_t len, uint32_t val);
+ #define pci_writew(devfn, reg, val) pci_write(devfn, reg, 2, (uint16_t)(val))
+ #define pci_writel(devfn, reg, val) pci_write(devfn, reg, 4, (uint32_t)(val))
+ 
++/* Emulated machine types */
++#define MACHINE_TYPE_UNDEFINED      0
++#define MACHINE_TYPE_I440           1
++#define MACHINE_TYPE_Q35            2
++#define MACHINE_TYPE_UNKNOWN        (-1)
++
++int get_pc_machine_type(void);
++
+ /* Get a pointer to the shared-info page */
+ struct shared_info *get_shared_info(void) __attribute__ ((const));
+ 
+-- 
+2.49.0
+

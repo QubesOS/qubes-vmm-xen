@@ -1,0 +1,56 @@
+From 6cea0dd3900e71efd3b77034bf6ec1f3fd627df5 Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:51 -0400
+Subject: [PATCH 11/12] docs: provide description for device_model_machine
+ option
+
+This patch adds description for 'device_model_machine' option which allows
+to control which chipset will be emulated by device model.
+
+Signed-off-by: Alexey Gerasimenko <x1917x@xxxxxxxxx>
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ docs/man/xl.cfg.5.pod.in | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/docs/man/xl.cfg.5.pod.in b/docs/man/xl.cfg.5.pod.in
+index ac3f88fd57..91535e625c 100644
+--- a/docs/man/xl.cfg.5.pod.in
++++ b/docs/man/xl.cfg.5.pod.in
+@@ -2937,6 +2937,33 @@ you have existing guests then, depending on the nature of the guest
+ Operating System, you may wish to force them to use the device
+ model which they were installed with.
+ 
++=item B<device_model_machine="STRING">
++
++Selects which chipset the device model should emulate for this
++guest.
++
++Valid options are:
++
++=over 4
++
++=item B<"i440">
++
++Use i440 emulation (a default setting)
++
++=item B<"q35">
++
++Use Q35/ICH9 emulation. This enables additional features for
++PCIe device passthrough
++
++=back
++
++Note that omitting device_model_machine parameter means i440 system
++by default, so the default behavior doesn't change for old domain
++config files.
++
++It is recommended to install the guest OS from scratch to avoid issues
++due to the emulated platform change.
++
+ =item B<device_model_override="PATH">
+ 
+ Override the path to the binary to be used as the device-model running in
+-- 
+2.49.0
+

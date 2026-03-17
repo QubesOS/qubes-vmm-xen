@@ -1,20 +1,20 @@
-From 8cb3e7fdb79dd869edbe7f294e91e781808241d0 Mon Sep 17 00:00:00 2001
+From 68c97aee47d8d0a8db80ede59536ed1b29e96c86 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 02:38:06 +0100
-Subject: [PATCH] patch-gvt-hvmloader.patch
+Subject: [PATCH 1/2] patch-gvt-hvmloader.patch
 
 This patches based on Intel XenGT preview, XCP-NG Project.
 ---
  tools/firmware/hvmloader/config.h  |  2 +-
- tools/firmware/hvmloader/pci.c     | 35 ++++++++++++++++++++++++++++++
+ tools/firmware/hvmloader/pci.c     | 40 ++++++++++++++++++++++++++++--
  tools/firmware/hvmloader/rombios.c |  1 +
- tools/firmware/hvmloader/vgt.h     | 24 ++++++++++++++++++++
- 4 files changed, 61 insertions(+), 1 deletion(-)
+ tools/firmware/hvmloader/vgt.h     | 24 ++++++++++++++++++
+ 4 files changed, 64 insertions(+), 3 deletions(-)
  create mode 100644 tools/firmware/hvmloader/vgt.h
 
 diff --git a/tools/firmware/hvmloader/config.h b/tools/firmware/hvmloader/config.h
-index cd716bf39245..c9184366641b 100644
+index e029a60adb..bda0c20bf7 100644
 --- a/tools/firmware/hvmloader/config.h
 +++ b/tools/firmware/hvmloader/config.h
 @@ -4,7 +4,7 @@
@@ -27,7 +27,7 @@ index cd716bf39245..c9184366641b 100644
  
  extern unsigned long igd_opregion_pgbase;
 diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
-index c3c61ca060a6..fe5ad75e9eb4 100644
+index b2319b6cc8..211840e837 100644
 --- a/tools/firmware/hvmloader/pci.c
 +++ b/tools/firmware/hvmloader/pci.c
 @@ -23,6 +23,7 @@
@@ -38,25 +38,42 @@ index c3c61ca060a6..fe5ad75e9eb4 100644
  
  #include <xen/memory.h>
  #include <xen/hvm/ioreq.h>
-@@ -91,6 +92,7 @@ void pci_setup(void)
-     uint16_t class, vendor_id, device_id;
+@@ -89,12 +90,16 @@ static int find_next_rmrr(uint32_t base)
+ 
+ static void class_specific_pci_device_setup(uint16_t vendor_id,
+                                             uint16_t device_id,
+-                                            uint8_t bus, uint8_t devfn)
++                                            uint8_t bus, uint8_t devfn,
++                                            uint8_t *intel_gpu_present)
+ {
+     uint16_t class;
+ 
+     class = pci_readw(devfn, PCI_CLASS_DEVICE);
+ 
++    if (( vendor_id == 0x8086 ) && (class == 0x0300 || class == 0x0380))
++        *intel_gpu_present = 1;
++
+     switch ( class )
+     {
+     case 0x0300:
+@@ -173,6 +178,7 @@ void pci_setup(void)
      unsigned int bar, pin, link, isa_irq;
+     int is_running_on_q35 = 0;
      uint8_t pci_devfn_decode_type[256] = {};
 +    uint8_t intel_gpu_present = 0;
  
      /* Resources assignable to PCI devices via BARs. */
      struct resource {
-@@ -170,6 +172,9 @@ void pci_setup(void)
-         ASSERT((devfn != PCI_ISA_DEVFN) ||
-                ((vendor_id == 0x8086) && (device_id == 0x7000)));
+@@ -268,7 +274,7 @@ void pci_setup(void)
+             continue;
  
-+        if (( vendor_id == 0x8086 ) && (class == 0x0300 || class == 0x0380))
-+            intel_gpu_present = 1;
-+
-         switch ( class )
-         {
-         case 0x0300:
-@@ -548,6 +553,36 @@ void pci_setup(void)
+         class_specific_pci_device_setup(vendor_id, device_id,
+-                                        0 /* virt_bus support TBD */, devfn);
++                                        0 /* virt_bus support TBD */, devfn, &intel_gpu_present);
+ 
+         /*
+          * It is recommended that BAR programming be done whilst decode
+@@ -660,6 +666,36 @@ void pci_setup(void)
  
      if ( vga_devfn != 256 )
      {
@@ -94,7 +111,7 @@ index c3c61ca060a6..fe5ad75e9eb4 100644
           * VGA registers live in I/O space so ensure that primary VGA
           * has IO enabled, even if there is no I/O BAR on that
 diff --git a/tools/firmware/hvmloader/rombios.c b/tools/firmware/hvmloader/rombios.c
-index 46f331e46596..ba33c0a5caea 100644
+index 46f331e465..ba33c0a5ca 100644
 --- a/tools/firmware/hvmloader/rombios.c
 +++ b/tools/firmware/hvmloader/rombios.c
 @@ -78,6 +78,7 @@ static void rombios_load_roms(void)
@@ -107,7 +124,7 @@ index 46f331e46596..ba33c0a5caea 100644
          memcpy((void *)VGABIOS_PHYSICAL_ADDRESS,
 diff --git a/tools/firmware/hvmloader/vgt.h b/tools/firmware/hvmloader/vgt.h
 new file mode 100644
-index 000000000000..f5b3f3475392
+index 0000000000..f5b3f34753
 --- /dev/null
 +++ b/tools/firmware/hvmloader/vgt.h
 @@ -0,0 +1,24 @@
@@ -136,5 +153,5 @@ index 000000000000..f5b3f3475392
 +
 +#endif  /* _VGT_DEVTABLE_H */
 -- 
-2.44.0
+2.49.0
 

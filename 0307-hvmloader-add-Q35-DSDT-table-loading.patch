@@ -1,0 +1,95 @@
+From a8aba45710df382ecb24728a186504e02428828b Mon Sep 17 00:00:00 2001
+From: Joel Upham <jupham125@gmail.com>
+Date: Tue, 20 Jun 2023 13:15:45 -0400
+Subject: [PATCH 05/12] hvmloader: add Q35 DSDT table loading
+
+Allows to select Q35 DSDT table in hvmloader_acpi_build_tables(). Function
+get_pc_machine_type() is used to select a proper table (i440/q35).
+
+As we are bound to the qemu-xen device model for Q35, no need
+to initialize config->dsdt_15cpu/config->dsdt_15cpu_len fields.
+
+Added the seabios/ovmf loading here as well.
+
+Signed-off-by: Alexey Gerasimenko <x1917x@xxxxxxxxx>
+Signed-off-by: Joel Upham <jupham125@gmail.com>
+---
+ tools/firmware/hvmloader/ovmf.c    |  5 +++++
+ tools/firmware/hvmloader/seabios.c |  5 +++++
+ tools/firmware/hvmloader/util.c    | 13 +++++++++++--
+ tools/firmware/hvmloader/util.h    |  2 ++
+ 4 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/tools/firmware/hvmloader/ovmf.c b/tools/firmware/hvmloader/ovmf.c
+index 23610a0717..2945c8a516 100644
+--- a/tools/firmware/hvmloader/ovmf.c
++++ b/tools/firmware/hvmloader/ovmf.c
+@@ -125,6 +125,11 @@ static void ovmf_acpi_build_tables(void)
+         .dsdt_15cpu_len = 0
+     };
+ 
++    if (get_pc_machine_type() == MACHINE_TYPE_Q35) {
++        config.dsdt_anycpu = dsdt_q35_anycpu_qemu_xen;
++        config.dsdt_anycpu_len = dsdt_q35_anycpu_qemu_xen_len;
++    }
++
+     hvmloader_acpi_build_tables(&config, ACPI_PHYSICAL_ADDRESS);
+ }
+ 
+diff --git a/tools/firmware/hvmloader/seabios.c b/tools/firmware/hvmloader/seabios.c
+index 444d118ddb..72aabea130 100644
+--- a/tools/firmware/hvmloader/seabios.c
++++ b/tools/firmware/hvmloader/seabios.c
+@@ -96,6 +96,11 @@ static void seabios_acpi_build_tables(void)
+         .dsdt_15cpu_len = 0,
+     };
+ 
++    if (get_pc_machine_type() == MACHINE_TYPE_Q35) {
++        config.dsdt_anycpu = dsdt_q35_anycpu_qemu_xen;
++        config.dsdt_anycpu_len = dsdt_q35_anycpu_qemu_xen_len;
++    }
++
+     hvmloader_acpi_build_tables(&config, rsdp);
+     add_table(rsdp);
+ }
+diff --git a/tools/firmware/hvmloader/util.c b/tools/firmware/hvmloader/util.c
+index 9a795a8a0c..f19eeb9814 100644
+--- a/tools/firmware/hvmloader/util.c
++++ b/tools/firmware/hvmloader/util.c
+@@ -908,8 +908,17 @@ void hvmloader_acpi_build_tables(struct acpi_config *config,
+     }
+     else if ( !strncmp(s, "qemu_xen", 9) )
+     {
+-        config->dsdt_anycpu = dsdt_anycpu_qemu_xen;
+-        config->dsdt_anycpu_len = dsdt_anycpu_qemu_xen_len;
++        if (get_pc_machine_type() == MACHINE_TYPE_Q35)
++        {
++            config->dsdt_anycpu = dsdt_q35_anycpu_qemu_xen;
++            config->dsdt_anycpu_len = dsdt_q35_anycpu_qemu_xen_len;
++        }
++        else
++        {
++            config->dsdt_anycpu = dsdt_anycpu_qemu_xen;
++            config->dsdt_anycpu_len = dsdt_anycpu_qemu_xen_len;
++        }
++
+         config->dsdt_15cpu = NULL;
+         config->dsdt_15cpu_len = 0;
+     }
+diff --git a/tools/firmware/hvmloader/util.h b/tools/firmware/hvmloader/util.h
+index e0c8303bbf..d67e0ce164 100644
+--- a/tools/firmware/hvmloader/util.h
++++ b/tools/firmware/hvmloader/util.h
+@@ -358,7 +358,9 @@ bool check_overlap(uint64_t start, uint64_t size,
+                    uint64_t reserved_start, uint64_t reserved_size);
+ 
+ extern const unsigned char dsdt_anycpu_qemu_xen[], dsdt_anycpu[], dsdt_15cpu[];
++extern const unsigned char dsdt_q35_anycpu_qemu_xen[];
+ extern const int dsdt_anycpu_qemu_xen_len, dsdt_anycpu_len, dsdt_15cpu_len;
++extern const int dsdt_q35_anycpu_qemu_xen_len;
+ 
+ unsigned long acpi_pages_allocated(void);
+ 
+-- 
+2.49.0
+
