@@ -1,0 +1,52 @@
+From 5ebd4dd14118e4eb24f1d409a7ca3773f77e7e41 Mon Sep 17 00:00:00 2001
+From: Jan Beulich <jbeulich@suse.com>
+Date: Tue, 24 Mar 2026 12:05:42 +0100
+Subject: [PATCH] x86/S3: restore MCE (APs) init
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+MCE init for APs was broken when CPU feature re-checking was added. At the
+same time make sure we don't bypass setup_doitm() (and whatever else may
+be added to the bottom of identify_cpu()).
+
+Fixes: bb502a8ca592 ("x86: check feature flags after resume")
+Reported-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Tested-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Acked-by: Roger Pau Monné <roger.pau@citrix.com>
+---
+ xen/arch/x86/cpu/common.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/cpu/common.c b/xen/arch/x86/cpu/common.c
+index 5d0523a78b52..5ac76897ae47 100644
+--- a/xen/arch/x86/cpu/common.c
++++ b/xen/arch/x86/cpu/common.c
+@@ -642,16 +642,20 @@ void identify_cpu(struct cpuinfo_x86 *c)
+ 			       smp_processor_id());
+ 	}
+ 
+-	if (system_state == SYS_STATE_resume)
+-		return;
++	if (system_state == SYS_STATE_resume) {
++		unsigned int cpu = smp_processor_id();
+ 
++		/* The BSP has this done right from enter_state(). */
++		if (cpu)
++			mcheck_init(&cpu_data[cpu], false);
++	}
+ 	/*
+ 	 * On SMP, boot_cpu_data holds the common feature set between
+ 	 * all CPUs; so make sure that we indicate which features are
+ 	 * common between the CPUs.  The first time this routine gets
+ 	 * executed, c == &boot_cpu_data.
+ 	 */
+-	if ( c != &boot_cpu_data ) {
++	else if (c != &boot_cpu_data) {
+ 		/* AND the already accumulated flags with these */
+ 		for ( i = 0 ; i < NCAPINTS ; i++ )
+ 			boot_cpu_data.x86_capability[i] &= c->x86_capability[i];
+-- 
+2.53.0
+
