@@ -105,6 +105,7 @@ Patch0304: 0304-x86-time-do-not-kill-calibration-timer-on-suspend.patch
 
 # Security fixes (500+)
 Patch0500: 0500-xsa480.patch
+Patch0501: 0501-xsa488-4.20.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
