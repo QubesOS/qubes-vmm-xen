@@ -124,6 +124,7 @@ Patch0332: 0332-x86-dom0-be-less-restrictive-with-the-Interrupt-Addr.patch
 
 # Security fixes
 Patch0500: 0500-xsa480.patch
+Patch0501: 0501-xsa488-4.17.patch
 
 # Upstreamable patches
 Patch0604: 0604-libxl-create-writable-error-xenstore-dir.patch
