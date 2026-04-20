@@ -1,0 +1,48 @@
+From 4b8b09c88b6c0428b0fb5d7cabfa4b62d94332be Mon Sep 17 00:00:00 2001
+From: Krystian Hebel <krystian.hebel@3mdeb.com>
+Date: Tue, 13 Jun 2023 15:44:36 +0200
+Subject: [PATCH 1313/1328] arch/x86/smp: call x2apic_ap_setup() earlier
+
+It used to be called from smp_callin(), however BUG_ON() was invoked on
+multiple occasions before that. It may end up calling machine_restart()
+which tries to get APIC ID for CPU running this code. If BSP detected
+that x2APIC is enabled, get_apic_id() will try to use it for all CPUs.
+Enabling x2APIC on secondary CPUs earlier protects against an endless
+loop of #GP exceptions caused by attempts to read IA32_X2APIC_APICID
+MSR while x2APIC is disabled in IA32_APIC_BASE.
+
+Signed-off-by: Krystian Hebel <krystian.hebel@3mdeb.com>
+---
+ xen/arch/x86/smpboot.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/smpboot.c b/xen/arch/x86/smpboot.c
+index 2a36812d6d..cfb0daf10a 100644
+--- a/xen/arch/x86/smpboot.c
++++ b/xen/arch/x86/smpboot.c
+@@ -196,7 +196,6 @@ static void smp_callin(void)
+      * update until we finish. We are free to set up this CPU: first the APIC.
+      */
+     Dprintk("CALLIN, before setup_local_APIC().\n");
+-    x2apic_ap_setup();
+     setup_local_APIC(false);
+ 
+     /* Save our processor parameters. */
+@@ -386,6 +385,14 @@ void start_secondary(void *unused)
+     get_cpu_info()->xen_cr3 = 0;
+     get_cpu_info()->pv_cr3 = 0;
+ 
++    /*
++     * BUG_ON() used in load_system_tables() and later code may end up calling
++     * machine_restart() which tries to get APIC ID for CPU running this code.
++     * If BSP detected that x2APIC is enabled, get_apic_id() will try to use it
++     * for _all_ CPUs. Enable x2APIC on secondary CPUs now so we won't end up
++     * with endless #GP loop.
++     */
++    x2apic_ap_setup();
+     load_system_tables();
+ 
+     /* Full exception support from here on in. */
+-- 
+2.46.0
+
