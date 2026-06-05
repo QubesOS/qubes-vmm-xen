@@ -1,4 +1,4 @@
-From 32de757dcbc01de77c3a557c914aaa6c54c1547c Mon Sep 17 00:00:00 2001
+From 1a4e260812926e57525ed92a75acec1eae732225 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 18 Jan 2020 01:53:41 +0100
@@ -15,18 +15,18 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index 7629f6157832..1d43725d5eed 100644
+index 407c145ab16e..7f7aa3689a98 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
-@@ -390,7 +390,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -328,7 +328,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
          libxl_defbool_setdefault(&b_info->u.hvm.hpet,               true);
          libxl_defbool_setdefault(&b_info->u.hvm.vpt_align,          true);
          libxl_defbool_setdefault(&b_info->u.hvm.usb,                false);
 -        libxl_defbool_setdefault(&b_info->u.hvm.vkb_device,         true);
 +        libxl_defbool_setdefault(&b_info->u.hvm.vkb_device,         false);
          libxl_defbool_setdefault(&b_info->u.hvm.xen_platform_pci,   true);
+         libxl_defbool_setdefault(&b_info->u.hvm.xen_platform_pci_bar_uc, true);
          libxl_defbool_setdefault(&b_info->u.hvm.pirq,               false);
- 
 -- 
-2.44.0
+2.54.0
 

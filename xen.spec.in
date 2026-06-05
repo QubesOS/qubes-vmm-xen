@@ -97,56 +97,43 @@ Patch0202: 0202-Add-xen.cfg-options-for-mapbs-and-noexitboot.patch
 Patch0203: 0203-xen.efi.build.patch
 
 # Backports (300+)
-Patch0300: 0300-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
-Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
-Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
-Patch0303: 0303-x86-S3-restore-MCE-APs-init.patch
-Patch0304: 0304-x86-time-do-not-kill-calibration-timer-on-suspend.patch
 
 # Security fixes (500+)
-Patch0500: 0500-xsa480.patch
-Patch0501: 0501-xsa488-4.20.patch
-Patch0502: 0502-xsa490-4.21.patch
-Patch0503: 0503-xsa491-4.21.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
 Patch0601: 0601-libxl-do-not-wait-for-backend-on-PCI-remove-when-bac.patch
 Patch0602: 0602-libvchan-use-xengntshr_unshare-instead-of-munmap-dir.patch
-Patch0603: 0603-x86-time-Don-t-use-EFI-s-GetTime-call-by-default.patch
-Patch0604: 0604-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
-Patch0605: 0605-autoconf-fix-handling-absolute-PYTHON-path.patch
-Patch0606: 0606-libxl-do-not-require-filling-backend_domid-to-remove.patch
-Patch0607: 0607-libxl-add-pcidevs-to-stubdomain-earlier.patch
-Patch0609: 0609-vchan-socket-proxy-add-reconnect-marker-support.patch
-Patch0610: 0610-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
-Patch0611: 0611-libxl-Add-a-utility-function-for-domain-resume.patch
-Patch0612: 0612-libxl-Properly-suspend-stubdomains.patch
-Patch0613: 0613-libxl-Fix-race-condition-in-domain-suspension.patch
-Patch0614: 0614-libxl-Add-additional-domain-suspend-resume-logs.patch
-Patch0615: 0615-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
-Patch0616: 0616-libxl-check-control-feature-before-issuing-pvcontrol.patch
-Patch0617: 0617-tools-kdd-mute-spurious-gcc-warning.patch
-Patch0618: 0618-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
-Patch0619: 0619-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
-Patch0620: 0620-Validate-EFI-memory-descriptors.patch
-Patch0621: 0621-x86-mm-make-code-robust-to-future-PAT-changes.patch
-Patch0622: 0622-Drop-ELF-notes-from-non-EFI-binary-too.patch
-Patch0623: 0623-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
+Patch0603: 0603-libxl-automatically-enable-gfx_passthru-if-IGD-is-as.patch
+Patch0604: 0604-autoconf-fix-handling-absolute-PYTHON-path.patch
+Patch0605: 0605-libxl-do-not-require-filling-backend_domid-to-remove.patch
+Patch0606: 0606-libxl-add-pcidevs-to-stubdomain-earlier.patch
+Patch0607: 0607-vchan-socket-proxy-add-reconnect-marker-support.patch
+Patch0608: 0608-tools-libxl-enable-in-band-reconnect-marker-for-stub.patch
+Patch0609: 0609-libxl-Add-a-utility-function-for-domain-resume.patch
+Patch0610: 0610-libxl-Properly-suspend-stubdomains.patch
+Patch0611: 0611-libxl-Fix-race-condition-in-domain-suspension.patch
+Patch0612: 0612-libxl-Add-additional-domain-suspend-resume-logs.patch
+Patch0613: 0613-libxl-workaround-for-Windows-PV-drivers-removing-con.patch
+Patch0614: 0614-libxl-check-control-feature-before-issuing-pvcontrol.patch
+Patch0615: 0615-tools-kdd-mute-spurious-gcc-warning.patch
+Patch0616: 0616-libxl-do-not-start-qemu-in-dom0-just-for-extra-conso.patch
+Patch0617: 0617-libxl-Allow-stubdomain-to-control-interupts-of-PCI-d.patch
+Patch0618: 0618-Validate-EFI-memory-descriptors.patch
+Patch0619: 0619-x86-mm-make-code-robust-to-future-PAT-changes.patch
+Patch0620: 0620-Drop-ELF-notes-from-non-EFI-binary-too.patch
+Patch0621: 0621-xenpm-Factor-out-a-non-fatal-cpuid_parse-variant.patch
 
 # S0ix support
-Patch0624: 0624-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
-Patch0625: 0625-x86-ACPI-Ignore-entries-marked-as-unusable-when-pars.patch
-Patch0626: 0626-x86-msr-Allow-hardware-domain-to-read-package-C-stat.patch
-Patch0627: 0627-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
-Patch0628: 0628-libxl_pci-Pass-power_mgmt-via-QMP.patch
+Patch0622: 0622-x86-idle-Get-PC-8.10-counters-for-Tiger-and-Alder-La.patch
+Patch0623: 0623-x86-ACPI-Ignore-entries-marked-as-unusable-when-pars.patch
+Patch0624: 0624-x86-msr-Allow-hardware-domain-to-read-package-C-stat.patch
+Patch0625: 0625-x86-mwait-idle-Use-ACPI-for-CPUs-without-hardcoded-C.patch
+Patch0626: 0626-libxl_pci-Pass-power_mgmt-via-QMP.patch
 
-Patch0629: 0629-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
-Patch0630: 0630-libxl-extend-IGD-check.patch
-Patch0631: 0631-libxl-Skip-missing-legacy-IRQ.patch
-Patch0632: 0632-libxl-do-not-consider-IGD-VF-a-VGA-passthru.patch
-Patch0633: 0633-EFI-Fix-relocating-ESRT-for-dom0.patch
-Patch0634: 0634-libxl-constify-some-local-variables-to-appease-gcc-1.patch
+Patch0627: 0627-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
+Patch0628: 0628-libxl-extend-IGD-check.patch
+Patch0629: 0629-libxl-do-not-consider-IGD-VF-a-VGA-passthru.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
@@ -171,9 +158,8 @@ Patch1018: 1018-x86-Use-Linux-s-PAT.patch
 
 # Reproducible builds
 Patch1100: 1100-Define-build-dates-time-based-on-SOURCE_DATE_EPOCH.patch
-Patch1101: 1101-docs-rename-DATE-to-PANDOC_REL_DATE-and-allow-to-spe.patch
-Patch1102: 1102-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
-Patch1103: 1103-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
+Patch1101: 1101-docs-xen-headers-use-alphabetical-sorting-for-incont.patch
+Patch1102: 1102-Strip-build-path-directories-in-tools-xen-and-xen-ar.patch
 
 # GVT-g
 Patch1200: 1200-hypercall-XENMEM_get_mfn_from_pfn.patch
@@ -450,9 +436,9 @@ export CFLAGS="$CFLAGS_SAVE -Wno-error=address"
 
 %if %build_hyp
 # QUBES SPECIFIC LINE
-export CFLAGS=`echo $CFLAGS | sed -e 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g'`
+export CFLAGS=`echo $CFLAGS | sed -e 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g' -e 's/-mtune=[0-9a-z]*//'`
 %if %build_crosshyp
-export CFLAGS=`echo $CFLAGS | sed -e 's/-m32//g' -e 's/-march=i686//g' 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g'`
+export CFLAGS=`echo $CFLAGS | sed -e 's/-m32//g' -e 's/-march=i686//g' -e 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g'`
 XEN_TARGET_ARCH=x86_64 %make_build %{?efi_flags} prefix=/usr xen CC="/usr/bin/x86_64-linux-gnu-gcc"
 %else
 %ifarch armv7hl
@@ -873,9 +859,11 @@ fi
 %{_libdir}/libxengnttab.so.1.2
 %{_libdir}/libxenguest.so.4.*
 %{_libdir}/libxenlight.so.4.*
+%{_libdir}/libxenmanage.so.1
+%{_libdir}/libxenmanage.so.1.0
 %{_libdir}/libxenstat.so.4.*
 %{_libdir}/libxenstore.so.4
-%{_libdir}/libxenstore.so.4.0
+%{_libdir}/libxenstore.so.4.2
 %{_libdir}/libxentoolcore.so.1
 %{_libdir}/libxentoolcore.so.1.0
 %{_libdir}/libxentoollog.so.1
@@ -905,6 +893,7 @@ fi
 %{_unitdir}/xen-init-dom0.service
 %exclude %{_unitdir}/xendriverdomain.service
 # END QUBES SPECIFIC PART
+%{_unitdir}-sleep/xen-watchdog-sleep.sh
 /usr/lib/modules-load.d/xen.conf
 
 %config(noreplace) %{_sysconfdir}/sysconfig/xencommons
@@ -932,6 +921,7 @@ fi
 %if %build_docs
 %{_mandir}/man1/xentop.1*
 %{_mandir}/man8/xentrace.8*
+%{_mandir}/man8/xenwatchdogd.8*
 %{_mandir}/man1/xl.1*
 %{_mandir}/man5/xl.cfg.5*
 %{_mandir}/man5/xl.conf.5*

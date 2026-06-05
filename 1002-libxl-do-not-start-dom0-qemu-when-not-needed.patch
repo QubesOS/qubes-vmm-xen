@@ -1,4 +1,4 @@
-From 7a7682f5a50005fdd99809148481dcd2b39e7408 Mon Sep 17 00:00:00 2001
+From 68594345fa90aa1c34709c6abfafcb61f7bdecf0 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Tue, 21 Apr 2015 03:50:04 +0200
@@ -17,7 +17,7 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/tools/libs/light/libxl_disk.c b/tools/libs/light/libxl_disk.c
-index 1f1e5c6567da..2ec7f5f37eda 100644
+index 456b5450ca9a..15898c54f9cd 100644
 --- a/tools/libs/light/libxl_disk.c
 +++ b/tools/libs/light/libxl_disk.c
 @@ -57,11 +57,12 @@ static void disk_eject_xswatch_callback(libxl__egc *egc, libxl__ev_xswatch *w,
@@ -35,5 +35,5 @@ index 1f1e5c6567da..2ec7f5f37eda 100644
          disk->backend = LIBXL_DISK_BACKEND_UNKNOWN;
      }
 -- 
-2.44.0
+2.54.0
 

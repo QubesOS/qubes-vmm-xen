@@ -1,4 +1,4 @@
-From a2855b81da57771863829568d535de53ba572d7b Mon Sep 17 00:00:00 2001
+From 2204165e53469d4cf5fe289f40cecc7649fa529b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
  <frederic.pierret@qubes-os.org>
 Date: Sat, 31 Oct 2020 14:57:49 +0100
@@ -9,29 +9,14 @@ to SOURCE_DATE_EPOCH.
 
 Improvements from Jan Beuluch <jbeulich@suse.com>.
 ---
- Config.mk                         | 2 ++
- INSTALL                           | 6 ++++++
- tools/firmware/hvmloader/Makefile | 2 +-
- tools/firmware/vgabios/Makefile   | 3 ++-
- xen/Makefile                      | 4 ++--
- 5 files changed, 13 insertions(+), 4 deletions(-)
+ INSTALL | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/Config.mk b/Config.mk
-index e7aa8ceaaf3b..729ed9e8434e 100644
---- a/Config.mk
-+++ b/Config.mk
-@@ -249,3 +249,5 @@ QEMU_UPSTREAM_LOC ?= $(call or,$(wildcard $(QEMU_UPSTREAM_INTREE)),\
-                                $(QEMU_UPSTREAM_URL))
- 
- CONFIG_TESTS       ?= y
-+
-+DATE_EPOCH_OPTS := $(if $(SOURCE_DATE_EPOCH),-u -d "@$(SOURCE_DATE_EPOCH)")
-\ No newline at end of file
 diff --git a/INSTALL b/INSTALL
-index 88c1464816bd..22fce650f9a0 100644
+index fb9efe884fb1..408cf83fd242 100644
 --- a/INSTALL
 +++ b/INSTALL
-@@ -235,6 +235,12 @@ XEN_BUILD_TIME=hh:mm:ss
+@@ -218,6 +218,12 @@ XEN_BUILD_TIME=hh:mm:ss
  SMBIOS_REL_DATE=mm/dd/yyyy
  VGABIOS_REL_DATE="dd Mon yyyy"
  
@@ -44,50 +29,6 @@ index 88c1464816bd..22fce650f9a0 100644
  This variable can be used to point to a different git binary to be used.
  GIT=
  
-diff --git a/tools/firmware/hvmloader/Makefile b/tools/firmware/hvmloader/Makefile
-index 84cba171cd6b..d94df1cd88b6 100644
---- a/tools/firmware/hvmloader/Makefile
-+++ b/tools/firmware/hvmloader/Makefile
-@@ -23,7 +23,7 @@ include $(XEN_ROOT)/tools/firmware/Rules.mk
- ld-option = $(shell if $(LD) -v $(1) >/dev/null 2>&1; then echo y; else echo n; fi)
- 
- # SMBIOS spec requires format mm/dd/yyyy
--SMBIOS_REL_DATE ?= $(shell date +%m/%d/%Y)
-+SMBIOS_REL_DATE ?= $(shell date $(DATE_EPOCH_OPTS) +%m/%d/%Y)
- 
- CFLAGS += $(CFLAGS_xeninclude) -fno-pic
- 
-diff --git a/tools/firmware/vgabios/Makefile b/tools/firmware/vgabios/Makefile
-index 3284812fdec8..4350ef402127 100644
---- a/tools/firmware/vgabios/Makefile
-+++ b/tools/firmware/vgabios/Makefile
-@@ -5,7 +5,8 @@ BCC = bcc
- AS86 = as86
- 
- RELEASE = `pwd | sed "s-.*/--"`
--VGABIOS_REL_DATE ?= `date '+%d %b %Y'`
-+VGABIOS_REL_DATE ?= $(shell date $(DATE_EPOCH_OPTS) +%d %b %Y)
-+
- RELVERS = `pwd | sed "s-.*/--" | sed "s/vgabios//" | sed "s/-//"`
- 
- VGABIOS_DATE = "-DVGABIOS_DATE=\"$(VGABIOS_REL_DATE)\""
-diff --git a/xen/Makefile b/xen/Makefile
-index e9fd19536f2c..02e947da95a0 100644
---- a/xen/Makefile
-+++ b/xen/Makefile
-@@ -15,10 +15,10 @@ ifeq ($(origin XEN_DOMAIN), undefined)
- export XEN_DOMAIN	:= $(shell ([ -x /bin/dnsdomainname ] && /bin/dnsdomainname) || ([ -x /bin/domainname ] && /bin/domainname || echo [unknown]))
- endif
- ifeq ($(origin XEN_BUILD_DATE), undefined)
--export XEN_BUILD_DATE	:= $(shell LC_ALL=C date)
-+export XEN_BUILD_DATE	:= $(shell LC_ALL=C date $(DATE_EPOCH_OPTS))
- endif
- ifeq ($(origin XEN_BUILD_TIME), undefined)
--export XEN_BUILD_TIME	:= $(shell LC_ALL=C date +%T)
-+export XEN_BUILD_TIME	:= $(shell LC_ALL=C date $(DATE_EPOCH_OPTS) +%T)
- endif
- ifeq ($(origin XEN_BUILD_HOST), undefined)
- export XEN_BUILD_HOST	:= $(shell hostname)
 -- 
-2.44.0
+2.54.0
 
