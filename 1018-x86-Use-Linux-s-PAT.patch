@@ -1,4 +1,4 @@
-From 7f3f94f443f652e4a59c111d4cf8b5fb3b771612 Mon Sep 17 00:00:00 2001
+From 8451837689161ae29a12dc9645778abbfb0ab2cc Mon Sep 17 00:00:00 2001
 From: Demi Marie Obenour <demi@invisiblethingslab.com>
 Date: Sun, 4 Dec 2022 07:57:44 -0500
 Subject: [PATCH] x86: Use Linux's PAT
@@ -7,15 +7,15 @@ Use the same PAT setting as Linux to workaround buggy drivers that have
 hardcoded assumptions about it.
 ---
  xen/arch/x86/include/asm/page.h      |  4 ++--
- xen/arch/x86/include/asm/processor.h | 10 +++++-----
+ xen/arch/x86/include/asm/processor.h | 11 ++++++-----
  xen/arch/x86/mm.c                    |  8 --------
- 3 files changed, 7 insertions(+), 15 deletions(-)
+ 3 files changed, 8 insertions(+), 15 deletions(-)
 
 diff --git a/xen/arch/x86/include/asm/page.h b/xen/arch/x86/include/asm/page.h
-index 350d1fb1100f..2624cc6bdae5 100644
+index 23e06d39ad84..78aacf1851a6 100644
 --- a/xen/arch/x86/include/asm/page.h
 +++ b/xen/arch/x86/include/asm/page.h
-@@ -333,11 +333,11 @@ void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t l4e);
+@@ -322,11 +322,11 @@ void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t l4e);
  
  /* Memory types, encoded under Xen's choice of MSR_PAT. */
  #define _PAGE_WB         (                                0)
@@ -30,10 +30,10 @@ index 350d1fb1100f..2624cc6bdae5 100644
  /*
   * Debug option: Ensure that granted mappings are not implicitly unmapped.
 diff --git a/xen/arch/x86/include/asm/processor.h b/xen/arch/x86/include/asm/processor.h
-index c26ef9090c3a..ec881b880d4d 100644
+index c37bd7a17658..e9c6a97c3918 100644
 --- a/xen/arch/x86/include/asm/processor.h
 +++ b/xen/arch/x86/include/asm/processor.h
-@@ -65,16 +65,17 @@
+@@ -64,16 +64,17 @@
  
  /*
   * Host IA32_CR_PAT value to cover all memory types.  This is not the default
@@ -54,13 +54,13 @@ index c26ef9090c3a..ec881b880d4d 100644
 +                     (_AC(X86_MT_UCM, ULL) << 0x30) | \
 +                     (_AC(X86_MT_WT,  ULL) << 0x38))
  
- #ifndef __ASSEMBLY__
+ #ifndef __ASSEMBLER__
  
 diff --git a/xen/arch/x86/mm.c b/xen/arch/x86/mm.c
-index 702c76a879e5..b30453b9de11 100644
+index e4cf449ad15f..087e6fa209d6 100644
 --- a/xen/arch/x86/mm.c
 +++ b/xen/arch/x86/mm.c
-@@ -6365,14 +6365,6 @@ unsigned long get_upper_mfn_bound(void)
+@@ -6556,14 +6556,6 @@ unsigned long get_upper_mfn_bound(void)
   */
  static void __init __maybe_unused build_assertions(void)
  {
@@ -76,5 +76,5 @@ index 702c76a879e5..b30453b9de11 100644
       * _PAGE_WB must be zero for several reasons, not least because Linux
       * assumes it.
 -- 
-2.44.0
+2.54.0
 

@@ -1,4 +1,4 @@
-From e6482ffa566bae21c006c90d0879c64baa678579 Mon Sep 17 00:00:00 2001
+From 2ff8019c3e35aea555dbbec633041778cc518a71 Mon Sep 17 00:00:00 2001
 From: Grzegorz Uriasz <gorbak25@gmail.com>
 Date: Thu, 13 Feb 2020 02:30:36 +0000
 Subject: [PATCH] Fix IGD passthrough with linux stubdomain
@@ -11,10 +11,10 @@ Subject: [PATCH] Fix IGD passthrough with linux stubdomain
  1 file changed, 126 insertions(+), 26 deletions(-)
 
 diff --git a/tools/libs/light/libxl_pci.c b/tools/libs/light/libxl_pci.c
-index 0302b5990f06..35e3e1360423 100644
+index 8b36a3e7dee0..eceb8ec4ca06 100644
 --- a/tools/libs/light/libxl_pci.c
 +++ b/tools/libs/light/libxl_pci.c
-@@ -2594,17 +2594,128 @@ void libxl__device_pci_destroy_all(libxl__egc *egc, uint32_t domid,
+@@ -2441,17 +2441,128 @@ void libxl__device_pci_destroy_all(libxl__egc *egc, uint32_t domid,
      libxl_device_pci_list_free(pcis, num);
  }
  
@@ -147,7 +147,7 @@ index 0302b5990f06..35e3e1360423 100644
          libxl_device_pci *pci = &d_config->pcidevs[i];
          unsigned long pci_device_class;
  
-@@ -2613,30 +2724,19 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
+@@ -2461,30 +2572,19 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
                  pci_device_class != 0x038000) /* Display class */
              continue;
  
@@ -190,5 +190,5 @@ index 0302b5990f06..35e3e1360423 100644
  
  static int libxl_device_pci_compare(const libxl_device_pci *d1,
 -- 
-2.44.0
+2.54.0
 

@@ -1,4 +1,4 @@
-From 8cb3e7fdb79dd869edbe7f294e91e781808241d0 Mon Sep 17 00:00:00 2001
+From 919dd14ba17ea268e417d2faff1124a29b1088ca Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 02:38:06 +0100
@@ -14,7 +14,7 @@ This patches based on Intel XenGT preview, XCP-NG Project.
  create mode 100644 tools/firmware/hvmloader/vgt.h
 
 diff --git a/tools/firmware/hvmloader/config.h b/tools/firmware/hvmloader/config.h
-index cd716bf39245..c9184366641b 100644
+index c159db30eea9..59c621fd4462 100644
 --- a/tools/firmware/hvmloader/config.h
 +++ b/tools/firmware/hvmloader/config.h
 @@ -4,7 +4,7 @@
@@ -27,7 +27,7 @@ index cd716bf39245..c9184366641b 100644
  
  extern unsigned long igd_opregion_pgbase;
 diff --git a/tools/firmware/hvmloader/pci.c b/tools/firmware/hvmloader/pci.c
-index c3c61ca060a6..fe5ad75e9eb4 100644
+index 792fb6bda0e7..aa66da1f2b5f 100644
 --- a/tools/firmware/hvmloader/pci.c
 +++ b/tools/firmware/hvmloader/pci.c
 @@ -23,6 +23,7 @@
@@ -38,7 +38,7 @@ index c3c61ca060a6..fe5ad75e9eb4 100644
  
  #include <xen/memory.h>
  #include <xen/hvm/ioreq.h>
-@@ -91,6 +92,7 @@ void pci_setup(void)
+@@ -93,6 +94,7 @@ void pci_setup(void)
      uint16_t class, vendor_id, device_id;
      unsigned int bar, pin, link, isa_irq;
      uint8_t pci_devfn_decode_type[256] = {};
@@ -56,7 +56,7 @@ index c3c61ca060a6..fe5ad75e9eb4 100644
          switch ( class )
          {
          case 0x0300:
-@@ -548,6 +553,36 @@ void pci_setup(void)
+@@ -586,6 +591,36 @@ void pci_setup(void)
  
      if ( vga_devfn != 256 )
      {
@@ -136,5 +136,5 @@ index 000000000000..f5b3f3475392
 +
 +#endif  /* _VGT_DEVTABLE_H */
 -- 
-2.44.0
+2.54.0
 

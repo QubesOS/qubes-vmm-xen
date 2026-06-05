@@ -1,4 +1,4 @@
-From 6707e983682615765b5ac1df7c9e811852cc683d Mon Sep 17 00:00:00 2001
+From 6eb490b1687b2d483b8f70a15cdb3b177312874f Mon Sep 17 00:00:00 2001
 From: Ross Lagerwall <ross.lagerwall@citrix.com>
 Date: Fri, 20 Mar 2015 14:32:04 +0000
 Subject: [PATCH] efi: Ensure incorrectly typed runtime services get mapped
@@ -27,10 +27,10 @@ Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
  1 file changed, 6 insertions(+)
 
 diff --git a/xen/common/efi/boot.c b/xen/common/efi/boot.c
-index 8004cf4d1303..b34521c5e74a 100644
+index 8b8131747a48..6a9b8388d533 100644
 --- a/xen/common/efi/boot.c
 +++ b/xen/common/efi/boot.c
-@@ -157,6 +157,7 @@ static SIMPLE_TEXT_OUTPUT_INTERFACE *__initdata StdErr;
+@@ -166,6 +166,7 @@ static SIMPLE_TEXT_OUTPUT_INTERFACE *__initdata StdErr;
  
  static UINT32 __initdata mdesc_ver;
  static bool __initdata map_bs;
@@ -38,7 +38,7 @@ index 8004cf4d1303..b34521c5e74a 100644
  
  static struct file __initdata cfg;
  static struct file __initdata kernel;
-@@ -1723,6 +1724,11 @@ void __init efi_init_memory(void)
+@@ -1888,6 +1889,11 @@ void __init efi_init_memory(void)
                  if ( !map_bs )
                      continue;
                  break;
@@ -51,5 +51,5 @@ index 8004cf4d1303..b34521c5e74a 100644
          }
  
 -- 
-2.44.0
+2.54.0
 

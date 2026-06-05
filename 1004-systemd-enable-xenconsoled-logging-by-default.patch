@@ -1,4 +1,4 @@
-From 7f085dc8b9cab734f3f0bc22640b3088a048669e Mon Sep 17 00:00:00 2001
+From b53ed0bd477963deafe433a29060d9856b717bb7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Mon, 19 Oct 2015 03:25:16 +0200
@@ -28,5 +28,5 @@ index d84c09aa9c51..206d75625d44 100644
  EnvironmentFile=-@CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons
  ExecStartPre=/bin/grep -q control_d /proc/xen/capabilities
 -- 
-2.44.0
+2.54.0
 

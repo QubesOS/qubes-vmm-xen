@@ -1,4 +1,4 @@
-From 1b0acc68addd4fe6c2e9928e65904b1110d9ea47 Mon Sep 17 00:00:00 2001
+From 3a8e4efd2e2c85b0a44d7eef524fa9edeb801cd3 Mon Sep 17 00:00:00 2001
 From: Ivan Kardykov <kardykov@tabit.pro>
 Date: Wed, 16 Nov 2022 02:40:06 +0100
 Subject: [PATCH] libxl: Add partially Intel GVT-g support (xengt device)
@@ -14,7 +14,7 @@ Project.
  4 files changed, 68 insertions(+)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index d89515b8693e..a3a1e99ace44 100644
+index 0daa032ffa51..3192c2e52b8e 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
 @@ -26,6 +26,36 @@
@@ -54,7 +54,7 @@ index d89515b8693e..a3a1e99ace44 100644
  int libxl__domain_create_info_setdefault(libxl__gc *gc,
                                           libxl_domain_create_info *c_info,
                                           const libxl_physinfo *info)
-@@ -334,6 +364,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -305,6 +335,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
                      return ERROR_INVAL;
                  }
                  break;
@@ -62,7 +62,7 @@ index d89515b8693e..a3a1e99ace44 100644
              case LIBXL_VGA_INTERFACE_TYPE_CIRRUS:
              default:
                  if (b_info->video_memkb == LIBXL_MEMKB_DEFAULT)
-@@ -1877,6 +1908,9 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
+@@ -1855,6 +1886,9 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
          if ( ret )
              goto error_out;
  
@@ -73,10 +73,10 @@ index d89515b8693e..a3a1e99ace44 100644
      }
      case LIBXL_DOMAIN_TYPE_PV:
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index 4710ded5deec..af96dcae5ffd 100644
+index a685e2088c3d..742628c4cf4c 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
-@@ -1446,6 +1446,9 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1194,6 +1194,9 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
                  GCSPRINTF("qxl-vga,vram_size_mb=%"PRIu64",ram_size_mb=%"PRIu64,
                  (b_info->video_memkb/2/1024), (b_info->video_memkb/2/1024) ) );
              break;
@@ -87,10 +87,10 @@ index 4710ded5deec..af96dcae5ffd 100644
              LOGD(ERROR, guest_domid, "Invalid emulated video card specified");
              return ERROR_INVAL;
 diff --git a/tools/libs/light/libxl_domain.c b/tools/libs/light/libxl_domain.c
-index f4bcb0b198cb..db257d45ebb7 100644
+index 8d5d0482ec23..9d1e42fe6569 100644
 --- a/tools/libs/light/libxl_domain.c
 +++ b/tools/libs/light/libxl_domain.c
-@@ -1110,6 +1110,30 @@ static void domain_destroy_callback(libxl__egc *egc,
+@@ -1112,6 +1112,30 @@ static void domain_destroy_callback(libxl__egc *egc,
  static void destroy_finish_check(libxl__egc *egc,
                                   libxl__domain_destroy_state *dds);
  
@@ -121,7 +121,7 @@ index f4bcb0b198cb..db257d45ebb7 100644
  void libxl__domain_destroy(libxl__egc *egc, libxl__domain_destroy_state *dds)
  {
      STATE_AO_GC(dds->ao);
-@@ -1583,6 +1607,8 @@ static void devices_destroy_cb(libxl__egc *egc,
+@@ -1585,6 +1609,8 @@ static void devices_destroy_cb(libxl__egc *egc,
      }
      libxl__userdata_destroyall(gc, domid);
  
@@ -131,18 +131,18 @@ index f4bcb0b198cb..db257d45ebb7 100644
  
      /* Clean up qemu-save and qemu-resume files. They are
 diff --git a/tools/libs/light/libxl_types.idl b/tools/libs/light/libxl_types.idl
-index 1ad4d8dd1d3f..ba362dc43e61 100644
+index aa8dd2db6dce..5e1b3c93d24e 100644
 --- a/tools/libs/light/libxl_types.idl
 +++ b/tools/libs/light/libxl_types.idl
-@@ -38,6 +38,7 @@ libxl_ms_vm_genid = Builtin("ms_vm_genid", passby=PASS_BY_REFERENCE, check_defau
- #
+@@ -39,6 +39,7 @@ libxl_ms_vm_genid = Builtin("ms_vm_genid", passby=PASS_BY_REFERENCE, check_defau
  
- MemKB = UInt(64, init_val = "LIBXL_MEMKB_DEFAULT", json_gen_fn = "libxl__uint64_gen_json")
+ MemKB = UInt(64, init_val = "LIBXL_MEMKB_DEFAULT",
+              json_gen_fn = "libxl__uint64_gen_json", jsonc_json_gen_fn = "libxl__uint64_gen_jso")
 +VgtInt = UInt(32, init_val = "0UL")
  
  #
  # Constants / Enumerations
-@@ -238,6 +239,7 @@ libxl_vga_interface_type = Enumeration("vga_interface_type", [
+@@ -239,6 +240,7 @@ libxl_vga_interface_type = Enumeration("vga_interface_type", [
      (2, "STD"),
      (3, "NONE"),
      (4, "QXL"),
@@ -150,7 +150,7 @@ index 1ad4d8dd1d3f..ba362dc43e61 100644
      ], init_val = "LIBXL_VGA_INTERFACE_TYPE_UNKNOWN")
  
  libxl_vendor_device = Enumeration("vendor_device", [
-@@ -677,6 +679,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
+@@ -697,6 +699,9 @@ libxl_domain_build_info = Struct("domain_build_info",[
                                         ("hdtype",           libxl_hdtype),
                                         ("nographic",        libxl_defbool),
                                         ("vga",              libxl_vga_interface_info),
@@ -161,5 +161,5 @@ index 1ad4d8dd1d3f..ba362dc43e61 100644
                                         # keyboard layout, default is en-us keyboard
                                         ("keymap",           string),
 -- 
-2.44.0
+2.54.0
 

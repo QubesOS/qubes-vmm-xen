@@ -1,4 +1,4 @@
-From e952a87a9869f87f8cb6183d7c2d4ab4e5d234f7 Mon Sep 17 00:00:00 2001
+From 9cd00cb8dd3fd154d93c689e8eb47fc797cffb6f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sun, 10 Feb 2019 02:11:50 +0100
@@ -107,7 +107,7 @@ index d2dcc3ddcac3..3d6cea805908 100644
  	free(path);
  	free(dom_path);
 diff --git a/tools/xl/xl_cmdtable.c b/tools/xl/xl_cmdtable.c
-index 42751228c1d1..2185777525d2 100644
+index 502244f683ec..d6831c1f7e24 100644
 --- a/tools/xl/xl_cmdtable.c
 +++ b/tools/xl/xl_cmdtable.c
 @@ -142,7 +142,8 @@ const struct cmd_spec cmd_table[] = {
@@ -152,5 +152,5 @@ index 5633c6f6f7e6..0d8b3e858303 100644
      if (!type)
          libxl_primary_console_exec(ctx, domid, -1, escape_character);
 -- 
-2.44.0
+2.54.0
 
