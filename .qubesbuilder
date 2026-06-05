@@ -2,10 +2,10 @@ host:
   rpm:
     build:
     - xen.spec
-vm:
-  archlinux:
-    build:
-    - archlinux
+#vm:
+#  archlinux:
+#    build:
+#    - archlinux
 source:
   files:
 #  - url: https://downloads.xenproject.org/release/xen/@VERSION@/xen-@VERSION@.tar.gz
