@@ -361,6 +361,14 @@ Requires: libuuid-devel
 This package contains what's needed to develop applications
 which manage Xen virtual machines.
 
+# BEGIN QUBES SPECIFIC PART
+%package tests
+Summary: Unit tests for Xen
+Requires: xen-libs
+
+%description tests
+This package contains unit tests for various Xen functions.
+# END QUBES SPECIFIC PART
 
 %package licenses
 Summary: License files from Xen source
@@ -1087,6 +1095,10 @@ fi
 /usr/lib/debug/xen-*~debug*
 %endif
 
+# BEGIN QUBES SPECIFIC PART
+%files tests
+%{_libexecdir}/xen/tests
+# END QUBES SPECIFIC PART
 
 %if %build_docs
 %files doc
