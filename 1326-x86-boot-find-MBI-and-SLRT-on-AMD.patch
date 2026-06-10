@@ -1,0 +1,124 @@
+From cecbab10cb5e25050d6c684f624f4b7052fb24c5 Mon Sep 17 00:00:00 2001
+From: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+Date: Thu, 21 Mar 2024 19:41:06 +0200
+Subject: [PATCH 1326/1328] x86/boot: find MBI and SLRT on AMD
+
+secure-kernel-loader on AMD with SKINIT passes MBI as a parameter for
+Multiboot kernel.
+
+Another thing of interest is the location of SLRT which is bootloader's
+data after SKL.
+
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ xen/arch/x86/boot/head.S           |  2 ++
+ xen/arch/x86/boot/slaunch_early.c  | 30 ++++++++++++++++++++++++++++++
+ xen/arch/x86/include/asm/slaunch.h | 17 +++++++++++++++++
+ 3 files changed, 49 insertions(+)
+
+diff --git a/xen/arch/x86/boot/head.S b/xen/arch/x86/boot/head.S
+index 4efe47e85a..093f894850 100644
+--- a/xen/arch/x86/boot/head.S
++++ b/xen/arch/x86/boot/head.S
+@@ -539,6 +539,8 @@ __start:
+ 
+         /* Push arguments to stack and call slaunch_early_tests(). */
+         push    %esp                        /* pointer to output structure */
++        push    %ebp                        /* Slaunch parameter on AMD */
++        push    %ebx                        /* Multiboot parameter */
+         push    $sym_offs(__2M_rwdata_end)  /* end of target image */
+         push    $sym_offs(_start)           /* target base address */
+         push    %esi                        /* load base address */
+diff --git a/xen/arch/x86/boot/slaunch_early.c b/xen/arch/x86/boot/slaunch_early.c
+index 3edf40778a..a33db3bd98 100644
+--- a/xen/arch/x86/boot/slaunch_early.c
++++ b/xen/arch/x86/boot/slaunch_early.c
+@@ -29,6 +29,7 @@ asm (
+ #include "defs.h"
+ #include "../include/asm/intel_txt.h"
+ #include "../include/asm/slaunch.h"
++#include "../include/asm/x86-vendors.h"
+ 
+ struct early_tests_results
+ {
+@@ -36,6 +37,16 @@ struct early_tests_results
+     uint32_t slrt_pa;
+ } __packed;
+ 
++static bool is_intel_cpu(void)
++{
++    /* No boot_cpu_data in early code. */
++    uint32_t eax, ebx, ecx, edx;
++    cpuid(0x00000000, &eax, &ebx, &ecx, &edx);
++    return ebx == X86_VENDOR_INTEL_EBX
++        && ecx == X86_VENDOR_INTEL_ECX
++        && edx == X86_VENDOR_INTEL_EDX;
++}
++
+ static void verify_pmr_ranges(struct txt_os_mle_data *os_mle,
+                               struct txt_os_sinit_data *os_sinit,
+                               uint32_t load_base_addr, uint32_t tgt_base_addr,
+@@ -115,6 +126,8 @@ static void verify_pmr_ranges(struct txt_os_mle_data *os_mle,
+ void __stdcall slaunch_early_tests(uint32_t load_base_addr,
+                                    uint32_t tgt_base_addr,
+                                    uint32_t tgt_end_addr,
++                                   uint32_t multiboot_param,
++                                   uint32_t slaunch_param,
+                                    struct early_tests_results *result)
+ {
+     void *txt_heap;
+@@ -122,6 +135,23 @@ void __stdcall slaunch_early_tests(uint32_t load_base_addr,
+     struct txt_os_sinit_data *os_sinit;
+     uint32_t size = tgt_end_addr - tgt_base_addr;
+ 
++    if ( !is_intel_cpu() )
++    {
++        /*
++         * Not an Intel CPU. Currently the only other option is AMD with SKINIT
++         * and secure-kernel-loader.
++         */
++
++        const uint16_t *sl_header = (void *)slaunch_param;
++        /* secure-kernel-loader passes MBI as a parameter for Multiboot
++         * kernel. */
++        result->mbi_pa = multiboot_param;
++        /* The fourth 16-bit integer of SKL's header is an offset to
++         * bootloader's data, which is SLRT. */
++        result->slrt_pa = slaunch_param + sl_header[3];
++        return;
++    }
++
+     /* Clear the TXT error registers for a clean start of day */
+     write_txt_reg(TXTCR_ERRORCODE, 0);
+ 
+diff --git a/xen/arch/x86/include/asm/slaunch.h b/xen/arch/x86/include/asm/slaunch.h
+index 70101bb5d6..70b017b065 100644
+--- a/xen/arch/x86/include/asm/slaunch.h
++++ b/xen/arch/x86/include/asm/slaunch.h
+@@ -17,6 +17,23 @@
+ #define DLE_EVTYPE_SLAUNCH_START   (TXT_EVTYPE_BASE + 0x103)
+ #define DLE_EVTYPE_SLAUNCH_END     (TXT_EVTYPE_BASE + 0x104)
+ 
++#ifndef cpuid
++/*
++ * Generic CPUID function
++ * clear %ecx since some cpus (Cyrix MII) do not set or clear %ecx
++ * resulting in stale register contents being returned.
++ *
++ * Copied from processor.h because that header can't be included by early code.
++ */
++#define cpuid(_op,_eax,_ebx,_ecx,_edx)          \
++    asm volatile ( "cpuid"                      \
++          : "=a" (*(int *)(_eax)),              \
++            "=b" (*(int *)(_ebx)),              \
++            "=c" (*(int *)(_ecx)),              \
++            "=d" (*(int *)(_edx))               \
++          : "0" (_op), "2" (0) )
++#endif
++
+ extern bool slaunch_active;
+ extern uint32_t slaunch_slrt; /* physical address */
+ 
+-- 
+2.46.0
+

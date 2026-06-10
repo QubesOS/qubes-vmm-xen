@@ -1,0 +1,289 @@
+From 6c55f68a5187ff603563b1fb361c5bf8209dbf7f Mon Sep 17 00:00:00 2001
+From: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+Date: Sun, 17 Mar 2024 00:58:26 +0200
+Subject: [PATCH 1328/1328] arch/x86: support slaunch with AMD SKINIT
+
+This mostly involves not running Intel-specific code when on AMD.
+
+There are only a few new AMD-specific implementation details:
+ - finding SLB start and size and then mapping and protecting it
+ - managing offset for adding the next TPM log entry (TXT-compatible
+   data prepared by SKL is stored inside of vendor data field of TCG
+   header)
+
+Signed-off-by: Sergii Dmytruk <sergii.dmytruk@3mdeb.com>
+---
+ xen/arch/x86/e820.c                |  2 +-
+ xen/arch/x86/include/asm/slaunch.h |  2 +
+ xen/arch/x86/slaunch.c             | 68 ++++++++++++++++++++++++------
+ xen/arch/x86/tpm.c                 | 62 ++++++++++++++++++++++++++-
+ 4 files changed, 118 insertions(+), 16 deletions(-)
+
+diff --git a/xen/arch/x86/e820.c b/xen/arch/x86/e820.c
+index 5b2d960a88..896921b1c5 100644
+--- a/xen/arch/x86/e820.c
++++ b/xen/arch/x86/e820.c
+@@ -457,7 +457,7 @@ static uint64_t __init mtrr_top_of_ram(void)
+     rdmsrl(MSR_MTRRcap, mtrr_cap);
+     rdmsrl(MSR_MTRRdefType, mtrr_def);
+ 
+-    if ( slaunch_active )
++    if ( slaunch_active && boot_cpu_data.x86_vendor == X86_VENDOR_INTEL )
+         txt_restore_mtrrs(e820_verbose);
+ 
+     if ( e820_verbose )
+diff --git a/xen/arch/x86/include/asm/slaunch.h b/xen/arch/x86/include/asm/slaunch.h
+index ea20a97e94..2af67a17f7 100644
+--- a/xen/arch/x86/include/asm/slaunch.h
++++ b/xen/arch/x86/include/asm/slaunch.h
+@@ -11,6 +11,8 @@
+ /*
+  * Secure Launch event log entry types. The TXT specification defines the
+  * base event value as 0x400 for DRTM values.
++ *
++ * Using the same values for AMD SKINIT.
+  */
+ #define TXT_EVTYPE_BASE            0x400
+ #define DLE_EVTYPE_SLAUNCH         (TXT_EVTYPE_BASE + 0x102)
+diff --git a/xen/arch/x86/slaunch.c b/xen/arch/x86/slaunch.c
+index 0f05a7cb2c..b18b882f74 100644
+--- a/xen/arch/x86/slaunch.c
++++ b/xen/arch/x86/slaunch.c
+@@ -9,6 +9,10 @@
+ #include <xen/mm.h>
+ #include <xen/multiboot.h>
+ 
++/* SLB is 64k, 64k-aligned */
++#define SKINIT_SLB_SIZE  0x10000
++#define SKINIT_SLB_ALIGN 0x10000
++
+ bool __initdata slaunch_active;
+ uint32_t __initdata slaunch_slrt;
+ 
+@@ -37,6 +41,19 @@ int __init map_l2(unsigned long paddr, unsigned long size)
+                             pages, PAGE_HYPERVISOR);
+ }
+ 
++static uint32_t get_slb_start(void)
++{
++    /* The runtime computation relies on size being a power of 2 and equal to
++     * alignment. Make sure these assumptions hold. */
++    BUILD_BUG_ON(SKINIT_SLB_SIZE != SKINIT_SLB_ALIGN);
++    BUILD_BUG_ON(SKINIT_SLB_SIZE == 0);
++    BUILD_BUG_ON((SKINIT_SLB_SIZE & (SKINIT_SLB_SIZE - 1)) != 0);
++
++    /* Rounding any address within SLB down to alignment gives SLB base and
++     * SLRT is inside SLB on AMD. */
++    return slaunch_slrt & ~(SKINIT_SLB_SIZE - 1);
++}
++
+ void __init map_slaunch_mem_regions(void)
+ {
+     void *evt_log_addr;
+@@ -49,7 +66,14 @@ void __init map_slaunch_mem_regions(void)
+         map_l2((unsigned long)evt_log_addr, evt_log_size);
+ 
+     /* Vendor-specific part. */
+-    map_txt_mem_regions();
++    if ( boot_cpu_data.x86_vendor == X86_VENDOR_INTEL )
++    {
++        map_txt_mem_regions();
++    }
++    else if ( boot_cpu_data.x86_vendor == X86_VENDOR_AMD )
++    {
++        map_l2(get_slb_start(), SKINIT_SLB_SIZE);
++    }
+ }
+ 
+ void __init protect_slaunch_mem_regions(void)
+@@ -71,11 +95,25 @@ void __init protect_slaunch_mem_regions(void)
+     }
+ 
+     /* Vendor-specific part. */
+-    protect_txt_mem_regions();
++    if ( boot_cpu_data.x86_vendor == X86_VENDOR_INTEL )
++    {
++        protect_txt_mem_regions();
++    }
++    else if ( boot_cpu_data.x86_vendor == X86_VENDOR_AMD )
++    {
++        uint64_t slb_start = get_slb_start();
++        uint64_t slb_end = slb_start + SKINIT_SLB_SIZE;
++        printk("SLAUNCH: reserving SLB (%#lx - %#lx)\n", slb_start, slb_end);
++        e820_change_range_type(&e820_raw, slb_start, slb_end,
++                               E820_RAM, E820_RESERVED);
++    }
+ }
+ 
+ static struct slr_table *slr_get_table(void)
+ {
++    bool intel_cpu = (boot_cpu_data.x86_vendor == X86_VENDOR_INTEL);
++    uint16_t slrt_architecture = intel_cpu ? SLR_INTEL_TXT : SLR_AMD_SKINIT;
++
+     struct slr_table *slrt = __va(slaunch_slrt);
+ 
+     map_l2(slaunch_slrt, PAGE_SIZE);
+@@ -85,9 +123,9 @@ static struct slr_table *slr_get_table(void)
+     /* XXX: are newer revisions allowed? */
+     if ( slrt->revision != SLR_TABLE_REVISION )
+         panic("SLRT is of unsupported revision: %#04x!\n", slrt->revision);
+-    if ( slrt->architecture != SLR_INTEL_TXT )
+-        panic("SLRT is for unexpected architecture: %#04x!\n",
+-              slrt->architecture);
++    if ( slrt->architecture != slrt_architecture )
++        panic("SLRT is for unexpected architecture: %#04x != %#04x!\n",
++              slrt->architecture, slrt_architecture);
+     if ( slrt->size > slrt->max_size )
+         panic("SLRT is larger than its max size: %#08x > %#08x!\n",
+               slrt->size, slrt->max_size);
+@@ -104,14 +142,18 @@ void tpm_measure_slrt(void)
+ 
+     if ( slrt->revision == 1 )
+     {
+-        /* In revision one of the SLRT, only Intel info table is measured. */
+-        struct slr_entry_intel_info *intel_info =
+-            (void *)slr_next_entry_by_tag(slrt, NULL, SLR_ENTRY_INTEL_INFO);
+-        if ( intel_info == NULL )
+-            panic("SLRT is missing Intel-specific information!\n");
+-
+-        tpm_hash_extend(DRTM_LOC, DRTM_DATA_PCR, (uint8_t *)intel_info,
+-                        sizeof(*intel_info), DLE_EVTYPE_SLAUNCH, NULL, 0);
++        if ( boot_cpu_data.x86_vendor == X86_VENDOR_INTEL )
++        {
++            /* In revision one of the SLRT, only Intel info table is
++             * measured. */
++            struct slr_entry_intel_info *intel_info =
++                (void *)slr_next_entry_by_tag(slrt, NULL, SLR_ENTRY_INTEL_INFO);
++            if ( intel_info == NULL )
++                panic("SLRT is missing Intel-specific information!\n");
++
++            tpm_hash_extend(DRTM_LOC, DRTM_DATA_PCR, (uint8_t *)intel_info,
++                            sizeof(*intel_info), DLE_EVTYPE_SLAUNCH, NULL, 0);
++        }
+     }
+     else
+     {
+diff --git a/xen/arch/x86/tpm.c b/xen/arch/x86/tpm.c
+index f05f1bc37b..6442c7110f 100644
+--- a/xen/arch/x86/tpm.c
++++ b/xen/arch/x86/tpm.c
+@@ -31,6 +31,7 @@ asm (
+ #include "include/asm/intel_txt.h"
+ #include "include/asm/slaunch.h"
+ #include "include/asm/tpm.h"
++#include "include/asm/x86-vendors.h"
+ #ifdef __va
+ #error "__va defined in non-paged mode!"
+ #endif
+@@ -63,15 +64,31 @@ void *memcpy(void *dest, const void *src, size_t n)
+     return dest;
+ }
+ 
++static bool is_amd_cpu(void)
++{
++    /* No boot_cpu_data in early code. */
++    uint32_t eax, ebx, ecx, edx;
++    cpuid(0x00000000, &eax, &ebx, &ecx, &edx);
++    return ebx == X86_VENDOR_AMD_EBX
++        && ecx == X86_VENDOR_AMD_ECX
++        && edx == X86_VENDOR_AMD_EDX;
++}
++
+ #else   /* __EARLY_TPM__ */
+ 
+ #include <xen/mm.h>
+ #include <xen/pfn.h>
+ #include <xen/types.h>
+ #include <asm/intel_txt.h>
++#include <asm/processor.h>
+ #include <asm/slaunch.h>
+ #include <asm/tpm.h>
+ 
++static bool is_amd_cpu(void)
++{
++    return boot_cpu_data.x86_vendor == X86_VENDOR_AMD;
++}
++
+ #endif  /* __EARLY_TPM__ */
+ 
+ #include <xen/sha1.h>
+@@ -260,6 +277,21 @@ struct TPM12_PCREvent {
+     uint8_t Data[];
+ };
+ 
++struct tpm1_spec_id_event {
++    uint32_t pcrIndex;
++    uint32_t eventType;
++    uint8_t digest[20];
++    uint32_t eventSize;
++    uint8_t signature[16];
++    uint32_t platformClass;
++    uint8_t specVersionMinor;
++    uint8_t specVersionMajor;
++    uint8_t specErrata;
++    uint8_t uintnSize;
++    uint8_t vendorInfoSize;
++    uint8_t vendorInfo[0];  /* variable number of members */
++} __packed;
++
+ struct txt_ev_log_container_12 {
+     char        Signature[20];      /* "TXT Event Container", null-terminated */
+     uint8_t     Reserved[12];
+@@ -402,6 +434,15 @@ static void *create_log_event12(struct txt_ev_log_container_12 *evt_log,
+ {
+     struct TPM12_PCREvent *new_entry;
+ 
++    if ( is_amd_cpu() ) {
++        /*
++         * On AMD, TXT-compatible structure is stored as vendor data of
++         * TCG-defined event log header.
++         */
++        struct tpm1_spec_id_event *spec_id = (void *)evt_log;
++        evt_log = (struct txt_ev_log_container_12 *)&spec_id->vendorInfo[0];
++    }
++
+     new_entry = (void *)(((uint8_t *)evt_log) + evt_log->NextEventOffset);
+ 
+     /*
+@@ -837,11 +878,28 @@ static uint32_t tpm2_hash_extend(unsigned loc, uint8_t *buf, unsigned size,
+ 
+ #endif /* __EARLY_TPM__ */
+ 
+-static struct heap_event_log_pointer_element2_1 *find_evt_log_ext_data(void)
++static struct heap_event_log_pointer_element2_1 *
++find_evt_log_ext_data(struct tpm2_spec_id_event *evt_log)
+ {
+     struct txt_os_sinit_data *os_sinit;
+     struct txt_ext_data_element *ext_data;
+ 
++    if ( is_amd_cpu() ) {
++        /*
++         * Event log pointer is defined by TXT specification, but
++         * secure-kernel-loader provides a compatible structure in vendor data
++         * of the log.
++         */
++        const uint8_t *data_size =
++            (void *)&evt_log->digestSizes[evt_log->digestCount];
++
++        if ( *data_size != sizeof(struct heap_event_log_pointer_element2_1) )
++            return NULL;
++
++        /* Vendor data directly follows one-byte size. */
++        return (void *)(data_size + 1);
++    }
++
+     os_sinit = txt_os_sinit_data_start(__va(read_txt_reg(TXTCR_HEAP_BASE)));
+     ext_data = (void *)((uint8_t *)os_sinit + sizeof(*os_sinit));
+ 
+@@ -874,7 +932,7 @@ create_log_event20(struct tpm2_spec_id_event *evt_log, uint32_t evt_log_size,
+     unsigned i;
+     uint8_t *p;
+ 
+-    log_ext_data = find_evt_log_ext_data();
++    log_ext_data = find_evt_log_ext_data(evt_log);
+     if ( log_ext_data == NULL )
+         return log_hashes;
+ 
+-- 
+2.46.0
+
