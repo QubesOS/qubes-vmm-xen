@@ -1,4 +1,4 @@
-From f8215431b84b465716ac814a6bfe66c952d9f862 Mon Sep 17 00:00:00 2001
+From b0106c589bd18e8090c2e2d3a29c6839f350eafc Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:45:25 +0100
@@ -18,10 +18,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index ac8d3c395163..7629f6157832 100644
+index ce69d71fd05a..407c145ab16e 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
-@@ -182,7 +182,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -153,7 +153,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
          /* Check HVM direct boot parameters, we should honour ->ramdisk and
           * ->cmdline iff ->kernel is set.
           */
@@ -32,5 +32,5 @@ index ac8d3c395163..7629f6157832 100644
              return ERROR_INVAL;
          }
 -- 
-2.44.0
+2.54.0
 

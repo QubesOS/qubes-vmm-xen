@@ -1,4 +1,4 @@
-From 16441a7526d355dc4150e30cd1062b6626de2305 Mon Sep 17 00:00:00 2001
+From 514202e3f100986631e855c09433c211ebd6345d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:48:34 +0100
@@ -15,10 +15,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index 7fd53df13ed0..ed2772ab0456 100644
+index 071b718920d8..11f2c7e5fc8f 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
-@@ -1364,7 +1364,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1112,7 +1112,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
              if (disks[i].is_cdrom) {
                  continue;
              }
@@ -27,7 +27,7 @@ index 7fd53df13ed0..ed2772ab0456 100644
                  flexarray_vappend(dm_args, "-device", "lsi53c895a", NULL);
                  break;
              }
-@@ -1952,7 +1952,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1705,7 +1705,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
                      colo_mode = LIBXL__COLO_NONE;
                  }
  
@@ -37,5 +37,5 @@ index 7fd53df13ed0..ed2772ab0456 100644
                      if (colo_mode == LIBXL__COLO_SECONDARY) {
                          drive = libxl__sprintf
 -- 
-2.44.0
+2.54.0
 

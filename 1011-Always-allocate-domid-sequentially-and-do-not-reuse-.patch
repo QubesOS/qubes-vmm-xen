@@ -1,4 +1,4 @@
-From 5f8607649d9601eb421a4ee137bce5a4449076d3 Mon Sep 17 00:00:00 2001
+From 8fbbe863f3e08bf5f00c616f132fcd7748dc4695 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Fri, 3 Dec 2021 21:13:23 +0100
@@ -7,59 +7,58 @@ Subject: [PATCH] Always allocate domid sequentially, and do not reuse them
 While domid wrapping around is unlikely on Qubes, make sure it wont
 happen, to avoid various corner cases.
 ---
- xen/common/domctl.c | 36 +++++++++++++-----------------------
- 1 file changed, 13 insertions(+), 23 deletions(-)
+ tools/tests/domid/harness.h |  2 ++
+ xen/common/domid.c          | 10 ++++++++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/xen/common/domctl.c b/xen/common/domctl.c
-index ea16b759109e..3ed121725089 100644
---- a/xen/common/domctl.c
-+++ b/xen/common/domctl.c
-@@ -414,32 +414,22 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
-     case XEN_DOMCTL_createdomain:
-     {
-         domid_t        dom;
--        static domid_t rover = 0;
-+        static domid_t rover = 1;
+diff --git a/tools/tests/domid/harness.h b/tools/tests/domid/harness.h
+index 65da0d075a2b..431208d41a56 100644
+--- a/tools/tests/domid/harness.h
++++ b/tools/tests/domid/harness.h
+@@ -43,6 +43,8 @@ extern unsigned long find_next_zero_bit(const unsigned long *addr,
+ #define DOMID_INVALID                   (101)
+ #define DOMID_ANY                       (102)
  
--        dom = op->domain;
--        if ( (dom > 0) && (dom < DOMID_FIRST_RESERVED) )
--        {
--            ret = -EEXIST;
--            if ( !is_free_domid(dom) )
--                break;
--        }
--        else
--        {
--            for ( dom = rover + 1; dom != rover; dom++ )
--            {
--                if ( dom == DOMID_FIRST_RESERVED )
--                    dom = 1;
--                if ( is_free_domid(dom) )
--                    break;
--            }
--
--            ret = -ENOMEM;
--            if ( dom == rover )
--                break;
--
--            rover = dom;
-+        /* Refuse explicit domid via op->domain */
-+        if ( (op->domain > 0) && (op->domain < DOMID_FIRST_RESERVED) )
-+            return -EINVAL;
++#define XENLOG_ERR                      "<0>"
 +
-+        if ( rover >= DOMID_FIRST_RESERVED ) {
+ #endif /* _TEST_HARNESS_ */
+ 
+ /*
+diff --git a/xen/common/domid.c b/xen/common/domid.c
+index b0258e477c1a..265d3bcb85f0 100644
+--- a/xen/common/domid.c
++++ b/xen/common/domid.c
+@@ -8,6 +8,7 @@
+  * Copyright 2025 Ford Motor Company
+  */
+ 
++#include <xen/config.h>
+ #include <xen/domain.h>
+ 
+ static DEFINE_SPINLOCK(domid_lock);
+@@ -31,6 +32,10 @@ domid_t domid_alloc(domid_t domid)
+ {
+     static domid_t domid_last;
+ 
++    if ( domid != DOMID_ANY && domid != 0 )
++        /* Refuse explicit domid via op->domain */
++        return DOMID_INVALID;
++
+     if ( domid >= DOMID_FIRST_RESERVED && domid != DOMID_ANY )
+         return DOMID_INVALID;
+ 
+@@ -55,8 +60,9 @@ domid_t domid_alloc(domid_t domid)
+         domid = find_next_zero_bit(domid_bitmap, bound, domid_last + 1);
+         if ( domid >= bound && domid_last != 0 )
+         {
+-            bound = domid_last + 1;
+-            domid = find_next_zero_bit(domid_bitmap, bound, 1);
 +            printk(XENLOG_ERR
 +                   "domctl: out of available domid values, reboot the system\n");
-+            return -ENOMEM;
++            domid = bound;
          }
  
-+        dom = rover++;
-+        if ( ! is_free_domid(dom) )
-+            return -EEXIST;
-+
-         d = domain_create(dom, &op->u.createdomain, false);
-         if ( IS_ERR(d) )
-         {
+         ASSERT(domid <= DOMID_FIRST_RESERVED);
 -- 
-2.44.0
+2.54.0
 

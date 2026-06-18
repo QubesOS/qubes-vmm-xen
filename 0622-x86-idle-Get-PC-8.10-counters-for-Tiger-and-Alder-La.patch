@@ -1,0 +1,42 @@
+From e066d7cf6579bbef0e9247b269aece4cf88d4ede Mon Sep 17 00:00:00 2001
+From: Simon Gaiser <simon@invisiblethingslab.com>
+Date: Mon, 8 Jul 2024 13:39:12 +0200
+Subject: [PATCH] x86/idle: Get PC{8..10} counters for Tiger and Alder Lake
+
+TODO
+
+Signed-off-by: Simon Gaiser <simon@invisiblethingslab.com>
+---
+ xen/arch/x86/acpi/cpu_idle.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/xen/arch/x86/acpi/cpu_idle.c b/xen/arch/x86/acpi/cpu_idle.c
+index 1a749fabd299..64193aafc717 100644
+--- a/xen/arch/x86/acpi/cpu_idle.c
++++ b/xen/arch/x86/acpi/cpu_idle.c
+@@ -186,6 +186,12 @@ static void cf_check do_get_hw_residencies(void *arg)
+ 
+     switch ( c->model )
+     {
++    /* Tiger Lake */
++    case 0x8C:
++    case 0x8D:
++    /* Alder Lake */
++    case 0x97:
++    case 0x9A:
+     /* 4th generation Intel Core (Haswell) */
+     case 0x45:
+         GET_PC8_RES(hw_res->pc8);
+@@ -216,9 +222,6 @@ static void cf_check do_get_hw_residencies(void *arg)
+     case 0x6C:
+     case 0x7D:
+     case 0x7E:
+-    /* Tiger Lake */
+-    case 0x8C:
+-    case 0x8D:
+     /* Kaby Lake */
+     case 0x8E:
+     case 0x9E:
+-- 
+2.54.0
+
