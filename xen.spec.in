@@ -945,6 +945,7 @@ fi
 %{_mandir}/man1/xenhypfs.1.gz
 %{_mandir}/man7/xen-vbd-interface.7.gz
 %{_mandir}/man5/xl-pci-configuration.5.gz
+%{_mandir}/man8/xenwatchdogd.8.gz
 %endif
 
 # The firmware
