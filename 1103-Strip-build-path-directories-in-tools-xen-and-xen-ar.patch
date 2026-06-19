@@ -37,7 +37,7 @@ index 02e947da95a0..c7340bedbe40 100644
 +
  AFLAGS += -D__ASSEMBLY__
  
- $(call cc-option-add,AFLAGS,CC,-Wa$$(comma)--noexecstack)
+ $(call cc-option-add,CFLAGS,CC,-Wa$$(comma)--noexecstack)
 diff --git a/xen/arch/x86/Makefile b/xen/arch/x86/Makefile
 index d902fb7accd9..898065e78950 100644
 --- a/xen/arch/x86/Makefile

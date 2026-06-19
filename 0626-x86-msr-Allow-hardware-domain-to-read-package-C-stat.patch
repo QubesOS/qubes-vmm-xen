@@ -64,7 +64,7 @@ index 70150c272276..848b115e3272 100644
 +        goto normal;
 +
      case MSR_P6_PERFCTR(0) ... MSR_P6_PERFCTR(7):
-     case MSR_P6_EVNTSEL(0) ... MSR_P6_EVNTSEL(3):
+     case MSR_P6_EVNTSEL(0) ... MSR_P6_EVNTSEL(7):
      case MSR_CORE_PERF_FIXED_CTR0 ... MSR_CORE_PERF_FIXED_CTR2:
 -- 
 2.48.1

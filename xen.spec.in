@@ -100,11 +100,9 @@ Patch0203: 0203-xen.efi.build.patch
 Patch0300: 0300-xen-list-add-LIST_HEAD_RO_AFTER_INIT.patch
 Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
 Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
-Patch0303: 0303-x86-S3-restore-MCE-APs-init.patch
 Patch0304: 0304-x86-time-do-not-kill-calibration-timer-on-suspend.patch
 
 # Security fixes (500+)
-Patch0500: 0500-xsa480.patch
 Patch0501: 0501-xsa488-4.20.patch
 Patch0502: 0502-xsa490-4.21.patch
 Patch0503: 0503-xsa491-4.21.patch
@@ -145,8 +143,6 @@ Patch0629: 0629-python-avoid-conflicting-_FORTIFY_SOURCE-values.patch
 Patch0630: 0630-libxl-extend-IGD-check.patch
 Patch0631: 0631-libxl-Skip-missing-legacy-IRQ.patch
 Patch0632: 0632-libxl-do-not-consider-IGD-VF-a-VGA-passthru.patch
-Patch0633: 0633-EFI-Fix-relocating-ESRT-for-dom0.patch
-Patch0634: 0634-libxl-constify-some-local-variables-to-appease-gcc-1.patch
 
 # Qubes specific patches
 Patch1000: 1000-Do-not-access-network-during-the-build.patch
