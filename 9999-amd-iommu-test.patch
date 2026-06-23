@@ -1,0 +1,38 @@
+diff --git a/xen/drivers/passthrough/amd/iommu_acpi.c b/xen/drivers/passthrough/amd/iommu_acpi.c
+index 3f5508eba049..edccb814921b 100644
+--- a/xen/drivers/passthrough/amd/iommu_acpi.c
++++ b/xen/drivers/passthrough/amd/iommu_acpi.c
+@@ -248,6 +248,33 @@ static int __init register_range_for_device(
+     iommu = find_iommu_for_device(seg, bdf);
+     if ( !iommu )
+     {
++        const pci_sbdf_t sbdf = PCI_SBDF(seg, bdf);
++
++        if ( !pci_device_detect(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.fn) )
++        {
++            AMD_IOMMU_WARN("IVMD: non present %pp device not covered by IVRS\n",
++                           &sbdf);
++            return 0;
++        }
++
++        for_each_amd_iommu(iommu)
++        {
++            if ( iommu->seg == seg && iommu->bdf == bdf )
++            {
++                AMD_IOMMU_WARN("IVMD: IOMMU %pp not covered by IVRS\n",
++                               &sbdf);
++                return 0;
++            }
++        }
++
++        if ( pdev_type(sbdf.seg, sbdf.bus, sbdf.devfn) ==
++             DEV_TYPE_PCI_HOST_BRIDGE )
++        {
++            AMD_IOMMU_WARN("IVMD: PCI Host bridge %pp not covered by IVRS\n",
++                           &sbdf);
++            return 0;
++        }
++
+         AMD_IOMMU_ERROR("IVMD: no IOMMU for Dev_Id %#x\n", bdf);
+         return -ENODEV;
+     }
