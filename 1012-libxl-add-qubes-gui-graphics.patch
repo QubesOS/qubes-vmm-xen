@@ -1,4 +1,4 @@
-From 24afae20152a98298fa196eb54ddbff5b62d525a Mon Sep 17 00:00:00 2001
+From 05b38330a745d19fc530a3463c02e3cc7bbc0b67 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 01:52:34 +0100
@@ -15,10 +15,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  3 files changed, 27 insertions(+)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index 1d43725d5eed..0ed0d026de2e 100644
+index 7f7aa3689a98..3dfa3aaa44c6 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
-@@ -429,6 +429,18 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
+@@ -368,6 +368,18 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
              libxl_defbool_setdefault(&b_info->u.hvm.sdl.opengl, false);
          }
  
@@ -38,10 +38,10 @@ index 1d43725d5eed..0ed0d026de2e 100644
              libxl_defbool_setdefault(&b_info->u.hvm.spice.disable_ticketing,
                                       false);
 diff --git a/tools/libs/light/libxl_dm.c b/tools/libs/light/libxl_dm.c
-index ed2772ab0456..4710ded5deec 100644
+index 11f2c7e5fc8f..a685e2088c3d 100644
 --- a/tools/libs/light/libxl_dm.c
 +++ b/tools/libs/light/libxl_dm.c
-@@ -1720,6 +1720,13 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
+@@ -1468,6 +1468,13 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
              flexarray_append(dm_args, "-net");
              flexarray_append(dm_args, "none");
          }
@@ -56,10 +56,10 @@ index ed2772ab0456..4710ded5deec 100644
          if (!sdl && !vnc) {
              flexarray_append(dm_args, "-nographic");
 diff --git a/tools/libs/light/libxl_types.idl b/tools/libs/light/libxl_types.idl
-index 4e65e6fda5f1..1ad4d8dd1d3f 100644
+index a7893460f013..aa8dd2db6dce 100644
 --- a/tools/libs/light/libxl_types.idl
 +++ b/tools/libs/light/libxl_types.idl
-@@ -354,6 +354,13 @@ libxl_sdl_info = Struct("sdl_info", [
+@@ -355,6 +355,13 @@ libxl_sdl_info = Struct("sdl_info", [
      ("xauthority",    string),
      ])
  
@@ -73,7 +73,7 @@ index 4e65e6fda5f1..1ad4d8dd1d3f 100644
  libxl_dominfo = Struct("dominfo",[
      ("uuid",        libxl_uuid),
      ("domid",       libxl_domid),
-@@ -699,6 +706,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
+@@ -720,6 +727,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
                                         ("rdm_mem_boundary_memkb", MemKB),
                                         ("mca_caps",         uint64),
                                         ("pirq",             libxl_defbool),
@@ -82,5 +82,5 @@ index 4e65e6fda5f1..1ad4d8dd1d3f 100644
                   ("pv", Struct(None, [("kernel", string, {'deprecated_by': 'kernel'}),
                                        ("slack_memkb", MemKB),
 -- 
-2.44.0
+2.54.0
 

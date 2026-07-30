@@ -1,4 +1,4 @@
-From db5785515ab62c9e9851599a2518e9beca8d10be Mon Sep 17 00:00:00 2001
+From d45df4b4d9747d7779c1913961c9999242877f62 Mon Sep 17 00:00:00 2001
 From: Marek Marczykowski <marmarek@invisiblethingslab.com>
 Date: Fri, 26 Apr 2013 14:40:05 +0200
 Subject: [PATCH] libvchan: use xengntshr_unshare instead of munmap directly
@@ -27,5 +27,5 @@ index 1f201ad554f2..9339e97c79d0 100644
  		if (ctrl->is_server) {
  			ctrl->ring->srv_live = 0;
 -- 
-2.48.1
+2.54.0
 

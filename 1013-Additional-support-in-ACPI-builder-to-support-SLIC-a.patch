@@ -1,4 +1,4 @@
-From 666298baed7a550e4e5e65097861a4aa06056689 Mon Sep 17 00:00:00 2001
+From cd8b86c7c3b7f09dce885c54a4549425aeb1c25f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 02:20:15 +0100
@@ -27,7 +27,7 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 100 insertions(+), 6 deletions(-)
 
 diff --git a/tools/libacpi/build.c b/tools/libacpi/build.c
-index 2f29863db154..55cc81ff18ce 100644
+index 95188e217e7d..a0f7d8ad2ac7 100644
 --- a/tools/libacpi/build.c
 +++ b/tools/libacpi/build.c
 @@ -332,6 +332,66 @@ static int construct_passthrough_tables(struct acpi_ctxt *ctxt,
@@ -179,5 +179,5 @@ index 2f29863db154..55cc81ff18ce 100644
                   offsetof(struct acpi_10_rsdp, checksum),
                   sizeof(struct acpi_10_rsdp));
 -- 
-2.44.0
+2.54.0
 

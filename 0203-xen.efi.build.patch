@@ -1,4 +1,4 @@
-From 05c486eaabe738ac6c92253d2b8e0cf0bf18b289 Mon Sep 17 00:00:00 2001
+From b55c74ef0f27b1d604be6448c78dd62f7d11396e Mon Sep 17 00:00:00 2001
 From: Fedora developers <devel@fedoraproject.org>
 Date: Mon, 8 Jul 2024 13:35:51 +0200
 Subject: [PATCH] xen.efi.build
@@ -8,20 +8,20 @@ Subject: [PATCH] xen.efi.build
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/xen/arch/x86/arch.mk b/xen/arch/x86/arch.mk
-index b88d097a844b..96980ebf4622 100644
+index cd0602a79aaf..4d8c12ccd119 100644
 --- a/xen/arch/x86/arch.mk
 +++ b/xen/arch/x86/arch.mk
-@@ -97,7 +97,9 @@ XEN_BUILD_EFI := $(call if-success,$(CC) $(filter-out -include %/include/xen/con
+@@ -91,7 +91,9 @@ XEN_BUILD_EFI := $(call if-success,$(CC) $(filter-out -include %/include/xen/con
                                           -c $(srctree)/$(efi-check).c -o $(efi-check).o,y)
  
  # Check if the linker supports PE.
--EFI_LDFLAGS := $(patsubst -m%,-mi386pep,$(LDFLAGS)) --subsystem=10
-+#EFI_LDFLAGS := $(patsubst -m%,-mi386pep,$(LDFLAGS)) --subsystem=10
+-EFI_LDFLAGS := $(patsubst -m%,-mi386pep,$(LDFLAGS)) --subsystem=10 --enable-long-section-names
++#EFI_LDFLAGS := $(patsubst -m%,-mi386pep,$(LDFLAGS)) --subsystem=10 --enable-long-section-names
 +# use a reduced set of options from LDFLAGS
-+EFI_LDFLAGS = --as-needed --build-id=sha1 -mi386pep --subsystem=10
++EFI_LDFLAGS = --as-needed --build-id=sha1 -mi386pep --subsystem=10 --enable-long-section-names
  LD_PE_check_cmd = $(call ld-option,$(EFI_LDFLAGS) --image-base=0x100000000 -o $(efi-check).efi $(efi-check).o)
  XEN_BUILD_PE := $(LD_PE_check_cmd)
  
 -- 
-2.48.1
+2.54.0
 

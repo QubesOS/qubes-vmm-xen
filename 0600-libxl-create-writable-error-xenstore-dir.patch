@@ -1,4 +1,4 @@
-From ddaa31a57aae1ddeb7ed410eb2d4801b02dde8c5 Mon Sep 17 00:00:00 2001
+From 2b6445d35d5a1dab622e76b0c33e7582c913ab18 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Wed, 16 Nov 2022 00:26:48 +0100
@@ -17,10 +17,10 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 3 insertions(+)
 
 diff --git a/tools/libs/light/libxl_create.c b/tools/libs/light/libxl_create.c
-index edeadd57ef5a..48c625992149 100644
+index 6fd62d140389..aa4897d082ca 100644
 --- a/tools/libs/light/libxl_create.c
 +++ b/tools/libs/light/libxl_create.c
-@@ -900,6 +900,9 @@ retry_transaction:
+@@ -878,6 +878,9 @@ retry_transaction:
      libxl__xs_mknod(gc, t,
                      GCSPRINTF("%s/data", dom_path),
                      rwperm, ARRAY_SIZE(rwperm));
@@ -31,5 +31,5 @@ index edeadd57ef5a..48c625992149 100644
                      GCSPRINTF("%s/drivers", dom_path),
                      rwperm, ARRAY_SIZE(rwperm));
 -- 
-2.44.0
+2.54.0
 
