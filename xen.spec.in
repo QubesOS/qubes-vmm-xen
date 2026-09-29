@@ -104,13 +104,6 @@ Patch0304: 0304-x86-time-do-not-kill-calibration-timer-on-suspend.patch
 Patch0305: 0305-x86-time-use-native-TSC-scaling-factors-when-TSC-is-.patch
 
 # Security fixes (500+)
-Patch0501: 0501-xsa488-4.20.patch
-Patch0502: 0502-xsa490-4.21.patch
-Patch0503: 0503-xsa491-4.21.patch
-Patch0504: 0504-xsa500.patch
-Patch0505: 0505-xsa505.patch
-Patch0506: 0506-xsa506.patch
-Patch0507: 0507-xsa507.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
