@@ -1,0 +1,45 @@
+From d3dbd1d604108288bd0f4fb448019c2d02579ba4 Mon Sep 17 00:00:00 2001
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Tue, 29 Sep 2026 16:46:10 +0100
+Subject: [PATCH] x86/amd: Fix inverted condition in zenbleed_use_chickenbit()
+
+The identified commit inverted the condition under which Xen chooses
+to set the Zenbleed chickenbit.
+
+Undo that, and leave a better comment explaining why.
+
+Found by AI review of the referenced commit.
+
+This is XSA-515 / CVE-2026-79608.
+
+Fixes: d0c75dc4c028 ("x86/amd: Fix race editing DE_CFG")
+Assisted-by: Sashiko + Opus 5.0
+Reported-by: George Dunlap <dunlapg@umich.edu>
+Signed-off-by: Andrew Cooper <andrew.cooper3@citrix.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+(cherry picked from commit 0c5ec39d9106e6a06bf153400e8e1e324e457583)
+---
+ xen/arch/x86/cpu/amd.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/xen/arch/x86/cpu/amd.c b/xen/arch/x86/cpu/amd.c
+index 3416fb1a93ee..22e0a439e1ab 100644
+--- a/xen/arch/x86/cpu/amd.c
++++ b/xen/arch/x86/cpu/amd.c
+@@ -926,7 +926,12 @@ static bool zenbleed_use_chickenbit(void)
+         return is_zen2_uarch();
+     }
+ 
+-    return (uint8_t)curr_rev >= fixed_rev;
++    /*
++     * Zenbleed can be mitigated by disabling Floating-Point
++     * Mov-Elimination, but this is expensive.  Only do so when we
++     * don't have a fix in microcode.
++     */
++    return (uint8_t)curr_rev < fixed_rev;
+ }
+ 
+ void amd_init_de_cfg(const struct cpuinfo_x86 *c)
+-- 
+2.54.0
+
