@@ -1,0 +1,100 @@
+From 9fafd4651551f167c104dfb33094d1d0de8ed469 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Tue, 13 Oct 2026 11:10:23 +0200
+Subject: [PATCH] drivers/char: add timeout for XHCI console cable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Do not wait indefinitely for XHCI to configure console connection. If
+the cable is not plugged in, timeout after about 1s and continue boot.
+If the cable is plugged in later, the console will be activated then
+(see final part of dbc_ensure_running()). When timeout occurs, print a
+warning message - it will be saved in the console ring buffer, to be
+later retrieved from dom0, or possibly later printed when the cable is
+finally connected. But, do not print the warning when waiting after
+controller reset, as that may have been called from from console
+dbc_putc() and printing here would result in (possibly infinite)
+recursion.
+
+Try the timeout to be about 1s, which is way above time needed for
+configuring already connected cable. But, since this part runs very
+early in the Xen startup, time is not calibrated yet, and functions like
+NOW() do not work yet. Use raw TSC and estimate needed time to be at
+least 1s on a fast CPU (5GHz), and possibly longer on a slower one. This
+is not very accurate method, but fortunately it doesn't need to be.
+
+This also helps with similar situation on resuming from suspend - if
+cable got unplugged in the meantime, system will not hang waiting for
+the console anymore. And finally, on some systems, when dom0 is also
+allowed to access the USB controller, it may put the device into low
+power mode that in some older controllers (for example Kaby Lake)
+disables also debug capability. In such a case, adding a timeout allows
+the system to resume, then dom0 can wake up the controller and Xen will
+resume XHCI console.
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Reviewed-by: Jan Beulich <jbeulich@suse.com>
+---
+ xen/drivers/char/xhci-dbc.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/xen/drivers/char/xhci-dbc.c b/xen/drivers/char/xhci-dbc.c
+index 5651cb179b5a..52bccaa230ee 100644
+--- a/xen/drivers/char/xhci-dbc.c
++++ b/xen/drivers/char/xhci-dbc.c
+@@ -844,9 +844,15 @@ static void dbc_reset_debug_port(struct dbc *dbc)
+     }
+ }
+ 
+-static void dbc_enable_dbc(struct dbc *dbc)
++static bool dbc_enable_dbc(struct dbc *dbc)
+ {
+     struct dbc_reg *reg = dbc->dbc_reg;
++    cycles_t start;
++    /*
++     * Too early for proper time calibration, assume a 5GHz CPU and let it wait
++     * about 1s, with still reasonable timeout on a slower CPU.
++     */
++    cycles_t timeout_ticks = 5UL * 1000 * 1000 * 1000;
+ 
+     wmb();
+     writel(readl(&reg->ctrl) | (1U << DBC_CTRL_DCE), &reg->ctrl);
+@@ -863,8 +869,12 @@ static void dbc_enable_dbc(struct dbc *dbc)
+     writel(readl(&reg->portsc) | (1U << DBC_PSC_PED), &reg->portsc);
+     wmb();
+ 
+-    while ( (readl(&reg->ctrl) & (1U << DBC_CTRL_DCR)) == 0 )
++    start = get_cycles();
++    while ( (readl(&reg->ctrl) & (1U << DBC_CTRL_DCR)) == 0 &&
++            get_cycles() - start < timeout_ticks )
+         cpu_relax();
++
++    return readl(&reg->ctrl) & (1U << DBC_CTRL_DCR);
+ }
+ 
+ static void dbc_disable_dbc(struct dbc *dbc)
+@@ -963,7 +973,8 @@ static bool __init dbc_open(struct dbc *dbc)
+ 
+     dbc_init_work_ring(dbc, &dbc->dbc_owork);
+     dbc_init_work_ring(dbc, &dbc->dbc_iwork);
+-    dbc_enable_dbc(dbc);
++    if ( !dbc_enable_dbc(dbc) )
++        printk(XENLOG_WARNING "Timeout waiting for XHCI console cable\n");
+     dbc->open = true;
+ 
+     return true;
+@@ -1298,7 +1309,8 @@ static void cf_check dbc_uart_resume(struct serial_port *port)
+         return;
+     }
+ 
+-    dbc_enable_dbc(dbc);
++    if ( !dbc_enable_dbc(dbc) )
++        printk(XENLOG_WARNING "Timeout waiting for XHCI console cable\n");
+     dbc->suspended = false;
+     dbc_flush(dbc, &dbc->dbc_oring, &dbc->dbc_owork);
+     set_timer(&uart->timer, NOW() + MICROSECS(DBC_POLL_INTERVAL));
+-- 
+2.54.0
+

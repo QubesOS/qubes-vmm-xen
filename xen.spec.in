@@ -102,6 +102,7 @@ Patch0301: 0301-x86-mm-add-API-for-marking-only-part-of-a-MMIO-page-.patch
 Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 Patch0304: 0304-x86-time-do-not-kill-calibration-timer-on-suspend.patch
 Patch0305: 0305-x86-time-use-native-TSC-scaling-factors-when-TSC-is-.patch
+Patch0306: 0306-drivers-char-add-timeout-for-XHCI-console-cable.patch
 
 # Security fixes (500+)
 Patch0500: 0500-xsa515.patch
