@@ -103,6 +103,7 @@ Patch0302: 0302-drivers-char-Use-sub-page-ro-API-to-make-just-xhci-d.patch
 Patch0304: 0304-x86-time-do-not-kill-calibration-timer-on-suspend.patch
 Patch0305: 0305-x86-time-use-native-TSC-scaling-factors-when-TSC-is-.patch
 Patch0306: 0306-drivers-char-add-timeout-for-XHCI-console-cable.patch
+Patch0307: 0307-drivers-char-Add-several-newer-PCI-IDs-for-Intel-LPS.patch
 
 # Security fixes (500+)
 Patch0500: 0500-xsa515.patch
