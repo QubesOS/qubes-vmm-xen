@@ -102,6 +102,8 @@ Patch0307: 0307-drivers-char-Add-several-newer-PCI-IDs-for-Intel-LPS.patch
 
 # Security fixes (500+)
 Patch0500: 0500-xsa515.patch
+Patch0501: 0501-gnttab-complete-checking-in-gnttab_copy_buf_valid.patch
+Patch0502: 0502-gnttab-move-only-local-domain-may-copy-by-frame-chec.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
