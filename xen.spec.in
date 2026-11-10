@@ -109,6 +109,10 @@ Patch0307: 0307-drivers-char-Add-several-newer-PCI-IDs-for-Intel-LPS.patch
 Patch0500: 0500-xsa515.patch
 Patch0501: 0501-xsa523-1.patch
 Patch0502: 0502-xsa523-2.patch
+Patch0503: 0503-AMD-IOMMU-allocate-at-least-one-spare-device-table-e.patch
+Patch0504: 0504-x86-spec-ctrl-Rename-tsa_calculations.patch
+Patch0505: 0505-x86-spec-ctrl-Extend-TSA-SQ-L1-mitigations-to-Zen5-C.patch
+Patch0506: 0506-x86-spec-ctrl-Mitigate-the-new-TSA-Fill-variant.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
