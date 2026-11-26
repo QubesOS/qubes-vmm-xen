@@ -113,6 +113,9 @@ Patch0503: 0503-AMD-IOMMU-allocate-at-least-one-spare-device-table-e.patch
 Patch0504: 0504-x86-spec-ctrl-Rename-tsa_calculations.patch
 Patch0505: 0505-x86-spec-ctrl-Extend-TSA-SQ-L1-mitigations-to-Zen5-C.patch
 Patch0506: 0506-x86-spec-ctrl-Mitigate-the-new-TSA-Fill-variant.patch
+Patch0507: 0007-xsa535-1.patch
+Patch0508: 0008-xsa535-2.patch
+Patch0509: 0009-xsa535-3.patch
 
 # Upstreamable patches (600+)
 Patch0600: 0600-libxl-create-writable-error-xenstore-dir.patch
