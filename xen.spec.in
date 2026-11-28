@@ -524,6 +524,10 @@ make DESTDIR=%{buildroot} %{?ocaml_flags} prefix=/usr install-stubdom
 mkdir -p %{buildroot}/boot/efi/efi/qubes
 # END QUBES SPECIFIC PART
 mv %{buildroot}/boot/efi/efi %{buildroot}/boot/efi/EFI
+# BEGIN QUBES SPECIFIC PART
+# Keep the ESP small; the same file is in _libdir/efi
+rm -f %{buildroot}/boot/efi/EFI/qubes/xen-%{upstream_version}.efi
+# END QUBES SPECIFIC PART
 %endif
 %if %build_xsm
 # policy file should be in /boot/flask
@@ -539,7 +543,7 @@ rm -f %{buildroot}/usr/sbin/flask-*
 # BEGIN QUBES SPECIFIC PART
 # install debug hypervisor
 cp dist/install/boot/efi/efi/qubes/xen-%{upstream_version}.efi \
-    %{buildroot}/boot/efi/EFI/qubes/xen-%{upstream_version}~debug.efi
+    %{buildroot}%{_libdir}/efi/xen-%{upstream_version}~debug.efi
 cp dist/install/boot/xen-%{upstream_version}.gz \
     %{buildroot}/boot/xen-%{upstream_version}~debug.gz
 cp dist/install/boot/xen-%{upstream_version}.config \
@@ -756,12 +760,18 @@ EFI_DIR=$(efibootmgr -v 2>/dev/null | awk '
               print;
           }
       }')
+if [ -n "${EFI_DIR}" -a -d "/boot/efi${EFI_DIR}" ]; then
+  EFI_DIR="/boot/efi${EFI_DIR}"
+else
+  EFI_DIR=/boot/efi/EFI/qubes
+fi
 # FAT (on ESP) does not support symlinks
 # override the file on purpose
-if [ -n "${EFI_DIR}" -a -d "/boot/efi${EFI_DIR}" ]; then
-  cp -pf /boot/efi/EFI/qubes/xen-$XEN_EFI_VERSION.efi /boot/efi${EFI_DIR}/xen.efi
-else
-  cp -pf /boot/efi/EFI/qubes/xen-$XEN_EFI_VERSION.efi /boot/efi/EFI/qubes/xen.efi
+if [ -f "${EFI_DIR}/xen.cfg" ]; then
+  cp -pf %{_libdir}/efi/xen-$XEN_EFI_VERSION.efi "${EFI_DIR}/xen.efi"
+elif [ ! -f /boot/efi/EFI/qubes/xen.cfg ]; then
+  # unused copy left by earlier versions
+  rm -f /boot/efi/EFI/qubes/xen.efi
 fi
 %endif
 
@@ -1069,7 +1079,6 @@ fi
 /boot/flask/xenpolicy*
 %endif
 %if %build_efi
-/boot/efi/EFI/qubes/xen-[0-9]*[0-9].efi
 /usr/lib/debug/xen-[0-9]*[0-9].efi.elf
 /usr/lib/debug/xen-[0-9]*[0-9].efi.map
 %endif
@@ -1088,7 +1097,7 @@ fi
 /boot/xen-*~debug
 %endif
 %if %build_efi
-/boot/efi/EFI/qubes/xen-*~debug.efi
+%{_libdir}/efi/xen-*~debug.efi
 %endif
 /usr/lib/debug/xen-*~debug*
 %endif
